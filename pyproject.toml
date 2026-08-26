@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "factory-twin"
+version = "0.1.0"
+description = "Config-driven discrete-event digital twin for discrete manufacturing floors"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Joshua Schultz" }]
+dependencies = [
+    "simpy>=4,<5",
+    "numpy>=2",
+    "polars>=1",
+    "scipy>=1.11",
+    "pyyaml>=6",
+    "simpleeval>=1.0.5",
+    "plotly>=5",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.8", "pip-audit>=2.7", "types-PyYAML>=6"]
+
+[project.scripts]
+ftwin = "factory_twin.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+# S307 (eval), S102 (exec) stay ON everywhere: the no-eval/no-exec rule (D-001/D-002).
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is expected in tests
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+
+# simpleeval ships no py.typed marker; the sandbox wrapper (model/expressions.py) adds the
+# types at its own boundary. Silence only the missing-stub error for this one dependency.
+[[tool.mypy.overrides]]
+module = ["simpleeval"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
