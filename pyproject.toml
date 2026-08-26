@@ -44,7 +44,11 @@ ignore = []
 "tests/**" = ["S101"]  # assert is expected in tests
 
 [tool.mypy]
-python_version = "3.11"
+# numpy 2.x type stubs use PEP 695 `type` statements that mypy only parses
+# under python_version >= 3.12. Runtime floor stays >=3.11 (tech.md); the
+# static-analysis target is 3.12. Bumping this is a toolchain choice, not a
+# runtime one.
+python_version = "3.12"
 strict = true
 files = ["src"]
 namespace_packages = true

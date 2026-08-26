@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-# EVENT_LOG_SCHEMA is the contract, defined once here and applied identically in every
-# worker process (D-017). Populated by T-019.
-EVENT_LOG_SCHEMA: object | None = None
+from factory_twin.instrumentation.event_log import EVENT_LOG_SCHEMA
+
+# EVENT_LOG_SCHEMA is the contract, defined once in event_log.py and re-exported here so
+# every consumer imports it from one place. Applied identically in every worker process
+# (D-017).
+__all__ = ["EVENT_LOG_SCHEMA", "compute_kpis", "run_sweep"]
 
 
 def compute_kpis(event_paths: list[object], horizon_table: object) -> object:
