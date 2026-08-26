@@ -1,0 +1,147 @@
+# SPRING worked example (T-050) — a client floor expressed purely as config.
+#
+# Chain: wire -> cut -> form -> stress-relief (batch) -> grind -> coat -> coated spring.
+#
+# `cut` is the continuous-to-discrete step: it consumes wire by the foot and emits
+# TWO ordinary outputs from the same recipe basis (`consumes[0]` = wire, ft) --
+# `blank` (the expected piece count, at 5 blanks per foot of wire) and
+# `wire_remainder` (the leftover wire per foot, an ordinary output bundle per the
+# Transform contract -- D-043/D-044: remainders are never a special case, just
+# another `emits` entry with its own declared ratio against the same basis).
+
+stocks:
+  - name: wire
+    uom: ft
+
+part_types:
+  - name: wire
+    uom: ft
+    attributes: {}
+  - name: wire_remainder
+    uom: ft
+    attributes: {}
+  - name: blank
+    uom: piece
+    attributes: {}
+  - name: formed
+    uom: piece
+    attributes: {}
+  - name: relieved
+    uom: piece
+    attributes: {}
+  - name: ground
+    uom: piece
+    attributes: {}
+  - name: coated
+    uom: piece
+    attributes: {}
+
+machines:
+  - name: cut_m
+  - name: form_m
+  - name: relief_m
+  - name: grind_m
+  - name: coat_m
+
+labor:
+  pools:
+    - name: floor_pool
+      headcount: 5
+      skills: [cut_op, form_op, relief_op, grind_op, coat_op]
+
+locations:
+  # Continuous-to-discrete cut: 1 ft of wire (the basis) yields 5 blanks plus
+  # 1/6 ft (~2 in) of leftover wire -- both declared as plain `emits` ratios
+  # against the same `consumes[0]` basis, no scrap block, no hand-written
+  # emit expression anywhere (D-044).
+  - name: cut
+    consumes:
+      - thing: wire
+        qty: 1
+        uom: ft
+    emits:
+      - thing: blank
+        qty: 5
+        uom: piece
+      - thing: wire_remainder
+        qty: 0.16667
+        uom: ft
+    setup_key: grp_cut
+    time_model:
+      kind: rate_based
+      rate: 0.1
+    machine: cut_m
+    labor_skill: cut_op
+
+  - name: form
+    consumes:
+      - thing: blank
+        qty: 1
+        uom: piece
+    emits:
+      - thing: formed
+        qty: 1
+        uom: piece
+    setup_key: grp_form
+    time_model:
+      kind: rate_based
+      rate: 0.5
+    machine: form_m
+    labor_skill: form_op
+
+  # Stress-relief runs as a batch: up to 50 piece per firing.
+  - name: stress_relief
+    consumes:
+      - thing: formed
+        qty: 1
+        uom: piece
+    emits:
+      - thing: relieved
+        qty: 1
+        uom: piece
+    batch_size: "50 piece"
+    setup_key: grp_relief
+    time_model:
+      kind: rate_based
+      rate: 0.2
+    machine: relief_m
+    labor_skill: relief_op
+
+  - name: grind
+    consumes:
+      - thing: relieved
+        qty: 1
+        uom: piece
+    emits:
+      - thing: ground
+        qty: 1
+        uom: piece
+    setup_key: grp_grind
+    time_model:
+      kind: rate_based
+      rate: 0.3
+    machine: grind_m
+    labor_skill: grind_op
+
+  - name: coat
+    consumes:
+      - thing: ground
+        qty: 1
+        uom: piece
+    emits:
+      - thing: coated
+        qty: 1
+        uom: piece
+    setup_key: grp_coat
+    time_model:
+      kind: rate_based
+      rate: 0.4
+    machine: coat_m
+    labor_skill: coat_op
+
+routing:
+  - part: coated
+    steps: [cut, form, stress_relief, grind, coat]
+
+processes: []
+bom: []

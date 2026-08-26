@@ -204,15 +204,24 @@ def _rolled_up_bom(
         for thing in _all_output_things(loc):
             produced_by[thing] = location_id
 
-    def resolve(thing: str, qty_needed: float) -> dict[str, float]:
+    def resolve(thing: str, qty_needed: float, visited: frozenset[str]) -> dict[str, float]:
         if thing not in produced_by:
             return {thing: qty_needed}
+        if thing in visited:
+            # A rework/scrap cycle (D-055): this thing is produced from material that
+            # (transitively) includes itself, e.g. scrap remelted back into the chain.
+            # Recycled internal material is not a NEW raw input, so the walk stops here
+            # rather than recursing forever. The raw draw enters the chain elsewhere.
+            return {}
         loc = locations_by_id[produced_by[thing]]
         consumption = _consumption_per_output_unit(loc, thing)
+        next_visited = visited | {thing}
         rolled_up: dict[str, float] = {}
         for sub_thing, per_unit in consumption.items():
-            for raw_thing, raw_qty in resolve(sub_thing, per_unit * qty_needed).items():
+            for raw_thing, raw_qty in resolve(
+                sub_thing, per_unit * qty_needed, next_visited
+            ).items():
                 rolled_up[raw_thing] = rolled_up.get(raw_thing, 0.0) + raw_qty
         return rolled_up
 
-    return resolve(finished_part, 1.0)
+    return resolve(finished_part, 1.0, frozenset())
