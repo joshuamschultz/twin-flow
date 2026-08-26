@@ -212,7 +212,7 @@ def _write_variant(
 # ---------------------------------------------------------------------------
 
 
-def _orders_frame(
+def orders_frame(
     plan: list[WorkOrder], compiled: CompiledModel, event_log_path: Path
 ) -> pl.DataFrame:
     """One (order, lot) row per lot observed at that order's part's terminal
@@ -249,7 +249,7 @@ def _kpi_rows_for_point(
     already-real `KpiEngine`, called once per replication's own event log."""
     rows: list[dict[str, Any]] = []
     for result in results:
-        orders = _orders_frame(plan, compiled, result.event_log_path)
+        orders = orders_frame(plan, compiled, result.event_log_path)
         kpi_set = KpiEngine().compute(result.event_log_path, orders, result.horizon)
         rows.append(
             {
