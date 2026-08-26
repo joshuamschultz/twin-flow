@@ -7,8 +7,15 @@ after (D-001, D-002). They are not tied to any one component's behaviour.
 from __future__ import annotations
 
 import pathlib
+import re
 
 SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "factory_twin"
+
+# The builtin eval()/exec() only — NOT a `.eval(` method call. simpleeval's sandboxed
+# `.eval()` (the mandated evaluator API, D-006) is a method call and legitimate; the
+# forbidden thing (D-002) is Python's builtin eval/exec, which never has a `.` or an
+# identifier character immediately before it.
+_BUILTIN_EVAL_EXEC = re.compile(r"(?<![\w.])(?:eval|exec)\s*\(")
 
 
 def _py_files() -> list[pathlib.Path]:
@@ -29,9 +36,10 @@ def test_no_eval_or_exec_in_src() -> None:
     offenders = []
     for p in _py_files():
         text = p.read_text()
-        for token in ("eval(", "exec(", "yaml.load("):
-            if token in text:
-                offenders.append((p.name, token))
+        if _BUILTIN_EVAL_EXEC.search(text):
+            offenders.append((p.name, "builtin eval/exec"))
+        if "yaml.load(" in text:
+            offenders.append((p.name, "yaml.load("))
     assert offenders == [], offenders
 
 
