@@ -28,7 +28,7 @@ too many positional arguments for the stub) before ever reaching the stub's
 `NotImplementedError` line. Both are the RIGHT reason to fail per the task's own rule
 ("Location stub raises NotImplementedError("T-021") / signature mismatch (feature
 absent), not ImportError/syntax") — never an ImportError, because `Location` and
-`PullRule` both import cleanly from `factory_twin.primitives.location` today.
+`PullRule` both import cleanly from `twinflow.primitives.location` today.
 
 --------------------------------------------------------------------------------
 COMMITTED CONTRACT (this test file fixes it; the T-021 implementer conforms).
@@ -128,17 +128,17 @@ from dataclasses import dataclass
 import pytest
 import simpy
 
-from factory_twin.engine.clock import RunContext
-from factory_twin.engine.rng import RngRegistry
-from factory_twin.instrumentation.event_log import EVENT_LOG_SCHEMA, PROCESS_NAMES, EventLog
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.cell import Machine, SetupPolicy
-from factory_twin.primitives.labor import LaborPool
-from factory_twin.primitives.location import Location, PullRule
-from factory_twin.primitives.part import PartTypeRegistry
-from factory_twin.primitives.stock import Stock
-from factory_twin.primitives.time_model import TimeModel
-from factory_twin.primitives.transform import OutputSpec, Transform, TransformSpec
+from twinflow.engine.clock import RunContext
+from twinflow.engine.rng import RngRegistry
+from twinflow.instrumentation.event_log import EVENT_LOG_SCHEMA, PROCESS_NAMES, EventLog
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.cell import Machine, SetupPolicy
+from twinflow.primitives.labor import LaborPool
+from twinflow.primitives.location import Location, PullRule
+from twinflow.primitives.part import PartTypeRegistry
+from twinflow.primitives.stock import Stock
+from twinflow.primitives.time_model import TimeModel
+from twinflow.primitives.transform import OutputSpec, Transform, TransformSpec
 
 # ---------------------------------------------------------------------------
 # Fixture vocabulary

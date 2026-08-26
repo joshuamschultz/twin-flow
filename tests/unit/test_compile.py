@@ -100,7 +100,7 @@ RED that raises `TypeError` (signature mismatch — too many positional argument
 for the stub) before Python ever reaches the stub body's `NotImplementedError`
 line. Both are the RIGHT reason to fail per this task's own rule ("stub raises
 NotImplementedError / signature mismatch — feature absent — not ImportError or
-syntax"): `LocationCompiler` imports cleanly from `factory_twin.model.compile`
+syntax"): `LocationCompiler` imports cleanly from `twinflow.model.compile`
 today; only calling it fails, and only because the real behavior does not exist.
 
 Pure Layer 2 tests: real `RawModel` (parsed via `yaml.safe_load`, matching
@@ -115,12 +115,12 @@ from __future__ import annotations
 import pytest
 import yaml
 
-from factory_twin.model.compile import LocationCompiler
-from factory_twin.model.expressions import ExpressionSandbox
-from factory_twin.model.loader import RawModel
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.location import PullRule
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.model.compile import LocationCompiler
+from twinflow.model.expressions import ExpressionSandbox
+from twinflow.model.loader import RawModel
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.location import PullRule
+from twinflow.primitives.part import PartTypeRegistry
 
 # ---------------------------------------------------------------------------
 # One shared model.yaml exercising every acceptance case:

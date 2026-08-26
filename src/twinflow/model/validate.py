@@ -17,9 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
-from factory_twin.model.expressions import ExpressionError, ExpressionSandbox
-from factory_twin.model.loader import RawModel
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.model.expressions import ExpressionError, ExpressionSandbox
+from twinflow.model.loader import RawModel
+from twinflow.primitives.part import PartTypeRegistry
 
 RawLocation = dict[str, Any]
 RawRoutingEntry = dict[str, Any]

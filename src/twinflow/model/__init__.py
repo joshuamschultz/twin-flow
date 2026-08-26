@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
-from factory_twin.model.compile import LocationCompiler
-from factory_twin.model.expressions import ExpressionSandbox
-from factory_twin.model.loader import RawModel, load_raw_model
-from factory_twin.model.schema import LocationSpec
-from factory_twin.model.validate import ModelValidator, ValidationError
-from factory_twin.primitives.part import PartTypeRegistry, PartTypeSpec
+from twinflow.model.compile import LocationCompiler
+from twinflow.model.expressions import ExpressionSandbox
+from twinflow.model.loader import RawModel, load_raw_model
+from twinflow.model.schema import LocationSpec
+from twinflow.model.validate import ModelValidator, ValidationError
+from twinflow.primitives.part import PartTypeRegistry, PartTypeSpec
 
 __all__ = [
     "CompiledModel",
@@ -102,7 +102,7 @@ def load_model(path: str) -> CompiledModel:
 def validate_model(path: str) -> list[ValidationError]:
     """Public API: parse a model.yaml and run every validation check WITHOUT raising.
 
-    The non-raising counterpart to `load_model`, for `ftwin validate`: it reports
+    The non-raising counterpart to `load_model`, for `twinflow validate`: it reports
     every `ValidationError` (empty list means the model may run) rather than
     stopping at the first or raising a `ModelValidationError`. Never compiles — the
     validator inspects the raw parse tree directly (D-007).

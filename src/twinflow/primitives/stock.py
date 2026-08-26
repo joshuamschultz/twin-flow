@@ -6,7 +6,7 @@ from collections.abc import Generator
 
 import simpy
 
-from factory_twin.primitives.bundle import Bundle
+from twinflow.primitives.bundle import Bundle
 
 
 class Stock:

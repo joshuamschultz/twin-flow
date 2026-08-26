@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.cell import Machine, SetupPolicy
-from factory_twin.primitives.location import MaterialRequirementLike, PullRule
-from factory_twin.primitives.part import PartTypeRegistry
-from factory_twin.primitives.stock import Stock
-from factory_twin.primitives.time_model import TimeModel
-from factory_twin.primitives.transform import Transform
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.cell import Machine, SetupPolicy
+from twinflow.primitives.location import MaterialRequirementLike, PullRule
+from twinflow.primitives.part import PartTypeRegistry
+from twinflow.primitives.stock import Stock
+from twinflow.primitives.time_model import TimeModel
+from twinflow.primitives.transform import Transform
 
 
 @dataclass

@@ -75,12 +75,12 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from factory_twin.instrumentation.kpis import KpiSet
-from factory_twin.report import render_html, write_kpi_json
-from factory_twin.report.assumptions import Assumption
-from factory_twin.report.html import HtmlReport
-from factory_twin.report.kpi_json import KpiJsonSidecar
-from factory_twin.run_stamp import RunStamp
+from twinflow.instrumentation.kpis import KpiSet
+from twinflow.report import render_html, write_kpi_json
+from twinflow.report.assumptions import Assumption
+from twinflow.report.html import HtmlReport
+from twinflow.report.kpi_json import KpiJsonSidecar
+from twinflow.run_stamp import RunStamp
 
 # ---------------------------------------------------------------------------
 # Fixtures — real KpiSet / Assumption / RunStamp instances, no mocks

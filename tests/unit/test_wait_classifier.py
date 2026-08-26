@@ -1,6 +1,6 @@
 """COMP-022 WaitClassifier — unit tests (T-034, red phase).
 
-Contract under test (`src/factory_twin/instrumentation/kpis.py::WaitClassifier`,
+Contract under test (`src/twinflow/instrumentation/kpis.py::WaitClassifier`,
 Layer 4, D-034, structure.md "Fixed order of operations inside a location"):
 
 WaitClassifier reads ONE `ProcessExecution` row's five timestamps
@@ -70,7 +70,7 @@ from __future__ import annotations
 
 import pytest
 
-from factory_twin.instrumentation.kpis import WaitClassifier
+from twinflow.instrumentation.kpis import WaitClassifier
 
 # Fixture rows for the sum-invariant / mutual-exclusivity sweep (acceptance
 # criterion 1). Each row is (queue_arrival_time, material_ready_time,

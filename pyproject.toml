@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "factory-twin"
+name = "twinflow"
 version = "0.1.0"
 description = "Config-driven discrete-event digital twin for discrete manufacturing floors"
 readme = "README.md"
@@ -25,7 +25,7 @@ dependencies = [
 dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.8", "pip-audit>=2.7", "types-PyYAML>=6"]
 
 [project.scripts]
-ftwin = "factory_twin.cli.main:main"
+twinflow = "twinflow.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

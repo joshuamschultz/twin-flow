@@ -44,9 +44,9 @@ from __future__ import annotations
 
 import pytest
 
-from factory_twin.engine.clock import RunContext
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.stock import Stock
+from twinflow.engine.clock import RunContext
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.stock import Stock
 
 THING = "widget"
 UOM = "piece"

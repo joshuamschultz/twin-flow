@@ -40,8 +40,8 @@ from __future__ import annotations
 
 import simpy
 
-from factory_twin.engine.acquire import ResourceAcquirer
-from factory_twin.engine.clock import RunContext
+from twinflow.engine.acquire import ResourceAcquirer
+from twinflow.engine.clock import RunContext
 
 PRIORITY_UNLOAD = 0
 PRIORITY_LOAD = 10

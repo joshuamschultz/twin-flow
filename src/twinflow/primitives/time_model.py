@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from factory_twin.primitives.bundle import Bundle
+from twinflow.primitives.bundle import Bundle
 
 KIND_DISTRIBUTION = "distribution"
 KIND_RATE_BASED = "rate_based"

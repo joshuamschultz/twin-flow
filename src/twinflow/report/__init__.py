@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from factory_twin.instrumentation.kpis import KpiSet
-from factory_twin.report.assumptions import Assumption
-from factory_twin.report.html import HtmlReport
-from factory_twin.report.kpi_json import KpiJsonSidecar
-from factory_twin.run_stamp import RunStamp
+from twinflow.instrumentation.kpis import KpiSet
+from twinflow.report.assumptions import Assumption
+from twinflow.report.html import HtmlReport
+from twinflow.report.kpi_json import KpiJsonSidecar
+from twinflow.run_stamp import RunStamp
 
 
 def render_html(

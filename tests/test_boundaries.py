@@ -9,7 +9,7 @@ from __future__ import annotations
 import pathlib
 import re
 
-SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "factory_twin"
+SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "twinflow"
 
 # The builtin eval()/exec() only — NOT a `.eval(` method call. simpleeval's sandboxed
 # `.eval()` (the mandated evaluator API, D-006) is a method call and legitimate; the
@@ -44,6 +44,6 @@ def test_no_eval_or_exec_in_src() -> None:
 
 
 def test_package_imports() -> None:
-    import factory_twin
+    import twinflow
 
-    assert factory_twin.__version__
+    assert twinflow.__version__

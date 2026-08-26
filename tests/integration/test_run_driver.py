@@ -14,7 +14,7 @@ to end from pure config." It is the in-process entry point that:
      never spawn a subprocess (D-041; COMP-020's later multiprocessing.Pool is
      one replication PER PROCESS, never inside a single replication).
 
-RED-phase note: `factory_twin.model.load_model` currently reads:
+RED-phase note: `twinflow.model.load_model` currently reads:
 
     def load_model(path: str) -> object:
         raise NotImplementedError("T-023/T-027")
@@ -126,11 +126,11 @@ from unittest import mock
 import polars as pl
 import pytest
 
-import factory_twin.model.compile as compile_module
-import factory_twin.model.loader as loader_module
-from factory_twin.model import load_model, validate_model
-from factory_twin.plan.driver import RunDriver, RunResult
-from factory_twin.plan.loader import WorkOrder
+import twinflow.model.compile as compile_module
+import twinflow.model.loader as loader_module
+from twinflow.model import load_model, validate_model
+from twinflow.plan.driver import RunDriver, RunResult
+from twinflow.plan.loader import WorkOrder
 
 # ---------------------------------------------------------------------------
 # Fixture vocabulary

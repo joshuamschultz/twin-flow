@@ -7,8 +7,8 @@ from pathlib import Path
 
 import polars as pl
 
-from factory_twin.instrumentation.event_log import EVENT_LOG_SCHEMA
-from factory_twin.instrumentation.kpis import KpiEngine, KpiSet
+from twinflow.instrumentation.event_log import EVENT_LOG_SCHEMA
+from twinflow.instrumentation.kpis import KpiEngine, KpiSet
 
 # EVENT_LOG_SCHEMA is the contract, defined once in event_log.py and re-exported here so
 # every consumer imports it from one place. Applied identically in every worker process

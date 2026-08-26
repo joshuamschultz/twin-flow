@@ -1,6 +1,6 @@
 """COMP-023 KpiEngine — unit tests (T-036, red phase).
 
-Contract under test (`src/factory_twin/instrumentation/kpis.py::KpiEngine`,
+Contract under test (`src/twinflow/instrumentation/kpis.py::KpiEngine`,
 Layer 4, D-017 / D-034 / D-042):
 
 KpiEngine computes EVERY reported KPI from one or more `events.parquet`
@@ -124,8 +124,8 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from factory_twin.instrumentation import EVENT_LOG_SCHEMA
-from factory_twin.instrumentation.kpis import KpiEngine, WaitClassifier
+from twinflow.instrumentation import EVENT_LOG_SCHEMA
+from twinflow.instrumentation.kpis import KpiEngine, WaitClassifier
 
 # ---------------------------------------------------------------------------
 # Fixture rows — one hand-computable little floor: two locations (cell_a,

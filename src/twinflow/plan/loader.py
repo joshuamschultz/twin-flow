@@ -16,7 +16,7 @@ from pathlib import Path
 
 import openpyxl  # type: ignore[import-untyped]  # no stub package; see D-052 lib choice
 
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.primitives.part import PartTypeRegistry
 
 REQUIRED_COLUMNS = ("work_order_id", "part", "qty", "start_date", "due_date")
 _WIP_COLUMNS = ("initial_wip_location", "initial_wip_qty", "initial_wip_remaining_time")

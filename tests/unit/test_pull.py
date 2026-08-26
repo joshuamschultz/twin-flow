@@ -44,8 +44,8 @@ here from plain Python values only.
 
 from __future__ import annotations
 
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.location import PullRule
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.location import PullRule
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

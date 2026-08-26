@@ -50,7 +50,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from factory_twin.model.loader import RawModel, load_raw_model
+from twinflow.model.loader import RawModel, load_raw_model
 
 # A minimal but complete model.yaml: every section COMP-014's contract lists
 # (stocks, part types, locations, machines, labor, processes, routing, BOM),
@@ -269,7 +269,7 @@ def test_load_raw_model_source_module_imports_pyyaml_but_nothing_else_parses_yam
     """Sanity check on the trust-boundary claim this test file's docstring
     makes: importing the loader module must succeed (proves imports resolve
     cleanly), and it must be the module that owns `import yaml`."""
-    import factory_twin.model.loader as loader_module
+    import twinflow.model.loader as loader_module
 
     source = Path(loader_module.__file__).read_text()
     assert "import yaml" in source

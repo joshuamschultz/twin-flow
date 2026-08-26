@@ -87,7 +87,7 @@ takes NO constructor arguments. Every test below constructs it as
 that raises `TypeError` (signature mismatch -- too many positional arguments for the
 stub) before Python ever reaches the stub body's `NotImplementedError` line. Both
 are the RIGHT reason to fail per this task's rule: `ModelValidator` imports cleanly
-from `factory_twin.model.validate` today; only calling it fails, and only because
+from `twinflow.model.validate` today; only calling it fails, and only because
 the real behavior does not exist yet.
 
 Pure Layer 2 tests: real `RawModel` (built directly from a plain dict -- an
@@ -103,10 +103,10 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from factory_twin.model.expressions import ExpressionSandbox
-from factory_twin.model.loader import RawModel
-from factory_twin.model.validate import ModelValidator, ValidationError
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.model.expressions import ExpressionSandbox
+from twinflow.model.loader import RawModel
+from twinflow.model.validate import ModelValidator, ValidationError
+from twinflow.primitives.part import PartTypeRegistry
 
 # ---------------------------------------------------------------------------
 # Shared collaborators and the baseline valid model every fixture starts from.

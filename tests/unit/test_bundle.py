@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import pytest
 
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.part import PartTypeRegistry
 
 # ---------------------------------------------------------------------------
 # PartTypeRegistry — COMP-005

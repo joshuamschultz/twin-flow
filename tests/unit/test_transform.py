@@ -31,9 +31,9 @@ from typing import NamedTuple
 
 import pytest
 
-from factory_twin.primitives.bundle import AttrValue, Bundle
-from factory_twin.primitives.part import PartTypeRegistry
-from factory_twin.primitives.transform import Transform
+from twinflow.primitives.bundle import AttrValue, Bundle
+from twinflow.primitives.part import PartTypeRegistry
+from twinflow.primitives.transform import Transform
 
 # ---------------------------------------------------------------------------
 # The TransformSpec contract — test-authored, implementer conforms (T-009).

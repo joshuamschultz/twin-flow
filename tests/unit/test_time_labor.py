@@ -81,10 +81,10 @@ import numpy as np
 import pytest
 import simpy
 
-from factory_twin.engine.rng import SOURCE_CYCLE_TIME, RngRegistry
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.labor import LaborPool
-from factory_twin.primitives.time_model import TimeModel
+from twinflow.engine.rng import SOURCE_CYCLE_TIME, RngRegistry
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.labor import LaborPool
+from twinflow.primitives.time_model import TimeModel
 
 BASE_SEED = 123
 REP_INDEX = 0

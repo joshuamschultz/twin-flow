@@ -129,8 +129,8 @@ from typing import Any
 import polars as pl
 import pytest
 
-from factory_twin.instrumentation.sweep import SweepHarness
-from factory_twin.plan.loader import WorkOrder
+from twinflow.instrumentation.sweep import SweepHarness
+from twinflow.plan.loader import WorkOrder
 
 # ---------------------------------------------------------------------------
 # Fixture vocabulary — same minimal cut -> pack shape

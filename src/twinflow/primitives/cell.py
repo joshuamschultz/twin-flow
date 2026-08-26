@@ -6,7 +6,7 @@ SetupPolicy decides whether a changeover is owed and how long it takes.
 
 from __future__ import annotations
 
-from factory_twin.primitives.bundle import Bundle
+from twinflow.primitives.bundle import Bundle
 
 
 class Machine:

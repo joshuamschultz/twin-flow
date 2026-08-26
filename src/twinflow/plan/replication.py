@@ -16,9 +16,9 @@ from typing import cast
 
 import scipy.stats  # type: ignore[import-untyped]  # no stub package; SciPy is the D-036-endorsed CI library
 
-from factory_twin.model import load_model
-from factory_twin.plan.driver import RunDriver, RunResult
-from factory_twin.plan.loader import WorkOrder
+from twinflow.model import load_model
+from twinflow.plan.driver import RunDriver, RunResult
+from twinflow.plan.loader import WorkOrder
 
 __all__ = ["ReplicationRunner", "DifferenceCI", "confidence_interval", "compare"]
 

@@ -5,7 +5,7 @@ interpreter version, resolved dependency hash. Contains no secrets and no client
 only sha256 hex digests of file content, never a copy of the content itself.
 
 Lives at the package root (not report/) so plan/driver can stamp a run at start without
-importing a higher layer. Pure: only hashlib/sys/importlib.metadata plus factory_twin's
+importing a higher layer. Pure: only hashlib/sys/importlib.metadata plus twinflow's
 own `__version__` (never report/, instrumentation/, model/, or plan/).
 """
 
@@ -16,7 +16,7 @@ import sys
 from dataclasses import asdict, dataclass
 from importlib import metadata as importlib_metadata
 
-import factory_twin
+import twinflow
 
 
 def _hash_file(path: str) -> str:
@@ -63,7 +63,7 @@ class RunStamp:
         version_info = sys.version_info
         python_version = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
         return cls(
-            engine_version=factory_twin.__version__,
+            engine_version=twinflow.__version__,
             commit_sha=commit_sha,
             model_hash=model_hash,
             plan_hash=plan_hash,

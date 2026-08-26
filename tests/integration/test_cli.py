@@ -27,14 +27,14 @@ equivalent), or wraps `parser.parse_args()` in a `try/except SystemExit`.
 
 Four subcommands:
 
-    ftwin validate <model>
-        Runs `factory_twin.model.validate_model(model_path)` — NO plan
+    twinflow validate <model>
+        Runs `twinflow.model.validate_model(model_path)` — NO plan
         argument exists on this subcommand at all (COMP-017's own contract:
         "Inputs: compiled model (no plan required)"). Prints every returned
         `ValidationError` (path + message). Returns 0 if the list is empty,
         non-zero otherwise.
 
-    ftwin run <model> --plan <plan> --reps N
+    twinflow run <model> --plan <plan> --reps N
         `--plan` and `--reps` are both REQUIRED flags (missing either is an
         argument error -> non-zero, never a crash). Loads the model, loads the
         plan against the compiled model's `PartTypeRegistry`, runs `--reps`
@@ -43,13 +43,13 @@ Four subcommands:
         Assumptions, builds a `RunStamp`, and writes ALL FOUR run artifacts
         (see "Run artifact layout" below). Returns 0 on success.
 
-    ftwin balance <model> --plan <plan> --sweep <sweep> --reps N
+    twinflow balance <model> --plan <plan> --sweep <sweep> --reps N
         `--plan`, `--sweep` and `--reps` are all REQUIRED. `--sweep` names a
         JSON file (see "Sweep spec file format" below), loaded and passed
         straight through to `SweepHarness.run()`'s `sweep: dict[str,
         list[Any]]` parameter. Returns 0 on success.
 
-    ftwin report <run-id> --out html
+    twinflow report <run-id> --out html
         `<run-id>` is a positional argument naming an existing directory
         under `runs/` (created by a prior `run` or `balance` invocation in
         THIS process's current working directory — see "How report finds a
@@ -118,8 +118,8 @@ NumPy -- each already single-purposed to one or two owning layers per tech.md
 of delegating, it would need to import one of these directly; thin
 parse-and-delegate code never does. Paired with a positive check that
 `cli/main.py` DOES import from the layers it's supposed to delegate to
-(`factory_twin.model`, `factory_twin.plan`, `factory_twin.instrumentation`,
-`factory_twin.report`), which is real, checkable evidence of delegation rather
+(`twinflow.model`, `twinflow.plan`, `twinflow.instrumentation`,
+`twinflow.report`), which is real, checkable evidence of delegation rather
 than a brittle line-count or AST-shape rule. This mirrors the exact
 `ast.walk` + `_imported_module_names` boundary-guard pattern already committed
 in `tests/unit/test_assumptions.py::TestReportModuleBoundary`.
@@ -155,9 +155,9 @@ from pathlib import Path
 
 import pytest
 
-from factory_twin.cli.main import main
+from twinflow.cli.main import main
 
-SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "factory_twin"
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "twinflow"
 
 # ---------------------------------------------------------------------------
 # Fixture vocabulary -- the same minimal cut -> pack shape
@@ -586,11 +586,11 @@ class TestCliHoldsNoLogicBeyondParsingAndDelegation:
 
     _COMPUTATION_LIBRARIES = {"polars", "simpy", "scipy", "numpy"}
     _DELEGATION_TARGET_PREFIXES = (
-        "factory_twin.model",
-        "factory_twin.plan",
-        "factory_twin.instrumentation",
-        "factory_twin.report",
-        "factory_twin.run_stamp",
+        "twinflow.model",
+        "twinflow.plan",
+        "twinflow.instrumentation",
+        "twinflow.report",
+        "twinflow.run_stamp",
     )
 
     def test_cli_main_never_imports_a_computation_library_directly(self) -> None:
@@ -625,12 +625,12 @@ class TestCliHoldsNoLogicBeyondParsingAndDelegation:
 
 
 class TestNothingImportsCli:
-    def test_no_module_outside_cli_imports_factory_twin_cli(self) -> None:
+    def test_no_module_outside_cli_imports_twinflow_cli(self) -> None:
         offending: list[str] = []
         for py_file in SRC_ROOT.rglob("*.py"):
             if py_file.is_relative_to(SRC_ROOT / "cli"):
                 continue
             for name in _imported_module_names(py_file):
-                if name == "factory_twin.cli" or name.startswith("factory_twin.cli."):
+                if name == "twinflow.cli" or name.startswith("twinflow.cli."):
                     offending.append(f"{py_file}: {name}")
         assert offending == []

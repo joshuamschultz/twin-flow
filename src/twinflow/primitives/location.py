@@ -17,14 +17,14 @@ from typing import Protocol
 import simpy
 from simpy.resources.resource import PriorityRequest
 
-from factory_twin.engine.rng import SOURCE_CYCLE_TIME, RngRegistry
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.cell import Machine, SetupPolicy
-from factory_twin.primitives.labor import PRIORITY_LOAD, LaborPool
-from factory_twin.primitives.part import PartTypeRegistry
-from factory_twin.primitives.stock import Stock
-from factory_twin.primitives.time_model import TimeModel
-from factory_twin.primitives.transform import Transform
+from twinflow.engine.rng import SOURCE_CYCLE_TIME, RngRegistry
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.cell import Machine, SetupPolicy
+from twinflow.primitives.labor import PRIORITY_LOAD, LaborPool
+from twinflow.primitives.part import PartTypeRegistry
+from twinflow.primitives.stock import Stock
+from twinflow.primitives.time_model import TimeModel
+from twinflow.primitives.transform import Transform
 
 # One ProcessExecution record per firing, in EVENT_LOG_SCHEMA column order
 # (instrumentation/event_log.py). Defined here Polars-free so that primitives never

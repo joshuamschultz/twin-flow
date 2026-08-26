@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from factory_twin.instrumentation.kpis import KpiSet
+from twinflow.instrumentation.kpis import KpiSet
 
 
 class KpiJsonSidecar:

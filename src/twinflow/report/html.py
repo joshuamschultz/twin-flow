@@ -17,9 +17,9 @@ from pathlib import Path
 import plotly.graph_objects as go  # type: ignore[import-untyped]  # no stub; D-026 lib choice
 import plotly.offline as pyo  # type: ignore[import-untyped]  # no stub package; D-026 lib choice
 
-from factory_twin.instrumentation.kpis import KpiSet
-from factory_twin.report.assumptions import Assumption
-from factory_twin.run_stamp import RunStamp
+from twinflow.instrumentation.kpis import KpiSet
+from twinflow.report.assumptions import Assumption
+from twinflow.run_stamp import RunStamp
 
 # Plotly's bundled JS ships default config values and dead code paths (map-tile
 # attribution links, a topojson CDN default) that are never reached by the Bar/

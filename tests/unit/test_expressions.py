@@ -26,8 +26,8 @@ import time
 
 import pytest
 
-from factory_twin.model.expressions import ExpressionError, ExpressionSandbox
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.model.expressions import ExpressionError, ExpressionSandbox
+from twinflow.primitives.part import PartTypeRegistry
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

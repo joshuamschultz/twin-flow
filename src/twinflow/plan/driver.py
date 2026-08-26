@@ -18,16 +18,16 @@ from pathlib import Path
 
 import simpy
 
-from factory_twin.engine.clock import RunContext
-from factory_twin.engine.rng import RngRegistry
-from factory_twin.instrumentation.event_log import EventLog
-from factory_twin.model import CompiledModel
-from factory_twin.model.schema import LocationSpec
-from factory_twin.plan.loader import WorkOrder
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.cell import Machine
-from factory_twin.primitives.labor import LaborPool
-from factory_twin.primitives.location import Location
+from twinflow.engine.clock import RunContext
+from twinflow.engine.rng import RngRegistry
+from twinflow.instrumentation.event_log import EventLog
+from twinflow.model import CompiledModel
+from twinflow.model.schema import LocationSpec
+from twinflow.plan.loader import WorkOrder
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.cell import Machine
+from twinflow.primitives.labor import LaborPool
+from twinflow.primitives.location import Location
 
 
 @dataclass(frozen=True)

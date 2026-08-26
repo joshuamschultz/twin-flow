@@ -30,12 +30,12 @@ from typing import Any, cast
 
 import polars as pl
 
-from factory_twin.instrumentation.kpis import KpiEngine
-from factory_twin.model import CompiledModel, load_model
-from factory_twin.model.loader import load_raw_model
-from factory_twin.plan.driver import RunResult
-from factory_twin.plan.loader import WorkOrder
-from factory_twin.plan.replication import ReplicationRunner
+from twinflow.instrumentation.kpis import KpiEngine
+from twinflow.model import CompiledModel, load_model
+from twinflow.model.loader import load_raw_model
+from twinflow.plan.driver import RunResult
+from twinflow.plan.loader import WorkOrder
+from twinflow.plan.replication import ReplicationRunner
 
 # A dot-path segment is a bare dict key, optionally followed by `[selector]`
 # selecting one item from the list that key resolves to (see module docstring

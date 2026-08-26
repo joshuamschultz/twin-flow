@@ -65,8 +65,8 @@ from pathlib import Path
 import openpyxl
 import pytest
 
-from factory_twin.plan.loader import WorkOrder, load_plan
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.plan.loader import WorkOrder, load_plan
+from twinflow.primitives.part import PartTypeRegistry
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

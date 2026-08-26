@@ -42,8 +42,8 @@ from __future__ import annotations
 
 import pytest
 
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.cell import Machine, SetupPolicy
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.cell import Machine, SetupPolicy
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

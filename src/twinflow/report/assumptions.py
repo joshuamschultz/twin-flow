@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from factory_twin.model import CompiledModel
+from twinflow.model import CompiledModel
 
 
 @dataclass(frozen=True)

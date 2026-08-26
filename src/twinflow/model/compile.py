@@ -21,16 +21,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
-from factory_twin.model.expressions import ExpressionSandbox
-from factory_twin.model.loader import RawModel
-from factory_twin.model.schema import LocationSpec
-from factory_twin.primitives.bundle import Bundle
-from factory_twin.primitives.cell import Machine, SetupPolicy
-from factory_twin.primitives.location import PullRule
-from factory_twin.primitives.part import PartTypeRegistry
-from factory_twin.primitives.stock import Stock
-from factory_twin.primitives.time_model import TimeModel
-from factory_twin.primitives.transform import OutputSpec, QtyFn, Transform, TransformSpec
+from twinflow.model.expressions import ExpressionSandbox
+from twinflow.model.loader import RawModel
+from twinflow.model.schema import LocationSpec
+from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.cell import Machine, SetupPolicy
+from twinflow.primitives.location import PullRule
+from twinflow.primitives.part import PartTypeRegistry
+from twinflow.primitives.stock import Stock
+from twinflow.primitives.time_model import TimeModel
+from twinflow.primitives.transform import OutputSpec, QtyFn, Transform, TransformSpec
 
 RawLocation = dict[str, Any]
 

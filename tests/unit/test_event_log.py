@@ -1,7 +1,7 @@
 """COMP-021 EventLog — unit tests (T-018, red phase).
 
-Contract under test (`src/factory_twin/instrumentation/event_log.py` +
-`EVENT_LOG_SCHEMA` re-exported from `src/factory_twin/instrumentation/__init__.py`,
+Contract under test (`src/twinflow/instrumentation/event_log.py` +
+`EVENT_LOG_SCHEMA` re-exported from `src/twinflow/instrumentation/__init__.py`,
 Layer 4, D-017 / D-034):
 
 - `EventLog()` buffers plain tuples in memory during a run via `.append(record)`
@@ -52,9 +52,9 @@ import os
 import polars as pl
 import pytest
 
-import factory_twin.instrumentation.event_log as event_log_module
-from factory_twin.instrumentation import EVENT_LOG_SCHEMA
-from factory_twin.instrumentation.event_log import EventLog
+import twinflow.instrumentation.event_log as event_log_module
+from twinflow.instrumentation import EVENT_LOG_SCHEMA
+from twinflow.instrumentation.event_log import EventLog
 
 RECORD_FIELDS = (
     "location_id",

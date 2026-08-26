@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from factory_twin.engine.rng import (
+from twinflow.engine.rng import (
     SOURCE_BREAKDOWN,
     SOURCE_CYCLE_TIME,
     SOURCE_KEYS,

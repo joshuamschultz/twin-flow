@@ -56,15 +56,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from factory_twin.model import CompiledModel, LaborPoolConfig
-from factory_twin.model.compile import LocationCompiler
-from factory_twin.model.expressions import ExpressionSandbox
-from factory_twin.model.loader import RawModel
-from factory_twin.primitives.part import PartTypeRegistry
-from factory_twin.report.assumptions import Assumption, AssumptionsCollector
-from factory_twin.run_stamp import RunStamp
+from twinflow.model import CompiledModel, LaborPoolConfig
+from twinflow.model.compile import LocationCompiler
+from twinflow.model.expressions import ExpressionSandbox
+from twinflow.model.loader import RawModel
+from twinflow.primitives.part import PartTypeRegistry
+from twinflow.report.assumptions import Assumption, AssumptionsCollector
+from twinflow.run_stamp import RunStamp
 
-SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "factory_twin"
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "twinflow"
 
 # ---------------------------------------------------------------------------
 # Shared model.yaml fragments. LocationCompiler.compile() only ever reads
@@ -303,7 +303,7 @@ class TestReportModuleBoundary:
         for layer in ("model", "plan"):
             for py_file in (SRC_ROOT / layer).rglob("*.py"):
                 for name in _imported_module_names(py_file):
-                    if name == "factory_twin.report" or name.startswith("factory_twin.report."):
+                    if name == "twinflow.report" or name.startswith("twinflow.report."):
                         offending.append(f"{py_file}: {name}")
         assert offending == []
 
@@ -359,9 +359,9 @@ class TestRunStampRecordsReproducibilityFields:
             str(model_path), str(plan_path), base_seed=42, commit_sha="a1b2c3d4"
         )
 
-        import factory_twin
+        import twinflow
 
-        assert stamp.engine_version == factory_twin.__version__
+        assert stamp.engine_version == twinflow.__version__
         assert stamp.commit_sha == "a1b2c3d4"
         assert stamp.model_hash == _sha256_of(model_content)
         assert stamp.plan_hash == _sha256_of(plan_content)
@@ -489,7 +489,7 @@ class TestRunStampAdversarialEdgeCases:
 
 class TestRunStampModuleBoundary:
     """Structural guard, not a T-043 behavior test -- expected to PASS today
-    and stay passing: run_stamp.py stays stdlib-only (plus factory_twin's own
+    and stay passing: run_stamp.py stays stdlib-only (plus twinflow's own
     __version__), never importing report/instrumentation/model/plan, so a
     plan-layer driver can stamp a run without importing a higher layer."""
 
@@ -497,10 +497,10 @@ class TestRunStampModuleBoundary:
         py_file = SRC_ROOT / "run_stamp.py"
         imports = _imported_module_names(py_file)
         forbidden_prefixes = (
-            "factory_twin.report",
-            "factory_twin.instrumentation",
-            "factory_twin.model",
-            "factory_twin.plan",
+            "twinflow.report",
+            "twinflow.instrumentation",
+            "twinflow.model",
+            "twinflow.plan",
         )
         offending = [
             name

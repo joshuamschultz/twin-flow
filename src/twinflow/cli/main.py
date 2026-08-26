@@ -1,8 +1,8 @@
 """COMP-029 Cli — thin argument parsing over validate/run/balance/report.
 
 Holds no logic; every command delegates to a Layer 2/3/4 entry point
-(`factory_twin.model`, `factory_twin.plan`, `factory_twin.instrumentation`,
-`factory_twin.report`, `factory_twin.run_stamp`). `main` never raises
+(`twinflow.model`, `twinflow.plan`, `twinflow.instrumentation`,
+`twinflow.report`, `twinflow.run_stamp`). `main` never raises
 `SystemExit` — every parse failure and every delegated failure is converted
 to a non-zero return value instead (D-041's "callable in-process" convention,
 applied to the CLI boundary itself).
@@ -23,16 +23,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
 
-from factory_twin.instrumentation import compute_kpis
-from factory_twin.instrumentation.kpis import KpiSet
-from factory_twin.instrumentation.sweep import SweepHarness, orders_frame
-from factory_twin.model import CompiledModel, load_model, validate_model
-from factory_twin.plan.driver import RunDriver
-from factory_twin.plan.loader import load_plan
-from factory_twin.plan.replication import ReplicationRunner
-from factory_twin.report import render_html, write_kpi_json
-from factory_twin.report.assumptions import AssumptionsCollector
-from factory_twin.run_stamp import RunStamp
+from twinflow.instrumentation import compute_kpis
+from twinflow.instrumentation.kpis import KpiSet
+from twinflow.instrumentation.sweep import SweepHarness, orders_frame
+from twinflow.model import CompiledModel, load_model, validate_model
+from twinflow.plan.driver import RunDriver
+from twinflow.plan.loader import load_plan
+from twinflow.plan.replication import ReplicationRunner
+from twinflow.report import render_html, write_kpi_json
+from twinflow.report.assumptions import AssumptionsCollector
+from twinflow.run_stamp import RunStamp
 
 _BASE_SEED = 0
 _KPI_SCHEMA_VERSION = 1
@@ -55,7 +55,7 @@ class _NonExitingArgumentParser(argparse.ArgumentParser):
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Console-script entry point (`ftwin`). Returns a process exit code."""
+    """Console-script entry point (`twinflow`). Returns a process exit code."""
     parser = _build_parser()
     try:
         args = parser.parse_args(argv)
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = _NonExitingArgumentParser(prog="ftwin")
+    parser = _NonExitingArgumentParser(prog="twinflow")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     validate_parser = subparsers.add_parser("validate")
@@ -106,7 +106,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _handle_validate(args: argparse.Namespace) -> int:
-    """`ftwin validate <model>` — no plan argument exists (COMP-017)."""
+    """`twinflow validate <model>` — no plan argument exists (COMP-017)."""
     errors = validate_model(args.model)
     for error in errors:
         print(f"{error.path}: {error.message}")
@@ -114,7 +114,7 @@ def _handle_validate(args: argparse.Namespace) -> int:
 
 
 def _handle_run(args: argparse.Namespace) -> int:
-    """`ftwin run <model> --plan <plan> --reps N` — writes all four run
+    """`twinflow run <model> --plan <plan> --reps N` — writes all four run
     artifacts under a fresh `runs/<run-id>/`."""
     if args.reps < 1:
         print("error: --reps must be a positive integer", file=sys.stderr)
@@ -158,7 +158,7 @@ def _handle_run(args: argparse.Namespace) -> int:
 
 
 def _handle_balance(args: argparse.Namespace) -> int:
-    """`ftwin balance <model> --plan <plan> --sweep <sweep> --reps N` — the
+    """`twinflow balance <model> --plan <plan> --sweep <sweep> --reps N` — the
     sweep spec is plain JSON (never YAML; `model/loader.py` stays the only
     PyYAML importer, D-001), passed straight through to `SweepHarness.run()`.
     """
@@ -188,7 +188,7 @@ def _handle_balance(args: argparse.Namespace) -> int:
 
 
 def _handle_report(args: argparse.Namespace) -> int:
-    """`ftwin report <run-id> --out html` — (re)confirms `report.html` for an
+    """`twinflow report <run-id> --out html` — (re)confirms `report.html` for an
     already-completed run; `kpis.json` is the "run completed" proof-of-life
     marker (COMP-027)."""
     run_dir = Path("runs") / args.run_id
@@ -242,7 +242,7 @@ def _scratch_cwd() -> Iterator[None]:
     *relative* write lands, never what gets written.
     """
     previous_cwd = Path.cwd()
-    with tempfile.TemporaryDirectory(prefix="ftwin-cli-scratch-") as scratch_dir:
+    with tempfile.TemporaryDirectory(prefix="twinflow-cli-scratch-") as scratch_dir:
         os.chdir(scratch_dir)
         try:
             yield

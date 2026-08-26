@@ -93,11 +93,11 @@ import polars as pl
 import pytest
 import scipy.stats
 
-from factory_twin.instrumentation.event_log import PROCESS_NAMES
-from factory_twin.model import load_model
-from factory_twin.plan.driver import RunDriver, RunResult
-from factory_twin.plan.loader import WorkOrder
-from factory_twin.plan.replication import ReplicationRunner
+from twinflow.instrumentation.event_log import PROCESS_NAMES
+from twinflow.model import load_model
+from twinflow.plan.driver import RunDriver, RunResult
+from twinflow.plan.loader import WorkOrder
+from twinflow.plan.replication import ReplicationRunner
 
 # ---------------------------------------------------------------------------
 # Fixture vocabulary — same shape as tests/integration/test_run_driver.py's
@@ -318,7 +318,7 @@ def test_worker_parquet_files_share_identical_process_name_categories_and_scan_t
 def test_compare_returns_a_single_paired_difference_ci_not_two_overlapping_cis(
     isolated_cwd: Path,
 ) -> None:
-    from factory_twin.plan.replication import DifferenceCI, compare
+    from twinflow.plan.replication import DifferenceCI, compare
 
     model_a = _write_model(isolated_cwd / "config_a", cut_rate=10.0)
     model_b = _write_model(isolated_cwd / "config_b", cut_rate=5.0)

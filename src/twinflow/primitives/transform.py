@@ -9,8 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
-from factory_twin.primitives.bundle import AttrValue, Bundle
-from factory_twin.primitives.part import PartTypeRegistry
+from twinflow.primitives.bundle import AttrValue, Bundle
+from twinflow.primitives.part import PartTypeRegistry
 
 QtyFn = Callable[[list[Bundle]], float]
 AttrFn = Callable[[list[Bundle]], AttrValue]
