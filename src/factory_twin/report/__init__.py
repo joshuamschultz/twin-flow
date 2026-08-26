@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 
-def render_html(kpis: object, assumptions: list[object], run_stamp: object, out_path: str) -> str:
+from factory_twin.instrumentation.kpis import KpiSet
+from factory_twin.report.assumptions import Assumption
+from factory_twin.report.html import HtmlReport
+from factory_twin.report.kpi_json import KpiJsonSidecar
+from factory_twin.run_stamp import RunStamp
+
+
+def render_html(
+    kpis: KpiSet,
+    assumptions: list[Assumption],
+    run_stamp: RunStamp,
+    out_path: str | Path,
+) -> Path:
     """Public API: one offline HTML file, Assumptions block first."""
-    raise NotImplementedError("T-045")
+    return HtmlReport().render(kpis, assumptions, run_stamp, out_path)
 
 
-def write_kpi_json(kpis: object, schema_version: int, out_path: str) -> str:
+def write_kpi_json(kpis: KpiSet, schema_version: int, out_path: str | Path) -> Path:
     """Public API: machine-readable versioned KPI sidecar."""
-    raise NotImplementedError("T-045")
+    return KpiJsonSidecar().write(kpis, schema_version, out_path)
