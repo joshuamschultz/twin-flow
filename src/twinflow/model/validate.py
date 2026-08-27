@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
+from twinflow.model.distributions import build_draw, build_noise
 from twinflow.model.expressions import ExpressionError, ExpressionSandbox
 from twinflow.model.loader import RawModel
 from twinflow.primitives.part import PartTypeRegistry
@@ -74,6 +75,7 @@ class ModelValidator:
         for idx, loc in valid_locations:
             try:
                 errors.extend(self._expression_checks(idx, loc))
+                errors.extend(_time_model_checks(idx, loc))
                 errors.extend(_unit_checks(idx, loc))
                 errors.extend(_field_combination_checks(idx, loc))
             except Exception as exc:  # noqa: BLE001 -- per-location isolation (D-007)
@@ -302,6 +304,33 @@ def _basis_uom(loc: RawLocation) -> str | None:
     if not consumes:
         return None
     return str(consumes[0]["uom"])
+
+
+def _time_model_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
+    """Pre-flight the declared cycle-time variation (COMP-038): a `cv` must be a
+    non-negative number, and a `distribution` must name a known shape with valid
+    params. Reuses the compiler's own builders so the rules live in one place."""
+    time_model = loc.get("time_model")
+    if not isinstance(time_model, dict):
+        return []
+
+    errors: list[ValidationError] = []
+    path = f"locations[{idx}].time_model"
+
+    if "cv" in time_model:
+        try:
+            build_noise(float(time_model["cv"]))
+        except (ValueError, TypeError) as exc:
+            errors.append(ValidationError(path=f"{path}.cv", message=str(exc)))
+
+    if time_model.get("kind") == "distribution":
+        spec = {k: v for k, v in time_model.items() if k not in {"kind", "load", "unload"}}
+        try:
+            build_draw(spec)
+        except (ValueError, TypeError, KeyError) as exc:
+            errors.append(ValidationError(path=path, message=f"invalid distribution: {exc}"))
+
+    return errors
 
 
 def _unit_checks(idx: int, loc: RawLocation) -> list[ValidationError]:

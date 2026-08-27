@@ -532,3 +532,49 @@ class TestReportsEveryFailureNotJustTheFirst:
         paths = {error.path for error in errors}
         assert paths == {"stocks[0]", "locations[2].emits[0]"}
         assert all(isinstance(error, ValidationError) for error in errors)
+
+
+# ---------------------------------------------------------------------------
+# COMP-038 time-model variation config: the validator is the pre-flight net for
+# a declared distribution or cv (positive mean, known shape, non-negative cv).
+# ---------------------------------------------------------------------------
+
+
+def _with_cutter_time_model(time_model: dict[str, Any]) -> RawModel:
+    data = _baseline_data()
+    data["locations"][0]["time_model"] = time_model
+    return _raw(data)
+
+
+class TestTimeModelVariationChecks:
+    def test_valid_lognormal_distribution_passes(self) -> None:
+        errors = _validator().validate(
+            _with_cutter_time_model(
+                {"kind": "distribution", "dist": "lognormal", "mean": 5, "cv": 0.2}
+            )
+        )
+        assert errors == []
+
+    def test_rate_based_with_cv_passes(self) -> None:
+        errors = _validator().validate(
+            _with_cutter_time_model({"kind": "rate_based", "rate": 5, "cv": 0.15})
+        )
+        assert errors == []
+
+    def test_unknown_distribution_is_flagged(self) -> None:
+        errors = _validator().validate(
+            _with_cutter_time_model({"kind": "distribution", "dist": "wishful", "mean": 5})
+        )
+        assert any("distribution" in e.message.lower() for e in errors)
+
+    def test_negative_cv_is_flagged(self) -> None:
+        errors = _validator().validate(
+            _with_cutter_time_model({"kind": "rate_based", "rate": 5, "cv": -0.1})
+        )
+        assert any("locations[0].time_model.cv" == e.path for e in errors)
+
+    def test_nonpositive_mean_is_flagged(self) -> None:
+        errors = _validator().validate(
+            _with_cutter_time_model({"kind": "distribution", "mean": 0})
+        )
+        assert any("locations[0].time_model" in e.path for e in errors)

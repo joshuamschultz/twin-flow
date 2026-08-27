@@ -61,9 +61,15 @@ class TimeModel:
             rate: float = self.params["rate"]
             if rate == 0.0:
                 raise ValueError("rate_based TimeModel requires a nonzero rate")
-            return bundle.qty / rate
+            base = bundle.qty / rate
+        else:
+            # KIND_ATTRIBUTE_SCALED — validated as the only remaining option in __init__.
+            attr_base: float = self.params["base"]
+            scale: Callable[[Bundle], float] = self.params["scale"]
+            base = attr_base * scale(bundle)
 
-        # KIND_ATTRIBUTE_SCALED — validated as the only remaining option in __init__.
-        base: float = self.params["base"]
-        scale: Callable[[Bundle], float] = self.params["scale"]
-        return base * scale(bundle)
+        # An otherwise-deterministic time model may carry a mean-1 multiplicative
+        # `noise` draw (a declared `cv`) so a real floor's spread shows up. Absent
+        # it, the time stays exactly deterministic.
+        noise: Callable[[np.random.Generator], float] | None = self.params.get("noise")
+        return base * float(noise(generator)) if noise is not None else base

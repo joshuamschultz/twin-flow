@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
+from twinflow.model.distributions import build_draw, build_noise
 from twinflow.model.expressions import ExpressionSandbox
 from twinflow.model.loader import RawModel
 from twinflow.model.schema import LocationSpec
@@ -29,7 +30,12 @@ from twinflow.primitives.cell import Machine, SetupPolicy
 from twinflow.primitives.location import PullRule
 from twinflow.primitives.part import PartTypeRegistry
 from twinflow.primitives.stock import Stock
-from twinflow.primitives.time_model import TimeModel
+from twinflow.primitives.time_model import (
+    KIND_ATTRIBUTE_SCALED,
+    KIND_DISTRIBUTION,
+    KIND_RATE_BASED,
+    TimeModel,
+)
 from twinflow.primitives.transform import OutputSpec, QtyFn, Transform, TransformSpec
 
 RawLocation = dict[str, Any]
@@ -79,11 +85,7 @@ class LocationCompiler:
             setup_key_of=setup_key_of, changeover_matrix={}, default_seconds=0.0
         )
 
-        time_model_raw = loc["time_model"]
-        time_model = TimeModel(
-            kind=time_model_raw["kind"],
-            params={key: value for key, value in time_model_raw.items() if key != "kind"},
-        )
+        time_model = _build_time_model(loc["time_model"])
 
         destinations: dict[str, Stock | list[Bundle]] = {
             thing: [] for thing in _all_output_things(loc)
@@ -107,6 +109,36 @@ class LocationCompiler:
             destinations=destinations,
             stock_destinations=stock_destinations,
         )
+
+
+def _build_time_model(raw: dict[str, Any]) -> TimeModel:
+    """Compile a declared `time_model` into a pure `TimeModel` (D-044).
+
+    `distribution` becomes a seeded absolute-time `draw`; a `cv` on a
+    `rate_based`/`attribute_scaled` model becomes a mean-1 multiplicative
+    `noise`. `load`/`unload` pass through as fixed phase seconds.
+    """
+    kind = raw["kind"]
+    reserved = {"kind", "load", "unload"}
+    load = float(raw.get("load", 0.0))
+    unload = float(raw.get("unload", 0.0))
+
+    if kind == KIND_DISTRIBUTION:
+        spec = {key: value for key, value in raw.items() if key not in reserved}
+        params: dict[str, Any] = {"draw": build_draw(spec)}
+    elif kind == KIND_RATE_BASED:
+        params = {"rate": raw["rate"]}
+        if "cv" in raw:
+            params["noise"] = build_noise(float(raw["cv"]))
+    elif kind == KIND_ATTRIBUTE_SCALED:
+        params = {key: value for key, value in raw.items() if key not in reserved | {"cv"}}
+        if "cv" in raw:
+            params["noise"] = build_noise(float(raw["cv"]))
+    else:
+        # TimeModel.__init__ owns the canonical "unknown kind" error.
+        params = {key: value for key, value in raw.items() if key not in reserved}
+
+    return TimeModel(kind=kind, params=params, load=load, unload=unload)
 
 
 def _all_output_things(loc: RawLocation) -> list[str]:
