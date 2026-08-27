@@ -183,6 +183,7 @@ class HtmlReport:
             self._footer(stamp),
             "</div>",
             self._mermaid_library(),
+            self._plotly_resize_script(),
             "</body></html>",
         ]
         path.write_text("\n".join(body), encoding="utf-8")
@@ -458,6 +459,19 @@ class HtmlReport:
         )
 
     # -- figures -----------------------------------------------------------
+
+    @staticmethod
+    def _plotly_resize_script() -> str:
+        """Re-fit every chart once the grid has settled (initial draw happens
+        mid-parse, before the two-column layout exists, so charts otherwise
+        keep the full-width size they first measured)."""
+        js = (
+            "window.addEventListener('load',function(){"
+            "if(!window.Plotly)return;"
+            "document.querySelectorAll('.plotly-graph-div')"
+            ".forEach(function(d){window.Plotly.Plots.resize(d);});});"
+        )
+        return f"<script>{js}</script>"
 
     @staticmethod
     def _plotly_library() -> str:
