@@ -30,6 +30,7 @@ from twinflow.report.assumptions import Assumption
 from twinflow.run_stamp import RunStamp
 
 if TYPE_CHECKING:
+    from twinflow.instrumentation.aggregate import AggregatedKpis, Interval
     from twinflow.model import CompiledModel
 
 _MERMAID_JS = Path(__file__).parent / "_assets" / "mermaid.min.js"
@@ -39,6 +40,19 @@ _LOGO_PNG = Path(__file__).parent / "_assets" / "logo.png"
 def _logo_data_uri() -> str:
     """The brand emblem inlined as a base64 PNG data URI (offline-safe)."""
     return "data:image/png;base64," + base64.b64encode(_LOGO_PNG.read_bytes()).decode("ascii")
+
+
+def _error_y(intervals: list[Interval], scale: float = 1.0) -> dict[str, Any]:
+    """A Plotly asymmetric error-bar spec (mean->hi up, mean->lo down) for a row
+    of confidence intervals, optionally rescaled (e.g. fractions to percent)."""
+    return {
+        "type": "data",
+        "symmetric": False,
+        "array": [(iv.hi - iv.mean) * scale for iv in intervals],
+        "arrayminus": [(iv.mean - iv.lo) * scale for iv in intervals],
+        "color": "#002550",
+        "thickness": 1.4,
+    }
 
 
 def _fig_html(fig: go.Figure) -> str:
@@ -158,6 +172,7 @@ class HtmlReport:
         run_stamp: RunStamp,
         out_path: str | Path,
         model: CompiledModel | None = None,
+        aggregated: AggregatedKpis | None = None,
     ) -> Path:
         """Write one self-contained HTML report to `out_path` and return it. The
         Assumptions block comes first, before any KPI chart (REQ-033)."""
@@ -175,7 +190,8 @@ class HtmlReport:
             "<div class='body'>",
             self._meta(kpis, stamp),
             self._assumptions(assumptions),
-            self._cards(kpis),
+            self._cards(kpis, aggregated),
+            self._confidence_section(aggregated),
             self._flow_section(kpis, model),
             self._charts(kpis),
             self._tables(kpis),
@@ -238,14 +254,21 @@ class HtmlReport:
             f"{inner}</section>"
         )
 
-    def _cards(self, kpis: KpiSet) -> str:
+    def _cards(self, kpis: KpiSet, aggregated: AggregatedKpis | None = None) -> str:
         machine_hours = sum(kpis.machine_hours_by_machine.values())
         n_orders = len(kpis.completion_by_order)
         completed = sum(1 for v in kpis.completion_by_order.values() if v is not None)
         late = sum(1 for v in kpis.lateness_by_order.values() if v is not None and v > 0)
         bottleneck, bn_util = self._bottleneck(kpis)
+        if aggregated is not None and aggregated.reps > 1:
+            iv = aggregated.on_time_pct
+            on_time_value = f"{iv.mean:.0f}%"
+            on_time_foot = f"range {iv.lo:.0f}-{iv.hi:.0f}% over {aggregated.reps} runs"
+        else:
+            on_time_value = f"{kpis.on_time_pct:.0f}%"
+            on_time_foot = f"{late} of {n_orders} late"
         cards = [
-            ("On-time", f"{kpis.on_time_pct:.0f}%", "azure", f"{late} of {n_orders} late", False),
+            ("On-time", on_time_value, "azure", on_time_foot, False),
             ("Orders completed", f"{completed}/{n_orders}", "", "reached a finished part", False),
             ("Bottleneck", bottleneck or "-", "orange", f"{bn_util * 100:.0f}% utilized", True),
             ("Run length", f"{kpis.run_hours:.2f}h", "", "total machine hours", False),
@@ -258,6 +281,52 @@ class HtmlReport:
             for label, value, cls, foot, warn in cards
         )
         return f"<section><h2 class='sec'>Headline</h2><div class='cards'>{chips}</div></section>"
+
+    # -- confidence ranges across replications -----------------------------
+
+    def _confidence_section(self, aggregated: AggregatedKpis | None) -> str:
+        """Range charts across replications. Empty for a single run (no spread
+        to report) so a one-off render is unchanged."""
+        if aggregated is None or aggregated.reps <= 1:
+            return ""
+        note = (
+            f"Across {aggregated.reps} replications, reported as a "
+            f"{aggregated.level * 100:.0f}% band. The bar is the mean; the whisker is the "
+            "low-to-high range a real, variable floor produces - the honest answer, not a "
+            "single number pretending to be certain."
+        )
+        panels = "".join(
+            f"<div class='panel chart'>{_fig_html(fig)}<div class='cap'>{_e(cap)}</div></div>"
+            for fig, cap in (
+                (self._lateness_range_figure(aggregated),
+                 "Lateness per order: negative is early, positive is late. A whisker "
+                 "crossing zero is an order that ships on time in some runs, late in others."),
+                (self._utilization_range_figure(aggregated),
+                 "Busy share per work center. A tall bar with a tight whisker is a "
+                 "dependable bottleneck; a wide whisker is a center whose load swings."),
+            )
+        )
+        return (
+            f"<section><h2 class='sec'>Confidence ranges</h2>"
+            f"<p class='cap'>{_e(note)}</p><div class='grid2'>{panels}</div></section>"
+        )
+
+    def _lateness_range_figure(self, aggregated: AggregatedKpis) -> go.Figure:
+        orders = sorted(aggregated.lateness_by_order)
+        ivs = [aggregated.lateness_by_order[o] for o in orders]
+        means = [iv.mean for iv in ivs]
+        fig = go.Figure(go.Bar(x=orders, y=means, marker_color="#0073FE", error_y=_error_y(ivs)))
+        return self._style(fig, "Lateness by order (range)", "Lateness (s)", "Order")
+
+    def _utilization_range_figure(self, aggregated: AggregatedKpis) -> go.Figure:
+        by_cell = aggregated.utilization_by_cell
+        cells = sorted(by_cell, key=lambda c: by_cell[c].mean, reverse=True)
+        ivs = [by_cell[c] for c in cells]
+        means = [iv.mean * 100.0 for iv in ivs]
+        fig = go.Figure(
+            go.Bar(x=cells, y=means, marker_color="#0891B2", error_y=_error_y(ivs, scale=100.0))
+        )
+        return self._style(fig, "Utilization by center (range)", "Utilization (%)", "Work center")
 
     # -- material flow (value-stream) diagram ------------------------------
 

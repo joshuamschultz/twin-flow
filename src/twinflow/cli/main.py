@@ -21,9 +21,10 @@ import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from twinflow.instrumentation import compute_kpis
+from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, aggregate_kpis
 from twinflow.instrumentation.kpis import KpiSet
 from twinflow.instrumentation.sweep import SweepHarness, orders_frame
 from twinflow.model import CompiledModel, load_model, validate_model
@@ -36,6 +37,7 @@ from twinflow.run_stamp import RunStamp
 
 _BASE_SEED = 0
 _KPI_SCHEMA_VERSION = 1
+_INTERVALS_SCHEMA_VERSION = 1
 
 
 class _ArgumentParsingError(Exception):
@@ -133,7 +135,7 @@ def _handle_run(args: argparse.Namespace) -> int:
         result = RunDriver(compiled).run(work_orders, seed=_BASE_SEED, replication_index=0)
         run_dir = result.event_log_path.parent
         orders = orders_frame(work_orders, compiled, result.event_log_path)
-        kpis = compute_kpis(result.event_log_path, orders, result.horizon)
+        per_rep = [compute_kpis(result.event_log_path, orders, result.horizon)]
     else:
         # `ReplicationRunner` dispatches one worker process per replication,
         # each of which independently writes its own `runs/<run-id>/` via
@@ -146,14 +148,24 @@ def _handle_run(args: argparse.Namespace) -> int:
         with _scratch_cwd():
             results = ReplicationRunner(model_path).run(work_orders, args.reps, _BASE_SEED)
             shutil.copyfile(results[0].event_log_path, run_dir / "events.parquet")
-            orders = orders_frame(work_orders, compiled, results[0].event_log_path)
-            kpis = compute_kpis(
-                [result.event_log_path for result in results],
-                orders,
-                max(result.horizon for result in results),
-            )
+            # Per-replication KPIs (one sample of a random floor each), not the
+            # pooled log: pooling would multiply every count by the rep count and
+            # hide the very variation we are here to measure.
+            per_rep = [
+                compute_kpis(
+                    r.event_log_path,
+                    orders_frame(work_orders, compiled, r.event_log_path),
+                    r.horizon,
+                )
+                for r in results
+            ]
 
-    _write_run_artifacts(run_dir, compiled, kpis, model_path, plan_path)
+    # The first replication is the representative single run for the charts and
+    # tables; the whole set becomes the confidence intervals.
+    kpis = per_rep[0]
+    aggregated = aggregate_kpis(per_rep)
+
+    _write_run_artifacts(run_dir, compiled, kpis, aggregated, model_path, plan_path)
     run_id = run_dir.name
     print(f"run {run_id}")
     print(f"  dir:    {run_dir}")
@@ -216,15 +228,39 @@ def _write_run_artifacts(
     run_dir: Path,
     compiled: CompiledModel,
     kpis: KpiSet,
+    aggregated: AggregatedKpis,
     model_path: str,
     plan_path: str,
 ) -> None:
-    """Write `kpis.json`, `report.html` and `run_meta.json` for one run."""
+    """Write `kpis.json`, `intervals.json`, `report.html` and `run_meta.json`."""
     assumptions = AssumptionsCollector().collect(compiled)
     stamp = RunStamp.create(model_path, plan_path, base_seed=_BASE_SEED)
     write_kpi_json(kpis, _KPI_SCHEMA_VERSION, run_dir / "kpis.json")
-    render_html(kpis, assumptions, stamp, run_dir / "report.html", model=compiled)
+    (run_dir / "intervals.json").write_text(
+        json.dumps(_intervals_to_dict(aggregated), indent=2), encoding="utf-8"
+    )
+    render_html(
+        kpis, assumptions, stamp, run_dir / "report.html", model=compiled, aggregated=aggregated
+    )
     (run_dir / "run_meta.json").write_text(json.dumps(stamp.to_dict(), indent=2), encoding="utf-8")
+
+
+def _intervals_to_dict(aggregated: AggregatedKpis) -> dict[str, Any]:
+    """The confidence intervals as machine-readable JSON (schema-versioned)."""
+
+    def iv(interval: Interval) -> dict[str, float | int]:
+        return {"mean": interval.mean, "lo": interval.lo, "hi": interval.hi,
+                "p50": interval.p50, "n": interval.n}
+
+    return {
+        "schema_version": _INTERVALS_SCHEMA_VERSION,
+        "reps": aggregated.reps,
+        "level": aggregated.level,
+        "on_time_pct": iv(aggregated.on_time_pct),
+        "lateness_by_order": {k: iv(v) for k, v in aggregated.lateness_by_order.items()},
+        "completion_by_order": {k: iv(v) for k, v in aggregated.completion_by_order.items()},
+        "utilization_by_cell": {k: iv(v) for k, v in aggregated.utilization_by_cell.items()},
+    }
 
 
 def _new_run_id() -> str:

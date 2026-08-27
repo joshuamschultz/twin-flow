@@ -12,6 +12,7 @@ from twinflow.report.kpi_json import KpiJsonSidecar
 from twinflow.run_stamp import RunStamp
 
 if TYPE_CHECKING:
+    from twinflow.instrumentation.aggregate import AggregatedKpis
     from twinflow.model import CompiledModel
 
 
@@ -21,10 +22,12 @@ def render_html(
     run_stamp: RunStamp,
     out_path: str | Path,
     model: CompiledModel | None = None,
+    aggregated: AggregatedKpis | None = None,
 ) -> Path:
     """Public API: one offline HTML file, Assumptions block first. When `model` is
-    given, the report includes a value-stream diagram of the material flow."""
-    return HtmlReport().render(kpis, assumptions, run_stamp, out_path, model)
+    given, the report includes a value-stream diagram of the material flow; when
+    `aggregated` is given, KPIs are shown as confidence ranges across replications."""
+    return HtmlReport().render(kpis, assumptions, run_stamp, out_path, model, aggregated)
 
 
 def write_kpi_json(kpis: KpiSet, schema_version: int, out_path: str | Path) -> Path:
