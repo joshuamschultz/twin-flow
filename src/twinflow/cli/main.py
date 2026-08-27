@@ -154,6 +154,12 @@ def _handle_run(args: argparse.Namespace) -> int:
             )
 
     _write_run_artifacts(run_dir, compiled, kpis, model_path, plan_path)
+    run_id = run_dir.name
+    print(f"run {run_id}")
+    print(f"  dir:    {run_dir}")
+    print(f"  report: {run_dir / 'report.html'}")
+    print(f"  kpis:   {run_dir / 'kpis.json'}")
+    print(f"  view:   twinflow report {run_id} --out html")
     return 0
 
 

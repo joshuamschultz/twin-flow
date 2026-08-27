@@ -154,6 +154,22 @@ def _build_run_stamp() -> RunStamp:
 
 _EXTERNAL_URL_ATTR = re.compile(r'(?:src|href)\s*=\s*["\']https?://', re.IGNORECASE)
 
+# The inlined, UNMODIFIED Plotly library block. The offline guarantee is about the
+# report's OWN markup loading nothing external; the vendored library carries inert
+# default URLs (a topojson CDN, map-tile attribution) reachable only by geo/mapbox
+# traces this report never builds. Scrubbing them out of the bundle corrupts Plotly
+# and blanks every chart, so we exclude the delimited library block from the scan
+# instead.
+_PLOTLY_LIB_BLOCK = re.compile(
+    r"<script id=['\"]twinflow-plotly-lib['\"]>.*?</script>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _own_markup(html: str) -> str:
+    """The report HTML with the vendored Plotly library block removed."""
+    return _PLOTLY_LIB_BLOCK.sub("", html)
+
 
 # ---------------------------------------------------------------------------
 # Structural guards — prove the RED failures below are behavioral, not
@@ -196,11 +212,11 @@ def test_html_report_has_zero_external_asset_references(tmp_path: Path) -> None:
     CDN reference anywhere in the document."""
     out_path = tmp_path / "report.html"
     HtmlReport().render(_build_kpi_set(), _build_assumptions(), _build_run_stamp(), out_path)
-    html = out_path.read_text(encoding="utf-8")
+    own = _own_markup(out_path.read_text(encoding="utf-8"))
 
-    assert _EXTERNAL_URL_ATTR.search(html) is None
-    assert "//cdn" not in html.lower()
-    assert "cdn.plot.ly" not in html.lower()
+    assert _EXTERNAL_URL_ATTR.search(own) is None
+    assert "//cdn" not in own.lower()
+    assert "cdn.plot.ly" not in own.lower()
 
 
 def test_html_report_inlines_plotly_javascript(tmp_path: Path) -> None:
@@ -214,7 +230,7 @@ def test_html_report_inlines_plotly_javascript(tmp_path: Path) -> None:
 
     assert "Plotly.newPlot(" in html
     assert out_path.stat().st_size > 500_000  # inlined plotly.js dwarfs a chartless page
-    assert "<script src=" not in html.lower() or _EXTERNAL_URL_ATTR.search(html) is None
+    assert _EXTERNAL_URL_ATTR.search(_own_markup(html)) is None
 
 
 def test_html_report_assumptions_block_is_first_content(tmp_path: Path) -> None:
@@ -265,7 +281,7 @@ def test_html_report_facade_delegates_with_same_offline_and_ordering_contract(
     html = out_path.read_text(encoding="utf-8")
 
     assert Path(result) == out_path
-    assert _EXTERNAL_URL_ATTR.search(html) is None
+    assert _EXTERNAL_URL_ATTR.search(_own_markup(html)) is None
     assert html.lower().find("assumption") < html.find("Plotly.newPlot(")
 
 
