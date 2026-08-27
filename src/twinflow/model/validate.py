@@ -164,6 +164,7 @@ def _graph_checks(
     errors.extend(_location_reference_checks(data, machine_names, declared_skills))
 
     errors.extend(_orphan_stock_checks(data, locations_by_name))
+    errors.extend(_output_stock_destination_checks(data))
 
     routing = cast(list[RawRoutingEntry], data.get("routing", []))
     model_max_rework = data.get("max_rework")
@@ -216,6 +217,31 @@ def _orphan_stock_checks(
                     message=f"stock {stock['name']!r} is never consumed or produced (orphan)",
                 )
             )
+    return errors
+
+
+def _output_stock_destination_checks(data: dict[str, Any]) -> list[ValidationError]:
+    """A location's `output_stocks[<thing>]` value must name a stock declared in
+    the top-level `stocks[*].name` set (D-055 graph check)."""
+    errors: list[ValidationError] = []
+    declared_stock_names = {
+        stock["name"] for stock in cast(list[dict[str, Any]], data.get("stocks", []))
+    }
+
+    raw_locations = cast(list[RawLocation], data.get("locations", []))
+    for idx, loc in enumerate(raw_locations):
+        output_stocks = cast(dict[str, str], loc.get("output_stocks") or {})
+        for thing, stock_name in output_stocks.items():
+            if stock_name not in declared_stock_names:
+                errors.append(
+                    ValidationError(
+                        path=f"locations[{idx}].output_stocks.{thing}",
+                        message=(
+                            f"output_stocks names stock {stock_name!r}, which is not "
+                            f"declared in top-level stocks"
+                        ),
+                    )
+                )
     return errors
 
 

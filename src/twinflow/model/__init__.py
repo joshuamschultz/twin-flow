@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from twinflow.model.compile import LocationCompiler
@@ -16,6 +16,7 @@ __all__ = [
     "CompiledModel",
     "LaborPoolConfig",
     "ModelValidationError",
+    "StockConfig",
     "load_model",
     "validate_model",
 ]
@@ -41,14 +42,29 @@ class LaborPoolConfig:
 
 
 @dataclass(frozen=True)
+class StockConfig:
+    """Raw declarative shape of one top-level `stocks[*]` entry (model.yaml's
+    `stocks` section). Not a runtime `primitives.stock.Stock` — that is
+    env-bound and built fresh every `RunDriver.run()` call, never here, so a
+    `CompiledModel` can only carry the declarative shape a driver later builds
+    a fresh `Stock` from (D-044), mirroring `LaborPoolConfig`/`labor_pools`. A
+    stock's `name` doubles as its material identity (`Stock.put()` checks
+    thing match), so there is no separate `thing` field."""
+
+    name: str
+    uom: str
+
+
+@dataclass(frozen=True)
 class CompiledModel:
     """`load_model()`'s return value.
 
     Carries `model.compile.CompileResult`'s three fields (`locations`, `routing`,
-    `bom`) straight through, plus the raw `labor.pools` shape and the
-    `PartTypeRegistry` a plan-layer `RunDriver` needs but `LocationCompiler`
-    never builds (it only ever sets `material_requirement=None` and never reads
-    the model's top-level `labor` section).
+    `bom`) straight through, plus the raw `labor.pools` shape, the raw
+    top-level `stocks` shape, and the `PartTypeRegistry` a plan-layer
+    `RunDriver` needs but `LocationCompiler` never builds (it only ever sets
+    `material_requirement=None` and never reads the model's top-level `labor`
+    or `stocks` sections).
     """
 
     locations: list[LocationSpec]
@@ -56,6 +72,7 @@ class CompiledModel:
     bom: dict[str, dict[str, float]]
     labor_pools: list[LaborPoolConfig]
     registry: PartTypeRegistry
+    stocks: list[StockConfig] = field(default_factory=list)
 
 
 class ModelValidationError(ValueError):
@@ -89,12 +106,14 @@ def load_model(path: str) -> CompiledModel:
 
     result = LocationCompiler(registry, sandbox).compile(raw_model)
     labor_pools = _build_labor_pools(raw_model)
+    stocks = _build_stocks(raw_model)
 
     return CompiledModel(
         locations=result.locations,
         routing=result.routing,
         bom=result.bom,
         labor_pools=labor_pools,
+        stocks=stocks,
         registry=registry,
     )
 
@@ -138,3 +157,11 @@ def _build_labor_pools(raw_model: RawModel) -> list[LaborPoolConfig]:
         )
         for pool in pools
     ]
+
+
+def _build_stocks(raw_model: RawModel) -> list[StockConfig]:
+    """Carry `model.yaml`'s top-level `stocks` declarative shape through
+    unchanged, so a later `RunDriver` can build a fresh, run-bound `Stock` per
+    entry (D-044) -- mirrors `_build_labor_pools`."""
+    stocks = cast(list[dict[str, Any]], raw_model.stocks)
+    return [StockConfig(name=str(stock["name"]), uom=str(stock["uom"])) for stock in stocks]

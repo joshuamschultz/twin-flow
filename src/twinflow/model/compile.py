@@ -89,6 +89,11 @@ class LocationCompiler:
             thing: [] for thing in _all_output_things(loc)
         }
 
+        stock_destinations = {
+            str(thing): str(stock_name)
+            for thing, stock_name in loc.get("output_stocks", {}).items()
+        }
+
         return LocationSpec(
             location_id=loc["name"],
             machine=Machine(machine_id=loc["machine"]),
@@ -100,6 +105,7 @@ class LocationCompiler:
             labor_skill=loc["labor_skill"],
             material_requirement=None,
             destinations=destinations,
+            stock_destinations=stock_destinations,
         )
 
 

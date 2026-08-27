@@ -28,6 +28,7 @@ from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.cell import Machine
 from twinflow.primitives.labor import LaborPool
 from twinflow.primitives.location import Location
+from twinflow.primitives.stock import Stock
 
 
 @dataclass(frozen=True)
@@ -114,8 +115,9 @@ class RunDriver:
         rng = RngRegistry(seed, replication_index)
         event_log = EventLog()
 
+        stocks = self._build_stocks(env)
         labor_pools = self._build_labor_pools(env)
-        locations = self._build_locations(env, rng, event_log, labor_pools)
+        locations = self._build_locations(env, rng, event_log, labor_pools, stocks)
 
         for order in plan:
             self._seed_wip(order, locations)
@@ -132,10 +134,20 @@ class RunDriver:
             "run_id": run_id,
             "seed": seed,
             "replication_index": replication_index,
+            "stock_levels": {name: stock.level for name, stock in stocks.items()},
         }
         return RunResult(event_log_path=event_log_path, horizon=env.now, run_meta=run_meta)
 
     # -- fresh per-run runtime construction ---------------------------------
+
+    def _build_stocks(self, env: simpy.Environment) -> dict[str, Stock]:
+        """Fresh `Stock`s from the compiled declarative shape — env-bound, so
+        never built at `load_model()` time (only here, once per `run()` call).
+        A stock's `name` doubles as its material identity (D-044)."""
+        return {
+            stock.name: Stock(thing=stock.name, uom=stock.uom, env=env, initial_qty=0.0)
+            for stock in self._compiled.stocks
+        }
 
     def _build_labor_pools(self, env: simpy.Environment) -> dict[str, LaborPool]:
         """Fresh `LaborPool`s from the compiled declarative shape — env-bound, so
@@ -158,6 +170,7 @@ class RunDriver:
         rng: RngRegistry,
         event_log: EventLog,
         labor_pools: dict[str, LaborPool],
+        stocks: dict[str, Stock],
     ) -> dict[str, Location]:
         """Fresh `Location`s for this run: each gets its own `Machine` (mutable
         `current_setup`) and its own `destinations` lists, so a run can never
@@ -178,11 +191,24 @@ class RunDriver:
             locations[location_id] = Location(spec, env, machine_pool, labor_pool, event_log, rng)
 
         self._wire_routing(fresh_specs, locations)
+        self._wire_stock_destinations(fresh_specs, stocks)
 
         for location in locations.values():
             env.process(location.run())
 
         return locations
+
+    def _wire_stock_destinations(
+        self, specs: dict[str, LocationSpec], stocks: dict[str, Stock]
+    ) -> None:
+        """Rewrite each declared `output_stocks` thing's `destinations[thing]`
+        to the matching fresh, env-bound `Stock` built this run — mirrors
+        `_wire_routing`'s post-compile `destinations` rewrite for Location ->
+        Location routing (D-044). A thing with no `stock_destinations` entry
+        keeps its existing routing/default sink."""
+        for spec in specs.values():
+            for thing, stock_name in spec.stock_destinations.items():
+                spec.destinations[thing] = stocks[stock_name]
 
     def _wire_routing(self, specs: dict[str, LocationSpec], locations: dict[str, Location]) -> None:
         """Rewrite each non-terminal output's `destinations[thing]` to a

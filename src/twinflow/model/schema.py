@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.cell import Machine, SetupPolicy
@@ -31,3 +31,10 @@ class LocationSpec:
     labor_skill: str
     material_requirement: MaterialRequirementLike | None
     destinations: dict[str, Stock | list[Bundle]]
+    stock_destinations: dict[str, str] = field(default_factory=dict)
+    """Output `thing` -> declared top-level Stock NAME (D-044 general config
+    sugar), never a runtime `Stock` object (`LocationCompiler.compile()` is not
+    env-bound; only `RunDriver.run()` is). Empty when the location declares no
+    `output_stocks`. `RunDriver` resolves each entry into a fresh, run-bound
+    `Stock` and rewrites `destinations[thing]` to it, mirroring routing's own
+    post-compile `destinations` rewrite."""
