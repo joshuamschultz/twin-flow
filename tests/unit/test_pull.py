@@ -95,7 +95,9 @@ def test_default_applied_is_false_when_batch_threshold_declared() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_select_with_no_spec_returns_queue_in_arrival_order() -> None:
+def test_select_with_no_spec_returns_the_next_job_only() -> None:
+    # No batch declared: a work center pulls the NEXT job only (arrival order),
+    # then loops - not the whole queue as one merged firing. Batching is opt-in.
     rule = _make_default_rule()
     queue = [
         _bundle("widget_a", 10),
@@ -105,23 +107,21 @@ def test_select_with_no_spec_returns_queue_in_arrival_order() -> None:
 
     selected = rule.select(queue, current_setup="line_a")
 
-    assert selected == queue
+    assert selected == [_bundle("widget_a", 10)]
 
 
 def test_select_with_no_spec_skips_bundles_outside_current_setup() -> None:
     rule = _make_default_rule()
     queue = [
-        _bundle("widget_a", 10),
         _bundle("off_type", 5),
+        _bundle("widget_a", 10),
         _bundle("widget_b", 20),
     ]
 
     selected = rule.select(queue, current_setup="line_a")
 
-    assert selected == [
-        _bundle("widget_a", 10),
-        _bundle("widget_b", 20),
-    ]
+    # The next ELIGIBLE job only: the leading off-setup bundle is skipped.
+    assert selected == [_bundle("widget_a", 10)]
 
 
 def test_select_with_no_spec_and_empty_queue_returns_empty_list() -> None:

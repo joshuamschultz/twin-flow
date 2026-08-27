@@ -125,7 +125,7 @@ import polars as pl
 import pytest
 
 from twinflow.instrumentation import EVENT_LOG_SCHEMA
-from twinflow.instrumentation.kpis import KpiEngine, WaitClassifier
+from twinflow.instrumentation.kpis import KpiEngine
 
 # ---------------------------------------------------------------------------
 # Fixture rows — one hand-computable little floor: two locations (cell_a,
@@ -172,29 +172,27 @@ def _orders_df(rows: list[tuple] = ORDERS_ROWS) -> pl.DataFrame:
     return pl.DataFrame(rows, schema=ORDERS_SCHEMA, orient="row")
 
 
-def _expected_wait_totals(rows: list[tuple]) -> dict[str, dict[str, float]]:
-    """Hand-independent expected wait totals, built by calling the ALREADY-DONE,
-    already-tested WaitClassifier directly on each fixture row (real reuse of a
-    proven component — not a mock, and not re-testing WaitClassifier itself)."""
-    classifier = WaitClassifier()
-    totals: dict[str, dict[str, float]] = {}
+def _expected_wait_totals(rows: list[tuple], horizon: float) -> dict[str, dict[str, float]]:
+    """Expected per-CENTER wait split under the center-idle model the KpiEngine now
+    uses: busy = sum(actual_end - actual_start), blocked = sum(release_time -
+    actual_end), starved = horizon - busy - blocked (idle remainder), material_starved
+    = 0 in v1. A center view, not a per-job queue view - a busy bottleneck shows ~0
+    starved; the centers it feeds show high starved."""
+    busy: dict[str, float] = {}
+    blocked: dict[str, float] = {}
     for row in rows:
         location_id = row[0]
-        qty_arrival, material_ready, actual_start, actual_end, release_time = row[5:10]
-        starved, blocked, material_starved = classifier.classify(
-            queue_arrival_time=qty_arrival,
-            material_ready_time=material_ready,
-            actual_start=actual_start,
-            actual_end=actual_end,
-            release_time=release_time,
-        )
-        bucket = totals.setdefault(
-            location_id, {"starved": 0.0, "blocked": 0.0, "material_starved": 0.0}
-        )
-        bucket["starved"] += starved
-        bucket["blocked"] += blocked
-        bucket["material_starved"] += material_starved
-    return totals
+        _qa, _material_ready, actual_start, actual_end, release_time = row[5:10]
+        busy[location_id] = busy.get(location_id, 0.0) + (actual_end - actual_start)
+        blocked[location_id] = blocked.get(location_id, 0.0) + (release_time - actual_end)
+    return {
+        location_id: {
+            "starved": max(0.0, horizon - busy[location_id] - blocked[location_id]),
+            "blocked": blocked[location_id],
+            "material_starved": 0.0,
+        }
+        for location_id in busy
+    }
 
 
 @pytest.fixture
@@ -324,7 +322,7 @@ def test_utilization_by_machine_equals_utilization_by_cell_in_v1(main_fixture) -
 # ---------------------------------------------------------------------------
 
 
-def test_wait_seconds_by_location_matches_waitclassifier_totals(main_fixture) -> None:
+def test_wait_seconds_by_location_center_idle_decomposition(main_fixture) -> None:
     result = KpiEngine().compute(
         event_paths=main_fixture["event_path"],
         orders=main_fixture["orders"],
@@ -332,7 +330,7 @@ def test_wait_seconds_by_location_matches_waitclassifier_totals(main_fixture) ->
         labor_pool_capacity=main_fixture["labor_pool_capacity"],
     )
 
-    expected = _expected_wait_totals(MAIN_ROWS)
+    expected = _expected_wait_totals(MAIN_ROWS, HORIZON)
     assert result.wait_seconds_by_location["cell_a"]["starved"] == pytest.approx(
         expected["cell_a"]["starved"]
     )
@@ -374,7 +372,7 @@ def test_wait_seconds_by_location_categories_are_all_represented_in_fixture(
     )
     assert total_starved > 0
     assert total_blocked > 0
-    assert total_material_starved > 0
+    assert total_material_starved == pytest.approx(0.0)  # v1: material gating not wired
 
 
 # ---------------------------------------------------------------------------

@@ -82,7 +82,12 @@ class PullRule:
             return []
         eligible = [b for b in queue if self.setup_key_of[b.thing] == current_setup]
         if self.default_applied:
-            return eligible
+            # No batch declared: a work center pulls the NEXT job only (one bundle,
+            # arrival order), then loops for the next. Taking the whole queue as one
+            # firing would collapse real queue dynamics - the bottleneck would never
+            # build a backlog and nothing downstream would starve. Batching is opt-in
+            # via `batch_size`, never the default.
+            return eligible[:1]
         selected: list[Bundle] = []
         total = 0.0
         for bundle in eligible:

@@ -196,7 +196,8 @@ class HtmlReport:
             ),
             (
                 self._wait_figure(kpis),
-                "Where jobs waited, and why: no upstream work, blocked downstream, or waiting on material.",
+                "Idle time per center: starved = waiting for work, blocked = finished "
+                "but held. The bottleneck stays busy; the centers it feeds starve.",
             ),
             (self._wip_figure(kpis), "Jobs in progress at each work center over the run."),
         ]
@@ -204,7 +205,8 @@ class HtmlReport:
         for fig, note in figures:
             chart = fig.to_html(full_html=False, include_plotlyjs=False)
             parts.append(f"<div class='chart'>{chart}</div><p class='note'>{note}</p>")
-        return f"<section id='charts'><h2>Charts</h2>{self._plotly_library()}{''.join(parts)}</section>"
+        library = self._plotly_library()
+        return f"<section id='charts'><h2>Charts</h2>{library}{''.join(parts)}</section>"
 
     def _tables(self, kpis: KpiSet) -> str:
         return (

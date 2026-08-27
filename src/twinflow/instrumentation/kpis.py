@@ -124,7 +124,7 @@ class KpiEngine:
             on_time_pct=on_time_pct,
             utilization_by_cell=utilization_by_cell,
             utilization_by_machine=dict(utilization_by_cell),
-            wait_seconds_by_location=self._wait_seconds_by_location(events),
+            wait_seconds_by_location=self._wait_seconds_by_location(events, horizon),
             labor_pool_utilization={"default": total_busy_seconds / (horizon * capacity)},
             wip_by_location=self._wip_by_location(events),
             machine_hours_by_machine=machine_hours_by_machine,
@@ -202,26 +202,30 @@ class KpiEngine:
         return completion_by_order, lateness_by_order, on_time_pct
 
     @staticmethod
-    def _wait_seconds_by_location(events: pl.DataFrame) -> dict[str, dict[str, float]]:
-        """starved/blocked/material-starved totals per location_id, via the
-        already-done `WaitClassifier` (D-034) — wait logic lives there, not here."""
-        classifier = WaitClassifier()
+    def _wait_seconds_by_location(
+        events: pl.DataFrame, horizon: float
+    ) -> dict[str, dict[str, float]]:
+        """How each work CENTER spent the run: BUSY (processing), BLOCKED (finished a
+        job but holding it, unable to release downstream), or STARVED (idle, nothing
+        to work on). A CENTER view, not a per-job queue view - so the bottleneck runs
+        busy and shows ~0 starved, while the centers it feeds sit idle waiting on it
+        and show high starved. `blocked = release_time - actual_end` (held after
+        processing); `busy = actual_end - actual_start`; `starved` is the idle
+        remainder of the horizon. `material_starved` is reserved for finite-material
+        gating and is 0 in v1 (until reorder-point stocks land)."""
+        grouped = events.group_by("location_id").agg(
+            (pl.col("actual_end") - pl.col("actual_start")).sum().alias("busy"),
+            (pl.col("release_time") - pl.col("actual_end")).sum().alias("blocked"),
+        )
         totals: dict[str, dict[str, float]] = {}
-        for row in events.iter_rows(named=True):
-            starved, blocked, material_starved = classifier.classify(
-                queue_arrival_time=row["queue_arrival_time"],
-                material_ready_time=row["material_ready_time"],
-                actual_start=row["actual_start"],
-                actual_end=row["actual_end"],
-                release_time=row["release_time"],
-            )
-            bucket = totals.setdefault(
-                str(row["location_id"]),
-                {"starved": 0.0, "blocked": 0.0, "material_starved": 0.0},
-            )
-            bucket["starved"] += starved
-            bucket["blocked"] += blocked
-            bucket["material_starved"] += material_starved
+        for row in grouped.iter_rows(named=True):
+            busy = float(row["busy"])
+            blocked = float(row["blocked"])
+            totals[str(row["location_id"])] = {
+                "starved": max(0.0, horizon - busy - blocked),
+                "blocked": blocked,
+                "material_starved": 0.0,
+            }
         return totals
 
     @staticmethod
