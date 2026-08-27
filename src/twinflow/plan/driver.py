@@ -186,7 +186,7 @@ class RunDriver:
 
         locations: dict[str, Location] = {}
         for location_id, spec in fresh_specs.items():
-            machine_pool = simpy.PriorityResource(env, capacity=1)
+            machine_pool = simpy.PriorityResource(env, capacity=spec.capacity)
             labor_pool = labor_pools[self._pool_name_by_skill[spec.labor_skill]]
             locations[location_id] = Location(spec, env, machine_pool, labor_pool, event_log, rng)
 

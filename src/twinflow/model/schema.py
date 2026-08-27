@@ -38,3 +38,8 @@ class LocationSpec:
     `output_stocks`. `RunDriver` resolves each entry into a fresh, run-bound
     `Stock` and rewrites `destinations[thing]` to it, mirroring routing's own
     post-compile `destinations` rewrite."""
+
+    capacity: int = 1
+    """How many identical machines run in parallel at this center (COMP-030).
+    `RunDriver` sizes the location's machine pool to this, so up to `capacity`
+    jobs process concurrently. Default 1 (a single machine)."""

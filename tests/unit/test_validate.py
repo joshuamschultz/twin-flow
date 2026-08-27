@@ -578,3 +578,30 @@ class TestTimeModelVariationChecks:
             _with_cutter_time_model({"kind": "distribution", "mean": 0})
         )
         assert any("locations[0].time_model" in e.path for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# COMP-030 capacity-N: a work center's machine count must be a positive integer.
+# ---------------------------------------------------------------------------
+
+
+def _with_cutter_capacity(value: object) -> RawModel:
+    data = _baseline_data()
+    data["locations"][0]["capacity"] = value
+    return _raw(data)
+
+
+class TestCapacityChecks:
+    def test_positive_integer_capacity_passes(self) -> None:
+        assert _validator().validate(_with_cutter_capacity(3)) == []
+
+    def test_absent_capacity_passes(self) -> None:
+        assert _validator().validate(_raw(_baseline_data())) == []
+
+    def test_zero_capacity_is_flagged(self) -> None:
+        errors = _validator().validate(_with_cutter_capacity(0))
+        assert any("capacity" in e.path for e in errors)
+
+    def test_non_integer_capacity_is_flagged(self) -> None:
+        errors = _validator().validate(_with_cutter_capacity(2.5))
+        assert any("capacity" in e.path for e in errors)

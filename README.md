@@ -128,12 +128,12 @@ You model a floor by naming a few kinds of thing in config. Here is the whole vo
 | **Setup / changeover** | A changeover matrix: parts in the same setup group run back to back for free; others pay the declared changeover time. | ✅ |
 | **Routing** | The ordered list of work centers a part visits (`routing: [{part, steps}]`). | ✅ |
 | **Bill of materials** | Rolled up automatically from what each operation consumes. You never hand-write it. | ✅ |
+| **Capacity-N work center** | `capacity: N` on a work center gives it N identical machines in parallel; jobs pull whichever is free, so up to N run at once. The report's flow diagram draws it as a stack of N machines. (v1 shares one setup state across the N machines.) See [`examples/cnc-shop-3mill`](examples/cnc-shop-3mill/). | ✅ |
 
-**Five general capabilities being added now** - each is framework-wide, usable by any floor; the multi-station foundry is just the proof.
+**Four general capabilities being added now** - each is framework-wide, usable by any floor; the multi-station foundry is just the proof.
 
 | Capability | What it lets you model | |
 |---|---|---|
-| **Capacity-N work center** | One work center with several identical machines running in parallel, each with its own setup. | 🚧 |
 | **Reorder-point stock** | A stock that refills itself when it drops below a set level - any consumable or feedstock. | 🚧 |
 | **Probabilistic routing / quality gate** | Send whole units down a pass or fail path by chance (inspection, rework), which is different from a fixed scrap rate. | 🚧 |
 | **Batch / hold operation** | One timed hold over a whole group at once - an oven, a cure, a dry, a cool. | 🚧 |

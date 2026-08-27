@@ -355,16 +355,31 @@ class HtmlReport:
 
         for loc in model.locations:
             loc_id = loc.location_id
+            capacity = getattr(loc, "capacity", 1)
             util = kpis.utilization_by_cell.get(loc_id, 0.0) * 100
             firings = kpis.event_counts_by_location.get(loc_id, 0)
             hours = kpis.machine_hours_by_machine.get(loc_id, 0.0)
             cycle = (hours * 3600.0 / firings) if firings else 0.0
-            label = (
-                f"<b>{_e(loc_id)}</b><br/>util {util:.0f}% · {cycle:.0f}s/job"
-                f"<br/>wip peak {wip_peak.get(loc_id, 0)}"
-            )
             cls = "bott" if loc_id == bottleneck else "wc"
-            lines.append(f'  {_nid(loc_id)}["{label}"]:::{cls}')
+            if capacity > 1:
+                # A bank of N parallel machines: draw them stacked inside the center,
+                # each labelled with the rate it runs at (COMP-030).
+                title = f"{_e(loc_id)} · util {util:.0f}% · wip peak {wip_peak.get(loc_id, 0)}"
+                lines.append(f'  subgraph {_nid(loc_id)} ["{title}"]')
+                lines.append("    direction TB")
+                for m in range(1, capacity + 1):
+                    mid = _nid(f"{loc_id}__m{m}")
+                    lines.append(f'    {mid}["machine {m}<br/>{cycle:.0f}s/job"]:::mach')
+                lines.append("  end")
+                fill = "#FFF3E6" if loc_id == bottleneck else "#F6F8FB"
+                stroke = "#F68D2E" if loc_id == bottleneck else "#3A6BA8"
+                lines.append(f"  style {_nid(loc_id)} fill:{fill},stroke:{stroke};")
+            else:
+                label = (
+                    f"<b>{_e(loc_id)}</b><br/>util {util:.0f}% · {cycle:.0f}s/job"
+                    f"<br/>wip peak {wip_peak.get(loc_id, 0)}"
+                )
+                lines.append(f'  {_nid(loc_id)}["{label}"]:::{cls}')
             # incoming stock feeds (a consumed thing that is a declared stock)
             for thing in loc.pull_rule.setup_key_of:
                 if thing in stock_names:
@@ -384,6 +399,7 @@ class HtmlReport:
         lines += [
             "classDef stock fill:#EEF4FF,stroke:#0073FE,color:#0B1220;",
             "classDef wc fill:#FFFFFF,stroke:#3A6BA8,color:#0B1220;",
+            "classDef mach fill:#FFFFFF,stroke:#5A9CFF,color:#0B1220;",
             "classDef bott fill:#FFF3E6,stroke:#F68D2E,color:#0B1220,stroke-width:2px;",
             "classDef fin fill:#002550,stroke:#001A38,color:#FFFFFF;",
         ]

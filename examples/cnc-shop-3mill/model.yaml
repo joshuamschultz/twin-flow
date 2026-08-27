@@ -1,0 +1,247 @@
+# CNC SHOP worked example -- a machine shop floor expressed purely as config.
+#
+# Two part families run through the same four-step process shape:
+#   raw stock -> saw -> CNC mill -> deburr -> inspect (scrap rate) -> finished
+#
+#   shaft   : round_bar (ft, continuous-to-discrete cut, 4 blanks/ft) -> ... -> shaft
+#   bracket : square_billet (piece, already discrete)                -> ... -> bracket
+#
+# Each family gets its OWN location at every step (saw_shaft/saw_bracket,
+# mill_shaft/mill_bracket, ...), each with its own `setup_key` (grp_mill_shaft
+# vs grp_mill_bracket, etc.) -- the plain-language declaration of "these two
+# families are different setup/fixture groups" (D-044: primitives never learn
+# what a changeover is, only a compiled SetupPolicy/PullRule). This is the
+# schema-correct way to keep each family's part identity distinct end to end
+# (routing's last step must emit the specific finished part named in
+# `routing[*].part`), while staying a single work center per step (no
+# This VARIANT invests in capacity: the CNC mill step runs THREE machines in
+# per the task brief). See README.md for the documented gap this surfaces:
+# `LocationCompiler` hardcodes changeover seconds to 0.0 today, so
+# `setup_key` currently governs PullRule batching eligibility only, not an
+# elapsed changeover time.
+#
+# Two labor skills: `machinist` runs saw + mill, `inspector` runs deburr +
+# inspect -- one shared floor_pool, same style as examples/spring.
+
+defaults:
+  # Real floors are variable: every cycle time gets a +/-20% lognormal
+  # spread by default, so replicated runs report a confidence range, not a
+  # single fake-certain number. Any location may override with its own `cv`.
+  cycle_time_cv: 0.2
+
+stocks:
+  - name: round_bar
+    uom: ft
+  - name: square_billet
+    uom: piece
+
+part_types:
+  - name: round_bar
+    uom: ft
+    attributes: {}
+  - name: square_billet
+    uom: piece
+    attributes: {}
+  - name: shaft_blank
+    uom: piece
+    attributes: {}
+  - name: shaft_milled
+    uom: piece
+    attributes: {}
+  - name: shaft_deburred
+    uom: piece
+    attributes: {}
+  - name: shaft
+    uom: piece
+    attributes: {}
+  - name: shaft_scrap
+    uom: piece
+    attributes: {}
+  - name: bracket_blank
+    uom: piece
+    attributes: {}
+  - name: bracket_milled
+    uom: piece
+    attributes: {}
+  - name: bracket_deburred
+    uom: piece
+    attributes: {}
+  - name: bracket
+    uom: piece
+    attributes: {}
+  - name: bracket_scrap
+    uom: piece
+    attributes: {}
+
+machines:
+  - name: saw_shaft_m
+  - name: mill_shaft_m
+  - name: deburr_shaft_m
+  - name: inspect_shaft_m
+  - name: saw_bracket_m
+  - name: mill_bracket_m
+  - name: deburr_bracket_m
+  - name: inspect_bracket_m
+
+labor:
+  pools:
+    - name: floor_pool
+      headcount: 6
+      skills: [machinist, inspector]
+
+locations:
+  # ---------------------------------------------------------------- shaft --
+  # Continuous-to-discrete: 1 ft of round bar (the basis) yields 4 blanks.
+  - name: saw_shaft
+    consumes:
+      - thing: round_bar
+        qty: 1
+        uom: ft
+    emits:
+      - thing: shaft_blank
+        qty: 4
+        uom: piece
+    setup_key: grp_saw_shaft
+    time_model:
+      kind: rate_based
+      rate: 0.5
+    machine: saw_shaft_m
+    labor_skill: machinist
+
+  # BOTTLENECK: the CNC mill is far slower than every other step in the
+  # chain (0.03 piece/s vs. 0.5-2.0 elsewhere) so its queue is the one that
+  # builds -- see README.md "What this shows".
+  - name: mill_shaft
+    consumes:
+      - thing: shaft_blank
+        qty: 1
+        uom: piece
+    emits:
+      - thing: shaft_milled
+        qty: 1
+        uom: piece
+    setup_key: grp_mill_shaft
+    capacity: 3
+    time_model:
+      kind: rate_based
+      rate: 0.03
+    machine: mill_shaft_m
+    labor_skill: machinist
+
+  - name: deburr_shaft
+    consumes:
+      - thing: shaft_milled
+        qty: 1
+        uom: piece
+    emits:
+      - thing: shaft_deburred
+        qty: 1
+        uom: piece
+    setup_key: grp_deburr_shaft
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: deburr_shaft_m
+    labor_skill: inspector
+
+  # Scrap rate lives here: 3% of deburred shafts are scrapped at inspection.
+  - name: inspect_shaft
+    consumes:
+      - thing: shaft_deburred
+        qty: 1
+        uom: piece
+    emits:
+      - thing: shaft
+        uom: piece
+    scrap:
+      rate: 0.03
+      thing: shaft_scrap
+      uom: piece
+    setup_key: grp_inspect_shaft
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: inspect_shaft_m
+    labor_skill: inspector
+
+  # --------------------------------------------------------------bracket --
+  # Billet is already discrete: 1 billet piece (the basis) yields 1 blank.
+  - name: saw_bracket
+    consumes:
+      - thing: square_billet
+        qty: 1
+        uom: piece
+    emits:
+      - thing: bracket_blank
+        qty: 1
+        uom: piece
+    setup_key: grp_saw_bracket
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: saw_bracket_m
+    labor_skill: machinist
+
+  # BOTTLENECK: same story as mill_shaft -- the CNC mill is the slow step
+  # for the bracket family too.
+  - name: mill_bracket
+    consumes:
+      - thing: bracket_blank
+        qty: 1
+        uom: piece
+    emits:
+      - thing: bracket_milled
+        qty: 1
+        uom: piece
+    setup_key: grp_mill_bracket
+    capacity: 3
+    time_model:
+      kind: rate_based
+      rate: 0.03
+    machine: mill_bracket_m
+    labor_skill: machinist
+
+  - name: deburr_bracket
+    consumes:
+      - thing: bracket_milled
+        qty: 1
+        uom: piece
+    emits:
+      - thing: bracket_deburred
+        qty: 1
+        uom: piece
+    setup_key: grp_deburr_bracket
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: deburr_bracket_m
+    labor_skill: inspector
+
+  # Scrap rate lives here too: 5% of deburred brackets are scrapped.
+  - name: inspect_bracket
+    consumes:
+      - thing: bracket_deburred
+        qty: 1
+        uom: piece
+    emits:
+      - thing: bracket
+        uom: piece
+    scrap:
+      rate: 0.05
+      thing: bracket_scrap
+      uom: piece
+    setup_key: grp_inspect_bracket
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: inspect_bracket_m
+    labor_skill: inspector
+
+routing:
+  - part: shaft
+    steps: [saw_shaft, mill_shaft, deburr_shaft, inspect_shaft]
+  - part: bracket
+    steps: [saw_bracket, mill_bracket, deburr_bracket, inspect_bracket]
+
+processes: []
+bom: []

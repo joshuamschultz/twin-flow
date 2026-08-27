@@ -112,6 +112,7 @@ class LocationCompiler:
             material_requirement=None,
             destinations=destinations,
             stock_destinations=stock_destinations,
+            capacity=int(loc.get("capacity", 1)),
         )
 
 

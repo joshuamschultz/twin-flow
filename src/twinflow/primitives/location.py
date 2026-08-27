@@ -159,6 +159,9 @@ class Location:
         self._arrival_times: dict[int, float] = {}
         self._arrival_event: simpy.Event = env.event()
         self._lot_counter = 0
+        self._capacity: int = getattr(spec, "capacity", 1)
+        self._in_flight = 0
+        self._free_event: simpy.Event | None = None
 
     def enqueue(self, bundle: Bundle) -> None:
         """Append `bundle` to the queue, stamping its queue_arrival_time. Non-blocking."""
@@ -168,10 +171,27 @@ class Location:
             self._arrival_event.succeed()
 
     def run(self) -> Generator[simpy.Event, None, None]:
-        """Loop forever, executing the fixed eight-step order once per firing."""
+        """Dispatch loop: pull the next job (a single puller, so no queue race),
+        then run its firing concurrently on one of the center's `capacity`
+        machines. With capacity 1 this is exactly the old one-job-at-a-time loop;
+        with capacity N up to N firings run in parallel (COMP-030)."""
         while True:
             selected = yield from self._wait_for_selection()
+            self.env.process(self._fire_and_release(selected))
+            self._in_flight += 1
+            while self._in_flight >= self._capacity:
+                self._free_event = self.env.event()
+                yield self._free_event
+
+    def _fire_and_release(self, selected: list[Bundle]) -> Generator[simpy.Event, None, None]:
+        """Run one firing, then free the machine so the dispatcher can pull again."""
+        try:
             yield from self._fire(selected)
+        finally:
+            self._in_flight -= 1
+            if self._free_event is not None and not self._free_event.triggered:
+                self._free_event.succeed()
+                self._free_event = None
 
     def _target_setup(self) -> str | None:
         """The setup group this firing should select against.

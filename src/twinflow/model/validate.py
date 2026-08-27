@@ -76,6 +76,7 @@ class ModelValidator:
             try:
                 errors.extend(self._expression_checks(idx, loc))
                 errors.extend(_time_model_checks(idx, loc))
+                errors.extend(_capacity_checks(idx, loc))
                 errors.extend(_unit_checks(idx, loc))
                 errors.extend(_field_combination_checks(idx, loc))
             except Exception as exc:  # noqa: BLE001 -- per-location isolation (D-007)
@@ -304,6 +305,23 @@ def _basis_uom(loc: RawLocation) -> str | None:
     if not consumes:
         return None
     return str(consumes[0]["uom"])
+
+
+def _capacity_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
+    """A declared `capacity` (parallel machines at the center, COMP-030) must be a
+    positive integer. Absent means one machine."""
+    if "capacity" not in loc:
+        return []
+    capacity = loc["capacity"]
+    ok = isinstance(capacity, int) and not isinstance(capacity, bool) and capacity >= 1
+    if ok:
+        return []
+    return [
+        ValidationError(
+            path=f"locations[{idx}].capacity",
+            message=f"capacity must be a positive integer, got {capacity!r}",
+        )
+    ]
 
 
 def _time_model_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
