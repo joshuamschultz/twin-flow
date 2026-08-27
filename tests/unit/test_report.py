@@ -160,15 +160,17 @@ _EXTERNAL_URL_ATTR = re.compile(r'(?:src|href)\s*=\s*["\']https?://', re.IGNOREC
 # traces this report never builds. Scrubbing them out of the bundle corrupts Plotly
 # and blanks every chart, so we exclude the delimited library block from the scan
 # instead.
-_PLOTLY_LIB_BLOCK = re.compile(
-    r"<script id=['\"]twinflow-plotly-lib['\"]>.*?</script>",
+_VENDOR_LIB_BLOCK = re.compile(
+    r"<script id=['\"]twinflow-(?:plotly|mermaid)-lib['\"]>.*?</script>",
     re.IGNORECASE | re.DOTALL,
 )
 
 
 def _own_markup(html: str) -> str:
-    """The report HTML with the vendored Plotly library block removed."""
-    return _PLOTLY_LIB_BLOCK.sub("", html)
+    """The report HTML with the vendored Plotly and Mermaid library blocks removed -
+    those inline third-party bundles carry inert internal URLs that are not assets our
+    own markup loads."""
+    return _VENDOR_LIB_BLOCK.sub("", html)
 
 
 # ---------------------------------------------------------------------------

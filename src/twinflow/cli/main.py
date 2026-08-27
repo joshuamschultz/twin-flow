@@ -223,7 +223,7 @@ def _write_run_artifacts(
     assumptions = AssumptionsCollector().collect(compiled)
     stamp = RunStamp.create(model_path, plan_path, base_seed=_BASE_SEED)
     write_kpi_json(kpis, _KPI_SCHEMA_VERSION, run_dir / "kpis.json")
-    render_html(kpis, assumptions, stamp, run_dir / "report.html")
+    render_html(kpis, assumptions, stamp, run_dir / "report.html", model=compiled)
     (run_dir / "run_meta.json").write_text(json.dumps(stamp.to_dict(), indent=2), encoding="utf-8")
 
 
