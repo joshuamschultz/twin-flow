@@ -1,0 +1,11 @@
+work_order_id,part,qty,start_date,due_date
+wo-1,shaft,15,0,1500
+wo-2,bracket,20,100,1600
+wo-3,shaft,25,300,2000
+wo-4,bracket,10,400,2100
+wo-5,shaft,30,600,2500
+wo-6,bracket,18,700,2600
+wo-7,shaft,12,900,3000
+wo-8,bracket,22,1000,3100
+wo-9,shaft,20,1200,3500
+wo-10,bracket,16,1300,3600

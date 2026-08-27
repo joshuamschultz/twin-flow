@@ -1,0 +1,11 @@
+work_order_id,part,qty,start_date,due_date
+wo-1,bracket,15,0,50000
+wo-2,flywheel,10,300,50000
+wo-3,bracket,8,900,55000
+wo-4,flywheel,18,1500,55000
+wo-5,bracket,22,2200,60000
+wo-6,flywheel,6,3000,60000
+wo-7,bracket,12,3800,65000
+wo-8,flywheel,14,4600,65000
+wo-9,bracket,9,5400,70000
+wo-10,flywheel,20,6200,70000
