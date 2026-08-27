@@ -14,6 +14,12 @@
 # each its own finished part type with its own panel/strip consumption ratio.
 # See README.md for the exact schema gap and what a fix would need.
 
+defaults:
+  # Real floors are variable: every cycle time gets a +/-20% lognormal
+  # spread by default, so replicated runs report a confidence range, not a
+  # single fake-certain number. Any location may override with its own `cv`.
+  cycle_time_cv: 0.2
+
 stocks: []
 
 part_types:

@@ -82,3 +82,57 @@ def test_compiled_draw_is_reproducible() -> None:
     a = _runs(tm, qty=1.0, n=300, seed=99)
     b = _runs(tm, qty=1.0, n=300, seed=99)
     assert list(a) == list(b)
+
+
+def _compile_with_defaults(defaults_yaml: str, cv_line: str):
+    """Compile a single rate_based location under a model-level `defaults` block."""
+    model_yaml = f"""
+{defaults_yaml}
+stocks: []
+part_types: {{}}
+machines: []
+labor: {{}}
+processes: []
+bom: []
+locations:
+  - name: op
+    consumes:
+      - {{thing: raw, qty: 1, uom: piece}}
+    emits:
+      - {{thing: done, qty: 1, uom: piece}}
+    setup_key: g
+    time_model:
+      kind: rate_based
+      rate: 10
+{cv_line}
+    machine: m
+    labor_skill: s
+routing:
+  - part: done
+    steps: [op]
+"""
+    registry = PartTypeRegistry(
+        {"raw": {"attributes": {}, "uom": "piece"}, "done": {"attributes": {}, "uom": "piece"}}
+    )
+    compiler = LocationCompiler(registry, ExpressionSandbox(max_depth=10, max_length=200))
+    result = compiler.compile(RawModel(yaml.safe_load(model_yaml)))
+    return next(loc for loc in result.locations if loc.location_id == "op").time_model
+
+
+def test_model_default_cv_gives_every_time_model_variation() -> None:
+    tm = _compile_with_defaults("defaults:\n  cycle_time_cv: 0.2", "")
+    s = _runs(tm, qty=100.0)
+    assert s.mean() == pytest.approx(10.0, rel=0.03)
+    assert (s.std() / s.mean()) == pytest.approx(0.2, rel=0.08)
+
+
+def test_location_cv_overrides_the_model_default() -> None:
+    tm = _compile_with_defaults("defaults:\n  cycle_time_cv: 0.2", "      cv: 0.5")
+    s = _runs(tm, qty=100.0)
+    assert (s.std() / s.mean()) == pytest.approx(0.5, rel=0.08)
+
+
+def test_no_default_and_no_cv_stays_deterministic() -> None:
+    tm = _compile_with_defaults("", "")
+    s = _runs(tm, qty=100.0, n=300)
+    assert (s == 10.0).all()

@@ -37,7 +37,7 @@ No custom code per plant. **One `model.yaml` plus a production plan (`.xlsx` or 
 |---|---|
 | Will these orders ship on time? | Completion dates and on-time %, each with a confidence range |
 | Where does the line actually choke? | Utilization per cell and per machine, and a clear wait breakdown: starved vs blocked vs waiting-on-material |
-| Is one more operator worth it? | A paired what-if that reports a confidence interval on the *difference*, not two ranges that hide the signal |
+| Is one more operator worth it? | Run each staffing level many times and compare their on-time confidence ranges side by side (a paired confidence interval on the *difference* is on the roadmap) |
 | How big should the batch or buffer be? | Every option on a lever grid, side by side, fairly compared |
 | Can I trust last quarter's number? | A reproducibility stamp on every run: same inputs, same answer, forever |
 
@@ -121,7 +121,8 @@ You model a floor by naming a few kinds of thing in config. Here is the whole vo
 
 | Knob | What it does | |
 |---|---|---|
-| **Time model** | How long an operation takes: a distribution, a rate (`qty / rate`), or scaled by an attribute; with an optional load/run/unload split. | ✅ |
+| **Time model** | How long an operation takes: a named distribution (`lognormal`, `normal`, `triangular`, `uniform`, `exponential`) by `mean` + `cv`, a rate (`qty / rate`), or scaled by an attribute; with an optional load/run/unload split. | ✅ |
+| **Variation** | Real floors are variable. Add `cv: 0.2` to any time model, or set `defaults: {cycle_time_cv: 0.2}` once, and every cycle time gets a lognormal spread - so replicated runs report a confidence range instead of a fake-certain number. `0` keeps it deterministic. | ✅ |
 | **Scrap** | Declare `scrap: {rate: 0.05, ...}` and the engine makes the good/scrap split for you. Scrap is just an ordinary output bundle. | ✅ |
 | **Batching / pull rule** | Take the queue in arrival order by default, or accumulate to a batch threshold in the thing's own unit (`batch_size: "200 piece"`, `"500 lb"`). | ✅ |
 | **Setup / changeover** | A changeover matrix: parts in the same setup group run back to back for free; others pay the declared changeover time. | ✅ |
@@ -161,6 +162,8 @@ twinflow report <run-id> --out html                              # render the em
 ```
 
 > `--sweep` takes a small **JSON** file: `{"labor.pools[0].headcount": [2, 3, 4]}`.
+>
+> Run with `--reps` greater than 1 to get the confidence ranges: the report's headline card and its **Confidence ranges** charts then show each KPI's mean and its low-to-high band across the replications.
 
 Or drive it from Python - the same operations, callable in your own code:
 
@@ -187,7 +190,7 @@ Everything here is **built and tested** (326 passing tests). The library API is 
 | **Reproducible, seeded runs** | Every run is repeatable to the number. Same inputs, same answer - which is what makes fair comparison possible. |
 | **KPIs from one event log** | Completion dates and on-time %, per-cell and per-machine utilization, a clear wait breakdown (starved / blocked / waiting-on-material), labor and machine hours, setup hours separate from run hours, and work-in-progress over time. |
 | **What-if lever sweeps** | Try staffing, buffers, and batch sizes across a grid and see every option side by side, fairly paired with common random numbers. The twin shows the trade space and deliberately picks **no winner** - the call stays yours. |
-| **Replications + confidence intervals** | Run many replications in parallel. Compare two setups and get a confidence interval on the *difference*, not two overlapping ranges. |
+| **Replications + confidence intervals** | Run many replications in parallel; every headline KPI comes back as a mean with a low-to-high confidence range, shown in the report as range charts. (A paired confidence interval on the *difference* between two setups is on the roadmap.) |
 | **One emailable report** | A single self-contained HTML file that opens offline with no internet, plus a versioned JSON file for machines. Every report opens with the assumptions the engine had to make, stated plainly. |
 | **Full reproducibility stamp** | Each run records hashes of the model and plan, the seed, the engine version, the Python version, and the exact dependency set. A result can always be traced back and re-created. |
 

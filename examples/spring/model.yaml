@@ -9,6 +9,12 @@
 # Transform contract -- D-043/D-044: remainders are never a special case, just
 # another `emits` entry with its own declared ratio against the same basis).
 
+defaults:
+  # Real floors are variable: every cycle time gets a +/-20% lognormal
+  # spread by default, so replicated runs report a confidence range, not a
+  # single fake-certain number. Any location may override with its own `cv`.
+  cycle_time_cv: 0.2
+
 stocks:
   - name: wire
     uom: ft

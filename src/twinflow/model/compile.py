@@ -61,7 +61,11 @@ class LocationCompiler:
         """Compile every declared location, the routing graph, and the rolled-up BOM."""
         raw_locations = cast(list[RawLocation], raw_model.locations)
         locations_by_id = {loc["name"]: loc for loc in raw_locations}
-        compiled_locations = [self._compile_location(loc) for loc in raw_locations]
+        # A model-level default spread so a real, variable floor is the out-of-the-box
+        # behaviour; any location's own `cv` overrides it, and 0.0 stays deterministic.
+        defaults = cast(dict[str, Any], raw_model.data.get("defaults", {}))
+        default_cv = float(defaults.get("cycle_time_cv", 0.0))
+        compiled_locations = [self._compile_location(loc, default_cv) for loc in raw_locations]
 
         raw_routing = cast(list[dict[str, Any]], raw_model.routing)
         routing = {item["part"]: list(item["steps"]) for item in raw_routing}
@@ -72,7 +76,7 @@ class LocationCompiler:
 
         return CompileResult(locations=compiled_locations, routing=routing, bom=bom)
 
-    def _compile_location(self, loc: RawLocation) -> LocationSpec:
+    def _compile_location(self, loc: RawLocation, default_cv: float = 0.0) -> LocationSpec:
         """Compile one `locations[i]` entry into a LocationSpec, per the committed
         model.yaml LOCATION schema (test_compile.py's docstring is its source of
         truth)."""
@@ -85,7 +89,7 @@ class LocationCompiler:
             setup_key_of=setup_key_of, changeover_matrix={}, default_seconds=0.0
         )
 
-        time_model = _build_time_model(loc["time_model"])
+        time_model = _build_time_model(loc["time_model"], default_cv)
 
         destinations: dict[str, Stock | list[Bundle]] = {
             thing: [] for thing in _all_output_things(loc)
@@ -111,29 +115,31 @@ class LocationCompiler:
         )
 
 
-def _build_time_model(raw: dict[str, Any]) -> TimeModel:
+def _build_time_model(raw: dict[str, Any], default_cv: float = 0.0) -> TimeModel:
     """Compile a declared `time_model` into a pure `TimeModel` (D-044).
 
-    `distribution` becomes a seeded absolute-time `draw`; a `cv` on a
-    `rate_based`/`attribute_scaled` model becomes a mean-1 multiplicative
-    `noise`. `load`/`unload` pass through as fixed phase seconds.
+    `distribution` becomes a seeded absolute-time `draw`; a `cv` (the location's
+    own, else the model-level `default_cv`) on a `rate_based`/`attribute_scaled`
+    model becomes a mean-1 multiplicative `noise`. `load`/`unload` pass through as
+    fixed phase seconds.
     """
     kind = raw["kind"]
     reserved = {"kind", "load", "unload"}
     load = float(raw.get("load", 0.0))
     unload = float(raw.get("unload", 0.0))
+    cv = float(raw.get("cv", default_cv))
 
     if kind == KIND_DISTRIBUTION:
         spec = {key: value for key, value in raw.items() if key not in reserved}
         params: dict[str, Any] = {"draw": build_draw(spec)}
     elif kind == KIND_RATE_BASED:
         params = {"rate": raw["rate"]}
-        if "cv" in raw:
-            params["noise"] = build_noise(float(raw["cv"]))
+        if cv > 0.0:
+            params["noise"] = build_noise(cv)
     elif kind == KIND_ATTRIBUTE_SCALED:
         params = {key: value for key, value in raw.items() if key not in reserved | {"cv"}}
-        if "cv" in raw:
-            params["noise"] = build_noise(float(raw["cv"]))
+        if cv > 0.0:
+            params["noise"] = build_noise(cv)
     else:
         # TimeModel.__init__ owns the canonical "unknown kind" error.
         params = {key: value for key, value in raw.items() if key not in reserved}

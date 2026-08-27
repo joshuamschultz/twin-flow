@@ -21,6 +21,12 @@
 # stations, no quality gates, no batch cooling -- those are later phases of
 # the multi-station-foundry feature, not needed for this worked example.
 
+defaults:
+  # Real floors are variable: every cycle time gets a +/-20% lognormal
+  # spread by default, so replicated runs report a confidence range, not a
+  # single fake-certain number. Any location may override with its own `cv`.
+  cycle_time_cv: 0.2
+
 stocks:
   - name: metal_ingot
     uom: lb

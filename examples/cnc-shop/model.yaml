@@ -23,6 +23,12 @@
 # Two labor skills: `machinist` runs saw + mill, `inspector` runs deburr +
 # inspect -- one shared floor_pool, same style as examples/spring.
 
+defaults:
+  # Real floors are variable: every cycle time gets a +/-20% lognormal
+  # spread by default, so replicated runs report a confidence range, not a
+  # single fake-certain number. Any location may override with its own `cv`.
+  cycle_time_cv: 0.2
+
 stocks:
   - name: round_bar
     uom: ft
