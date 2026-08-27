@@ -41,6 +41,16 @@ BLANKS_PER_FT = 5.0
 REMAINDER_FT_PER_FT = 0.16667
 
 
+def _plan_orders_and_total(path: Path) -> tuple[int, float]:
+    """(number of work orders, total demanded qty) read straight from the plan CSV,
+    so the assertions track the plan instead of hard-coded order counts."""
+    import csv
+
+    with path.open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    return len(rows), sum(float(row["qty"]) for row in rows)
+
+
 @pytest.fixture
 def isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Run inside tmp_path so `runs/<run-id>/` never touches the repo tree."""
@@ -117,16 +127,17 @@ def test_run_writes_a_readable_event_log_and_kpis_json(isolated_cwd: Path) -> No
     # qty (its job_bundle is `blank`, per plan/driver.py's routing wiring) is
     # exactly `BLANKS_PER_FT` times what `cut` consumed of `wire`, for both
     # work orders in plan.csv.
+    n_orders, total_qty = _plan_orders_and_total(PLAN_PATH)
     cut_rows = df.filter(pl.col("location_id") == "cut").sort("queue_arrival_time")
     form_rows = df.filter(pl.col("location_id") == "form").sort("queue_arrival_time")
-    assert cut_rows.height == 2
-    assert form_rows.height == 2
+    assert cut_rows.height == n_orders
+    assert form_rows.height == n_orders
     for wire_ft, blank_qty in zip(cut_rows["qty"], form_rows["qty"], strict=True):
         assert blank_qty == pytest.approx(wire_ft * BLANKS_PER_FT)
 
     # Every finished spring the plan demanded actually reached `coat`.
     coat_rows = df.filter(pl.col("location_id") == "coat")
-    assert coat_rows["qty"].sum() == pytest.approx(20.0 + 30.0)
+    assert coat_rows["qty"].sum() == pytest.approx(total_qty)
 
 
 def test_registry_declares_every_part_in_the_chain() -> None:

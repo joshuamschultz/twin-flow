@@ -1,3 +1,10 @@
 work_order_id,part,qty,start_date,due_date
 wo-1,coated,20,0,100000
-wo-2,coated,30,1000,100000
+wo-2,coated,30,500,100000
+wo-3,coated,15,1000,100000
+wo-4,coated,25,1500,100000
+wo-5,coated,40,2000,100000
+wo-6,coated,18,2500,100000
+wo-7,coated,22,3000,100000
+wo-8,coated,35,3500,100000
+wo-9,coated,28,4000,100000
