@@ -96,6 +96,52 @@ You declare *what the floor does* - "5% scrap", "batches of 200", "cut then pack
 
 ---
 
+## 🧱 The building blocks
+
+You model a floor by naming a few kinds of thing in config. Here is the whole vocabulary in plain language. **Legend: ✅ available now · 🚧 in progress** (the five general capabilities at the end are being built now and work on any floor, not just foundries).
+
+**Resources - what work competes for**
+
+| Piece | What it is | |
+|---|---|---|
+| **Machine** | A server inside a work center that does the work and remembers its own setup/changeover state. | ✅ |
+| **Labor pool** | A named, skilled group of operators, separate from machines, limited by shift calendars (available-to-work hours). Unload work outranks fresh loads, so machines get freed first. | ✅ |
+| **Stock** | A material level you pull from by name (raw metal, wire, fasteners). Blocks work when it is empty and reports the time lost waiting on material. | ✅ |
+
+**What flows, and the operation it flows through**
+
+| Piece | What it is | |
+|---|---|---|
+| **Bundle** | The unit of flow: a quantity of one part type, in one unit of measure, with attributes. It never changes in place. | ✅ |
+| **Part type** | A declared thing with its single unit of measure and its typed attributes (`part_types: [{name, uom}]`). | ✅ |
+| **Transform** | The one contract every operation uses: a list of input bundles becomes a list of output bundles. Cutting, pouring, assembly, sorting, yield loss - all the same mechanism, no special cases. | ✅ |
+| **Location (work center)** | The floor node that runs an operation. It pulls a job, grabs a machine then an operator, consumes material, charges setup then run time, applies scrap, emits outputs, then releases the operator and the machine - a fixed, auditable order every time. | ✅ |
+
+**Modeling knobs - plain-language config the engine turns into mechanism**
+
+| Knob | What it does | |
+|---|---|---|
+| **Time model** | How long an operation takes: a distribution, a rate (`qty / rate`), or scaled by an attribute; with an optional load/run/unload split. | ✅ |
+| **Scrap** | Declare `scrap: {rate: 0.05, ...}` and the engine makes the good/scrap split for you. Scrap is just an ordinary output bundle. | ✅ |
+| **Batching / pull rule** | Take the queue in arrival order by default, or accumulate to a batch threshold in the thing's own unit (`batch_size: "200 piece"`, `"500 lb"`). | ✅ |
+| **Setup / changeover** | A changeover matrix: parts in the same setup group run back to back for free; others pay the declared changeover time. | ✅ |
+| **Routing** | The ordered list of work centers a part visits (`routing: [{part, steps}]`). | ✅ |
+| **Bill of materials** | Rolled up automatically from what each operation consumes. You never hand-write it. | ✅ |
+
+**Five general capabilities being added now** - each is framework-wide, usable by any floor; the multi-station foundry is just the proof.
+
+| Capability | What it lets you model | |
+|---|---|---|
+| **Capacity-N work center** | One work center with several identical machines running in parallel, each with its own setup. | 🚧 |
+| **Reorder-point stock** | A stock that refills itself when it drops below a set level - any consumable or feedstock. | 🚧 |
+| **Probabilistic routing / quality gate** | Send whole units down a pass or fail path by chance (inspection, rework), which is different from a fixed scrap rate. | 🚧 |
+| **Batch / hold operation** | One timed hold over a whole group at once - an oven, a cure, a dry, a cool. | 🚧 |
+| **Output-to-stock (recycle / remelt)** | Route scrap or rework back into a named stock so the material re-enters the flow. | 🚧 |
+
+Everything above is declared in config. The engine has no per-client code, so the same vocabulary models any discrete floor.
+
+---
+
 ## 🚀 Quick start
 
 Install from source:
