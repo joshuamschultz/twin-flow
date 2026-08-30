@@ -8,3 +8,7 @@ __pycache__/
 build/
 dist/
 runs/
+
+# Working / planning files — keep out of the pushed repo
+.claude/
+*.pdf

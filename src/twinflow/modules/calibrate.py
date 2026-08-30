@@ -19,11 +19,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from twinflow.instrumentation.kpis import KpiSet
-from twinflow.modules import optimize as run_optimize
 from twinflow.modules.objectives import MetricObjective, Objective
 from twinflow.modules.optimizers import OptimizationResult, Optimizer
 from twinflow.modules.space import LeverSpace
-from twinflow.modules.surface import Evaluation
+from twinflow.modules.surface import ScoringSurface
 from twinflow.plan.loader import WorkOrder
 
 # The KPI fields calibration can match on. Scalars diff directly; dict fields diff as the
@@ -97,16 +96,9 @@ def calibrate(
     `target.observed`. `tolerance` is the distance below which the fit is accepted
     (`within_tolerance`). Everything else mirrors `optimize`.
     """
-    result = run_optimize(
-        model_path,
-        plan,
-        space,
-        calibration_objective(target),
-        optimizer,
-        budget=budget,
-        reps=reps,
-        base_seed=base_seed,
-        seed=seed,
+    surface = ScoringSurface(model_path, plan, reps=reps, base_seed=base_seed)
+    result = optimizer.optimize(
+        surface, space, calibration_objective(target), budget=budget, seed=seed
     )
     return CalibrationResult(
         best_params=dict(result.best.scenario.levers),
@@ -118,7 +110,7 @@ def calibrate(
 
 def _metric_distance(metric: str, simulated: KpiSet, observed: KpiSet) -> float:
     if metric in _SCALAR_METRICS:
-        return abs(getattr(simulated, metric) - getattr(observed, metric))
+        return float(abs(getattr(simulated, metric) - getattr(observed, metric)))
     if metric in _DICT_METRICS:
         return _dict_distance(getattr(simulated, metric), getattr(observed, metric))
     return _optional_dict_distance(getattr(simulated, metric), getattr(observed, metric))

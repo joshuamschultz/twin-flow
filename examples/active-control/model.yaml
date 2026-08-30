@@ -1,0 +1,65 @@
+# ACTIVE-CONTROL worked example -- the twin as a DECISION tool, not just a viewer.
+#
+# It exercises all of Phase A's active-control features at once, each declared purely
+# in config (the engine has no per-client code, D-044):
+#
+#   * DISPATCH (A1)   the press runs its queue by EARLIEST DUE DATE (`dispatch: edd`),
+#                     not arrival order -- so the job most at risk of being late goes
+#                     first. Try `fifo` / `spt` / `critical_ratio` and compare on-time %.
+#   * RELEASE  (A2)   work is held off the floor by a WIP CAP of 5 orders
+#                     (`release: {policy: wip_cap, wip_cap: 5}`) instead of dumping the
+#                     whole plan on at its start date -- CONWIP-style flow control.
+#   * BREAKDOWN (A4)  the press fails on a seeded schedule (mean 20 min between
+#                     failures, ~5 min to repair) so the dates survive a bad day.
+#   * RUSH      (A4)  a plan `priority` column lets a hot order jump every queue.
+#
+# Two labour skills share one floor pool. No scrap/quality gate here, so an order's
+# finished count matches its quantity exactly (clean completion tracking).
+
+defaults:
+  cycle_time_cv: 0.15
+
+release:
+  policy: wip_cap
+  wip_cap: 5
+
+machines:
+  - name: press_m
+  - name: pack_m
+
+part_types:
+  - {name: steel,   uom: piece, attributes: {}}
+  - {name: pressed, uom: piece, attributes: {}}
+  - {name: part,    uom: piece, attributes: {}}
+
+stocks: []
+
+labor:
+  pools:
+    - {name: floor, headcount: 2, skills: [press_op, pack_op]}
+
+locations:
+  # BOTTLENECK: the press is the slow step (~50 s/piece), so its queue is the one that
+  # builds and the one where the dispatch rule earns its keep.
+  - name: press
+    consumes: [{thing: steel, qty: 1, uom: piece}]
+    emits:    [{thing: pressed, qty: 1, uom: piece}]
+    setup_key: g_press
+    dispatch: edd
+    breakdown:
+      mtbf: "20m"
+      mttr: {dist: lognormal, mean: "5m", cv: 0.4}
+    time_model: {kind: rate_based, rate: 0.02}
+    machine: press_m
+    labor_skill: press_op
+
+  - name: pack
+    consumes: [{thing: pressed, qty: 1, uom: piece}]
+    emits:    [{thing: part, qty: 1, uom: piece}]
+    setup_key: g_pack
+    time_model: {kind: rate_based, rate: 0.1}
+    machine: pack_m
+    labor_skill: pack_op
+
+routing:
+  - {part: part, steps: [press, pack]}

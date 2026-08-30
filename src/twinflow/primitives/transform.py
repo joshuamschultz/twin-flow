@@ -66,7 +66,10 @@ class Transform:
                 qty=output.qty(inputs),
                 thing=output.thing,
                 uom=output.uom,
-                attrs={**carried, **{name: attr_fn(inputs) for name, attr_fn in output.attrs.items()}},
+                attrs={
+                    **carried,
+                    **{name: attr_fn(inputs) for name, attr_fn in output.attrs.items()},
+                },
             )
             for output in self._spec.outputs
         ]

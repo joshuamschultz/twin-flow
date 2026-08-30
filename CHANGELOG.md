@@ -64,6 +64,34 @@ registry so a new one is a `register(name, factory)` call, never a core edit:
   reorder points and order-up-to levels can be *optimized* by the existing optimizers
   (they are ordinary levers). `examples/supply-chain/` is a two-echelon worked floor.
 
+### Added — active control (Phase A)
+
+Turns the passive twin into a decision tool. Each is config-only, seeded, and
+reproducible, and each is an ordinary lever a sweep or optimizer can search.
+
+- **Dispatch rules.** `dispatch: fifo|edd|spt|critical_ratio` on a location re-sequences
+  its ready queue (default `fifo` = today's arrival order). Wired natively in the engine
+  (mirroring `adapters.dispatch` without a layering violation); due date + priority ride
+  on the bundle so downstream centers still see them.
+- **Order release control.** Model-level `release: {policy: plan|wip_cap|conwip, wip_cap: N}`
+  holds new releases while the floor is at its WIP cap (default `plan` = release on
+  start date).
+- **Disruptions.** Machine `breakdown: {mtbf, mttr}` (seeded failure/repair, downtime in
+  run metadata), per-pool `absence_rate` (a seeded share of headcount unavailable), and
+  rush orders via an optional `priority` plan column that jumps every queue. New
+  `SOURCE_ABSENCE` RNG stream (breakdown already had its own). `examples/active-control/`
+  composes all of it.
+- Deferred honestly: a resource-assignment policy (A3), a mid-run decide-act loop (A5),
+  and surfacing downtime as an aggregated confidence band.
+
+### Added — trust loop: calibration (Phase B)
+
+- **`calibrate()`** tunes model parameters until the simulated KPIs match a real run.
+  It is *just optimization* over the module surface — a `CalibrationTarget` (an observed
+  `KpiSet` + per-metric weights) becomes a minimise objective, and any optimizer searches
+  the declared parameter levers. Returns the best-fit parameters, the distance, and
+  whether it is within tolerance — the "reproduced my last N weeks within X%" workflow.
+
 ### Added — integration surfaces (`twinflow.adapters`)
 
 Unified seams so a real ERP, RL agent, or forecaster plugs in with one `register(...)`

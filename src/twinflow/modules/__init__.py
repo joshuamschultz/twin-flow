@@ -17,6 +17,13 @@ scores, the module proposes, the human decides.
 
 from __future__ import annotations
 
+from twinflow.modules.calibrate import (
+    CalibrationResult,
+    CalibrationTarget,
+    calibrate,
+    calibration_objective,
+    distance_to_observed,
+)
 from twinflow.modules.costs import (
     COSTS,
     CapacityCost,
@@ -56,11 +63,16 @@ __all__ = [
     "MODELS",
     "OBJECTIVES",
     "OPTIMIZERS",
+    "CalibrationResult",
+    "CalibrationTarget",
     "CapacityCost",
     "Choice",
     "CostFunction",
     "CostObjective",
     "Domain",
+    "calibrate",
+    "calibration_objective",
+    "distance_to_observed",
     "Evaluation",
     "IntRange",
     "InventoryHoldingCost",
