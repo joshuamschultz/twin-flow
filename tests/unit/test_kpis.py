@@ -133,18 +133,21 @@ from twinflow.instrumentation.kpis import KpiEngine
 # Column order matches EVENT_LOG_SCHEMA exactly:
 #   location_id, part_id, lot_id, process_name, qty,
 #   queue_arrival_time, material_ready_time, actual_start, actual_end,
-#   release_time, outcome
+#   release_time, outcome, setup_seconds
+# The main fixture is setup-free (setup_seconds = 0.0 on every row) so setup
+# never confounds the run/utilization KPIs these rows pin; a dedicated test
+# below builds its own rows with nonzero setup to exercise setup_hours.
 # ---------------------------------------------------------------------------
 
-R1 = ("cell_a", "widget", "lot_1", "transform", 5.0, 0.0, 0.0, 0.0, 10.0, 10.0, "good")
-R2 = ("cell_b", "widget", "lot_1", "transform", 5.0, 10.0, 14.0, 14.0, 24.0, 26.0, "good")
+R1 = ("cell_a", "widget", "lot_1", "transform", 5.0, 0.0, 0.0, 0.0, 10.0, 10.0, "good", 0.0)
+R2 = ("cell_b", "widget", "lot_1", "transform", 5.0, 10.0, 14.0, 14.0, 24.0, 26.0, "good", 0.0)
 # R3 carries a NULL qty on purpose — pins the pl.len()-not-count() rule.
-R3 = ("cell_a", "widget", "lot_2", "transform", None, 5.0, 5.0, 15.0, 23.0, 25.0, "good")
+R3 = ("cell_a", "widget", "lot_2", "transform", None, 5.0, 5.0, 15.0, 23.0, 25.0, "good", 0.0)
 # R4 carries a NULL material_ready_time (no material gate tracked -> starved).
-R4 = ("cell_b", "widget", "lot_2", "transform", 8.0, 25.0, None, 30.0, 40.0, 42.0, "good")
+R4 = ("cell_b", "widget", "lot_2", "transform", 8.0, 25.0, None, 30.0, 40.0, 42.0, "good", 0.0)
 # R5's queue_arrival_time (10.0) exactly matches R1's release_time (10.0) at
 # the SAME location (cell_a) -> the WIP sweep-line tie this file pins.
-R5 = ("cell_a", "widget", "lot_3", "transform", 6.0, 10.0, 10.0, 23.0, 30.0, 30.0, "good")
+R5 = ("cell_a", "widget", "lot_3", "transform", 6.0, 10.0, 10.0, 23.0, 30.0, 30.0, "good", 0.0)
 
 MAIN_ROWS = [R1, R2, R3, R4, R5]
 
@@ -497,11 +500,10 @@ def test_run_hours_equals_sum_of_per_machine_hours(main_fixture) -> None:
     assert result.run_hours == pytest.approx(45.0 / 3600.0)
 
 
-def test_setup_hours_is_always_zero_and_a_separate_field_from_run_hours(main_fixture) -> None:
-    """V1 SIMPLIFICATION 1: no setup-seconds column exists and the compiler
-    charges setup=0 (no changeover matrix declared). setup_hours is still a
-    DISTINCT field from run_hours -- "setup separate from run" is satisfied
-    by having two fields, not by folding a zero into run_hours."""
+def test_setup_hours_is_zero_for_a_setup_free_floor_and_a_separate_field(main_fixture) -> None:
+    """A floor that declares no changeover charges 0 setup, so setup_hours is
+    0.0 -- but it stays a DISTINCT field from run_hours ("setup separate from
+    run" is satisfied by two fields, never by folding setup into run_hours)."""
     result = KpiEngine().compute(
         event_paths=main_fixture["event_path"],
         orders=main_fixture["orders"],
@@ -512,6 +514,24 @@ def test_setup_hours_is_always_zero_and_a_separate_field_from_run_hours(main_fix
     assert result.setup_hours == 0.0
     assert result.run_hours != result.setup_hours
     assert result.run_hours > 0.0
+
+
+def test_setup_hours_sums_the_setup_seconds_column_in_hours(tmp_path) -> None:
+    """Tier 0: setup_hours is the real sum(setup_seconds)/3600 once changeover
+    is compiled, reported separately from run_hours."""
+    rows = [
+        ("cell_a", "widget", "lot_1", "transform", 5.0, 0.0, 0.0, 0.0, 10.0, 10.0, "good", 45.0),
+        ("cell_b", "widget", "lot_2", "transform", 5.0, 0.0, 0.0, 0.0, 10.0, 10.0, "good", 75.0),
+    ]
+    event_path = tmp_path / "events.parquet"
+    _events_df(rows).write_parquet(event_path)
+    orders = pl.DataFrame(
+        [("order_1", "widget", 999.0, "lot_1")], schema=ORDERS_SCHEMA, orient="row"
+    )
+
+    result = KpiEngine().compute(event_paths=event_path, orders=orders, horizon=100.0)
+
+    assert result.setup_hours == pytest.approx(120.0 / 3600.0)
 
 
 def test_labor_hours_by_pool_and_skill_v1_single_undifferentiated_pool(main_fixture) -> None:

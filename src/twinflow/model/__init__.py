@@ -49,10 +49,24 @@ class StockConfig:
     `CompiledModel` can only carry the declarative shape a driver later builds
     a fresh `Stock` from (D-044), mirroring `LaborPoolConfig`/`labor_pools`. A
     stock's `name` doubles as its material identity (`Stock.put()` checks
-    thing match), so there is no separate `thing` field."""
+    thing match), so there is no separate `thing` field.
+
+    `initial` seeds the run-bound `Stock`'s level (default 0.0, historical v1). A
+    `reorder_point`/`refill_to` pair declares a self-refilling stock: when a pull
+    would drop the level below `reorder_point`, the driver places ONE replenishment
+    order (order-up-to `refill_to`) that arrives after `lead_time` seconds
+    (`lead_time: 0.0`, the default, keeps the historical instantaneous refill). While
+    an order is in transit no second order is placed (an (s, S) policy). If
+    `supplier` names another stock, the ordered quantity is pulled from that upstream
+    stock (a multi-echelon chain) rather than an infinite external source."""
 
     name: str
     uom: str
+    initial: float = 0.0
+    reorder_point: float | None = None
+    refill_to: float | None = None
+    lead_time: float = 0.0
+    supplier: str | None = None
 
 
 @dataclass(frozen=True)
@@ -164,4 +178,19 @@ def _build_stocks(raw_model: RawModel) -> list[StockConfig]:
     unchanged, so a later `RunDriver` can build a fresh, run-bound `Stock` per
     entry (D-044) -- mirrors `_build_labor_pools`."""
     stocks = cast(list[dict[str, Any]], raw_model.stocks)
-    return [StockConfig(name=str(stock["name"]), uom=str(stock["uom"])) for stock in stocks]
+    return [
+        StockConfig(
+            name=str(stock["name"]),
+            uom=str(stock["uom"]),
+            initial=float(stock.get("initial", 0.0)),
+            reorder_point=(
+                float(stock["reorder_point"]) if stock.get("reorder_point") is not None else None
+            ),
+            refill_to=(
+                float(stock["refill_to"]) if stock.get("refill_to") is not None else None
+            ),
+            lead_time=float(stock.get("lead_time", 0.0)),
+            supplier=(str(stock["supplier"]) if stock.get("supplier") is not None else None),
+        )
+        for stock in stocks
+    ]

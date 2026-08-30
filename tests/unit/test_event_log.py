@@ -68,6 +68,7 @@ RECORD_FIELDS = (
     "actual_end",
     "release_time",
     "outcome",
+    "setup_seconds",
 )
 
 
@@ -84,7 +85,8 @@ def _make_record(
     actual_end: float = 5.0,
     release_time: float = 5.5,
     outcome: str = "good",
-) -> tuple[str, str, str, str, float, float, float | None, float, float, float, str]:
+    setup_seconds: float = 0.0,
+) -> tuple[str, str, str, str, float, float, float | None, float, float, float, str, float]:
     """Build one committed-order record tuple. `process_name` defaults to the
     first declared PROCESS_NAMES category so callers don't have to guess a
     value that happens to be valid."""
@@ -102,6 +104,7 @@ def _make_record(
         actual_end,
         release_time,
         outcome,
+        setup_seconds,
     )
 
 

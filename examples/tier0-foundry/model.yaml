@@ -1,0 +1,103 @@
+# TIER 0 FOUNDRY -- a single floor that composes all four Tier 0 capabilities,
+# each declared purely in config (the engine has no per-client code, D-044):
+#
+#   1. CHANGEOVER TIME   melt charges `changeover_seconds` to warm the furnace.
+#   2. REORDER-POINT      mold pulls `sand` (a secondary `material`) from a stock
+#      MATERIAL           that starts EMPTY and refills itself up to `refill_to`
+#                         whenever a pull would drop it below `reorder_point`.
+#   3. BATCH / HOLD       anneal accumulates a `batch_size` of castings, then holds
+#                         the whole group for ONE `batch_hold` duration (an oven),
+#                         not a per-unit time.
+#   4. QUALITY GATE       inspect sends each whole part down a pass/fail branch by
+#                         chance -- most parts finish, a few divert to scrap_bin.
+#
+# Flow:  ingot -> [melt] -> molten -> [mold(+sand)] -> casting
+#              -> [anneal, batch hold] -> annealed -> [inspect, quality gate]
+#              -> part (pass)  |  scrap_bin (fail)
+
+stocks:
+  - {name: ingot, uom: piece}
+  # A self-refilling consumable: starts empty, tops up to 200 kg whenever a pull
+  # would take it below 20 kg (instantaneous v1; supplier lead time is future).
+  - {name: sand, uom: kg, initial: 0, reorder_point: 20, refill_to: 200}
+
+part_types:
+  - {name: ingot, uom: piece, attributes: {}}
+  - {name: molten, uom: piece, attributes: {}}
+  - {name: casting, uom: piece, attributes: {}}
+  - {name: annealed, uom: piece, attributes: {}}
+  - {name: part, uom: piece, attributes: {}}
+  - {name: part_scrap, uom: piece, attributes: {}}
+
+machines:
+  - {name: melt_m}
+  - {name: mold_m}
+  - {name: anneal_m}
+  - {name: inspect_m}
+  - {name: scrap_m}
+
+labor:
+  pools:
+    - {name: floor_pool, headcount: 4, skills: [furnace, finish]}
+
+locations:
+  # 1. CHANGEOVER: the furnace pays a 120 s changeover when it first heats up.
+  - name: melt
+    consumes: [{thing: ingot, qty: 1, uom: piece}]
+    emits: [{thing: molten, qty: 1, uom: piece}]
+    setup_key: grp_melt
+    changeover_seconds: 120
+    time_model: {kind: rate_based, rate: 0.5}
+    machine: melt_m
+    labor_skill: furnace
+
+  # 2. REORDER-POINT MATERIAL: every mold consumes 3 kg of sand from the finite,
+  # self-refilling `sand` stock, on top of its molten input.
+  - name: mold
+    consumes: [{thing: molten, qty: 1, uom: piece}]
+    emits: [{thing: casting, qty: 1, uom: piece}]
+    setup_key: grp_mold
+    material: {stock: sand, qty: 3, uom: kg}
+    time_model: {kind: rate_based, rate: 0.5}
+    machine: mold_m
+    labor_skill: furnace
+
+  # 3. BATCH / HOLD: the annealing oven holds a batch of 5 castings for one
+  # 400 s hold, regardless of how many are in the batch.
+  - name: anneal
+    consumes: [{thing: casting, qty: 1, uom: piece}]
+    emits: [{thing: annealed, qty: 1, uom: piece}]
+    setup_key: grp_anneal
+    batch_size: "5 piece"
+    time_model: {kind: batch_hold, seconds: 400}
+    machine: anneal_m
+    labor_skill: finish
+
+  # 4. QUALITY GATE: 90% of parts pass (finish), 10% divert to scrap_bin.
+  - name: inspect
+    consumes: [{thing: annealed, qty: 1, uom: piece}]
+    emits: [{thing: part, qty: 1, uom: piece}]
+    setup_key: grp_inspect
+    time_model: {kind: rate_based, rate: 1.0}
+    machine: inspect_m
+    labor_skill: finish
+    quality_gate:
+      thing: part
+      branches:
+        - {prob: 0.9, to: null}       # pass -> finished
+        - {prob: 0.1, to: scrap_bin}  # fail -> scrapped
+
+  # Reached ONLY via the quality gate's fail branch (not part of the routing).
+  - name: scrap_bin
+    consumes: [{thing: part, qty: 1, uom: piece}]
+    emits: [{thing: part_scrap, qty: 1, uom: piece}]
+    setup_key: grp_scrap
+    time_model: {kind: rate_based, rate: 2.0}
+    machine: scrap_m
+    labor_skill: finish
+
+routing:
+  - {part: part, steps: [melt, mold, anneal, inspect]}
+
+processes: []
+bom: []

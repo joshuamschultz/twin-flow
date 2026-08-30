@@ -1,0 +1,51 @@
+# SUPPLY-CHAIN example -- a floor whose feedstock is finite and self-refilling,
+# fed by a two-echelon inventory chain with real supplier lead times.
+#
+#   bulk_resin (upstream warehouse)          resin (working stock)
+#     initial 2000 kg                           initial 400 kg
+#     reorder < 500 -> order up to 3000         reorder < 100 -> order up to 800
+#     lead_time 7200 s (external supplier)      lead_time 1800 s, supplier: bulk_resin
+#         │                                         │
+#         └──────────── replenishes ────────────────┘  (multi-echelon)
+#
+# The single work center `mold` consumes an (infinite, demand-released) raw_blank
+# and pulls 2 kg of `resin` per part from the finite working stock. When the working
+# stock drops below 100 kg it orders up to 800 kg from `bulk_resin`, arriving 1800 s
+# later; when `bulk_resin` drops below 500 kg it orders up to 3000 kg from an external
+# supplier, arriving 7200 s later. Both are declared purely in config (D-044).
+
+defaults:
+  cycle_time_cv: 0.15
+
+stocks:
+  - {name: bulk_resin, uom: kg, initial: 500, reorder_point: 180, refill_to: 800, lead_time: 4000}
+  - {name: resin, uom: kg, initial: 300, reorder_point: 130, refill_to: 450, lead_time: 1200, supplier: bulk_resin}
+
+part_types:
+  - {name: raw_blank, uom: piece, attributes: {}}
+  - {name: part, uom: piece, attributes: {}}
+  - {name: resin, uom: kg, attributes: {}}
+  - {name: bulk_resin, uom: kg, attributes: {}}
+
+machines:
+  - {name: mold_m}
+
+labor:
+  pools:
+    - {name: floor_pool, headcount: 3, skills: [molder]}
+
+locations:
+  - name: mold
+    consumes: [{thing: raw_blank, qty: 1, uom: piece}]
+    emits: [{thing: part, qty: 1, uom: piece}]
+    material: {stock: resin, qty: 15, uom: kg}
+    setup_key: grp_mold
+    time_model: {kind: rate_based, rate: 0.05}
+    machine: mold_m
+    labor_skill: molder
+
+routing:
+  - {part: part, steps: [mold]}
+
+processes: []
+bom: []

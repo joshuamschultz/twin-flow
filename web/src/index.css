@@ -1,0 +1,652 @@
+/* ---------------------------------------------------------------------
+   twinflow — "BlackArc" theme
+   A calm, industrial dashboard: dark graphite surfaces, a single cyan
+   accent used sparingly, and confidence bands treated as first-class
+   visual objects (not thin error bars). Light/dark aware via a root
+   [data-theme] attribute, defaulting to the system preference.
+--------------------------------------------------------------------- */
+
+:root {
+  --arc: #35c8e0;
+  --arc-dim: #1f7a8c;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+
+  --font-sans: -apple-system, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-raised: #131a22;
+  --surface: #161d26;
+  --surface-hover: #1c2530;
+  --border: #232d3a;
+  --border-strong: #2f3c4d;
+  --text: #e6edf3;
+  --text-dim: #8b98a9;
+  --text-faint: #566475;
+  --band-fill: rgba(53, 200, 224, 0.16);
+  --band-edge: rgba(53, 200, 224, 0.55);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] {
+  --bg: #f4f6f8;
+  --bg-raised: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #edf1f5;
+  --border: #dde3ea;
+  --border-strong: #c7d0da;
+  --text: #182028;
+  --text-dim: #57667a;
+  --text-faint: #8b98a9;
+  --band-fill: rgba(31, 122, 140, 0.12);
+  --band-edge: rgba(31, 122, 140, 0.55);
+  --shadow: 0 8px 24px rgba(20, 30, 40, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 0.5em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0 0 0.75em;
+  color: var(--text-dim);
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------
+   Layout
+--------------------------------------------------------------------- */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "header header"
+    "nav    main";
+  height: 100vh;
+}
+
+.app-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  height: 56px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.brand-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--arc), var(--arc-dim));
+  box-shadow: 0 0 0 1px var(--border-strong);
+  flex: none;
+}
+
+.brand-sub {
+  color: var(--text-faint);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.header-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.header-model label {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.app-nav {
+  grid-area: nav;
+  border-right: 1px solid var(--border);
+  background: var(--bg-raised);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: var(--surface-hover);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--arc);
+}
+
+.nav-spacer {
+  flex: 1;
+}
+
+.app-main {
+  grid-area: main;
+  overflow: auto;
+  padding: 24px;
+}
+
+/* ---------------------------------------------------------------------
+   Controls
+--------------------------------------------------------------------- */
+
+select,
+input[type="number"],
+input[type="text"] {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+select:focus,
+input:focus {
+  outline: none;
+  border-color: var(--arc);
+}
+
+button {
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--arc);
+  border-color: var(--arc);
+  color: #04222a;
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #4fd4ea;
+}
+
+.icon-btn {
+  padding: 6px 9px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------------
+   Cards / surfaces
+--------------------------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.card-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.panel-header .hint {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------------
+   KPI stat + confidence band — a first-class visual, not an afterthought
+--------------------------------------------------------------------- */
+
+.stat-value {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.stat-value .unit {
+  font-size: 15px;
+  color: var(--text-dim);
+  font-weight: 500;
+  margin-left: 3px;
+}
+
+.band {
+  margin-top: 12px;
+}
+
+.band-track {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--border);
+  overflow: visible;
+}
+
+.band-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 5px;
+  background: var(--band-fill);
+  border: 1px solid var(--band-edge);
+}
+
+.band-mean {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--arc);
+  box-shadow: 0 0 0 2px var(--bg) inset;
+}
+
+.band-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+.band-legend {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+/* compact inline band, used in tables */
+.band-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.band-inline .band-track {
+  flex: 1;
+}
+
+.band-inline .band-readout {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------
+   Utilization bars
+--------------------------------------------------------------------- */
+
+.util-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 50px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+}
+
+.util-row .util-name {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.util-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.util-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--arc-dim), var(--arc));
+  border-radius: 4px;
+}
+
+.util-pct {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------------
+   Table
+--------------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  color: var(--text-faint);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+/* ---------------------------------------------------------------------
+   Misc
+--------------------------------------------------------------------- */
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--arc);
+  animation: spin 0.7s linear infinite;
+  flex: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 12px 0;
+}
+
+.error-banner {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: var(--bad);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin: 12px 0;
+}
+
+.empty-state {
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 40px 0;
+  text-align: center;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.footnote {
+  color: var(--text-faint);
+  font-size: 11px;
+  margin-top: 10px;
+}
+
+.lever-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+
+.lever-picker-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 70px 70px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.lever-picker-row input[type="number"] {
+  width: 100%;
+  padding: 4px 6px;
+}
+
+.theme-toggle {
+  padding: 6px 8px;
+}
+
+/* ---------------------------------------------------------------------
+   Floor map (React Flow)
+--------------------------------------------------------------------- */
+
+.floor-canvas {
+  height: calc(100vh - 170px);
+  min-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__background {
+  background: var(--bg-raised);
+}
+
+.react-flow__background-pattern circle,
+.react-flow__background-pattern {
+  fill: var(--border);
+}
+
+.react-flow__edge-path {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.react-flow__edge-text {
+  fill: var(--text-faint);
+}
+
+.react-flow__edge-textbg {
+  fill: var(--bg-raised);
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--arc);
+}
+
+.react-flow__controls {
+  box-shadow: var(--shadow);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  fill: var(--text-dim);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--surface-hover);
+}
+
+.react-flow__handle {
+  background: var(--text-faint);
+  width: 6px;
+  height: 6px;
+  border: none;
+}
+
+.floor-node {
+  min-width: 150px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  padding: 9px 12px;
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+
+.floor-node-location {
+  border-left: 3px solid var(--arc);
+}
+
+.floor-node-stock {
+  border-radius: 999px;
+  border-style: dashed;
+  border-color: var(--text-faint);
+  background: var(--bg-raised);
+  text-align: center;
+}
+
+.floor-node-title {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.floor-node-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: var(--text-faint);
+  font-size: 11px;
+}

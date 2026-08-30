@@ -22,7 +22,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.8", "pip-audit>=2.7", "types-PyYAML>=6"]
+# The optional service surface (twinflow.service): a local REST API the React
+# front end drives. The core engine never imports it, so a plain install stays
+# dependency-light; `pip install -e ".[api]"` adds it.
+api = ["fastapi>=0.110", "uvicorn>=0.29"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.5",
+    "mypy>=1.8",
+    "pip-audit>=2.7",
+    "types-PyYAML>=6",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "httpx>=0.27",
+]
 
 [project.scripts]
 twinflow = "twinflow.cli.main:main"
@@ -62,6 +75,13 @@ mypy_path = "src"
 # types at its own boundary. Silence only the missing-stub error for this one dependency.
 [[tool.mypy.overrides]]
 module = ["simpleeval"]
+ignore_missing_imports = true
+
+# gymnasium is an optional integration dependency: `twinflow.adapters.rl` exposes a
+# Gymnasium-style env and only imports gymnasium inside `to_gymnasium()`, so a plain
+# install never needs it. Silence the missing-stub error for the optional import.
+[[tool.mypy.overrides]]
+module = ["gymnasium", "gymnasium.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

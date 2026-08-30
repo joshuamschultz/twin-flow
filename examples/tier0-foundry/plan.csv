@@ -1,0 +1,11 @@
+work_order_id,part,qty,start_date,due_date
+wo-1,part,1,0,6000
+wo-2,part,1,50,6000
+wo-3,part,1,100,6000
+wo-4,part,1,150,6000
+wo-5,part,1,200,6000
+wo-6,part,1,250,6000
+wo-7,part,1,300,6000
+wo-8,part,1,350,6000
+wo-9,part,1,400,6000
+wo-10,part,1,450,6000

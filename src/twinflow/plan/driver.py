@@ -12,7 +12,7 @@ in it, is treated as read-only config and is never mutated.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -21,13 +21,14 @@ import simpy
 from twinflow.engine.clock import RunContext
 from twinflow.engine.rng import RngRegistry
 from twinflow.instrumentation.event_log import EventLog
-from twinflow.model import CompiledModel
+from twinflow.instrumentation.inventory import InventoryLog
+from twinflow.model import CompiledModel, StockConfig
 from twinflow.model.schema import LocationSpec
 from twinflow.plan.loader import WorkOrder
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.cell import Machine
 from twinflow.primitives.labor import LaborPool
-from twinflow.primitives.location import Location
+from twinflow.primitives.location import Location, MaterialRequirementLike, RoutingPolicy
 from twinflow.primitives.stock import Stock
 
 
@@ -54,6 +55,20 @@ class _AlwaysOnShiftCalendar:
 
     def next_shift_start(self, t: float) -> float:  # pragma: no cover - never off-shift
         return t
+
+
+@dataclass
+class _BoundMaterial:
+    """Runtime binding of a compiled `MaterialSpec` to a fresh, env-bound `Stock`.
+
+    Satisfies `primitives.location.MaterialRequirementLike` structurally (stock,
+    qty, thing, uom) so `Location._fire`'s step-3 material pull works unchanged.
+    """
+
+    stock: Stock
+    qty: float
+    thing: str
+    uom: str
 
 
 class _RoutingSink(list[Bundle]):
@@ -114,8 +129,9 @@ class RunDriver:
         env = ctx.env
         rng = RngRegistry(seed, replication_index)
         event_log = EventLog()
+        inventory_log = InventoryLog()
 
-        stocks = self._build_stocks(env)
+        stocks = self._build_stocks(env, inventory_log)
         labor_pools = self._build_labor_pools(env)
         locations = self._build_locations(env, rng, event_log, labor_pools, stocks)
 
@@ -129,6 +145,7 @@ class RunDriver:
         run_dir = Path("runs") / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         event_log_path = event_log.flush(run_dir)
+        inventory_log.flush(run_dir)  # always written next to events.parquet (may be empty)
 
         run_meta: dict[str, object] = {
             "run_id": run_id,
@@ -140,14 +157,122 @@ class RunDriver:
 
     # -- fresh per-run runtime construction ---------------------------------
 
-    def _build_stocks(self, env: simpy.Environment) -> dict[str, Stock]:
+    def _build_stocks(
+        self, env: simpy.Environment, inventory_log: InventoryLog
+    ) -> dict[str, Stock]:
         """Fresh `Stock`s from the compiled declarative shape — env-bound, so
         never built at `load_model()` time (only here, once per `run()` call).
-        A stock's `name` doubles as its material identity (D-044)."""
-        return {
-            stock.name: Stock(thing=stock.name, uom=stock.uom, env=env, initial_qty=0.0)
-            for stock in self._compiled.stocks
-        }
+        A stock's `name` doubles as its material identity (D-044).
+
+        Built in two passes: first every `Stock` (with an inventory-logging
+        `on_level_change` observer and a seeded initial-level row), then the reorder
+        hooks — set second because a multi-echelon hook references the whole stocks
+        map. A stock declaring `reorder_point`/`refill_to` places an order-up-to
+        replenishment that arrives after `lead_time` (instantaneous when `lead_time`
+        is 0), optionally pulling the order quantity from a `supplier` stock. The
+        hooks are pure Layer-3 policy — the `Stock` primitive stays reorder-agnostic.
+        """
+        recorder = self._inventory_recorder(inventory_log)
+        stocks: dict[str, Stock] = {}
+        for config in self._compiled.stocks:
+            stocks[config.name] = Stock(
+                thing=config.name,
+                uom=config.uom,
+                env=env,
+                initial_qty=config.initial,
+                on_level_change=recorder,
+            )
+            inventory_log.record(config.name, env.now, config.initial, config.initial, "seed")
+
+        for config in self._compiled.stocks:
+            hook = self._make_reorder_hook(config, stocks, inventory_log, env)
+            if hook is not None:
+                stocks[config.name].set_reorder_hook(hook)
+        return stocks
+
+    @staticmethod
+    def _inventory_recorder(
+        inventory_log: InventoryLog,
+    ) -> Callable[[Stock, float, str], None]:
+        """A level-change observer that records `(stock, t, level-after, delta, kind)`
+        to the inventory log — the pure Layer-3 side of `Stock.on_level_change`."""
+
+        def record(stock: Stock, delta: float, kind: str) -> None:
+            inventory_log.record(stock.thing, stock.env.now, stock.level, delta, kind)
+
+        return record
+
+    def _make_reorder_hook(
+        self,
+        config: StockConfig,
+        stocks: dict[str, Stock],
+        inventory_log: InventoryLog,
+        env: simpy.Environment,
+    ) -> Callable[[Stock], None] | None:
+        """An (s, S) reorder callback for a self-refilling stock, or None.
+
+        When on-hand drops below `reorder_point` and no order is in transit, place ONE
+        order-up-to-`refill_to` order. With `lead_time == 0` and no supplier the refill
+        is synchronous (the historical instantaneous behaviour). Otherwise the order is
+        scheduled to arrive after `lead_time`, optionally drawing from the `supplier`
+        stock; a single-slot `in_transit` flag prevents a second order while one is
+        outstanding, and a stock that empties before delivery is a real stockout that
+        blocks consumers without deadlocking (the order is already on its way).
+        """
+        if config.reorder_point is None or config.refill_to is None:
+            return None
+        reorder_point = config.reorder_point
+        refill_to = config.refill_to
+        lead_time = config.lead_time
+        supplier = config.supplier
+        name = config.name
+        in_transit = [False]
+
+        def hook(runtime_stock: Stock) -> None:
+            if runtime_stock.level >= reorder_point:
+                return
+            order_qty = refill_to - runtime_stock.level
+            if order_qty <= 0.0:
+                return
+            if lead_time <= 0.0 and supplier is None:
+                inventory_log.record(name, env.now, runtime_stock.level, order_qty, "order")
+                runtime_stock.put(
+                    Bundle(qty=order_qty, thing=runtime_stock.thing, uom=runtime_stock.uom)
+                )
+                return
+            if in_transit[0]:
+                return
+            in_transit[0] = True
+            inventory_log.record(name, env.now, runtime_stock.level, order_qty, "order")
+            env.process(
+                self._deliver(runtime_stock, order_qty, lead_time, supplier, stocks, in_transit)
+            )
+
+        return hook
+
+    @staticmethod
+    def _deliver(
+        runtime_stock: Stock,
+        order_qty: float,
+        lead_time: float,
+        supplier: str | None,
+        stocks: dict[str, Stock],
+        in_transit: list[bool],
+    ) -> Generator[simpy.Event, None, None]:
+        """The in-transit replenishment: wait `lead_time`, optionally pull the order
+        quantity from the `supplier` stock (a multi-echelon draw that may block on and
+        trigger the upstream's own reorder), then deliver into `runtime_stock` and
+        clear the in-transit flag so a future dip can order again."""
+        if lead_time > 0.0:
+            yield runtime_stock.env.timeout(lead_time)
+        if supplier is not None:
+            upstream = stocks[supplier]
+            yield from upstream.pull(upstream.thing, order_qty, upstream.uom)
+            upstream.review_reorder()  # the draw may have dropped the upstream below its point
+        runtime_stock.put(
+            Bundle(qty=order_qty, thing=runtime_stock.thing, uom=runtime_stock.uom)
+        )
+        in_transit[0] = False
 
     def _build_labor_pools(self, env: simpy.Environment) -> dict[str, LaborPool]:
         """Fresh `LaborPool`s from the compiled declarative shape — env-bound, so
@@ -180,6 +305,8 @@ class RunDriver:
                 spec,
                 machine=Machine(machine_id=spec.machine.machine_id),
                 destinations={thing: [] for thing in spec.destinations},
+                routers={},
+                material_requirement=self._bind_material(spec, stocks),
             )
             for spec in self._compiled.locations
         }
@@ -192,11 +319,64 @@ class RunDriver:
 
         self._wire_routing(fresh_specs, locations)
         self._wire_stock_destinations(fresh_specs, stocks)
+        self._wire_quality_gates(fresh_specs, locations, stocks)
 
         for location in locations.values():
             env.process(location.run())
 
         return locations
+
+    @staticmethod
+    def _bind_material(
+        spec: LocationSpec, stocks: dict[str, Stock]
+    ) -> MaterialRequirementLike | None:
+        """Bind a compiled `material_spec` to a fresh, env-bound `Stock` so the
+        Location's step-3 material pull runs against real state this run (D-044)."""
+        material = spec.material_spec
+        if material is None:
+            return None
+        return _BoundMaterial(
+            stock=stocks[material.stock],
+            qty=material.qty,
+            thing=material.stock,
+            uom=material.uom,
+        )
+
+    def _wire_quality_gates(
+        self,
+        specs: dict[str, LocationSpec],
+        locations: dict[str, Location],
+        stocks: dict[str, Stock],
+    ) -> None:
+        """Resolve each declared `quality_gate` into a run-bound `RoutingPolicy`
+        on the fresh spec's `routers`. A branch's `to` names a downstream Location
+        (routed onward via `_RoutingSink`), a `Stock` (put into), or is null (a
+        terminal list sink). Mirrors `_wire_routing`'s post-compile rewrite."""
+        for spec in specs.values():
+            gate = spec.quality_gate
+            if gate is None:
+                continue
+            branches: list[tuple[float, Stock | list[Bundle]]] = []
+            for branch in gate.branches:
+                sink = self._resolve_branch_sink(branch.to, locations, stocks)
+                branches.append((branch.prob, sink))
+            spec.routers[gate.thing] = RoutingPolicy(branches)
+
+    @staticmethod
+    def _resolve_branch_sink(
+        to: str | None,
+        locations: dict[str, Location],
+        stocks: dict[str, Stock],
+    ) -> Stock | list[Bundle]:
+        """A quality-gate branch target -> a run-bound sink: a Location (routed
+        onward), a Stock (put into), or a terminal list sink when `to` is null."""
+        if to is None:
+            return []
+        if to in locations:
+            return _RoutingSink(locations[to])
+        if to in stocks:
+            return stocks[to]
+        raise KeyError(f"quality_gate branch names unknown target {to!r}")
 
     def _wire_stock_destinations(
         self, specs: dict[str, LocationSpec], stocks: dict[str, Stock]

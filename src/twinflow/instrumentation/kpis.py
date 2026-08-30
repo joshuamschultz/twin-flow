@@ -115,6 +115,7 @@ class KpiEngine:
         }
         run_hours = sum(machine_hours_by_machine.values())
         total_busy_seconds = sum(busy_seconds_by_location.values())
+        setup_hours = self._setup_hours(events)
 
         completion_by_order, lateness_by_order, on_time_pct = self._order_kpis(events, orders)
 
@@ -130,7 +131,7 @@ class KpiEngine:
             machine_hours_by_machine=machine_hours_by_machine,
             labor_hours_by_pool_skill={("default", "default"): run_hours},
             run_hours=run_hours,
-            setup_hours=0.0,
+            setup_hours=setup_hours,
             event_counts_by_location=self._event_counts_by_location(events),
         )
 
@@ -151,6 +152,16 @@ class KpiEngine:
         if isinstance(labor_pool_capacity, int):
             return labor_pool_capacity
         return labor_pool_capacity.get("default", 1)
+
+    @staticmethod
+    def _setup_hours(events: pl.DataFrame) -> float:
+        """Total setup/changeover hours: sum(setup_seconds) / 3600 across every
+        firing. Real once changeover time is compiled (Tier 0); a model that
+        declares no `changeover_seconds` charges 0 and this stays 0.0, reported
+        separately from run_hours so setup is never conflated with processing."""
+        if "setup_seconds" not in events.columns:
+            return 0.0
+        return float(events["setup_seconds"].sum()) / 3600.0
 
     @staticmethod
     def _busy_seconds_by_location(events: pl.DataFrame) -> dict[str, float]:

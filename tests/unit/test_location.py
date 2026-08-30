@@ -184,6 +184,7 @@ RECORD_FIELDS = (
     "actual_end",
     "release_time",
     "outcome",
+    "setup_seconds",
 )
 
 

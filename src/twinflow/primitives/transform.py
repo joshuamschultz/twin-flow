@@ -15,6 +15,12 @@ from twinflow.primitives.part import PartTypeRegistry
 QtyFn = Callable[[list[Bundle]], float]
 AttrFn = Callable[[list[Bundle]], AttrValue]
 
+# Flow attributes carried from a firing's basis input to every output bundle so an
+# order's due date / priority survives each transform and stays visible to the
+# dispatch rule at the NEXT work center. Only these keys are carried (never a part
+# type's own domain attributes); a spec's own `attrs` fn for the same key overrides.
+_FLOW_ATTRS = ("due_date", "priority", "order_id")
+
 
 @dataclass(frozen=True)
 class OutputSpec:
@@ -54,12 +60,23 @@ class Transform:
         Inputs are never mutated; a new list is always returned.
         """
         del registry  # not yet consulted; kept for the Layer 2 compiler's contract
+        carried = self._carried_flow_attrs(inputs)
         return [
             Bundle(
                 qty=output.qty(inputs),
                 thing=output.thing,
                 uom=output.uom,
-                attrs={name: attr_fn(inputs) for name, attr_fn in output.attrs.items()},
+                attrs={**carried, **{name: attr_fn(inputs) for name, attr_fn in output.attrs.items()}},
             )
             for output in self._spec.outputs
         ]
+
+    @staticmethod
+    def _carried_flow_attrs(inputs: list[Bundle]) -> dict[str, AttrValue]:
+        """The flow attributes (`due_date`/`priority`/`order_id`) present on the basis
+        input, to be inherited by every output. Empty when the input carries none, so a
+        floor that never stamps them behaves exactly as before."""
+        if not inputs:
+            return {}
+        basis = inputs[0]
+        return {key: basis.attrs[key] for key in _FLOW_ATTRS if key in basis.attrs}

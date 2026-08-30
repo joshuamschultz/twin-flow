@@ -7,7 +7,7 @@
 **Describe your factory floor in a spreadsheet and a config file. Get back honest answers about dates, bottlenecks, and staffing - each with a confidence range, not a guess.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0b2340)](#status--quality)
-[![tests](https://img.shields.io/badge/tests-326%20passing-1aa179)](#status--quality)
+[![tests](https://img.shields.io/badge/tests-491%20passing-1aa179)](#status--quality)
 [![mypy](https://img.shields.io/badge/mypy-strict-2bb5b5)](#status--quality)
 [![lint](https://img.shields.io/badge/lint-ruff-46a2f1)](#status--quality)
 [![status](https://img.shields.io/badge/status-alpha-f5a623)](#roadmap)
@@ -98,7 +98,7 @@ You declare *what the floor does* - "5% scrap", "batches of 200", "cut then pack
 
 ## 🧱 The building blocks
 
-You model a floor by naming a few kinds of thing in config. Here is the whole vocabulary in plain language. **Legend: ✅ available now · 🚧 in progress** (the five general capabilities at the end are being built now and work on any floor, not just foundries).
+You model a floor by naming a few kinds of thing in config. Here is the whole vocabulary in plain language. **Legend: ✅ available now.** Every capability below works on any floor, not just the example it appears in.
 
 **Resources - what work competes for**
 
@@ -130,16 +130,17 @@ You model a floor by naming a few kinds of thing in config. Here is the whole vo
 | **Bill of materials** | Rolled up automatically from what each operation consumes. You never hand-write it. | ✅ |
 | **Capacity-N work center** | `capacity: N` on a work center gives it N identical machines in parallel; jobs pull whichever is free, so up to N run at once. The report's flow diagram draws it as a stack of N machines. (v1 shares one setup state across the N machines.) See [`examples/cnc-shop-3mill`](examples/cnc-shop-3mill/). | ✅ |
 
-**Four general capabilities being added now** - each is framework-wide, usable by any floor; the multi-station foundry is just the proof.
+**Four general capabilities** - each is framework-wide, usable by any floor; the [`tier0-foundry`](examples/tier0-foundry/) example composes all four at once.
 
 | Capability | What it lets you model | |
 |---|---|---|
-| **Reorder-point stock** | A stock that refills itself when it drops below a set level - any consumable or feedstock. | 🚧 |
-| **Probabilistic routing / quality gate** | Send whole units down a pass or fail path by chance (inspection, rework), which is different from a fixed scrap rate. | 🚧 |
-| **Batch / hold operation** | One timed hold over a whole group at once - an oven, a cure, a dry, a cool. | 🚧 |
-| **Output-to-stock (recycle / remelt)** | Route scrap or rework back into a named stock so the material re-enters the flow. | 🚧 |
+| **Reorder-point stock** | A stock that refills itself when it drops below a set level - any consumable or feedstock. Declare `{reorder_point, refill_to}`; a location pulls it with `material: {stock, qty, uom}`. | ✅ |
+| **Probabilistic routing / quality gate** | Send whole units down a pass or fail path by chance (inspection, rework), which is different from a fixed scrap rate. Declare `quality_gate: {thing, branches: [{prob, to}]}`; draws from a dedicated seeded stream. | ✅ |
+| **Batch / hold operation** | One timed hold over a whole group at once - an oven, a cure, a dry, a cool. Declare `time_model: {kind: batch_hold, seconds: N}` with `batch_size`. | ✅ |
+| **Changeover time** | A real setup charged when the next job's setup group differs from the machine's current one. Declare `changeover_seconds: N`; it elapses in simulation and shows in the `setup_hours` KPI. | ✅ |
+| **Output-to-stock (recycle / remelt)** | Route scrap or rework back into a named stock so the material re-enters the flow. | ✅ |
 
-Everything above is declared in config. The engine has no per-client code, so the same vocabulary models any discrete floor.
+Everything above is declared in config. The engine has no per-client code, so the same vocabulary models any discrete floor. See [`docs/modeling.md`](docs/modeling.md) for the full config reference.
 
 ---
 
@@ -181,7 +182,7 @@ results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=42)
 
 ## ✅ What you get today
 
-Everything here is **built and tested** (326 passing tests). The library API is stable; the `twinflow` command surfaces the same operations.
+Everything here is **built and tested** (491 passing tests). The library API is stable; the `twinflow` command surfaces the same operations.
 
 | Capability | What it means for you |
 |---|---|
@@ -207,7 +208,59 @@ Everything here is **built and tested** (326 passing tests). The library API is 
 
 > The pattern: **agents propose changes, the twin scores them, and your planners, schedulers, and operators get the recommendation** - with a confidence range attached.
 
-Available today: programmatic runs, sweeps, replications, and the JSON KPI contract. The richer agent-interaction surface (a standard tool interface, live scoring loops) is evolving - see the roadmap.
+Available today: programmatic runs, sweeps, replications, the JSON KPI contract, a **unified module surface** (propose a scenario → the twin scores it → an objective ranks it) with pluggable optimizers/objectives/cost-functions/models, and a local **REST API** that drives run / sweep / optimize as jobs. See [Modules](#-modules---one-surface-for-optimizers-objectives-costs-and-models) and [`docs/modules.md`](docs/modules.md).
+
+---
+
+## 🧩 Modules - one surface for optimizers, objectives, costs, and models
+
+Real floors need many kinds of optimization, many objective and cost functions, and
+many models. `twinflow.modules` gives them **one unified surface** to attach to. The
+twin already turns a **scenario** (a set of config lever overrides) into **KPIs with a
+confidence band**; every module is a small function over that.
+
+```
+ScoringSurface(model, plan)  ──►  Scenario ──► Evaluation (KPIs + band)
+       │                                   │                    │
+   Optimizer  ──── ranks by ─────────► Objective  ◄── money ── CostFunction
+       │                                                        │
+   SurrogateModel (learns the surface to screen scenarios cheaply)
+```
+
+Each kind lives in its own registry, so adding one is a single `register(name, factory)`
+call - never a core edit.
+
+| Kind | Built in today |
+|---|---|
+| **Objectives** | `on_time_pct`, `robust_on_time` (a confidence-band edge, not the mean), `makespan`, `mean_lateness`, `utilization`, plus weighted blends and cost objectives |
+| **Cost functions** | `labor_cost`, `capacity_cost`, `lateness_penalty`, `total_cost` |
+| **Optimizers** | `grid`, `random`, `hill_climb`, `genetic` - they *propose*, they never commit |
+| **Surrogate models** | `linear`, `nearest_neighbor` - learn the surface, screen scenarios cheaply |
+
+```bash
+twinflow optimize examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv \
+  --lever labor.pools[0].headcount:2:6 --objective robust_on_time --optimizer hill_climb
+```
+
+Full guide, including how to add your own: [`docs/modules.md`](docs/modules.md).
+
+---
+
+## 🖥️ Front end & API
+
+The twin ships with a local **REST API** and a **React front end** to map the floor, run
+it, sweep a lever, and optimize - all in the browser, with the confidence band as the
+central visual.
+
+```bash
+pip install -e ".[api]"
+twinflow serve --port 8000          # the API
+cd web && npm install && npm run dev # the UI (proxies /api to :8000)
+```
+
+The API exposes model discovery, a floor graph, tunable levers, module discovery, and
+run / sweep / optimize as background jobs the UI polls. See [`docs/api.md`](docs/api.md)
+and [`docs/frontend.md`](docs/frontend.md).
 
 ---
 
@@ -258,17 +311,18 @@ A five-layer design. Lower layers never import higher ones. Layers 0 through 2 n
 | 2 · Model | `twinflow.model` | `model.yaml` → validated routing graph + BOM; the only YAML and expression trust boundary |
 | 3 · Plan | `twinflow.plan` | Work orders, release timing, initial WIP, the run driver, replications |
 | 4 · Instrumentation / Report | `twinflow.instrumentation`, `twinflow.report` | Event log → KPIs → sweeps; self-contained HTML + JSON report |
+| 5 · Modules / Service | `twinflow.modules`, `twinflow.service` | Unified scoring surface (objectives, costs, optimizers, models); optional REST API |
 
 **The core rule:** a new client is data, never code. A capability a floor needs is added to the engine for everyone, never subclassed per client.
 
-Deep docs: the product/design/plan specs live in [`.claude/specs/factory-twin-scaffold/`](.claude/specs/factory-twin-scaffold/) and the stable project context in [`.claude/steering/`](.claude/steering/).
+Deep docs: **operating guides for every feature and build live in [`docs/`](docs/)** (install, CLI, modeling, modules, API, front end, quickstart). The product/design/plan specs live in [`.claude/specs/factory-twin-scaffold/`](.claude/specs/factory-twin-scaffold/) and the stable project context in [`.claude/steering/`](.claude/steering/).
 
 ---
 
 ## Status & quality
 
 - **Python** ≥ 3.11.
-- **326 tests** across unit, analytical, and integration layers.
+- **491 tests** across unit, analytical, and integration layers.
 - **Blocking CI gates:** `ruff`, `mypy --strict`, `pytest`, `pip-audit` - the build fails on any finding.
 - **Config is the only trust boundary:** YAML is loaded through one safe door, expressions run in one sandbox, and validation reports every problem before a run starts.
 - **Reproducible by construction:** every run carries a stamp that lets you re-create it exactly.
@@ -286,11 +340,19 @@ Deep docs: the product/design/plan specs live in [`.claude/specs/factory-twin-sc
 - Self-contained HTML report + versioned JSON sidecar
 - `twinflow` CLI: `validate`, `run`, `balance`, `report`
 
+**v2 - alpha (built and tested)**
+- Tier 0 floor physics: reorder-point stock, probabilistic quality gate, batch/hold, changeover time
+- Supply chain: supplier lead time, multi-echelon inventory, inventory KPIs, and inventory economics (holding/stockout costs, `service_level`) optimizable through the same surface
+- Unified module surface: objectives, cost functions, optimizers, and surrogate ML models over one scoring seam
+- Unified adapter surfaces: ERP/MES connectors, demand generation, forecasters, dispatch policies, a Gymnasium-style RL environment, plan-vs-actual reconciliation, orders/deliveries KPIs
+- `twinflow optimize` CLI and a local REST API (`twinflow serve`)
+- React front end (`web/`) to map, run, sweep, and optimize the twin in the browser
+
 **Near-term**
 - Supply-chain nodes: orders, sub-vendors, multi-echelon inventory
 - Gymnasium environment for reinforcement learning
 - Forecaster hooks (e.g. Prophet) feeding plans and scenarios
-- Optimizer loop over the scoring surface
+- Paired-difference confidence intervals surfaced in the report
 
 **Later**
 - Live ERP / MES connectors

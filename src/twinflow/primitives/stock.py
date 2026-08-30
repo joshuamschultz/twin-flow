@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
 import simpy
 
@@ -16,6 +16,18 @@ class Stock:
     never-negative guarantees natively: a `get(qty)` request queues until enough
     level exists, and queued requests are only satisfied in order as level permits
     (structure.md primitives contract, COMP-006).
+
+    An optional `on_change` observer is invoked at the start of every `pull`,
+    before the (possibly blocking) `get`. The primitive itself knows nothing about
+    reorder points (D-044); the run driver uses this hook to implement reorder-point
+    replenishment as a pure Layer-2/3 policy, keeping domain logic out of the
+    primitive. Invoking it *before* the get lets a low stock place a replenishment
+    order before it runs dry.
+
+    A second optional `on_level_change(stock, delta, kind)` observer fires AFTER the
+    level actually changes — a negative `delta`/`"consume"` after a `get`, a positive
+    `delta`/`"replenish"` after a `put`. The driver uses it to record the inventory
+    log; the primitive stays domain-agnostic.
     """
 
     def __init__(
@@ -24,12 +36,30 @@ class Stock:
         uom: str,
         env: simpy.Environment,
         initial_qty: float = 0.0,
+        on_change: Callable[[Stock], None] | None = None,
+        on_level_change: Callable[[Stock, float, str], None] | None = None,
     ) -> None:
         self.thing = thing
         self.uom = uom
         self.env = env
         self.material_ready_time: float | None = None
         self._container = simpy.Container(env, init=initial_qty)
+        self._on_change = on_change
+        self._on_level_change = on_level_change
+
+    def set_reorder_hook(self, on_change: Callable[[Stock], None] | None) -> None:
+        """Set (or clear) the pre-pull reorder observer after construction — used by
+        the driver so a multi-echelon hook can reference the whole stocks map, which
+        only exists once every stock has been built."""
+        self._on_change = on_change
+
+    def review_reorder(self) -> None:
+        """Run the reorder observer now, against the current level. The pre-pull
+        review sees the level BEFORE a draw; an upstream echelon drawn down by a
+        downstream order needs a review AFTER the draw to notice it fell below its
+        own reorder point (a continuous-review top-up for infrequently-pulled stock)."""
+        if self._on_change is not None:
+            self._on_change(self)
 
     @property
     def level(self) -> float:
@@ -48,7 +78,11 @@ class Stock:
                 f"pull identity mismatch: requested ({thing!r}, {uom!r}), "
                 f"stock holds ({self.thing!r}, {self.uom!r})"
             )
+        if self._on_change is not None:
+            self._on_change(self)  # reorder-point policy places an order before a blocking get
         yield self._container.get(qty)
+        if self._on_level_change is not None:
+            self._on_level_change(self, -qty, "consume")
         return Bundle(qty=qty, thing=thing, uom=uom)
 
     def put(self, bundle: Bundle) -> None:
@@ -63,3 +97,5 @@ class Stock:
             )
         self._container.put(bundle.qty)
         self.material_ready_time = self.env.now
+        if self._on_level_change is not None:
+            self._on_level_change(self, bundle.qty, "replenish")

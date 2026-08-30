@@ -17,7 +17,7 @@ from typing import Protocol
 import simpy
 from simpy.resources.resource import PriorityRequest
 
-from twinflow.engine.rng import SOURCE_CYCLE_TIME, RngRegistry
+from twinflow.engine.rng import SOURCE_CYCLE_TIME, SOURCE_ROUTING, RngRegistry
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.cell import Machine, SetupPolicy
 from twinflow.primitives.labor import PRIORITY_LOAD, LaborPool
@@ -30,7 +30,9 @@ from twinflow.primitives.transform import Transform
 # (instrumentation/event_log.py). Defined here Polars-free so that primitives never
 # imports instrumentation (structure.md boundary): Location produces plain tuples;
 # the Layer-4 EventLog owns the schema/Enum and the Polars conversion at flush time.
-RecordTuple = tuple[str, str, str, str, float, float, float | None, float, float, float, str]
+RecordTuple = tuple[
+    str, str, str, str, float, float, float | None, float, float, float, str, float
+]
 
 
 class EventSink(Protocol):
@@ -96,6 +98,33 @@ class PullRule:
             selected.append(bundle)
             total += bundle.qty
         return selected
+
+
+class RoutingPolicy:
+    """Probabilistic quality gate: routes one output `thing` among weighted sinks.
+
+    Distinct from a fixed scrap rate (D-043): a scrap rate splits a firing's qty
+    into good/scrap bundles every time, whereas a quality gate sends the WHOLE
+    output down a single pass/fail branch by chance (inspection, rework). One draw
+    from the SOURCE_ROUTING stream per firing (CRN, D-033) picks the branch; the
+    caller (Location) owns the draw so the primitive stays a pure decision function.
+
+    Branch probabilities are validated to sum to 1.0 at Layer 2 (model/validate.py),
+    so `choose` treats the declared order as an exhaustive cumulative partition.
+    """
+
+    def __init__(self, branches: list[tuple[float, Stock | list[Bundle]]]) -> None:
+        self._branches = branches
+
+    def choose(self, u: float) -> Stock | list[Bundle]:
+        """Return the sink for a uniform draw `u` in [0, 1) by cumulative probability.
+        A draw landing exactly on the upper edge falls to the last branch."""
+        cumulative = 0.0
+        for prob, sink in self._branches:
+            cumulative += prob
+            if u < cumulative:
+                return sink
+        return self._branches[-1][1]
 
 
 class MaterialRequirementLike(Protocol):
@@ -277,8 +306,16 @@ class Location:
             # (D-043) — apply the transform, then emit every output to its
             # declared destination (a Stock is put() into; a list sink appended).
             outputs = self.spec.transform.apply(selected, self.spec.registry)
+            routers = getattr(self.spec, "routers", {})
             for output_bundle in outputs:
-                destination = self.spec.destinations[output_bundle.thing]
+                router = routers.get(output_bundle.thing)
+                if router is not None:
+                    # Probabilistic quality gate: one draw from the dedicated
+                    # SOURCE_ROUTING stream picks a whole-unit pass/fail branch.
+                    draw = float(self.rng.generator(SOURCE_ROUTING).random())
+                    destination = router.choose(draw)
+                else:
+                    destination = self.spec.destinations[output_bundle.thing]
                 if isinstance(destination, Stock):
                     destination.put(output_bundle)
                 else:
@@ -300,6 +337,7 @@ class Location:
                     actual_end,
                     release_time,
                     "complete",
+                    setup_seconds,
                 )
             )
         finally:

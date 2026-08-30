@@ -24,7 +24,12 @@ from typing import Any, cast
 from twinflow.model.distributions import build_draw, build_noise
 from twinflow.model.expressions import ExpressionSandbox
 from twinflow.model.loader import RawModel
-from twinflow.model.schema import LocationSpec
+from twinflow.model.schema import (
+    LocationSpec,
+    MaterialSpec,
+    QualityBranchSpec,
+    QualityGateSpec,
+)
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.cell import Machine, SetupPolicy
 from twinflow.primitives.location import PullRule
@@ -32,6 +37,7 @@ from twinflow.primitives.part import PartTypeRegistry
 from twinflow.primitives.stock import Stock
 from twinflow.primitives.time_model import (
     KIND_ATTRIBUTE_SCALED,
+    KIND_BATCH_HOLD,
     KIND_DISTRIBUTION,
     KIND_RATE_BASED,
     TimeModel,
@@ -85,8 +91,16 @@ class LocationCompiler:
 
         transform = Transform(_build_transform_spec(loc))
         pull_rule = PullRule(setup_key_of=setup_key_of, spec=loc.get("batch_size"))
+        # A declared `changeover_seconds` is the setup/changeover time this center
+        # charges when a job's setup group differs from the machine's current one
+        # (including the cold-start setup of the first job). Absent means 0.0 — the
+        # historical v1 default. Primitives never learn what a changeover is (D-044);
+        # the compiler turns the plain-language number into a SetupPolicy.
+        changeover_seconds = float(loc.get("changeover_seconds", 0.0))
         setup_policy = SetupPolicy(
-            setup_key_of=setup_key_of, changeover_matrix={}, default_seconds=0.0
+            setup_key_of=setup_key_of,
+            changeover_matrix={},
+            default_seconds=changeover_seconds,
         )
 
         time_model = _build_time_model(loc["time_model"], default_cv)
@@ -113,7 +127,36 @@ class LocationCompiler:
             destinations=destinations,
             stock_destinations=stock_destinations,
             capacity=int(loc.get("capacity", 1)),
+            quality_gate=_build_quality_gate(loc),
+            material_spec=_build_material_spec(loc),
         )
+
+
+def _build_quality_gate(loc: RawLocation) -> QualityGateSpec | None:
+    """Compile a declared `quality_gate` into a QualityGateSpec (D-044), or None.
+
+    `thing` defaults to the location's first declared emit (the good output) when
+    omitted. Each branch's `to` names a location, a stock, or is null (a terminal
+    sink / finished part); RunDriver resolves those into run-bound sinks.
+    """
+    raw = loc.get("quality_gate")
+    if raw is None:
+        return None
+    thing = str(raw.get("thing") or loc["emits"][0]["thing"])
+    branches = [
+        QualityBranchSpec(prob=float(branch["prob"]), to=branch.get("to"))
+        for branch in raw["branches"]
+    ]
+    return QualityGateSpec(thing=thing, branches=branches)
+
+
+def _build_material_spec(loc: RawLocation) -> MaterialSpec | None:
+    """Compile a declared secondary-material requirement `material: {stock, qty,
+    uom}` into a MaterialSpec (D-044), or None. RunDriver binds it to a Stock."""
+    raw = loc.get("material")
+    if raw is None:
+        return None
+    return MaterialSpec(stock=str(raw["stock"]), qty=float(raw["qty"]), uom=str(raw["uom"]))
 
 
 def _build_time_model(raw: dict[str, Any], default_cv: float = 0.0) -> TimeModel:
@@ -133,6 +176,19 @@ def _build_time_model(raw: dict[str, Any], default_cv: float = 0.0) -> TimeModel
     if kind == KIND_DISTRIBUTION:
         spec = {key: value for key, value in raw.items() if key not in reserved}
         params: dict[str, Any] = {"draw": build_draw(spec)}
+    elif kind == KIND_BATCH_HOLD:
+        # One timed hold over a whole accumulated group (oven/cure/cool). Either a
+        # fixed `seconds`, or a distribution (`dist`/`mean`/...) drawn per firing;
+        # a `cv` adds multiplicative spread to the fixed form. The hold ignores
+        # batch qty by contract (TimeModel._run), so this compiles to a qty-free
+        # duration paired with the location's `batch_size` PullRule.
+        if "dist" in raw:
+            spec = {key: value for key, value in raw.items() if key not in reserved | {"cv"}}
+            params = {"draw": build_draw(spec)}
+        else:
+            params = {"seconds": float(raw["seconds"])}
+            if cv > 0.0:
+                params["noise"] = build_noise(cv)
     elif kind == KIND_RATE_BASED:
         params = {"rate": raw["rate"]}
         if cv > 0.0:

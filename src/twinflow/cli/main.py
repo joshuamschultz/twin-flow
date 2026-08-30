@@ -21,7 +21,10 @@ import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
+
+if TYPE_CHECKING:
+    from twinflow.modules.space import Domain, IntRange
 
 from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, aggregate_kpis
@@ -98,6 +101,26 @@ def _build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("run_id")
     report_parser.add_argument("--out", required=True, choices=["html"])
     report_parser.set_defaults(handler=_handle_report)
+
+    optimize_parser = subparsers.add_parser("optimize")
+    optimize_parser.add_argument("model")
+    optimize_parser.add_argument("--plan", required=True)
+    optimize_parser.add_argument(
+        "--lever", action="append", required=True, metavar="PATH:MIN:MAX[:STEP]",
+        help="a tunable lever and its integer search range, e.g. labor.pools[0].headcount:2:6",
+    )
+    optimize_parser.add_argument("--objective", default="on_time_pct")
+    optimize_parser.add_argument("--optimizer", default="hill_climb")
+    optimize_parser.add_argument("--budget", type=int, default=12)
+    optimize_parser.add_argument("--reps", type=int, default=12)
+    optimize_parser.add_argument("--seed", type=int, default=0)
+    optimize_parser.set_defaults(handler=_handle_optimize)
+
+    serve_parser = subparsers.add_parser("serve")
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=8000)
+    serve_parser.add_argument("--models-root", default="examples")
+    serve_parser.set_defaults(handler=_handle_serve)
 
     return parser
 
@@ -217,6 +240,91 @@ def _handle_report(args: argparse.Namespace) -> int:
         print(f"error: run {args.run_id!r} completed but report.html is missing", file=sys.stderr)
         return 1
     return 0
+
+
+def _handle_optimize(args: argparse.Namespace) -> int:
+    """`twinflow optimize <model> --plan <plan> --lever PATH:MIN:MAX[:STEP] ...`.
+
+    Searches the declared integer lever space for the scenario a named objective
+    prefers, via a named optimizer, and prints the winner with its confidence
+    band. The twin scores; it proposes no commit — the decision stays with you.
+    """
+    from twinflow.modules import LeverSpace
+    from twinflow.modules import optimize as run_optimize
+    from twinflow.modules.objectives import OBJECTIVES
+    from twinflow.modules.optimizers import OPTIMIZERS
+
+    if args.reps < 1 or args.budget < 1:
+        print("error: --reps and --budget must be positive integers", file=sys.stderr)
+        return 1
+    if args.objective not in OBJECTIVES:
+        print(
+            f"error: unknown objective {args.objective!r}; try {OBJECTIVES.names()}",
+            file=sys.stderr,
+        )
+        return 1
+    if args.optimizer not in OPTIMIZERS:
+        print(
+            f"error: unknown optimizer {args.optimizer!r}; try {OPTIMIZERS.names()}",
+            file=sys.stderr,
+        )
+        return 1
+
+    model_path = str(Path(args.model).resolve())
+    plan_path = str(Path(args.plan).resolve())
+    compiled = load_model(model_path)
+    work_orders = load_plan(plan_path, compiled.registry)
+
+    domains: dict[str, Domain] = {}
+    for spec in args.lever:
+        path, domain = _parse_lever(spec)
+        domains[path] = domain
+    space = LeverSpace(domains)
+
+    result = run_optimize(
+        model_path,
+        work_orders,
+        space,
+        OBJECTIVES.create(args.objective),
+        OPTIMIZERS.create(args.optimizer),
+        budget=args.budget,
+        reps=args.reps,
+        seed=args.seed,
+    )
+
+    band = result.best.intervals.on_time_pct
+    print(
+        f"objective {result.objective_name} ({result.direction}) "
+        f"-> best score {result.best_score:.2f}"
+    )
+    print(f"  levers:   {result.best.scenario.levers}")
+    print(f"  on-time%: {band.mean:.1f}  (band {band.lo:.1f}-{band.hi:.1f}, {band.n} reps)")
+    print(f"  evals:    {result.evaluations_used} of budget {args.budget}")
+    print("  (the twin scores the options; the decision stays yours)")
+    return 0
+
+
+def _parse_lever(spec: str) -> tuple[str, IntRange]:
+    """`PATH:MIN:MAX[:STEP]` -> (path, IntRange). Paths never contain a colon
+    (they use dots + `[selector]`), so colon-splitting is unambiguous."""
+    from twinflow.modules import IntRange
+
+    parts = spec.split(":")
+    if len(parts) not in (3, 4):
+        raise ValueError(f"malformed --lever {spec!r}; expected PATH:MIN:MAX[:STEP]")
+    path = parts[0]
+    low, high = int(parts[1]), int(parts[2])
+    step = int(parts[3]) if len(parts) == 4 else 1
+    return path, IntRange(low, high, step)
+
+
+def _handle_serve(args: argparse.Namespace) -> int:
+    """`twinflow serve` — start the local REST API (needs the `api` extra)."""
+    from twinflow.service.serve import main as serve_main
+
+    return serve_main(
+        ["--host", args.host, "--port", str(args.port), "--models-root", args.models_root]
+    )
 
 
 # ---------------------------------------------------------------------------

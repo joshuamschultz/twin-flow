@@ -168,6 +168,8 @@ def _graph_checks(
 
     errors.extend(_orphan_stock_checks(data, locations_by_name))
     errors.extend(_output_stock_destination_checks(data))
+    errors.extend(_quality_gate_and_material_checks(data, locations_by_name))
+    errors.extend(_supplier_checks(data))
 
     routing = cast(list[RawRoutingEntry], data.get("routing", []))
     model_max_rework = data.get("max_rework")
@@ -202,6 +204,59 @@ def _location_reference_checks(
     return errors
 
 
+def _supplier_checks(data: dict[str, Any]) -> list[ValidationError]:
+    """Supply-chain graph checks: `lead_time >= 0`, every `supplier` names a declared
+    stock, and the supplier chain has no cycle (which would make an echelon its own
+    upstream and never terminate at an external source)."""
+    errors: list[ValidationError] = []
+    stocks = cast(list[dict[str, Any]], data.get("stocks", []))
+    declared = {stock["name"] for stock in stocks}
+    supplier_of: dict[str, str] = {}
+
+    for idx, stock in enumerate(stocks):
+        if float(stock.get("lead_time", 0.0)) < 0.0:
+            errors.append(
+                ValidationError(
+                    path=f"stocks[{idx}].lead_time",
+                    message=f"lead_time must be >= 0, got {stock['lead_time']!r}",
+                )
+            )
+        supplier = stock.get("supplier")
+        if supplier is None:
+            continue
+        if supplier not in declared:
+            errors.append(
+                ValidationError(
+                    path=f"stocks[{idx}].supplier",
+                    message=f"supplier {supplier!r} is not a declared stock",
+                )
+            )
+        else:
+            supplier_of[str(stock["name"])] = str(supplier)
+
+    for idx, stock in enumerate(stocks):
+        if _has_supplier_cycle(str(stock["name"]), supplier_of):
+            errors.append(
+                ValidationError(
+                    path=f"stocks[{idx}].supplier",
+                    message=f"supplier chain from stock {stock['name']!r} forms a cycle",
+                )
+            )
+    return errors
+
+
+def _has_supplier_cycle(start: str, supplier_of: dict[str, str]) -> bool:
+    """True if following `supplier` edges from `start` revisits a node."""
+    seen: set[str] = set()
+    current: str | None = start
+    while current is not None:
+        if current in seen:
+            return True
+        seen.add(current)
+        current = supplier_of.get(current)
+    return False
+
+
 def _orphan_stock_checks(
     data: dict[str, Any], locations_by_name: dict[str, RawLocation]
 ) -> list[ValidationError]:
@@ -210,8 +265,23 @@ def _orphan_stock_checks(
     for loc in locations_by_name.values():
         referenced |= _consumed_things(loc)
         referenced |= _produced_things(loc)
+        # A stock can also be referenced as a secondary `material` requirement or
+        # as a `quality_gate` branch destination, not only via consumes/emits.
+        material = loc.get("material")
+        if isinstance(material, dict) and material.get("stock") is not None:
+            referenced.add(str(material["stock"]))
+        gate = loc.get("quality_gate")
+        if isinstance(gate, dict):
+            for branch in gate.get("branches") or []:
+                if branch.get("to") is not None:
+                    referenced.add(str(branch["to"]))
 
     stocks = cast(list[dict[str, Any]], data.get("stocks", []))
+    # A stock named as another stock's upstream `supplier` is referenced, not an orphan.
+    for stock in stocks:
+        if stock.get("supplier") is not None:
+            referenced.add(str(stock["supplier"]))
+
     for idx, stock in enumerate(stocks):
         if stock["name"] not in referenced:
             errors.append(
@@ -245,6 +315,63 @@ def _output_stock_destination_checks(data: dict[str, Any]) -> list[ValidationErr
                         ),
                     )
                 )
+    return errors
+
+
+def _quality_gate_and_material_checks(
+    data: dict[str, Any], locations_by_name: dict[str, RawLocation]
+) -> list[ValidationError]:
+    """Tier 0 graph checks: a probabilistic `quality_gate`'s branch probabilities
+    must sum to 1.0 and every branch `to` must name a declared location or stock
+    (or be null); a `material` requirement's `stock` must be a declared stock."""
+    errors: list[ValidationError] = []
+    declared_stock_names = {
+        stock["name"] for stock in cast(list[dict[str, Any]], data.get("stocks", []))
+    }
+    raw_locations = cast(list[RawLocation], data.get("locations", []))
+    for idx, loc in enumerate(raw_locations):
+        gate = loc.get("quality_gate")
+        if isinstance(gate, dict):
+            branches = gate.get("branches") or []
+            try:
+                total = sum(float(branch.get("prob", 0.0)) for branch in branches)
+            except (TypeError, ValueError):
+                total = float("nan")
+            if not branches or abs(total - 1.0) > 1e-6:
+                errors.append(
+                    ValidationError(
+                        path=f"locations[{idx}].quality_gate",
+                        message=f"branch probabilities must sum to 1.0, got {total}",
+                    )
+                )
+            for b_idx, branch in enumerate(branches):
+                target = branch.get("to")
+                if (
+                    target is not None
+                    and target not in locations_by_name
+                    and target not in declared_stock_names
+                ):
+                    errors.append(
+                        ValidationError(
+                            path=f"locations[{idx}].quality_gate.branches[{b_idx}].to",
+                            message=(
+                                f"names unknown target {target!r} "
+                                f"(not a declared location or stock)"
+                            ),
+                        )
+                    )
+
+        material = loc.get("material")
+        if isinstance(material, dict) and material.get("stock") not in declared_stock_names:
+            errors.append(
+                ValidationError(
+                    path=f"locations[{idx}].material.stock",
+                    message=(
+                        f"names stock {material.get('stock')!r}, which is not "
+                        f"declared in top-level stocks"
+                    ),
+                )
+            )
     return errors
 
 
