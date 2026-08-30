@@ -29,17 +29,7 @@ as **bundles**. Each center does one **operation** (a transform), competing for 
 
 ## How work flows (one firing)
 
-```mermaid
-flowchart LR
-  Q["queue"] -->|dispatch rule<br/>picks next job| P
-  subgraph P["one firing (fixed order, every center)"]
-    direction TB
-    m["acquire machine"] --> o["acquire operator"] --> c["consume material"]
-    c --> s["charge setup"] --> r["charge run time"] --> sc["apply scrap"]
-    sc --> e["emit outputs"] --> ro["release operator"] --> rm["release machine"]
-  end
-  P --> N["next center / stock / finished"]
-```
+![How work flows through one firing](images/diagram-firing.png)
 
 The order is fixed and the same at every center, which is what makes a run auditable and
 reproducible. A **dispatch rule** (active control) decides *which* queued job is pulled;
@@ -82,9 +72,11 @@ Every KPI comes from that one event log — there is no second source of truth.
 Run with `--reps > 1` and each KPI comes back as a **mean with a low-to-high confidence
 band**, not a single fake-certain number.
 
-> **See it move.** Open [`visual/confidence-band.html`](visual/confidence-band.html) in a
-> browser: run one replication, then thirty, and watch a single misleading number turn
-> into an honest range. This is the whole idea behind twinflow in one interactive picture.
+![One run is a guess; many runs are an honest range](images/confidence-band.png)
+
+Each dot is one replication of the same floor. The dashed line is the single run you might
+have quoted a date from; the shaded band is the honest low-to-high range. twinflow reports
+the band, not the dot.
 
 ## Reproducibility
 

@@ -1,8 +1,6 @@
 # twinflow documentation
 
-> **Prefer a visual home?** Open [`index.html`](index.html) in a browser — the docs
-> landing page with the concept illustration, the rendered system diagram, and the full
-> index as cards.
+![A factory floor and its glowing digital twin](images/twin-concept.png)
 
 The complete manual. Whether you have never opened twinflow or you are looking up one
 config field, start here.
@@ -50,27 +48,7 @@ config field, start here.
 
 ## The shape of the system
 
-```mermaid
-flowchart TD
-  cfg["model.yaml + plan (.xlsx/.csv)<br/>a complete client — no code per plant"]
-  model["twinflow.model<br/>compile → routing graph + BOM"]
-  run["twinflow.plan<br/>run → event log"]
-  kpi["KPIs + confidence bands<br/>(many replications)"]
-  surface["twinflow.modules · ScoringSurface<br/>scenario in → scored KPIs out"]
-  obj["objectives"]
-  cost["cost functions"]
-  opt["optimizers"]
-  ml["surrogate models"]
-  cal["calibration"]
-  adapt["twinflow.adapters<br/>ERP/MES · demand · forecast · dispatch · RL · reconcile"]
-  api["twinflow.service (REST)"]
-  web["web/ (React front end)"]
-
-  cfg --> model --> run --> kpi --> surface
-  surface --- obj & cost & opt & ml & cal
-  surface --> adapt
-  adapt --> api --> web
-```
+![The shape of the system](images/diagram-system.png)
 
 The one rule the whole system rests on: **a new client is data, never code.** You never
 write a simulation by hand — you declare what the floor does, and the engine builds the
