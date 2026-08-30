@@ -35,6 +35,20 @@ class QualityGateSpec:
 
 
 @dataclass(frozen=True)
+class BreakdownSpec:
+    """A compiled machine-breakdown disruption (A4): the center's machine fails on a
+    seeded schedule with mean time between failures `mtbf_seconds`, then is unavailable
+    for a repair time drawn from `mttr` (a `time_model`-style spec compiled to a draw
+    callable). Each run's breakdown process draws from the dedicated SOURCE_BREAKDOWN
+    stream, so downtime is reproducible and pairs across replications (D-033)."""
+
+    mtbf_seconds: float
+    mttr_draw: object
+    """A `Callable[[np.random.Generator], float]` built by the compiler from the `mttr`
+    distribution spec; typed `object` here to keep the schema numpy-free."""
+
+
+@dataclass(frozen=True)
 class MaterialSpec:
     """A compiled secondary-material requirement (COMP-016): the location pulls
     `qty` of stock `stock` (in `uom`) at step 3 of the order of operations, on top
@@ -89,3 +103,13 @@ class LocationSpec:
     """Runtime-only: output `thing` -> `RoutingPolicy` over run-bound sinks, built
     fresh by `RunDriver` from `quality_gate`. Empty at compile time; the Location
     reads it via `getattr` so compile-time and test-double specs need not set it."""
+
+    dispatch: str = "fifo"
+    """Active-control dispatch rule (A1): which queued job this center runs next —
+    one of `fifo` (arrival order, the default), `edd`, `spt`, `critical_ratio`. A
+    dot-path lever (`locations[<name>].dispatch`) so a sweep/optimize can compare
+    policies. The Location reads it via `getattr`, so test-double specs need not set it."""
+
+    breakdown: BreakdownSpec | None = None
+    """A declared machine-breakdown disruption (A4), or None. `RunDriver` starts a
+    seeded failure process from it that makes the machine unavailable for repair."""

@@ -72,6 +72,8 @@ class ModelValidator:
 
         errors.extend(_graph_checks(data, locations_by_name))
 
+        errors.extend(_release_checks(data))
+
         for idx, loc in valid_locations:
             try:
                 errors.extend(self._expression_checks(idx, loc))
@@ -79,6 +81,7 @@ class ModelValidator:
                 errors.extend(_capacity_checks(idx, loc))
                 errors.extend(_unit_checks(idx, loc))
                 errors.extend(_field_combination_checks(idx, loc))
+                errors.extend(_dispatch_checks(idx, loc))
             except Exception as exc:  # noqa: BLE001 -- per-location isolation (D-007)
                 errors.append(
                     ValidationError(
@@ -199,6 +202,56 @@ def _location_reference_checks(
                     message=(
                         f"labor_skill {loc['labor_skill']!r} is not declared in any labor pool"
                     ),
+                )
+            )
+    return errors
+
+
+_VALID_DISPATCH = frozenset({"fifo", "edd", "spt", "critical_ratio"})
+_VALID_RELEASE = frozenset({"plan", "conwip", "wip_cap"})
+
+
+def _dispatch_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
+    """A declared `dispatch` must be one of the four active-control rules (A1)."""
+    dispatch = loc.get("dispatch")
+    if dispatch is not None and dispatch not in _VALID_DISPATCH:
+        return [
+            ValidationError(
+                path=f"locations[{idx}].dispatch",
+                message=(
+                    f"unknown dispatch rule {dispatch!r}; expected one of "
+                    f"{sorted(_VALID_DISPATCH)}"
+                ),
+            )
+        ]
+    return []
+
+
+def _release_checks(data: dict[str, Any]) -> list[ValidationError]:
+    """A declared model-level `release` policy (A2) must be valid, and a capped
+    policy (`conwip`/`wip_cap`) must declare a positive `wip_cap`."""
+    raw = data.get("release")
+    if raw is None:
+        return []
+    errors: list[ValidationError] = []
+    policy = raw.get("policy", "plan")
+    if policy not in _VALID_RELEASE:
+        errors.append(
+            ValidationError(
+                path="release.policy",
+                message=(
+                    f"unknown release policy {policy!r}; "
+                    f"expected one of {sorted(_VALID_RELEASE)}"
+                ),
+            )
+        )
+    if policy in ("conwip", "wip_cap"):
+        wip_cap = raw.get("wip_cap")
+        if wip_cap is None or not isinstance(wip_cap, int) or wip_cap < 1:
+            errors.append(
+                ValidationError(
+                    path="release.wip_cap",
+                    message=f"release policy {policy!r} requires a positive integer wip_cap",
                 )
             )
     return errors

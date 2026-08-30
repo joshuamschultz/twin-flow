@@ -7,7 +7,7 @@
 **Describe your factory floor in a spreadsheet and a config file. Get back honest answers about dates, bottlenecks, and staffing - each with a confidence range, not a guess.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0b2340)](#status--quality)
-[![tests](https://img.shields.io/badge/tests-491%20passing-1aa179)](#status--quality)
+[![tests](https://img.shields.io/badge/tests-507%20passing-1aa179)](#status--quality)
 [![mypy](https://img.shields.io/badge/mypy-strict-2bb5b5)](#status--quality)
 [![lint](https://img.shields.io/badge/lint-ruff-46a2f1)](#status--quality)
 [![status](https://img.shields.io/badge/status-alpha-f5a623)](#roadmap)
@@ -182,7 +182,7 @@ results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=42)
 
 ## ✅ What you get today
 
-Everything here is **built and tested** (491 passing tests). The library API is stable; the `twinflow` command surfaces the same operations.
+Everything here is **built and tested** (507 passing tests). The library API is stable; the `twinflow` command surfaces the same operations.
 
 | Capability | What it means for you |
 |---|---|
@@ -264,39 +264,16 @@ and [`docs/frontend.md`](docs/frontend.md).
 
 ---
 
-## 🧭 Planned
+## 🧭 Beyond the single floor (shipped in alpha)
 
-> These are direction, not shipped. They extend the same one-contract engine rather than replacing it.
+> These extend the same one-contract engine rather than replacing it. All are built and tested today; the [Roadmap](#roadmap) covers what is still direction.
 
-<details open>
-<summary><b>Supply-chain twin</b></summary>
-
-Extend beyond the floor to orders, sub-vendors, and multi-echelon inventory. Same engine, new node types. A connector to a system of record becomes a column mapping onto the existing plan contract, not a rewrite.
-</details>
-
-<details>
-<summary><b>Reinforcement learning via Gymnasium</b></summary>
-
-Expose the twin as a Gymnasium environment so RL methods can learn staffing, dispatch, and inventory policies against a fast, faithful simulator.
-</details>
-
-<details>
-<summary><b>Forecaster integrations</b></summary>
-
-Plug in demand and lead-time forecasters (for example Prophet) to feed plans and generate scenarios automatically.
-</details>
-
-<details>
-<summary><b>Optimizers</b></summary>
-
-Pair the sweep and scoring surface with optimizers to *search* for the best way forward, instead of only enumerating a grid.
-</details>
-
-<details>
-<summary><b>Live ERP / MES connectors</b></summary>
-
-Plans arriving straight from systems of record instead of spreadsheets.
-</details>
+- **Supply-chain twin** - orders, finite stocks, reorder points, supplier lead time, and multi-echelon inventory, with inventory KPIs and economics you can optimize. See [`docs/supply-chain.md`](docs/supply-chain.md).
+- **Active control** - dispatch policies, order release (CONWIP / WIP-cap), and seeded disruptions turn the twin from a viewer into a decision tool. See [`docs/active-control.md`](docs/active-control.md).
+- **Optimizers** - *search* the scoring surface for the best staffing / capacity / reorder settings, not just enumerate a grid. See [`docs/optimizing.md`](docs/optimizing.md).
+- **Reinforcement-learning surface** - the twin as a Gymnasium-style environment (`TwinEnv`) an RL agent plugs straight into.
+- **Integration surfaces** - ERP/MES connectors (a column mapping onto the plan contract), demand generation, and forecaster seams, so concrete SAP / OPC-UA / Prophet integrations plug in. See [`docs/adapters.md`](docs/adapters.md).
+- **Calibration** - tune a model until its KPIs match a real run. See [`docs/tuning.md`](docs/tuning.md).
 
 ---
 
@@ -322,12 +299,12 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 ## Status & quality
 
 - **Python** ≥ 3.11.
-- **491 tests** across unit, analytical, and integration layers.
+- **507 tests** across unit, analytical, and integration layers.
 - **Blocking CI gates:** `ruff`, `mypy --strict`, `pytest`, `pip-audit` - the build fails on any finding.
 - **Config is the only trust boundary:** YAML is loaded through one safe door, expressions run in one sandbox, and validation reports every problem before a run starts.
 - **Reproducible by construction:** every run carries a stamp that lets you re-create it exactly.
 
-> Status: **alpha.** The single-floor engine is complete and tested; the roadmap items below are in progress.
+> Status: **alpha.** The engine, active control, supply chain, and the optimization, calibration, and integration surfaces are complete and tested. The **beta** items in the roadmap below are designed and next up.
 
 ---
 
@@ -342,24 +319,34 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 
 **v2 - alpha (built and tested)**
 - Tier 0 floor physics: reorder-point stock, probabilistic quality gate, batch/hold, changeover time
+- Active control: dispatch policies (FIFO/EDD/SPT/critical-ratio), order release (CONWIP/WIP-cap), and seeded disruptions (machine breakdown, operator absence, rush priority)
+- Trust loop: calibration that tunes a model until its KPIs match a real run
 - Supply chain: supplier lead time, multi-echelon inventory, inventory KPIs, and inventory economics (holding/stockout costs, `service_level`) optimizable through the same surface
 - Unified module surface: objectives, cost functions, optimizers, and surrogate ML models over one scoring seam
 - Unified adapter surfaces: ERP/MES connectors, demand generation, forecasters, dispatch policies, a Gymnasium-style RL environment, plan-vs-actual reconciliation, orders/deliveries KPIs
 - `twinflow optimize` CLI and a local REST API (`twinflow serve`)
 - React front end (`web/`) to map, run, sweep, and optimize the twin in the browser
 
+**Beta - next up (designed, not yet built)**
+- Mid-run decide-act loop: a control seam so a policy or agent observes floor state at each decision point and acts within a seeded run (the seam the RL environment and an agent interface plug into)
+- Resource / labor assignment policy: choose *which* machine and *which* operator by skill or load, not just first-free
+- ERP / MES export → draft `model.yaml`: point a connector at an export and get a starting model, so a planner does not author YAML from scratch
+- Plain-language tuning: "Steady / Normal / Jumpy" instead of a raw `cv`
+- Sanity guardrails: validation warnings that catch foot-guns before a run
+- Industry default profiles: sensible starting configs per shop type
+- Paired-difference confidence interval surfaced in the report
+
 **Near-term**
-- Supply-chain nodes: orders, sub-vendors, multi-echelon inventory
-- Gymnasium environment for reinforcement learning
-- Forecaster hooks (e.g. Prophet) feeding plans and scenarios
-- Paired-difference confidence intervals surfaced in the report
+- Supply-chain at network scale: multi-plant, supplier tiers beyond one echelon
+- Richer demand / order generation from customer and feature models (the generation surface ships today)
+- Concrete forecasters (Prophet etc.) behind the shipped forecaster surface
 
 **Later**
-- Live ERP / MES connectors
-- Richer multi-agent orchestration and a standard agent tool interface
-- Calibration against real historical production runs
+- Live ERP / MES connectors (the connector *surfaces* ship today; the concrete integrations come next)
+- RL training against the shipped Gymnasium environment
+- Closed-loop work instruction: push a chosen schedule back to the floor
 
-> Everything under **v1** is real and running today. Everything below it is direction.
+> Everything under **v1** and **v2 - alpha** is real and running today. Everything below it is direction.
 
 ---
 

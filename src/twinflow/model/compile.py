@@ -25,6 +25,7 @@ from twinflow.model.distributions import build_draw, build_noise
 from twinflow.model.expressions import ExpressionSandbox
 from twinflow.model.loader import RawModel
 from twinflow.model.schema import (
+    BreakdownSpec,
     LocationSpec,
     MaterialSpec,
     QualityBranchSpec,
@@ -129,6 +130,8 @@ class LocationCompiler:
             capacity=int(loc.get("capacity", 1)),
             quality_gate=_build_quality_gate(loc),
             material_spec=_build_material_spec(loc),
+            dispatch=str(loc.get("dispatch", "fifo")),
+            breakdown=_build_breakdown(loc),
         )
 
 
@@ -157,6 +160,40 @@ def _build_material_spec(loc: RawLocation) -> MaterialSpec | None:
     if raw is None:
         return None
     return MaterialSpec(stock=str(raw["stock"]), qty=float(raw["qty"]), uom=str(raw["uom"]))
+
+
+_DURATION_UNITS = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
+
+
+def parse_duration(value: Any) -> float:
+    """Seconds from a number (already seconds) or a `<number><unit>` string, unit in
+    {s, m, h, d} — so `mtbf: "40h"` reads as 144000. A bare number stays as-is."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    text = str(value).strip()
+    unit = text[-1:].lower()
+    if unit in _DURATION_UNITS:
+        return float(text[:-1]) * _DURATION_UNITS[unit]
+    return float(text)
+
+
+def _build_breakdown(loc: RawLocation) -> BreakdownSpec | None:
+    """Compile a declared `breakdown: {mtbf, mttr}` into a BreakdownSpec (A4), or None.
+
+    `mtbf` is a duration (seconds or `"40h"`). `mttr` is a `time_model`-style
+    distribution spec (`{dist, mean, cv}` etc.) whose duration-valued fields accept the
+    same string form; it is compiled to a seeded draw via the shared `build_draw`.
+    """
+    raw = loc.get("breakdown")
+    if raw is None:
+        return None
+    mtbf_seconds = parse_duration(raw["mtbf"])
+    mttr_raw = raw["mttr"]
+    mttr_spec = {
+        key: (parse_duration(value) if key in ("mean", "low", "mode", "high", "std") else value)
+        for key, value in mttr_raw.items()
+    }
+    return BreakdownSpec(mtbf_seconds=mtbf_seconds, mttr_draw=build_draw(mttr_spec))
 
 
 def _build_time_model(raw: dict[str, Any], default_cv: float = 0.0) -> TimeModel:

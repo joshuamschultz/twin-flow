@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 
 from twinflow.engine.rng import (
+    SOURCE_ABSENCE,
     SOURCE_BREAKDOWN,
     SOURCE_CYCLE_TIME,
     SOURCE_KEYS,
@@ -55,6 +56,7 @@ def test_module_imports_and_declares_all_source_keys():
         SOURCE_SCRAP,
         SOURCE_ROUTING,
         SOURCE_BREAKDOWN,
+        SOURCE_ABSENCE,
     )
 
 

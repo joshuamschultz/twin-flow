@@ -1,8 +1,11 @@
 # Concepts — data & structure
 
+![A factory floor and its glowing digital twin](images/twin-concept.png)
+
 What the twin is made of, so the config in [modeling.md](modeling.md) makes sense. You
 never write simulation code; you declare *what the floor does* and the engine turns it
-into mechanism.
+into mechanism. twinflow builds a working software copy of the floor on the left — the
+glowing twin on the right — that you can run experiments on without touching the real one.
 
 ## The one idea
 
@@ -26,10 +29,16 @@ as **bundles**. Each center does one **operation** (a transform), competing for 
 
 ## How work flows (one firing)
 
-```
-queue ──pull──▶ [ acquire machine ▸ acquire operator ▸ consume material ▸
-                  charge setup ▸ charge run time ▸ apply scrap ▸ emit outputs ▸
-                  release operator ▸ release machine ] ──▶ next center / stock / finished
+```mermaid
+flowchart LR
+  Q["queue"] -->|dispatch rule<br/>picks next job| P
+  subgraph P["one firing (fixed order, every center)"]
+    direction TB
+    m["acquire machine"] --> o["acquire operator"] --> c["consume material"]
+    c --> s["charge setup"] --> r["charge run time"] --> sc["apply scrap"]
+    sc --> e["emit outputs"] --> ro["release operator"] --> rm["release machine"]
+  end
+  P --> N["next center / stock / finished"]
 ```
 
 The order is fixed and the same at every center, which is what makes a run auditable and
@@ -72,6 +81,10 @@ Every KPI comes from that one event log — there is no second source of truth.
 
 Run with `--reps > 1` and each KPI comes back as a **mean with a low-to-high confidence
 band**, not a single fake-certain number.
+
+> **See it move.** Open [`visual/confidence-band.html`](visual/confidence-band.html) in a
+> browser: run one replication, then thirty, and watch a single misleading number turn
+> into an honest range. This is the whole idea behind twinflow in one interactive picture.
 
 ## Reproducibility
 

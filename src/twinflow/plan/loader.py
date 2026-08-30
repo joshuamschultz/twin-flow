@@ -34,6 +34,9 @@ class WorkOrder:
     initial_wip_location: str | None = None
     initial_wip_qty: int | None = None
     initial_wip_remaining_time: float | None = None
+    priority: int = 0
+    """Rush priority (A4): a higher number jumps the dispatch queue at every work
+    center. Optional `priority` plan column; absent or blank means 0 (normal)."""
 
 
 def load_plan(path: str, registry: PartTypeRegistry) -> list[WorkOrder]:
@@ -93,6 +96,9 @@ def _parse_row(row: dict[str, object], row_number: int, registry: PartTypeRegist
 
     location, wip_qty, remaining_time = _parse_wip(row, row_number)
 
+    priority_cell = row.get("priority")
+    priority = 0 if _is_blank(priority_cell) else _to_int(priority_cell, row_number, "priority")
+
     return WorkOrder(
         work_order_id=_to_str(row.get("work_order_id")),
         part=part,
@@ -102,6 +108,7 @@ def _parse_row(row: dict[str, object], row_number: int, registry: PartTypeRegist
         initial_wip_location=location,
         initial_wip_qty=wip_qty,
         initial_wip_remaining_time=remaining_time,
+        priority=priority,
     )
 
 

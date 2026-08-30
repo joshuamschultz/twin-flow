@@ -11,6 +11,7 @@ recorded for the Assumptions block.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Generator, Sequence
 from typing import Protocol
 
@@ -191,6 +192,12 @@ class Location:
         self._capacity: int = getattr(spec, "capacity", 1)
         self._in_flight = 0
         self._free_event: simpy.Event | None = None
+        # Active-control dispatch rule (A1): which queued job this center runs next.
+        # Default "fifo" reproduces arrival order exactly. The four policies mirror
+        # `twinflow.adapters.dispatch` (that is the external-facing surface of the
+        # same rules); the ordering is implemented natively here so a lower engine
+        # layer never imports a higher one (layering purity beats DRY, D-044).
+        self._dispatch: str = getattr(spec, "dispatch", "fifo")
 
     def enqueue(self, bundle: Bundle) -> None:
         """Append `bundle` to the queue, stamping its queue_arrival_time. Non-blocking."""
@@ -222,27 +229,57 @@ class Location:
                 self._free_event.succeed()
                 self._free_event = None
 
-    def _target_setup(self) -> str | None:
+    def _target_setup(self, ordered: list[Bundle]) -> str | None:
         """The setup group this firing should select against.
 
         A warm machine (`current_setup` already set) interleaves within its own
         group. A cold machine (D-047: "each machine tracks its own last-processed
         part" starts at `None`) has no established group yet, so the group is read
-        off the head of the queue — the first job to arrive sets the machine's
-        initial setup, same as `SetupPolicy.changeover`'s `current_setup is None`
-        case charges a full (not zero) changeover for that same first job.
+        off the head of the DISPATCH-ORDERED queue — the job the active-control rule
+        would run first sets the machine's initial setup.
         """
         current = self.spec.machine.current_setup
         if current is not None:
             return current
-        if not self._queue:
+        if not ordered:
             return None
-        return self.spec.pull_rule.setup_key_of[self._queue[0].thing]
+        return self.spec.pull_rule.setup_key_of[ordered[0].thing]
+
+    def _dispatch_order(self) -> list[Bundle]:
+        """The queue re-sequenced by the active-control dispatch rule (A1).
+
+        Every rule shares one key `(rush_rank, policy_value, arrival_time)`: a job
+        with a higher `priority` attribute (a rush order) always sorts first; then
+        the policy value (EDD = due date, SPT = estimated processing time, critical
+        ratio = slack per unit work, FIFO = arrival time); ties break by arrival
+        order. With the default FIFO rule and no priorities stamped this is exactly
+        the original arrival order (a stable sort on the insertion sequence), so a
+        model that declares no `dispatch` behaves identically to before.
+        """
+        now = self.env.now
+
+        def key(bundle: Bundle) -> tuple[float, float, float]:
+            arrival = self._arrival_times.get(id(bundle), 0.0)
+            rush_rank = -float(bundle.attrs.get("priority", 0.0))
+            due = float(bundle.attrs.get("due_date", math.inf))
+            if self._dispatch == "edd":
+                policy_value = due
+            elif self._dispatch == "spt":
+                policy_value = self.spec.time_model.estimate(bundle)
+            elif self._dispatch == "critical_ratio":
+                processing = max(self.spec.time_model.estimate(bundle), 1e-9)
+                policy_value = (due - now) / processing
+            else:  # fifo
+                policy_value = arrival
+            return (rush_rank, policy_value, arrival)
+
+        return sorted(self._queue, key=key)
 
     def _wait_for_selection(self) -> Generator[simpy.Event, None, list[Bundle]]:
-        """Step 1: pull per the pull rule, or wait for the next arrival."""
+        """Step 1: pull the dispatch-preferred job per the pull rule, or wait."""
         while True:
-            selected = self.spec.pull_rule.select(self._queue, self._target_setup())
+            ordered = self._dispatch_order()
+            selected = self.spec.pull_rule.select(ordered, self._target_setup(ordered))
             if selected:
                 selected_ids = {id(bundle) for bundle in selected}
                 self._queue = [b for b in self._queue if id(b) not in selected_ids]

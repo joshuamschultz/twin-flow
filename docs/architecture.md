@@ -28,6 +28,22 @@ Lower layers never import higher ones. Each layer has one job.
 The CLI (`twinflow.cli`) is a thin argument parser over layers 2–5. The React front end
 (`web/`) talks only to the Layer-5 REST service.
 
+```mermaid
+flowchart TD
+  L5["5 · modules / adapters / service<br/>scoring surface, integrations, REST API"]
+  L4["4 · instrumentation / report<br/>event log → KPIs, inventory KPIs, report"]
+  L3["3 · plan<br/>work orders, run driver, replications"]
+  L2["2 · model<br/>config → routing graph + BOM (trust boundary)"]
+  L1["1 · primitives<br/>Bundle, Stock, Location, Machine, Transform, ..."]
+  L0["0 · engine<br/>SimPy clock, acquisition, seeded RNG"]
+  L5 --> L4 --> L3 --> L2 --> L1 --> L0
+  cli["cli"] -.-> L2
+  web["web/"] -.-> L5
+```
+
+Every arrow points *down*. A lower layer never imports a higher one — that single rule is
+what keeps the core small and swappable.
+
 ## The compiler is the one growth point
 
 `twinflow.model.compile.LocationCompiler` is where new config sugar is added, and the

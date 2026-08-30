@@ -61,18 +61,14 @@ class Transform:
         """
         del registry  # not yet consulted; kept for the Layer 2 compiler's contract
         carried = self._carried_flow_attrs(inputs)
-        return [
-            Bundle(
-                qty=output.qty(inputs),
-                thing=output.thing,
-                uom=output.uom,
-                attrs={
-                    **carried,
-                    **{name: attr_fn(inputs) for name, attr_fn in output.attrs.items()},
-                },
+        outputs: list[Bundle] = []
+        for output in self._spec.outputs:
+            attrs: dict[str, AttrValue] = dict(carried)
+            attrs.update({name: attr_fn(inputs) for name, attr_fn in output.attrs.items()})
+            outputs.append(
+                Bundle(qty=output.qty(inputs), thing=output.thing, uom=output.uom, attrs=attrs)
             )
-            for output in self._spec.outputs
-        ]
+        return outputs
 
     @staticmethod
     def _carried_flow_attrs(inputs: list[Bundle]) -> dict[str, AttrValue]:

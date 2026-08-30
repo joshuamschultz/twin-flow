@@ -15,12 +15,14 @@ SOURCE_CYCLE_TIME = "cycle_time"
 SOURCE_SCRAP = "scrap"
 SOURCE_ROUTING = "routing"
 SOURCE_BREAKDOWN = "breakdown"
+SOURCE_ABSENCE = "absence"
 
 SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_CYCLE_TIME,
     SOURCE_SCRAP,
     SOURCE_ROUTING,
     SOURCE_BREAKDOWN,
+    SOURCE_ABSENCE,
 )
 
 # Fixed per-source index used to key each source's independent SeedSequence entropy.

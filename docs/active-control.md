@@ -12,6 +12,22 @@ one is a lever a [sweep or optimizer](optimizing.md) can search. Worked example:
 
 > New to twinflow? Read [concepts](concepts.md) and [modeling](modeling.md) first.
 
+The three control points a job passes through:
+
+```mermaid
+flowchart LR
+  plan["plan"] -->|"release policy<br/>(plan / wip_cap / conwip)"| gate{"under WIP cap?"}
+  gate -->|no| hold["hold"]
+  hold -.->|"a job completes"| gate
+  gate -->|yes| queue["center queue"]
+  queue -->|"dispatch rule<br/>(fifo/edd/spt/critical_ratio)<br/>rush priority jumps"| run["run the job"]
+  run -.->|"breakdown / absence<br/>(seeded)"| run
+  run --> done["done"]
+```
+
+Release decides *when* work enters, dispatch decides *what runs next*, and disruptions
+are what the schedule has to survive.
+
 ---
 
 ## 1. Dispatch — which queued job a center runs next

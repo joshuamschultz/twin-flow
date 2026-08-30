@@ -16,6 +16,7 @@ __all__ = [
     "CompiledModel",
     "LaborPoolConfig",
     "ModelValidationError",
+    "ReleaseConfig",
     "StockConfig",
     "load_model",
     "validate_model",
@@ -39,6 +40,23 @@ class LaborPoolConfig:
     name: str
     headcount: int
     skills: frozenset[str]
+    absence_rate: float = 0.0
+    """Operator-absence disruption (A4): the seeded probability that each headcount
+    slot is unavailable for a run (0.0 = fully staffed, the default). The driver draws
+    the number of absent slots once per run from the SOURCE_ABSENCE stream and builds
+    the pool with the reduced effective headcount (a documented alpha simplification —
+    absence is per-run, not per-shift, until a real shift calendar lands)."""
+
+
+@dataclass(frozen=True)
+class ReleaseConfig:
+    """Order-release control (A2). `policy` is one of `plan` (release each order on its
+    start_date — the historical default), `wip_cap`/`conwip` (hold new releases while
+    the count of in-system orders is at `wip_cap`, releasing the next held order as one
+    completes). `wip_cap` is required for the capped policies."""
+
+    policy: str = "plan"
+    wip_cap: int | None = None
 
 
 @dataclass(frozen=True)
@@ -87,6 +105,7 @@ class CompiledModel:
     labor_pools: list[LaborPoolConfig]
     registry: PartTypeRegistry
     stocks: list[StockConfig] = field(default_factory=list)
+    release: ReleaseConfig = field(default_factory=ReleaseConfig)
 
 
 class ModelValidationError(ValueError):
@@ -121,6 +140,7 @@ def load_model(path: str) -> CompiledModel:
     result = LocationCompiler(registry, sandbox).compile(raw_model)
     labor_pools = _build_labor_pools(raw_model)
     stocks = _build_stocks(raw_model)
+    release = _build_release(raw_model)
 
     return CompiledModel(
         locations=result.locations,
@@ -129,6 +149,7 @@ def load_model(path: str) -> CompiledModel:
         labor_pools=labor_pools,
         stocks=stocks,
         registry=registry,
+        release=release,
     )
 
 
@@ -168,9 +189,21 @@ def _build_labor_pools(raw_model: RawModel) -> list[LaborPoolConfig]:
             name=str(pool["name"]),
             headcount=int(pool["headcount"]),
             skills=frozenset(str(skill) for skill in pool.get("skills", [])),
+            absence_rate=float(pool.get("absence_rate", 0.0)),
         )
         for pool in pools
     ]
+
+
+def _build_release(raw_model: RawModel) -> ReleaseConfig:
+    """Carry `model.yaml`'s top-level `release` shape through, defaulting to the
+    historical plan-driven release."""
+    raw = cast(dict[str, Any], raw_model.data.get("release", {}))
+    wip_cap = raw.get("wip_cap")
+    return ReleaseConfig(
+        policy=str(raw.get("policy", "plan")),
+        wip_cap=int(wip_cap) if wip_cap is not None else None,
+    )
 
 
 def _build_stocks(raw_model: RawModel) -> list[StockConfig]:
