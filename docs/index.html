@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>twinflow · documentation</title>
+<style>
+  :root {
+    --bg:#faf9f7; --card:#ffffff; --ink:#0b2340; --mut:#5b6675; --line:#e6e3dd;
+    --navy:#0b2340; --cyan:#2bb5b5; --blue:#46a2f1; --green:#1aa179; --amber:#f5a623;
+    --shadow:0 1px 2px rgba(11,35,64,.06), 0 8px 24px rgba(11,35,64,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0d1117; --card:#161b22; --ink:#eef2f6; --mut:#9aa4b0; --line:#232a33;
+            --navy:#cdd9e5; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35); }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  a { color:var(--blue); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 22px; }
+  header { padding:56px 0 28px; }
+  .brand { display:flex; align-items:baseline; gap:12px; }
+  .brand h1 { font-size:30px; margin:0; letter-spacing:-.02em; }
+  .brand .dot { width:11px; height:11px; border-radius:50%; background:var(--cyan); display:inline-block; }
+  .tag { font-size:19px; color:var(--ink); margin:14px 0 6px; font-weight:600; }
+  .lede { color:var(--mut); max-width:660px; margin:0 0 22px; }
+  .hero { width:100%; border-radius:16px; box-shadow:var(--shadow); display:block; margin:8px 0 4px; }
+  .herocap { color:var(--mut); font-size:13px; text-align:center; margin:8px 0 0; }
+  .pills { display:flex; gap:8px; flex-wrap:wrap; margin:20px 0 0; }
+  .pill { font-size:13px; font-weight:600; padding:5px 11px; border-radius:999px;
+          border:1px solid var(--line); background:var(--card); color:var(--mut); }
+  .pill b { color:var(--green); }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut);
+       margin:44px 0 14px; font-weight:700; }
+  .path { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .step { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px;
+          box-shadow:var(--shadow); }
+  .step .n { color:var(--cyan); font-weight:700; font-size:13px; }
+  .step a { font-weight:600; color:var(--ink); }
+  .step p { margin:4px 0 0; font-size:13px; color:var(--mut); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px;
+          box-shadow:var(--shadow); }
+  .card a.t { font-weight:700; color:var(--ink); font-size:15px; }
+  .card p { margin:6px 0 0; font-size:14px; color:var(--mut); }
+  .band { background:linear-gradient(180deg,var(--card),transparent); border:1px solid var(--line);
+          border-left:3px solid var(--cyan); border-radius:12px; padding:16px 18px; }
+  .band a { font-weight:600; }
+  pre.mermaid { background:transparent; text-align:center; }
+  .diagram { background:var(--card); border:1px solid var(--line); border-radius:14px;
+             padding:18px; box-shadow:var(--shadow); overflow-x:auto; }
+  footer { color:var(--mut); font-size:13px; margin:48px 0 60px; border-top:1px solid var(--line); padding-top:18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand"><span class="dot"></span><h1>twinflow</h1><span style="color:var(--mut)">documentation</span></div>
+    <p class="tag">A working software copy of your operation that you can run experiments on.</p>
+    <p class="lede">Describe your factory floor in a spreadsheet and a config file. Get back
+      honest answers about dates, bottlenecks, staffing, and inventory — each with a
+      confidence range, not a guess. No custom code per plant.</p>
+    <img class="hero" src="images/twin-concept.png" alt="A factory floor and its glowing digital twin">
+    <p class="herocap">The real floor, and the twin you experiment on instead of it.</p>
+    <div class="pills">
+      <span class="pill"><b>507</b> tests passing</span>
+      <span class="pill">mypy strict</span>
+      <span class="pill">ruff clean</span>
+      <span class="pill">status: alpha</span>
+    </div>
+  </header>
+
+  <h2>New here — read in this order</h2>
+  <div class="path">
+    <div class="step"><div class="n">01</div><a href="concepts.md">Concepts</a><p>The idea, the vocabulary, and why answers come as a range.</p></div>
+    <div class="step"><div class="n">02</div><a href="install.md">Install</a><p>Engine, API, and front end.</p></div>
+    <div class="step"><div class="n">03</div><a href="quickstart.md">Quickstart</a><p>A running twin in five minutes.</p></div>
+    <div class="step"><div class="n">04</div><a href="modeling.md">Modeling</a><p>Describe your own floor in model.yaml.</p></div>
+    <div class="step"><div class="n">05</div><a href="running.md">Running</a><p>Run it and read every KPI.</p></div>
+    <div class="step"><div class="n">06</div><a href="optimizing.md">Optimizing</a><p>Stop reporting, start deciding.</p></div>
+  </div>
+
+  <h2>See the core idea move</h2>
+  <div class="band">
+    Open <a href="visual/confidence-band.html">the confidence-band explainer</a> — run one
+    replication, then thirty, and watch a single misleading number turn into an honest
+    range. It is the whole point of twinflow in one interactive picture.
+  </div>
+
+  <h2>The shape of the system</h2>
+  <div class="diagram">
+    <pre class="mermaid">
+flowchart TD
+  cfg["model.yaml + plan"] --> model["twinflow.model<br/>compile"]
+  model --> run["twinflow.plan<br/>run"] --> kpi["KPIs + confidence bands"]
+  kpi --> surface["twinflow.modules<br/>scoring surface"]
+  surface --- obj["objectives"] & cost["costs"] & opt["optimizers"] & ml["models"] & cal["calibration"]
+  surface --> adapt["twinflow.adapters<br/>ERP · demand · forecast · dispatch · RL · reconcile"]
+  adapt --> api["REST API"] --> web["React front end"]
+    </pre>
+  </div>
+
+  <h2>Model &amp; data</h2>
+  <div class="grid">
+    <div class="card"><a class="t" href="concepts.md">Concepts</a><p>Mental model, vocabulary, uncertainty, reproducibility.</p></div>
+    <div class="card"><a class="t" href="modeling.md">Modeling reference</a><p>The complete model.yaml — every section and field.</p></div>
+    <div class="card"><a class="t" href="data.md">Data contracts</a><p>Plan, event log, inventory, and the KPI/JSON artifacts.</p></div>
+    <div class="card"><a class="t" href="supply-chain.md">Supply chain</a><p>Stocks, reorder points, lead time, multi-echelon, inventory KPIs.</p></div>
+    <div class="card"><a class="t" href="active-control.md">Active control</a><p>Dispatch rules, order release, disruptions.</p></div>
+    <div class="card"><a class="t" href="glossary.md">Glossary</a><p>Every term, defined.</p></div>
+  </div>
+
+  <h2>Using it</h2>
+  <div class="grid">
+    <div class="card"><a class="t" href="quickstart.md">Quickstart</a><p>End to end in five minutes.</p></div>
+    <div class="card"><a class="t" href="running.md">Running</a><p>Replications, the report, and every KPI explained.</p></div>
+    <div class="card"><a class="t" href="optimizing.md">Optimizing</a><p>Sweeps, objectives, costs, optimizers, ML, inventory optimization.</p></div>
+    <div class="card"><a class="t" href="tuning.md">Tuning</a><p>Variation, calibration against real history, sensitivity, guardrails.</p></div>
+    <div class="card"><a class="t" href="cli.md">CLI reference</a><p>Every twinflow command and flag.</p></div>
+    <div class="card"><a class="t" href="frontend.md">Web UI</a><p>Every tab and what you do in it.</p></div>
+    <div class="card"><a class="t" href="troubleshooting.md">Troubleshooting</a><p>Problems, causes, fixes.</p></div>
+  </div>
+
+  <h2>Extending &amp; integrating</h2>
+  <div class="grid">
+    <div class="card"><a class="t" href="modules.md">Module surface</a><p>Objectives, costs, optimizers, models — and how to add your own.</p></div>
+    <div class="card"><a class="t" href="adapters.md">Adapter surfaces</a><p>ERP/MES connectors, demand, forecasting, dispatch, RL, plan-vs-actual.</p></div>
+    <div class="card"><a class="t" href="api.md">REST API</a><p>Endpoints and job polling.</p></div>
+    <div class="card"><a class="t" href="architecture.md">Architecture</a><p>The five-layer design, for developers.</p></div>
+  </div>
+
+  <footer>
+    One rule the whole system rests on: <b>a new client is data, never code.</b> ·
+    <a href="../README.md">Project README</a> · <a href="../CHANGELOG.md">Changelog</a>
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  try { mermaid.initialize({ startOnLoad:true, theme: dark ? 'dark' : 'neutral' }); } catch (e) {}
+</script>
+</body>
+</html>

@@ -1,5 +1,9 @@
 # twinflow documentation
 
+> **Prefer a visual home?** Open [`index.html`](index.html) in a browser — the docs
+> landing page with the concept illustration, the rendered system diagram, and the full
+> index as cards.
+
 The complete manual. Whether you have never opened twinflow or you are looking up one
 config field, start here.
 
