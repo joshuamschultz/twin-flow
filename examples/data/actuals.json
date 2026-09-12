@@ -1,0 +1,4 @@
+[
+  {"item_id":"order-100","observed_date":"2026-01-06T00:00:00Z"},
+  {"item_id":"order-101","censored_at":"2026-01-20T00:00:00Z"}
+]

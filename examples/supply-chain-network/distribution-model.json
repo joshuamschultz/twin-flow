@@ -1,0 +1,9 @@
+{
+  "sites": [{"id": "dc"}],
+  "suppliers": [
+    {"id": "carrier-a", "site_id": "dc", "delay_risk": {"minimum_days": 1, "maximum_days": 3, "common_risk_group": "port-closure"}},
+    {"id": "carrier-b", "site_id": "dc", "delay_risk": {"minimum_days": 1, "maximum_days": 3, "common_risk_group": "port-closure"}}
+  ],
+  "items": [{"id": "case-good", "kind": "purchased", "uom": "case"}],
+  "bom_revisions": [], "processes": [], "qualifications": [], "gates": []
+}

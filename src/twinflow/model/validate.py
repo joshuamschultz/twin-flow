@@ -15,11 +15,15 @@ checks run on any other location.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from datetime import time as clock_time
 from typing import Any, cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from twinflow.model.distributions import build_draw, build_noise
 from twinflow.model.expressions import ExpressionError, ExpressionSandbox
 from twinflow.model.loader import RawModel
+from twinflow.primitives.calendar import parse_clock, parse_day
 from twinflow.primitives.part import PartTypeRegistry
 
 RawLocation = dict[str, Any]
@@ -73,6 +77,7 @@ class ModelValidator:
         errors.extend(_graph_checks(data, locations_by_name))
 
         errors.extend(_release_checks(data))
+        errors.extend(_calendar_checks(data))
 
         for idx, loc in valid_locations:
             try:
@@ -82,6 +87,7 @@ class ModelValidator:
                 errors.extend(_unit_checks(idx, loc))
                 errors.extend(_field_combination_checks(idx, loc))
                 errors.extend(_dispatch_checks(idx, loc))
+                errors.extend(_shift_crossing_checks(idx, loc))
             except Exception as exc:  # noqa: BLE001 -- per-location isolation (D-007)
                 errors.append(
                     ValidationError(
@@ -209,6 +215,90 @@ def _location_reference_checks(
 
 _VALID_DISPATCH = frozenset({"fifo", "edd", "spt", "critical_ratio"})
 _VALID_RELEASE = frozenset({"plan", "conwip", "wip_cap"})
+_VALID_SHIFT_CROSSING = frozenset({"pause", "finish_unattended", "overtime"})
+
+
+def _shift_crossing_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
+    crossing = loc.get("shift_crossing")
+    if crossing is None or crossing in _VALID_SHIFT_CROSSING:
+        return []
+    return [
+        ValidationError(
+            path=f"locations[{idx}].shift_crossing",
+            message=(
+                f"unknown shift crossing {crossing!r}; expected {sorted(_VALID_SHIFT_CROSSING)}"
+            ),
+        )
+    ]
+
+
+def _calendar_checks(data: dict[str, Any]) -> list[ValidationError]:
+    """Validate timezone-aware labor calendars before compilation."""
+    errors: list[ValidationError] = []
+    pools = cast(dict[str, Any], data.get("labor", {})).get("pools", [])
+    for pool_index, pool in enumerate(pools):
+        calendar = pool.get("calendar")
+        if calendar is None:
+            continue
+        path = f"labor.pools[{pool_index}].calendar"
+        if not isinstance(calendar, dict):
+            errors.append(ValidationError(path=path, message="calendar must be a mapping"))
+            continue
+        timezone = calendar.get("timezone")
+        origin = calendar.get("origin")
+        weekly = calendar.get("weekly")
+        try:
+            zone = ZoneInfo(str(timezone))
+        except ZoneInfoNotFoundError:
+            errors.append(ValidationError(path=f"{path}.timezone", message="unknown IANA timezone"))
+            zone = None
+        try:
+            parsed_origin = datetime.fromisoformat(str(origin))
+            if parsed_origin.tzinfo is None:
+                raise ValueError("origin must include a UTC offset")
+            if zone is not None:
+                zone_offset = parsed_origin.astimezone(zone).utcoffset()
+                if parsed_origin.utcoffset() != zone_offset:
+                    raise ValueError("origin offset does not match timezone at that instant")
+        except ValueError as exc:
+            errors.append(ValidationError(path=f"{path}.origin", message=str(exc)))
+        if not isinstance(weekly, list) or not weekly:
+            errors.append(
+                ValidationError(path=f"{path}.weekly", message="weekly must be non-empty")
+            )
+            continue
+        seen: dict[int, list[tuple[clock_time, clock_time]]] = {}
+        for item_index, item in enumerate(weekly):
+            item_path = f"{path}.weekly[{item_index}]"
+            try:
+                days = [parse_day(str(day)) for day in item["days"]]
+                start = parse_clock(str(item["start"]))
+                end = parse_clock(str(item["end"]))
+                if start == end:
+                    raise ValueError("start and end must differ")
+                for day in days:
+                    seen.setdefault(day, []).append((start, end))
+            except (KeyError, TypeError, ValueError) as exc:
+                errors.append(ValidationError(path=item_path, message=str(exc)))
+        for day, intervals in seen.items():
+            ordinary = sorted((start, end) for start, end in intervals if start < end)
+            if any(left[1] > right[0] for left, right in zip(ordinary, ordinary[1:], strict=False)):
+                errors.append(
+                    ValidationError(
+                        path=f"{path}.weekly", message=f"overlapping intervals on weekday {day}"
+                    )
+                )
+        for item_index, item in enumerate(calendar.get("exceptions", [])):
+            item_path = f"{path}.exceptions[{item_index}]"
+            try:
+                datetime.fromisoformat(str(item["date"]))
+                closed = bool(item.get("closed", False))
+                if not closed:
+                    parse_clock(str(item["start"]))
+                    parse_clock(str(item["end"]))
+            except (KeyError, TypeError, ValueError) as exc:
+                errors.append(ValidationError(path=item_path, message=str(exc)))
+    return errors
 
 
 def _dispatch_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
@@ -219,8 +309,7 @@ def _dispatch_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
             ValidationError(
                 path=f"locations[{idx}].dispatch",
                 message=(
-                    f"unknown dispatch rule {dispatch!r}; expected one of "
-                    f"{sorted(_VALID_DISPATCH)}"
+                    f"unknown dispatch rule {dispatch!r}; expected one of {sorted(_VALID_DISPATCH)}"
                 ),
             )
         ]
@@ -240,8 +329,7 @@ def _release_checks(data: dict[str, Any]) -> list[ValidationError]:
             ValidationError(
                 path="release.policy",
                 message=(
-                    f"unknown release policy {policy!r}; "
-                    f"expected one of {sorted(_VALID_RELEASE)}"
+                    f"unknown release policy {policy!r}; expected one of {sorted(_VALID_RELEASE)}"
                 ),
             )
         )

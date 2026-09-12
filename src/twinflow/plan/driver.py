@@ -29,10 +29,12 @@ from twinflow.engine.clock import RunContext
 from twinflow.engine.rng import SOURCE_ABSENCE, SOURCE_BREAKDOWN, RngRegistry
 from twinflow.instrumentation.event_log import EventLog
 from twinflow.instrumentation.inventory import InventoryLog
+from twinflow.instrumentation.resource_log import ResourceUsageLog
 from twinflow.model import CompiledModel, StockConfig
 from twinflow.model.schema import BreakdownSpec, LocationSpec
 from twinflow.plan.loader import WorkOrder
 from twinflow.primitives.bundle import Bundle
+from twinflow.primitives.calendar import AlwaysWorkingCalendar, WorkingCalendar
 from twinflow.primitives.cell import Machine
 from twinflow.primitives.labor import LaborPool
 from twinflow.primitives.location import Location, MaterialRequirementLike, RoutingPolicy
@@ -53,6 +55,7 @@ class RunResult:
     event_count: int = 0
     order_outcomes: dict[str, dict[str, object]] = field(default_factory=dict)
     artifact_dir: Path | None = None
+    resource_usage_path: Path | None = None
 
 
 class _AlwaysOnShiftCalendar:
@@ -68,6 +71,9 @@ class _AlwaysOnShiftCalendar:
 
     def next_shift_start(self, t: float) -> float:  # pragma: no cover - never off-shift
         return t
+
+    def current_shift_end(self, t: float) -> float:
+        return float("inf")
 
 
 @dataclass
@@ -249,10 +255,11 @@ class RunDriver:
         rng = RngRegistry(seed, replication_index)
         event_log = EventLog()
         inventory_log = InventoryLog()
+        resource_log = ResourceUsageLog()
 
         stocks = self._build_stocks(env, inventory_log)
         labor_pools = self._build_labor_pools(env, rng)
-        locations = self._build_locations(env, rng, event_log, labor_pools, stocks)
+        locations = self._build_locations(env, rng, event_log, resource_log, labor_pools, stocks)
 
         # Active control (A2 order-release control, A4 breakdowns) needs a work
         # tracker so the run terminates on the last order's completion rather than
@@ -294,6 +301,7 @@ class RunDriver:
         run_dir.mkdir(parents=True, exist_ok=True)
         event_log_path = event_log.flush(run_dir)
         inventory_log.flush(run_dir)  # always written next to events.parquet (may be empty)
+        resource_usage_path = resource_log.flush(run_dir)
 
         run_meta: dict[str, object] = {
             "run_id": run_id,
@@ -341,6 +349,7 @@ class RunDriver:
             event_count=event_count,
             order_outcomes=order_outcomes,
             artifact_dir=run_dir,
+            resource_usage_path=resource_usage_path,
         )
 
     @staticmethod
@@ -504,7 +513,6 @@ class RunDriver:
         (a Binomial over the slots), and the pool is built with the reduced effective
         headcount, floored at 1 so a fully-absent pool never deadlocks the run
         (documented alpha simplification: absence is per-run, not per-shift)."""
-        calendar = _AlwaysOnShiftCalendar()
         pools: dict[str, LaborPool] = {}
         for pool in self._compiled.labor_pools:
             headcount = pool.headcount
@@ -515,7 +523,11 @@ class RunDriver:
                 name=pool.name,
                 headcount=headcount,
                 skills=pool.skills,
-                shift_calendar=calendar,
+                shift_calendar=(
+                    WorkingCalendar(pool.calendar)
+                    if pool.calendar is not None
+                    else AlwaysWorkingCalendar()
+                ),
                 env=env,
             )
         return pools
@@ -525,6 +537,7 @@ class RunDriver:
         env: simpy.Environment,
         rng: RngRegistry,
         event_log: EventLog,
+        resource_log: ResourceUsageLog,
         labor_pools: dict[str, LaborPool],
         stocks: dict[str, Stock],
     ) -> dict[str, Location]:
@@ -546,7 +559,9 @@ class RunDriver:
         for location_id, spec in fresh_specs.items():
             machine_pool = simpy.PriorityResource(env, capacity=spec.capacity)
             labor_pool = labor_pools[self._pool_name_by_skill[spec.labor_skill]]
-            locations[location_id] = Location(spec, env, machine_pool, labor_pool, event_log, rng)
+            locations[location_id] = Location(
+                spec, env, machine_pool, labor_pool, event_log, rng, resource_log
+            )
 
         self._wire_routing(fresh_specs, locations)
         self._wire_stock_destinations(fresh_specs, stocks)

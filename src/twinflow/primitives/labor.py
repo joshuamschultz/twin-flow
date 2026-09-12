@@ -22,6 +22,8 @@ class ShiftCalendar(Protocol):
 
     def next_shift_start(self, t: float) -> float: ...
 
+    def current_shift_end(self, t: float) -> float: ...
+
 
 class LaborPool:
     """request(skill, priority) -> operator handle; shift calendar gates availability."""
@@ -69,3 +71,18 @@ class LaborPool:
     def release(self, handle: PriorityRequest) -> None:
         """Release a handle returned by `request()`."""
         self._resource.release(handle)
+
+    def work(self, seconds: float, crossing: str) -> Generator[simpy.Event, None, None]:
+        """Consume elapsed work under the declared shift-crossing policy."""
+        if crossing in {"overtime", "finish_unattended"}:
+            yield self.env.timeout(seconds)
+            return
+        remaining = seconds
+        while remaining > 1e-9:
+            if not self.shift_calendar.is_on_shift(self.env.now):
+                next_start = self.shift_calendar.next_shift_start(self.env.now)
+                yield self.env.timeout(next_start - self.env.now)
+            available = self.shift_calendar.current_shift_end(self.env.now) - self.env.now
+            worked = min(remaining, available)
+            yield self.env.timeout(worked)
+            remaining -= worked
