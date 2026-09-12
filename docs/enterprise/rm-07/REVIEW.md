@@ -15,3 +15,11 @@ timezone calendars; no material or external-response semantics are included;
 random seeds are accepted for the stable adapter contract but current task
 durations are deterministic; richer case revisions and role qualification
 history belong to later domain work.
+
+The integration review additionally verified that finite calendars cannot be
+overrun, approval checks use the exact task/document/revision/role tuple,
+over-budget rework becomes an incomplete state, simulated/wall/event limits
+bound evaluation, eligible alternate resources are selected by current load,
+and capsule validation dispatches through the registry for any registered
+domain. Missing case data, stale documents, and approvals are warnings with
+blocking trace events, so a structurally valid scenario remains inspectable.

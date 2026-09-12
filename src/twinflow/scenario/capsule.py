@@ -261,9 +261,17 @@ class ScenarioCapsule:
 
     def validate(self, available_capabilities: set[str] | None = None) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []
-        capabilities = (
+        domain = self.model.get("domain", "manufacturing")
+        capabilities = set(
             KNOWN_CAPABILITIES if available_capabilities is None else available_capabilities
         )
+        adapter = None
+        if isinstance(domain, str) and domain != "manufacturing":
+            try:
+                adapter = domain_registry.get(domain)
+                capabilities.update(adapter.capabilities)
+            except KeyError:
+                issues.append(ValidationIssue("$.model.domain", f"unsupported domain: {domain}"))
         for capability in self.required_capabilities:
             if capability not in capabilities:
                 issues.append(
@@ -274,9 +282,7 @@ class ScenarioCapsule:
                     )
                 )
         snapshot_fields: tuple[str, ...] = ("id", "as_of", "model_revision")
-        if self.model.get("domain") == "office":
-            snapshot_fields += ("cases",)
-        else:
+        if domain == "manufacturing":
             snapshot_fields += ("production_plan",)
         for field in snapshot_fields:
             if field not in self.snapshot:
@@ -300,8 +306,10 @@ class ScenarioCapsule:
                 ValidationIssue("$.experiment.seed", f"must be an integer from 0 to {MAX_SEED}")
             )
         with tempfile.TemporaryDirectory(prefix="twinflow-validate-") as folder:
-            if self.model.get("domain") == "office":
-                for domain_issue in domain_registry.validate("office", self.model, self.snapshot):
+            if isinstance(domain, str) and domain != "manufacturing" and adapter is None:
+                return issues
+            if adapter is not None:
+                for domain_issue in adapter.validate(self.model, self.snapshot):
                     issues.append(
                         ValidationIssue(
                             domain_issue.path,
