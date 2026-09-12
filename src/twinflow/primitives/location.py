@@ -19,6 +19,7 @@ import simpy
 from simpy.resources.resource import PriorityRequest
 
 from twinflow.engine.rng import SOURCE_CYCLE_TIME, SOURCE_ROUTING, RngRegistry
+from twinflow.policy import PolicyRuntime, QueueItem
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.cell import Machine, SetupPolicy
 from twinflow.primitives.labor import PRIORITY_LOAD, PRIORITY_UNLOAD, LaborPool
@@ -186,6 +187,7 @@ class Location:
         event_log: EventSink,
         rng: RngRegistry,
         resource_log: ResourceSink | None = None,
+        decision_runtime: PolicyRuntime | None = None,
     ) -> None:
         self.spec = spec
         self.env = env
@@ -194,6 +196,7 @@ class Location:
         self.event_log = event_log
         self.rng = rng
         self.resource_log = resource_log
+        self.decision_runtime = decision_runtime
         self._queue: list[Bundle] = []
         self._arrival_times: dict[int, float] = {}
         self._arrival_event: simpy.Event = env.event()
@@ -216,13 +219,16 @@ class Location:
         # Active-control dispatch rule (A1): which queued job this center runs next.
         # Default "fifo" reproduces arrival order exactly. The four policies mirror
         # `twinflow.adapters.dispatch` (that is the external-facing surface of the
-        # same rules); the ordering is implemented natively here so a lower engine
-        # layer never imports a higher one (layering purity beats DRY, D-044).
+        # same rules); ordering stays native here, while the optional typed policy
+        # runtime supplies only the dispatch name chosen at a real queue boundary.
         self._dispatch: str = getattr(spec, "dispatch", "fifo")
+        self._queue_revision = 0
+        self._decision_revision = -1
 
     def enqueue(self, bundle: Bundle) -> None:
         """Append `bundle` to the queue, stamping its queue_arrival_time. Non-blocking."""
         self._queue.append(bundle)
+        self._queue_revision += 1
         self._arrival_times[id(bundle)] = self.env.now
         if not self._arrival_event.triggered:
             self._arrival_event.succeed()
@@ -282,6 +288,30 @@ class Location:
         model that declares no `dispatch` behaves identically to before.
         """
         now = self.env.now
+        if (
+            self.decision_runtime is not None
+            and self._queue
+            and self._decision_revision != self._queue_revision
+        ):
+            observed = tuple(
+                QueueItem(
+                    order_id=(
+                        str(bundle.attrs["order_id"]) if "order_id" in bundle.attrs else None
+                    ),
+                    thing=bundle.thing,
+                    qty=bundle.qty,
+                    due_date=(
+                        float(bundle.attrs["due_date"]) if "due_date" in bundle.attrs else None
+                    ),
+                    priority=float(bundle.attrs.get("priority", 0.0)),
+                    arrival_time=self._arrival_times.get(id(bundle), 0.0),
+                )
+                for bundle in self._queue
+            )
+            self._dispatch = self.decision_runtime.choose(
+                self.spec.location_id, now, self._dispatch, observed
+            )
+            self._decision_revision = self._queue_revision
 
         def key(bundle: Bundle) -> tuple[float, float, float]:
             arrival = self._arrival_times.get(id(bundle), 0.0)
@@ -308,6 +338,7 @@ class Location:
             if selected:
                 selected_ids = {id(bundle) for bundle in selected}
                 self._queue = [b for b in self._queue if id(b) not in selected_ids]
+                self._queue_revision += 1
                 return selected
             if self._arrival_event.triggered:
                 self._arrival_event = self.env.event()

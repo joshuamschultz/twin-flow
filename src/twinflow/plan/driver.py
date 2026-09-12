@@ -33,6 +33,7 @@ from twinflow.instrumentation.resource_log import ResourceUsageLog
 from twinflow.model import CompiledModel, StockConfig
 from twinflow.model.schema import BreakdownSpec, LocationSpec
 from twinflow.plan.loader import WorkOrder
+from twinflow.policy import PolicyRuntime
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.calendar import AlwaysWorkingCalendar, WorkingCalendar
 from twinflow.primitives.cell import Machine
@@ -241,6 +242,7 @@ class RunDriver:
         max_sim_time: float | None = None,
         max_events: int | None = None,
         max_wall_seconds: float | None = None,
+        decision_runtime: PolicyRuntime | None = None,
     ) -> RunResult:
         """Run one terminating replication: seed WIP, release orders, simulate.
 
@@ -256,10 +258,20 @@ class RunDriver:
         event_log = EventLog()
         inventory_log = InventoryLog()
         resource_log = ResourceUsageLog()
+        if decision_runtime is not None:
+            decision_runtime.reset()
 
         stocks = self._build_stocks(env, inventory_log)
         labor_pools = self._build_labor_pools(env, rng)
-        locations = self._build_locations(env, rng, event_log, resource_log, labor_pools, stocks)
+        locations = self._build_locations(
+            env,
+            rng,
+            event_log,
+            resource_log,
+            labor_pools,
+            stocks,
+            decision_runtime,
+        )
 
         # Active control (A2 order-release control, A4 breakdowns) needs a work
         # tracker so the run terminates on the last order's completion rather than
@@ -340,6 +352,15 @@ class RunDriver:
             ),
             encoding="utf-8",
         )
+        if decision_runtime is not None:
+            (run_dir / "decision_trace.json").write_text(
+                json.dumps(
+                    [asdict(record) for record in decision_runtime.trace],
+                    indent=2,
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
         return RunResult(
             event_log_path=event_log_path,
             horizon=env.now,
@@ -540,6 +561,7 @@ class RunDriver:
         resource_log: ResourceUsageLog,
         labor_pools: dict[str, LaborPool],
         stocks: dict[str, Stock],
+        decision_runtime: PolicyRuntime | None,
     ) -> dict[str, Location]:
         """Fresh `Location`s for this run: each gets its own `Machine` (mutable
         `current_setup`) and its own `destinations` lists, so a run can never
@@ -560,7 +582,14 @@ class RunDriver:
             machine_pool = simpy.PriorityResource(env, capacity=spec.capacity)
             labor_pool = labor_pools[self._pool_name_by_skill[spec.labor_skill]]
             locations[location_id] = Location(
-                spec, env, machine_pool, labor_pool, event_log, rng, resource_log
+                spec,
+                env,
+                machine_pool,
+                labor_pool,
+                event_log,
+                rng,
+                resource_log,
+                decision_runtime,
             )
 
         self._wire_routing(fresh_specs, locations)
