@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 Status = Literal["FEASIBLE", "OPTIMAL", "INFEASIBLE", "UNKNOWN"]
 
@@ -68,6 +69,137 @@ class VerificationResult:
     issues: tuple[ScheduleIssue, ...] = ()
 
 
+def problem_from_dict(raw: Mapping[str, object]) -> SchedulingProblem:
+    """Strict JSON boundary shared by CLI and application transports."""
+    allowed = {"operations", "resources", "objective", "deadline"}
+    unknown = set(raw) - allowed
+    if unknown:
+        raise ValueError(f"unknown scheduling field: {sorted(unknown)[0]}")
+    raw_operations = raw.get("operations")
+    raw_resources = raw.get("resources")
+    if not isinstance(raw_operations, list) or not isinstance(raw_resources, list):
+        raise ValueError("operations and resources must be arrays")
+    if len(raw_operations) > 100_000 or len(raw_resources) > 100_000:
+        raise ValueError("scheduling input exceeds 100000 entities")
+    operations: list[Operation] = []
+    operation_fields = {
+        "id",
+        "duration",
+        "predecessors",
+        "eligible_resources",
+        "required_qualifications",
+        "release_time",
+        "material_ready_time",
+        "document_ready_time",
+        "frozen_start",
+        "frozen_resource",
+    }
+    for index, item in enumerate(raw_operations):
+        if not isinstance(item, dict) or set(item) - operation_fields:
+            raise ValueError(f"operations[{index}] has unknown fields or is not an object")
+        operation_id = item.get("id")
+        duration = item.get("duration")
+        if (
+            not isinstance(operation_id, str)
+            or not operation_id
+            or isinstance(duration, bool)
+            or not isinstance(duration, (int, float))
+            or not math.isfinite(float(duration))
+        ):
+            raise ValueError(f"operations[{index}] has invalid id or duration")
+
+        def strings(
+            field: str, raw_item: dict[str, object] = item, item_index: int = index
+        ) -> tuple[str, ...]:
+            value = raw_item.get(field, [])
+            if not isinstance(value, list) or not all(isinstance(entry, str) for entry in value):
+                raise ValueError(f"operations[{item_index}].{field} must be an array of strings")
+            return tuple(value)
+
+        def number(
+            field: str, raw_item: dict[str, object] = item, item_index: int = index
+        ) -> float:
+            value = raw_item.get(field, 0)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+            ):
+                raise ValueError(f"operations[{item_index}].{field} must be finite numeric")
+            return float(value)
+
+        frozen_start = item.get("frozen_start")
+        if frozen_start is not None and (
+            isinstance(frozen_start, bool)
+            or not isinstance(frozen_start, (int, float))
+            or not math.isfinite(float(frozen_start))
+        ):
+            raise ValueError(f"operations[{index}].frozen_start must be finite numeric")
+        frozen_resource = item.get("frozen_resource")
+        if frozen_resource is not None and not isinstance(frozen_resource, str):
+            raise ValueError(f"operations[{index}].frozen_resource must be a string")
+        operations.append(
+            Operation(
+                operation_id,
+                float(duration),
+                strings("predecessors"),
+                strings("eligible_resources"),
+                frozenset(strings("required_qualifications")),
+                number("release_time"),
+                number("material_ready_time"),
+                number("document_ready_time"),
+                float(frozen_start) if frozen_start is not None else None,
+                frozen_resource,
+            )
+        )
+    resources: list[ResourceWindow] = []
+    resource_fields = {"resource_id", "start", "end", "qualifications"}
+    for index, item in enumerate(raw_resources):
+        if not isinstance(item, dict) or set(item) - resource_fields:
+            raise ValueError(f"resources[{index}] has unknown fields or is not an object")
+        resource_id = item.get("resource_id")
+        qualifications = item.get("qualifications", [])
+        if (
+            not isinstance(resource_id, str)
+            or not isinstance(qualifications, list)
+            or not all(isinstance(entry, str) for entry in qualifications)
+        ):
+            raise ValueError(f"resources[{index}] has invalid id or qualifications")
+        start = item.get("start")
+        end = item.get("end")
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            for value in (start, end)
+        ):
+            raise ValueError(f"resources[{index}] has nonfinite window")
+        resources.append(
+            ResourceWindow(
+                resource_id,
+                float(cast(float, start)),
+                float(cast(float, end)),
+                frozenset(qualifications),
+            )
+        )
+    objective = raw.get("objective", "makespan")
+    if not isinstance(objective, str):
+        raise ValueError("objective must be a string")
+    deadline = raw.get("deadline")
+    if deadline is not None and (
+        isinstance(deadline, bool)
+        or not isinstance(deadline, (int, float))
+        or not math.isfinite(float(deadline))
+    ):
+        raise ValueError("deadline must be finite numeric")
+    return SchedulingProblem(
+        tuple(operations),
+        tuple(resources),
+        objective,
+        float(deadline) if deadline is not None else None,
+    )
+
+
 class Solver(Protocol):
     def solve(
         self, problem: SchedulingProblem, *, time_limit_seconds: float | None = None
@@ -88,7 +220,11 @@ def validate(problem: SchedulingProblem) -> list[ScheduleIssue]:
     windows_by_resource: dict[str, list[ResourceWindow]] = {}
     for index, window in enumerate(problem.resources):
         windows_by_resource.setdefault(window.resource_id, []).append(window)
-        if window.start < 0 or window.end <= window.start:
+        if (
+            not all(math.isfinite(value) for value in (window.start, window.end))
+            or window.start < 0
+            or window.end <= window.start
+        ):
             issues.append(
                 ScheduleIssue(
                     "invalid_window",
@@ -98,7 +234,7 @@ def validate(problem: SchedulingProblem) -> list[ScheduleIssue]:
             )
     for operation in problem.operations:
         path = f"operations[{operation.id}]"
-        if not operation.id or operation.duration <= 0:
+        if not operation.id or not math.isfinite(operation.duration) or operation.duration <= 0:
             issues.append(
                 ScheduleIssue(
                     "invalid_operation", path, "operation ID and positive duration are required"
@@ -113,7 +249,21 @@ def validate(problem: SchedulingProblem) -> list[ScheduleIssue]:
                         f"unknown predecessor {predecessor!r}",
                     )
                 )
-        if operation.frozen_start is not None and operation.frozen_start < operation.ready_time:
+        readiness = (
+            operation.release_time,
+            operation.material_ready_time,
+            operation.document_ready_time,
+        )
+        if any(not math.isfinite(value) or value < 0 for value in readiness):
+            issues.append(
+                ScheduleIssue(
+                    "invalid_readiness", path, "readiness times must be finite and non-negative"
+                )
+            )
+        if operation.frozen_start is not None and (
+            not math.isfinite(operation.frozen_start)
+            or operation.frozen_start < operation.ready_time
+        ):
             issues.append(
                 ScheduleIssue("frozen_before_ready", path, "frozen start precedes a readiness gate")
             )
@@ -141,6 +291,14 @@ def validate(problem: SchedulingProblem) -> list[ScheduleIssue]:
             issues.append(
                 ScheduleIssue("frozen_resource_ineligible", path, "frozen resource is not eligible")
             )
+    if problem.deadline is not None and (
+        not math.isfinite(problem.deadline) or problem.deadline < 0
+    ):
+        issues.append(
+            ScheduleIssue(
+                "invalid_deadline", "deadline", "deadline must be finite and non-negative"
+            )
+        )
     issues.extend(_cycle_issues(operations))
     return issues
 
@@ -156,13 +314,57 @@ def solve(
     if issues:
         return ScheduleResult("INFEASIBLE", issues=tuple(issues))
     if solver is not None:
-        return solver.solve(problem, time_limit_seconds=time_limit_seconds)
+        candidate = solver.solve(problem, time_limit_seconds=time_limit_seconds)
+        verification = (
+            verify_schedule(problem, candidate)
+            if candidate.status in {"FEASIBLE", "OPTIMAL"}
+            else VerificationResult(True)
+        )
+        return ScheduleResult(
+            candidate.status,
+            candidate.starts,
+            candidate.ends,
+            candidate.resources,
+            candidate.objective_value,
+            candidate.best_bound,
+            verification.valid,
+            verification.issues or candidate.issues,
+        )
     operations = {operation.id: operation for operation in problem.operations}
     windows = _windows(problem.resources)
     starts: dict[str, float] = {}
     ends: dict[str, float] = {}
     assigned: dict[str, str] = {}
-    remaining = set(operations)
+    frozen = [operation for operation in problem.operations if operation.frozen_start is not None]
+    for operation in sorted(frozen, key=lambda item: (item.frozen_start or 0.0, item.id)):
+        frozen_start = operation.frozen_start
+        if frozen_start is None:
+            continue
+        placement = _place(
+            operation,
+            max((ends[parent] for parent in operation.predecessors), default=0.0),
+            windows,
+            starts,
+            ends,
+            assigned,
+        )
+        if placement is None or placement[0] != frozen_start:
+            return ScheduleResult(
+                "UNKNOWN",
+                starts,
+                ends,
+                assigned,
+                issues=(
+                    ScheduleIssue(
+                        "frozen_conflict",
+                        f"operations[{operation.id}]",
+                        "frozen assignment cannot be reserved",
+                    ),
+                ),
+            )
+        starts[operation.id], assigned[operation.id] = placement
+        ends[operation.id] = frozen_start + operation.duration
+    remaining = set(operations) - {operation.id for operation in frozen}
     while remaining:
         ready = [
             operation
@@ -172,7 +374,7 @@ def solve(
         ]
         if not ready:
             return ScheduleResult(
-                "INFEASIBLE",
+                "UNKNOWN",
                 issues=(
                     ScheduleIssue("cycle", "operations", "no precedence-ready operation exists"),
                 ),
@@ -194,7 +396,7 @@ def solve(
             )
             if placement is None:
                 return ScheduleResult(
-                    "INFEASIBLE",
+                    "UNKNOWN",
                     starts,
                     ends,
                     assigned,
@@ -228,6 +430,19 @@ def solve(
 
 def verify_schedule(problem: SchedulingProblem, result: ScheduleResult) -> VerificationResult:
     issues = validate(problem)
+    known_ids = {operation.id for operation in problem.operations}
+    for collection_name, collection in (
+        ("starts", result.starts),
+        ("ends", result.ends),
+        ("resources", result.resources),
+    ):
+        for operation_id in collection:
+            if operation_id not in known_ids:
+                issues.append(
+                    ScheduleIssue(
+                        "unknown_assignment", collection_name, f"unknown operation {operation_id!r}"
+                    )
+                )
     for operation in problem.operations:
         if (
             operation.id not in result.starts
@@ -247,7 +462,15 @@ def verify_schedule(problem: SchedulingProblem, result: ScheduleResult) -> Verif
             result.ends[operation.id],
             result.resources[operation.id],
         )
-        if end - start != operation.duration:
+        if not all(math.isfinite(value) for value in (start, end)):
+            issues.append(
+                ScheduleIssue(
+                    "nonfinite_assignment",
+                    f"operations[{operation.id}]",
+                    "schedule times must be finite",
+                )
+            )
+        if not math.isclose(end - start, operation.duration, rel_tol=1e-9, abs_tol=1e-9):
             issues.append(
                 ScheduleIssue(
                     "duration",
@@ -271,7 +494,10 @@ def verify_schedule(problem: SchedulingProblem, result: ScheduleResult) -> Verif
                     "frozen_resource", f"operations[{operation.id}]", "frozen resource changed"
                 )
             )
-        if not any(
+        eligible = operation.eligible_resources or tuple(
+            window.resource_id for window in problem.resources
+        )
+        if resource_id not in eligible or not any(
             window.start <= start
             and end <= window.end
             and window.resource_id == resource_id
@@ -303,6 +529,8 @@ def verify_schedule(problem: SchedulingProblem, result: ScheduleResult) -> Verif
             if (
                 left.id in result.starts
                 and right.id in result.starts
+                and left.id in result.ends
+                and right.id in result.ends
                 and result.starts[left.id] < result.ends[right.id]
                 and result.starts[right.id] < result.ends[left.id]
             ):
@@ -329,15 +557,21 @@ def pareto_frontier(candidates: Iterable[ScheduleResult]) -> list[ScheduleResult
     ranked = rank_candidates(candidates)
     frontier: list[ScheduleResult] = []
     for candidate in ranked:
-        makespan = max(candidate.ends.values(), default=0.0)
-        if not any(
-            (other.objective_value or 0) <= (candidate.objective_value or 0)
-            and max(other.ends.values(), default=0.0) <= makespan
-            and other != candidate
-            for other in ranked
-        ):
+        if not any(_dominates(other, candidate) for other in ranked):
             frontier.append(candidate)
     return frontier
+
+
+def _dominates(left: ScheduleResult, right: ScheduleResult) -> bool:
+    left_objective = left.objective_value if left.objective_value is not None else float("inf")
+    right_objective = right.objective_value if right.objective_value is not None else float("inf")
+    left_makespan = max(left.ends.values(), default=float("inf"))
+    right_makespan = max(right.ends.values(), default=float("inf"))
+    return (
+        left_objective <= right_objective
+        and left_makespan <= right_makespan
+        and (left_objective < right_objective or left_makespan < right_makespan)
+    )
 
 
 def paired_deltas(
@@ -380,21 +614,24 @@ def _place(
             )
             if earliest < window.start or earliest + operation.duration > window.end:
                 continue
-            conflicts = sorted(
-                (
-                    ends[other_id]
+            while True:
+                conflicts = [
+                    (starts[other_id], ends[other_id])
                     for other_id, assigned_resource in assigned.items()
                     if assigned_resource == resource_id
                     and starts[other_id] < earliest + operation.duration
                     and earliest < ends[other_id]
-                )
-            )
-            if conflicts:
+                ]
+                if not conflicts:
+                    break
                 if operation.frozen_start is not None:
-                    continue
-                earliest = max(conflicts)
+                    earliest = window.end + 1
+                    break
+                earliest = max(end for _, end in conflicts)
                 if earliest + operation.duration > window.end:
-                    continue
+                    break
+            if earliest + operation.duration > window.end:
+                continue
             candidates.append((earliest, resource_id))
     return min(candidates) if candidates else None
 

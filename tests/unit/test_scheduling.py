@@ -7,11 +7,13 @@ from twinflow.scheduling import (
     ResourceWindow,
     SchedulingProblem,
     pareto_frontier,
+    problem_from_dict,
     rank_candidates,
     solve,
     translate_legacy,
     verify_schedule,
 )
+from twinflow.scheduling.core import ScheduleResult
 from twinflow.scheduling.ortools import OptionalDependencyError, ORToolsSolver
 
 
@@ -41,7 +43,7 @@ def test_infeasible_qualification_calendar_and_frozen_conflict() -> None:
         (Operation("x", 3, required_qualifications=frozenset({"q"})),),
         (ResourceWindow("r", 0, 2, frozenset({"q"})),),
     )
-    assert solve(bad).status == "INFEASIBLE"
+    assert solve(bad).status == "UNKNOWN"
     frozen = SchedulingProblem(
         (
             Operation("x", 2, frozen_start=0, frozen_resource="r"),
@@ -49,7 +51,7 @@ def test_infeasible_qualification_calendar_and_frozen_conflict() -> None:
         ),
         (ResourceWindow("r", 0, 10),),
     )
-    assert solve(frozen).status == "INFEASIBLE"
+    assert solve(frozen).status == "UNKNOWN"
 
 
 def test_translation_refuses_distribution_and_supports_rate_based() -> None:
@@ -83,3 +85,74 @@ def test_ranking_and_optional_solver_status() -> None:
     except OptionalDependencyError:
         return
     assert optional.solve(_problem()).status == "UNKNOWN"
+
+
+def test_frozen_later_slot_is_reserved_and_cascading_intervals_do_not_overlap() -> None:
+    problem = SchedulingProblem(
+        operations=(
+            Operation("frozen", 2, frozen_start=10, frozen_resource="r"),
+            Operation("a", 2),
+            Operation("b", 2),
+            Operation("c", 2),
+        ),
+        resources=(ResourceWindow("r", 0, 20),),
+    )
+    result = solve(problem)
+    assert result.verified
+    assert result.starts["frozen"] == 10
+    assert result.ends["c"] <= 10
+
+
+def test_numeric_validation_and_forged_solver_are_rejected() -> None:
+    bad = SchedulingProblem(
+        (Operation("x", 1, release_time=float("nan")),),
+        (ResourceWindow("r", 0, 2),),
+        deadline=float("inf"),
+    )
+    assert solve(bad).status == "INFEASIBLE"
+    forged = ScheduleResult("FEASIBLE", {"x": 0}, {"x": 1}, {"x": "wrong"})
+
+    class Forged:
+        def solve(
+            self, problem: SchedulingProblem, *, time_limit_seconds: float | None = None
+        ) -> ScheduleResult:
+            del problem, time_limit_seconds
+            return forged
+
+    result = solve(
+        SchedulingProblem((Operation("x", 1),), (ResourceWindow("r", 0, 2),)), solver=Forged()
+    )
+    assert not result.verified
+    assert result.issues
+
+
+def test_verifier_handles_missing_ends_and_ineligible_assignment() -> None:
+    problem = SchedulingProblem(
+        (Operation("x", 1, eligible_resources=("r",)),), (ResourceWindow("r", 0, 2),)
+    )
+    forged = ScheduleResult("FEASIBLE", {"x": 0, "unknown": 0}, {}, {"x": "other"})
+    check = verify_schedule(problem, forged)
+    assert not check.valid
+    assert any(issue.code in {"missing_assignment", "unknown_assignment"} for issue in check.issues)
+
+
+def test_equal_pareto_candidates_are_both_retained() -> None:
+    result = solve(_problem())
+    assert len(pareto_frontier([result, result])) == 2
+
+
+def test_problem_from_dict_is_strict_and_bounded() -> None:
+    raw = {
+        "operations": [{"id": "x", "duration": 1}],
+        "resources": [{"resource_id": "r", "start": 0, "end": 2}],
+    }
+    assert problem_from_dict(raw).operations[0].id == "x"
+    with pytest.raises(ValueError, match="unknown scheduling field"):
+        problem_from_dict({**raw, "extra": True})
+    with pytest.raises(ValueError, match="nonfinite"):
+        problem_from_dict(
+            {
+                "operations": raw["operations"],
+                "resources": [{"resource_id": "r", "start": 0, "end": float("inf")}],
+            }
+        )

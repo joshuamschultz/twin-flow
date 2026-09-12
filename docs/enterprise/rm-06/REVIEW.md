@@ -11,6 +11,8 @@ optional solver seam. Ruff, strict mypy, and pytest are the release checks.
 
 The baseline is a deterministic feasible heuristic, not an optimizer proof.
 OR-Tools is optional and intentionally not imported unless its adapter is
-instantiated. The translator supports a narrow deterministic manufacturing
+instantiated; when installed it builds CP-SAT interval, precedence, window,
+qualification, and frozen-assignment constraints and reports native status and
+objective bounds. The translator supports a narrow deterministic manufacturing
 subset; stochastic distributions, quality gates, and unsupported rework are
 reported as explicit issues.
