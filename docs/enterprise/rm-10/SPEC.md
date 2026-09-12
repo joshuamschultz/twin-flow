@@ -13,7 +13,8 @@
 - RM10-R5: Operational proposals have canonical digests tied to scenario/result IDs and
   expected operational revision. Approval names identity, scope, digest, and expiry.
 - RM10-R6: Dispatch uses a transaction-safe outbox abstraction with idempotency,
-  downstream revision checks, receipts, and explicit uncertain/reconciliation states.
+  dispatch-time approval and revision checks, bounded targeted claims, receipts, and
+  explicit uncertain/reconciliation states.
 - RM10-R7: The only included sink is deterministic and dry-run. No external operational
   system is mutated by simulation/evaluation code.
 - RM10-R8: A reproducible benchmark reports conditions, environment, wall time, events,
@@ -29,8 +30,8 @@
 - The supported action is `DispatchAction(location_id, policy)` where policy is one of
   `fifo`, `edd`, `spt`, or `critical_ratio`.
 - `Proposal.create(...)`, `Approval`, `TransactionalOutbox.submit(...)`,
-  `dispatch_pending(sink, current_operational_revision=...)`, and `reconcile(...)` define the
-  controlled-action seam in `twinflow.actions`.
+  `dispatch_pending(sink, current_operational_revision=..., now=..., entry_id=..., limit=...)`,
+  and `reconcile(...)` define the controlled-action seam in `twinflow.actions`.
 - `python -m twinflow.benchmark MODEL --plan ... --repetitions 2 --artifact-dir ...
   --max-sim-time ... --max-events ... --max-wall-seconds ... --output result.json`
   runs the local benchmark.
@@ -55,7 +56,8 @@
 - A stale state version and unsupported policy raise typed errors.
 - A replayed trace produces equal semantic event rows and an equal decision trace.
 - Duplicate outbox submission or dispatch does not call the sink twice.
-- Expired/revoked/wrong-scope approval and intervening operational revision prevent send.
+- Expired/revoked/wrong-scope approval and intervening operational revision prevent send,
+  including revocation or expiry after submission but before dispatch claim.
 - An uncertain send stays unresolved until explicit reconciliation records a receipt.
 - Benchmark output includes declared bounds and observed evidence and is presented as a
   measurement rather than an enterprise performance promise.

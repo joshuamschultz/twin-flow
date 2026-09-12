@@ -9,7 +9,8 @@
   idempotency check, approval check, approval consumption, and outbox insert. Rows and
   receipts survive process restart.
 - Dispatch checks operational revision before the sink call. Delivery claim state makes
-  interruption visible; recovery and uncertain receipt reconciliation are explicit.
+  interruption visible; approval is rechecked at claim time, and uncertain receipt
+  reconciliation is an idempotent transactional compare-and-set.
 - The only concrete sink is dry-run. The benchmark retains artifacts and reports finite
   limits and the measured environment.
 
