@@ -25,10 +25,19 @@ plan columns, and the shipped `load_plan` does the rest.
 
 ```python
 from twinflow.adapters import CsvPlanSource, FieldMapping
-source = CsvPlanSource("erp_export.csv", FieldMapping({
-    "work_order_id": "WO", "part": "Item", "qty": "Quantity",
-    "start_date": "Release", "due_date": "Due",
-}))
+
+source = CsvPlanSource(
+    "erp_export.csv",
+    FieldMapping(
+        {
+            "work_order_id": "WO",
+            "part": "Item",
+            "qty": "Quantity",
+            "start_date": "Release",
+            "due_date": "Due",
+        }
+    ),
+)
 orders = source.read_plan(registry)
 ```
 
@@ -43,7 +52,10 @@ generated plan is reproducible, like everything else in the twin.
 
 ```python
 from twinflow.adapters import PoissonDemand
-plan = PoissonDemand(parts=("shaft", "bracket"), rate=0.01, horizon=3600, lead_time=1800).generate(seed=1)
+
+plan = PoissonDemand(parts=("shaft", "bracket"), rate=0.01, horizon=3600, lead_time=1800).generate(
+    seed=1
+)
 ```
 
 ## Forecast — feed a demand/lead-time forecast in
@@ -75,7 +87,7 @@ env = TwinEnv(
     max_steps=10,
 )
 obs, info = env.reset()
-obs, reward, terminated, truncated, info = env.step((2,))   # nudge the lever up
+obs, reward, terminated, truncated, info = env.step((2,))  # nudge the lever up
 ```
 
 An action nudges each lever up/down/hold; the reward is the objective's score (negated

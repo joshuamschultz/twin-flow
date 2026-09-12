@@ -123,17 +123,32 @@ maximize `service_level`.
 
 ```python
 from twinflow.modules import (
-    LeverSpace, IntRange, OPTIMIZERS, CostObjective, TotalCost,
-    InventoryHoldingCost, StockoutPenalty, optimize,
+    LeverSpace,
+    IntRange,
+    OPTIMIZERS,
+    CostObjective,
+    TotalCost,
+    InventoryHoldingCost,
+    StockoutPenalty,
+    optimize,
 )
 
 space = LeverSpace({"stocks[resin].reorder_point": IntRange(50, 300, step=25)})
 objective = CostObjective(
     "inventory_cost",
-    TotalCost((InventoryHoldingCost(rate_per_unit_hour=0.01), StockoutPenalty(penalty_per_hour=500.0))),
+    TotalCost(
+        (InventoryHoldingCost(rate_per_unit_hour=0.01), StockoutPenalty(penalty_per_hour=500.0))
+    ),
 )
-result = optimize("examples/supply-chain/model.yaml", plan, space, objective,
-                  OPTIMIZERS.create("hill_climb"), budget=12, reps=12)
+result = optimize(
+    "examples/supply-chain/model.yaml",
+    plan,
+    space,
+    objective,
+    OPTIMIZERS.create("hill_climb"),
+    budget=12,
+    reps=12,
+)
 print(result.best.scenario.levers, result.best_score)
 ```
 

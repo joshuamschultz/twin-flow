@@ -6,7 +6,9 @@ from twinflow.scheduling import Operation, ResourceWindow, SchedulingProblem, so
 problem = SchedulingProblem(
     operations=(
         Operation("cut", 2, required_qualifications=frozenset({"machinist"})),
-        Operation("assemble", 3, predecessors=("cut",), required_qualifications=frozenset({"assembler"})),
+        Operation(
+            "assemble", 3, predecessors=("cut",), required_qualifications=frozenset({"assembler"})
+        ),
     ),
     resources=(
         ResourceWindow("m1", 0, 20, frozenset({"machinist"})),

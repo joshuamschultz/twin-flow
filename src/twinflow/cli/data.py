@@ -22,7 +22,6 @@ from twinflow.data import (
 )
 from twinflow.data.errors import DataError, DataFormatError
 
-
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
 
 

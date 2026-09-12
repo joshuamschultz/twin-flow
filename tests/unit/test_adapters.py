@@ -71,9 +71,7 @@ def test_field_mapping_renames_header() -> None:
 def test_csv_plan_source_maps_erp_columns(tmp_path: Path) -> None:
     registry = load_model("examples/cnc-shop/model.yaml").registry
     csv_path = tmp_path / "erp_plan.csv"
-    csv_path.write_text(
-        "WO,Item,Quantity,Release,Due\nSO-1,shaft,10,0,1000\n", encoding="utf-8"
-    )
+    csv_path.write_text("WO,Item,Quantity,Release,Due\nSO-1,shaft,10,0,1000\n", encoding="utf-8")
     source = CsvPlanSource(
         str(csv_path),
         FieldMapping(

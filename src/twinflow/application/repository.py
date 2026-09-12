@@ -18,7 +18,8 @@ class WorkspaceRepository:
     the responsibility of a separately configured deployment boundary.
     """
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(self, root: str | Path, *, max_records_per_kind: int = 10_000) -> None:
+        self.max_records_per_kind = max_records_per_kind
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         self.path = self.root / "workspace.sqlite3"
@@ -53,6 +54,10 @@ class WorkspaceRepository:
         """Insert an immutable identity, refusing replacement."""
         try:
             with self._connection() as db:
+                db.execute("BEGIN IMMEDIATE")
+                count = db.execute("SELECT COUNT(*) FROM records WHERE kind=?", (kind,)).fetchone()
+                if count is not None and count[0] >= self.max_records_per_kind:
+                    raise ValueError("Workspace record quota reached")
                 db.execute(
                     "INSERT INTO records(kind,id,body) VALUES(?,?,?)",
                     (kind, record_id, json.dumps(payload, allow_nan=False)),
@@ -108,6 +113,9 @@ class WorkspaceRepository:
                 if row[0] != digest:
                     raise ValueError("Request key was used with different inputs")
                 return str(row[1]), False
+            total = db.execute("SELECT COUNT(*) FROM records WHERE kind='jobs'").fetchone()
+            if total is not None and total[0] >= self.max_records_per_kind:
+                raise ValueError("Workspace record quota reached")
             active = db.execute(
                 "SELECT COUNT(*) FROM records WHERE kind='jobs' "
                 "AND json_extract(body, '$.status') IN ('queued','running','cancel_requested')"

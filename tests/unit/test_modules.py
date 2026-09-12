@@ -259,8 +259,12 @@ def _inventory_evaluation(
     interval = Interval(50.0, 48.0, 52.0, 50.0, 3)
     aggregated = AggregatedKpis(interval, {}, {}, {}, reps=3, level=0.9)
     return Evaluation(
-        Scenario(levers={}), _kpis(50.0), aggregated, compiled,  # type: ignore[arg-type]
-        horizon=horizon, inventory=inventory,
+        Scenario(levers={}),
+        _kpis(50.0),
+        aggregated,
+        compiled,  # type: ignore[arg-type]
+        horizon=horizon,
+        inventory=inventory,
     )
 
 

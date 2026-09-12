@@ -574,9 +574,7 @@ class TestTimeModelVariationChecks:
         assert any("locations[0].time_model.cv" == e.path for e in errors)
 
     def test_nonpositive_mean_is_flagged(self) -> None:
-        errors = _validator().validate(
-            _with_cutter_time_model({"kind": "distribution", "mean": 0})
-        )
+        errors = _validator().validate(_with_cutter_time_model({"kind": "distribution", "mean": 0}))
         assert any("locations[0].time_model" in e.path for e in errors)
 
 

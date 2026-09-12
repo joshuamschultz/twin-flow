@@ -120,9 +120,7 @@ def compute_inventory_kpis(inventory_path: str | Path, horizon: float) -> Invent
     )
 
 
-def _integrate(
-    times: list[float], levels: list[float], horizon: float
-) -> tuple[float, float]:
+def _integrate(times: list[float], levels: list[float], horizon: float) -> tuple[float, float]:
     """Integral of the level step function over `[0, horizon]`, and the total time the
     level was 0. `level[i]` holds from `times[i]` until the next event (or the horizon).
     Any tail of the log past the horizon is ignored."""

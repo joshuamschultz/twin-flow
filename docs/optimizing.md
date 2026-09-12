@@ -123,14 +123,16 @@ model = "model.yaml"
 plan = load_plan("plan.csv", load_model(model).registry)
 
 result = optimize(
-    model, plan,
+    model,
+    plan,
     LeverSpace({"labor.pools[0].headcount": IntRange(2, 6)}),
     OBJECTIVES.create("robust_on_time"),
     OPTIMIZERS.create("hill_climb"),
-    budget=12, reps=12,
+    budget=12,
+    reps=12,
 )
 print(result.best.scenario.levers, result.best_score)
-for scenario, score in result.history:      # the search trail, for a convergence chart
+for scenario, score in result.history:  # the search trail, for a convergence chart
     print(scenario.levers, score)
 ```
 
@@ -157,14 +159,18 @@ from twinflow.modules import CostObjective, TotalCost, LaborCost, CapacityCost
 
 # search capacity + staffing for on-time
 result = optimize(
-    model, plan,
-    LeverSpace({
-        "locations[mill].capacity": IntRange(1, 3),
-        "labor.pools[0].headcount": IntRange(2, 6),
-    }),
+    model,
+    plan,
+    LeverSpace(
+        {
+            "locations[mill].capacity": IntRange(1, 3),
+            "labor.pools[0].headcount": IntRange(2, 6),
+        }
+    ),
     OBJECTIVES.create("robust_on_time"),
     OPTIMIZERS.create("genetic"),
-    budget=25, reps=20,
+    budget=25,
+    reps=20,
 )
 
 # price the winner
@@ -181,17 +187,21 @@ just optimization. Minimize holding + stockout cost by searching the reorder poi
 ```python
 from twinflow.modules import CostObjective, TotalCost, InventoryHoldingCost, StockoutPenalty
 
-spend = TotalCost((
-    InventoryHoldingCost(rate_per_unit_hour=0.02),   # cost to hold a unit for an hour
-    StockoutPenalty(penalty_per_hour=200.0),         # cost of an empty stock per hour
-))
+spend = TotalCost(
+    (
+        InventoryHoldingCost(rate_per_unit_hour=0.02),  # cost to hold a unit for an hour
+        StockoutPenalty(penalty_per_hour=200.0),  # cost of an empty stock per hour
+    )
+)
 
 result = optimize(
-    "examples/supply-chain/model.yaml", plan,
+    "examples/supply-chain/model.yaml",
+    plan,
     LeverSpace({"stocks[resin].reorder_point": IntRange(50, 400, 25)}),
-    CostObjective("inventory_spend", spend),          # a minimize objective
+    CostObjective("inventory_spend", spend),  # a minimize objective
     OPTIMIZERS.create("hill_climb"),
-    budget=15, reps=20,
+    budget=15,
+    reps=20,
 )
 print("best reorder point:", result.best.scenario.levers, "spend: $", round(result.best_score))
 ```
@@ -208,9 +218,9 @@ did, then let it rank the whole grid to pick the few points worth really simulat
 ```python
 from twinflow.modules import MODELS, predicted_ranking, OBJECTIVES
 
-surrogate = MODELS.create("linear")                   # or "nearest_neighbor"
+surrogate = MODELS.create("linear")  # or "nearest_neighbor"
 surrogate.fit(result.evaluations, OBJECTIVES.create("on_time_pct"))
-ranked = predicted_ranking(surrogate, space)          # [(levers, predicted_score), ...]
+ranked = predicted_ranking(surrogate, space)  # [(levers, predicted_score), ...]
 ```
 
 A surrogate is an approximation, never the truth. Its ranking chooses *what to simulate*;

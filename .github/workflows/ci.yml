@@ -1,8 +1,11 @@
 name: ci
 on:
   push:
-    branches: [main]
+    branches: [main, enterprise-build]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   quality:
@@ -15,7 +18,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,api,agent,scheduling]"
       # Every gate FAILS the build on any finding.
       - name: Ruff lint
         run: ruff check .
@@ -27,3 +30,48 @@ jobs:
         run: pytest
       - name: Dependency audit (simpleeval CVE gate)
         run: pip-audit
+
+  workspace-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install API and optimizer
+        run: pip install -e ".[api,scheduling]"
+      - name: Install workspace
+        working-directory: web
+        run: npm ci
+      - name: Build and check workspace
+        working-directory: web
+        run: |
+          npm run build
+          npm run format:check
+          npm audit --audit-level=moderate
+          npx playwright install --with-deps chromium
+      - name: Browser workflows
+        run: |
+          python -m twinflow.service.serve --workspace-root /tmp/twinflow-ci > /tmp/twinflow-api.log 2>&1 &
+          API_PID=$!
+          npm --prefix web run dev -- --host 127.0.0.1 > /tmp/twinflow-ui.log 2>&1 &
+          UI_PID=$!
+          trap 'kill "$API_PID" "$UI_PID"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/health && curl --fail --silent http://127.0.0.1:5173 > /dev/null; then break; fi
+            sleep 1
+          done
+          npm --prefix web run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workspace-browser-evidence
+          path: |
+            web/test-results
+            /tmp/twinflow-api.log
+            /tmp/twinflow-ui.log

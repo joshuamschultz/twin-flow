@@ -229,7 +229,10 @@ def workspace_router(workspace: Workspace) -> APIRouter:
 
     @router.post("/drafts", response_model=DraftResponse, status_code=201)
     def draft(request: DraftRequest) -> dict[str, Any]:
-        return workspace.save_draft(request.name, request.facts, request.answers)
+        try:
+            return workspace.save_draft(request.name, request.facts, request.answers)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @router.get("/drafts", response_model=list[DraftResponse], status_code=200)
     def drafts() -> list[dict[str, Any]]:

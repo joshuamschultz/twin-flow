@@ -30,7 +30,7 @@ plan = load_plan("examples/cnc-shop/plan.csv", compiled.registry)
 surface = ScoringSurface("examples/cnc-shop/model.yaml", plan, reps=20, base_seed=0)
 evaluation = surface.evaluate(Scenario(levers={"labor.pools[0].headcount": 3}))
 
-print(evaluation.intervals.on_time_pct)   # Interval(mean, lo, hi, p50, n)
+print(evaluation.intervals.on_time_pct)  # Interval(mean, lo, hi, p50, n)
 print(evaluation.kpis.run_hours)
 ```
 
@@ -55,6 +55,7 @@ optimizer only needs to compare two scores; it never learns which metric it is.
 
 ```python
 from twinflow.modules import OBJECTIVES
+
 objective = OBJECTIVES.create("robust_on_time")
 ```
 
@@ -83,8 +84,9 @@ those levers with any optimizer against a `total_cost` of holding + stockout, or
 
 ```python
 from twinflow.modules import LaborCost, CapacityCost, TotalCost, CostObjective
+
 cost = TotalCost((LaborCost(wage_per_hour=40.0), CapacityCost(cost_per_machine=1000.0)))
-minimise_cost = CostObjective("spend", cost)   # direction "min"
+minimise_cost = CostObjective("spend", cost)  # direction "min"
 ```
 
 ## Optimizers — search the lever space
@@ -105,12 +107,16 @@ from twinflow.modules import LeverSpace, IntRange, OBJECTIVES, OPTIMIZERS, optim
 
 space = LeverSpace({"labor.pools[0].headcount": IntRange(2, 6)})
 result = optimize(
-    "examples/cnc-shop/model.yaml", plan, space,
-    OBJECTIVES.create("on_time_pct"), OPTIMIZERS.create("hill_climb"),
-    budget=12, reps=12,
+    "examples/cnc-shop/model.yaml",
+    plan,
+    space,
+    OBJECTIVES.create("on_time_pct"),
+    OPTIMIZERS.create("hill_climb"),
+    budget=12,
+    reps=12,
 )
 print(result.best.scenario.levers, result.best_score)
-for scenario, score in result.history:   # the convergence trail a UI plots
+for scenario, score in result.history:  # the convergence trail a UI plots
     print(scenario.levers, score)
 ```
 
@@ -134,9 +140,10 @@ whole grid and pick the few scenarios worth really simulating.
 
 ```python
 from twinflow.modules import MODELS, predicted_ranking
+
 surrogate = MODELS.create("linear")
 surrogate.fit(result.evaluations, OBJECTIVES.create("on_time_pct"))
-ranking = predicted_ranking(surrogate, space)   # [(levers, predicted_score), ...]
+ranking = predicted_ranking(surrogate, space)  # [(levers, predicted_score), ...]
 ```
 
 A surrogate is an approximation, never the truth — its ranking chooses *what to
@@ -153,7 +160,8 @@ from twinflow.modules.objectives import MetricObjective
 OBJECTIVES.register(
     "wip_ceiling",
     lambda: MetricObjective(
-        "wip_ceiling", "min",
+        "wip_ceiling",
+        "min",
         lambda ev: float(ev.kpis.wip_by_location["wip"].max() or 0),
     ),
 )

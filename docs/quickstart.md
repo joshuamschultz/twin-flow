@@ -35,16 +35,27 @@ The twin scores; the decision stays yours.
 ```python
 from twinflow.model import load_model
 from twinflow.plan.loader import load_plan
-from twinflow.modules import ScoringSurface, Scenario, LeverSpace, IntRange, OBJECTIVES, OPTIMIZERS, optimize
+from twinflow.modules import (
+    ScoringSurface,
+    Scenario,
+    LeverSpace,
+    IntRange,
+    OBJECTIVES,
+    OPTIMIZERS,
+    optimize,
+)
 
 model = "examples/cnc-shop/model.yaml"
 plan = load_plan("examples/cnc-shop/plan.csv", load_model(model).registry)
 
 result = optimize(
-    model, plan,
+    model,
+    plan,
     LeverSpace({"labor.pools[0].headcount": IntRange(2, 6)}),
-    OBJECTIVES.create("robust_on_time"), OPTIMIZERS.create("hill_climb"),
-    budget=12, reps=12,
+    OBJECTIVES.create("robust_on_time"),
+    OPTIMIZERS.create("hill_climb"),
+    budget=12,
+    reps=12,
 )
 print(result.best.scenario.levers, result.best_score)
 ```

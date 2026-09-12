@@ -22,9 +22,7 @@ import polars as pl
 # guarantee is what matters (D-017), not literal-constness of this vocabulary.
 PROCESS_NAMES = pl.Enum(["transform", "rework", "scrap"])
 
-RecordTuple = tuple[
-    str, str, str, str, float, float, float | None, float, float, float, str, float
-]
+RecordTuple = tuple[str, str, str, str, float, float, float | None, float, float, float, str, float]
 
 # The ProcessExecution contract (D-034): column name -> Polars dtype, in the exact order
 # the committed record tuple carries its fields. Defined once here, re-exported from

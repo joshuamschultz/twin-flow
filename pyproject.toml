@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "twinflow"
 version = "0.1.0"
-description = "Config-driven discrete-event digital twin for discrete manufacturing floors"
+description = "Agent-first operational twins for manufacturing, office workflows and supply networks"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }

@@ -64,6 +64,7 @@ def _fig_html(fig: go.Figure) -> str:
         config={"responsive": True},
     )
 
+
 # BlackArc light brand tokens (navy on white, azure accents) - see the brand standard.
 _STYLE = """
 :root{
@@ -298,12 +299,16 @@ class HtmlReport:
         panels = "".join(
             f"<div class='panel chart'>{_fig_html(fig)}<div class='cap'>{_e(cap)}</div></div>"
             for fig, cap in (
-                (self._lateness_range_figure(aggregated),
-                 "Lateness per order: negative is early, positive is late. A whisker "
-                 "crossing zero is an order that ships on time in some runs, late in others."),
-                (self._utilization_range_figure(aggregated),
-                 "Busy share per work center. A tall bar with a tight whisker is a "
-                 "dependable bottleneck; a wide whisker is a center whose load swings."),
+                (
+                    self._lateness_range_figure(aggregated),
+                    "Lateness per order: negative is early, positive is late. A whisker "
+                    "crossing zero is an order that ships on time in some runs, late in others.",
+                ),
+                (
+                    self._utilization_range_figure(aggregated),
+                    "Busy share per work center. A tall bar with a tight whisker is a "
+                    "dependable bottleneck; a wide whisker is a center whose load swings.",
+                ),
             )
         )
         return (
@@ -409,23 +414,38 @@ class HtmlReport:
 
     def _charts(self, kpis: KpiSet) -> str:
         specs = [
-            (self._throughput_figure(kpis), "Cumulative orders finished over the run - a flat "
-             "stretch means nothing completed while work piled up behind the constraint."),
-            (self._utilization_figure(kpis), "Busy share of the run per work center. The tall "
-             "bar is the bottleneck; everything else has headroom."),
-            (self._cycle_time_figure(kpis), "Average processing time per job at each center - "
-             "the slow step is usually the constraint."),
-            (self._wait_figure(kpis), "How each center spent the run: busy vs blocked (finished "
-             "but held) vs starved (idle, waiting for work). The bottleneck runs busy; the "
-             "centers it feeds starve."),
-            (self._lateness_figure(kpis), "Signed lateness per order - blue finished early, "
-             "orange finished late."),
-            (self._wip_figure(kpis), "Jobs in progress at each center over time - a rising line "
-             "is a growing queue."),
+            (
+                self._throughput_figure(kpis),
+                "Cumulative orders finished over the run - a flat "
+                "stretch means nothing completed while work piled up behind the constraint.",
+            ),
+            (
+                self._utilization_figure(kpis),
+                "Busy share of the run per work center. The tall "
+                "bar is the bottleneck; everything else has headroom.",
+            ),
+            (
+                self._cycle_time_figure(kpis),
+                "Average processing time per job at each center - "
+                "the slow step is usually the constraint.",
+            ),
+            (
+                self._wait_figure(kpis),
+                "How each center spent the run: busy vs blocked (finished "
+                "but held) vs starved (idle, waiting for work). The bottleneck runs busy; the "
+                "centers it feeds starve.",
+            ),
+            (
+                self._lateness_figure(kpis),
+                "Signed lateness per order - blue finished early, orange finished late.",
+            ),
+            (
+                self._wip_figure(kpis),
+                "Jobs in progress at each center over time - a rising line is a growing queue.",
+            ),
         ]
         panels = "".join(
-            f"<div class='panel chart'>{_fig_html(fig)}"
-            f"<div class='cap'>{cap}</div></div>"
+            f"<div class='panel chart'>{_fig_html(fig)}<div class='cap'>{cap}</div></div>"
             for fig, cap in specs
         )
         return f"<section><h2 class='sec'>Charts</h2><div class='grid2'>{panels}</div></section>"
@@ -494,9 +514,7 @@ class HtmlReport:
     def _utilization_table(kpis: KpiSet) -> str:
         rows = "".join(
             f"<tr><td>{_e(cell)}</td><td class='num'>{min(util, 1.0) * 100:.1f}%</td></tr>"
-            for cell, util in sorted(
-                kpis.utilization_by_cell.items(), key=lambda kv: -kv[1]
-            )
+            for cell, util in sorted(kpis.utilization_by_cell.items(), key=lambda kv: -kv[1])
         )
         return (
             "<div><h3 class='tbl'>Utilization by work center</h3>"
@@ -576,8 +594,10 @@ class HtmlReport:
     @staticmethod
     def _style(fig: go.Figure, title: str, yaxis_title: str, xaxis_title: str = "") -> go.Figure:
         fig.update_layout(
-            title={"text": title, "font": {"family": "Space Grotesk, sans-serif", "size": 15,
-                                            "color": "#0B1220"}},
+            title={
+                "text": title,
+                "font": {"family": "Space Grotesk, sans-serif", "size": 15, "color": "#0B1220"},
+            },
             template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="#FFFFFF",
@@ -600,7 +620,9 @@ class HtmlReport:
         ys = list(range(len(xs)))
         fig = go.Figure(
             go.Scatter(
-                x=xs, y=ys, mode="lines",
+                x=xs,
+                y=ys,
+                mode="lines",
                 line={"shape": "hv", "color": "#0073FE", "width": 2},
             )
         )
@@ -640,8 +662,9 @@ class HtmlReport:
                     marker_color=color,
                 )
             )
-        fig.update_layout(barmode="stack", showlegend=True,
-                          legend={"orientation": "h", "y": 1.12, "x": 0})
+        fig.update_layout(
+            barmode="stack", showlegend=True, legend={"orientation": "h", "y": 1.12, "x": 0}
+        )
         return self._style(fig, "Idle time by center", "Idle (s)", "Location")
 
     def _lateness_figure(self, kpis: KpiSet) -> go.Figure:

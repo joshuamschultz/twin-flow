@@ -46,6 +46,7 @@ export default function WorkspaceApp() {
     (scenario) => scenario.id === selectedId,
   );
   function navigate(next: string, id = "") {
+    window.scrollTo({ top: 0 });
     setPage(next);
     setSelectedId(id);
     history.replaceState(

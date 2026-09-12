@@ -210,9 +210,15 @@ class ConfiguredPolicy:
         self, observation: PolicyObservation, allowed_actions: tuple[DispatchAction, ...]
     ) -> DispatchAction:
         del allowed_actions
-        selected = next((rule.policy for rule in self.rules
-                         if rule.location_id == observation.location_id
-                         and len(observation.queue) >= rule.min_queue), self.default)
+        selected = next(
+            (
+                rule.policy
+                for rule in self.rules
+                if rule.location_id == observation.location_id
+                and len(observation.queue) >= rule.min_queue
+            ),
+            self.default,
+        )
         return DispatchAction(observation.location_id, selected)
 
 

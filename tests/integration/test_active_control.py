@@ -72,11 +72,7 @@ def workdir(tmp_path: Path) -> Iterator[Path]:
 # ------------------------------------------------------------------- A1 dispatch
 # Order A (qty 2, due far away) is listed first; order B (qty 8, due soon) second.
 # Under FIFO the first firing is A (qty 2); under EDD it is B (qty 8).
-_DISPATCH_PLAN = (
-    "work_order_id,part,qty,start_date,due_date\n"
-    "A,widget,2,0,10000\n"
-    "B,widget,8,0,5\n"
-)
+_DISPATCH_PLAN = "work_order_id,part,qty,start_date,due_date\nA,widget,2,0,10000\nB,widget,8,0,5\n"
 
 
 def test_fifo_runs_arrival_order(workdir: Path) -> None:
@@ -156,8 +152,10 @@ def test_absence_reduces_effective_headcount(workdir: Path) -> None:
     top = ""
     extra = ""
     plan = _RELEASE_PLAN
-    yaml_a = _MODEL.replace("{TOP}", top).replace("{EXTRA}", extra).replace(
-        "headcount: 1", "headcount: 3, absence_rate: 0.9"
+    yaml_a = (
+        _MODEL.replace("{TOP}", top)
+        .replace("{EXTRA}", extra)
+        .replace("headcount: 1", "headcount: 3, absence_rate: 0.9")
     )
     (workdir / "m.yaml").write_text(yaml_a)
     (workdir / "p.csv").write_text(plan)

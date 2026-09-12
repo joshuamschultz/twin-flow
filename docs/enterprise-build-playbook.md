@@ -58,6 +58,7 @@ Use local filesystem artifacts for offline mode. Use PostgreSQL for service meta
 import numpy as np
 from scipy.stats import t
 
+
 def paired_mean_ci(baseline, candidate, confidence=0.95):
     a, b = np.asarray(baseline, dtype=float), np.asarray(candidate, dtype=float)
     if a.ndim != 1 or a.shape != b.shape or a.size < 2:
@@ -66,8 +67,10 @@ def paired_mean_ci(baseline, candidate, confidence=0.95):
         raise ValueError("Invalid level or missing/nonfinite observations")
     delta = b - a
     half = t.ppf((1 + confidence) / 2, delta.size - 1) * delta.std(ddof=1) / np.sqrt(delta.size)
-    return {"mean_delta": float(delta.mean()),
-            "mean_ci": [float(delta.mean() - half), float(delta.mean() + half)]}
+    return {
+        "mean_delta": float(delta.mean()),
+        "mean_ci": [float(delta.mean() - half), float(delta.mean() + half)],
+    }
 ```
 
 **Tools:** retain NumPy/SciPy/pytest; add [Hypothesis](https://github.com/HypothesisWorks/hypothesis) for generated conservation, ordering, and isolation tests. Property tests complement manually calculated cases; they do not establish validity against real operations.
@@ -157,11 +160,13 @@ twinflow scenario run shop.twin.yaml --out ./artifacts/baseline
 ```python
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class ResourceRequirement:
     capability: str
     count: int
     qualification_rule: str | None
+
 
 @dataclass(frozen=True)
 class OperationState:
@@ -209,6 +214,7 @@ Prefer semantic edits such as `set_resource_calendar` or `change_order_release` 
 from mcp.server import MCPServer
 
 mcp = MCPServer("Twinflow")
+
 
 @mcp.tool()
 async def evaluate(scenario_version: str, request_key: str) -> dict:
@@ -304,8 +310,7 @@ from ortools.sat.python import cp_model
 model = cp_model.CpModel()
 starts = [model.new_int_var(0, 100, f"start_{i}") for i in range(2)]
 ends = [model.new_int_var(0, 100, f"end_{i}") for i in range(2)]
-tasks = [model.new_interval_var(starts[i], d, ends[i], f"task_{i}")
-         for i, d in enumerate([12, 18])]
+tasks = [model.new_interval_var(starts[i], d, ends[i], f"task_{i}") for i, d in enumerate([12, 18])]
 model.add_no_overlap(tasks)
 model.add(starts[1] >= ends[0])
 model.minimize(ends[1])
@@ -457,9 +462,11 @@ Set tenant context transaction-locally from verified application identity, using
 ```python
 from typing import Protocol
 
+
 class Policy(Protocol):
     def decide(self, observation: dict, allowed_actions: tuple[dict, ...]) -> dict:
         """Return one allowed action using observable state only."""
+
 
 def decision_boundary(runtime, policy):
     state = runtime.observe()

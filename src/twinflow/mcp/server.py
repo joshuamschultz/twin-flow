@@ -138,7 +138,9 @@ def create_server(client: TwinflowClient) -> Any:
         )
 
     @server.tool()
-    def query_evidence(job_id: str, topic: str, entity_id: str | None = None) -> dict[str, Any]:
+    def query_evidence(
+        job_id: str, topic: str, entity_id: str | None = None, offset: int = 0, limit: int = 100
+    ) -> dict[str, Any]:
         """Retrieve decision evidence with scenario and snapshot provenance.
 
         Interpret returned evidence to answer the user's question. Incomplete outcomes cannot
@@ -162,8 +164,10 @@ def create_server(client: TwinflowClient) -> Any:
         )
 
     @server.tool()
-    def propose_action(job_id: str, action: dict[str, str | int | float | bool | None]) -> dict[str, Any]:
-        """Create an evidence-bound dry-run proposal for operator review. Does not authorize delivery."""
+    def propose_action(
+        job_id: str, action: dict[str, str | int | float | bool | None]
+    ) -> dict[str, Any]:
+        """Create an evidence-bound dry-run proposal for review; does not authorize delivery."""
         return dict(client.request("/proposals", {"job_id": job_id, "action": action}))
 
     return server

@@ -67,8 +67,18 @@ class DecisionTools:
             self.workspace.repository.create("snapshots", identity, {"id": identity, **document})
         return document
 
-    def query(self, job_id: str, topic: str, entity_id: str | None = None) -> dict[str, Any]:
+    def query(
+        self,
+        job_id: str,
+        topic: str,
+        entity_id: str | None = None,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> dict[str, Any]:
         """Retrieve bounded evidence for an agent to explain; never invent narrative answers."""
+        if offset < 0 or not 1 <= limit <= 1000:
+            raise ValueError("Evidence pages require offset >= 0 and limit 1..1000")
         job = self.workspace.repository.get("jobs", job_id)
         if job["status"] != "completed":
             raise ValueError("Wait for a completed experiment before querying its evidence")
@@ -113,9 +123,30 @@ class DecisionTools:
                             if entity_id in (row.get("order_id"), row.get("case_id"))
                             or entity_id in row.get("affected_order_ids", [])
                         ]
-                    evidence.append({"replication": index, "evidence": values})
+                    evidence.extend({"replication": index, "record": value} for value in values)
         else:
             raise ValueError("Topic must be metrics, dates, blockers, assumptions, or process")
+        rows: list[Any] = []
+        if isinstance(evidence, dict):
+            for key, value in evidence.items():
+                if isinstance(value, list):
+                    rows.extend({"field": key, "record": item} for item in value)
+                else:
+                    rows.append({"field": key, "record": value})
+        else:
+            rows = evidence
+        page = []
+        byte_count = 0
+        for row in rows[offset : offset + limit]:
+            size = len(json.dumps(row).encode())
+            if size > 65_536:
+                row = {"omitted": True, "reason": "Record exceeds inline evidence size; use export"}
+                size = 100
+            if byte_count + size > 262_144:
+                break
+            byte_count += size
+            page.append(row)
+        next_offset = offset + len(page)
         answer = {
             "job_id": job_id,
             "scenario_id": scenario["id"],
@@ -123,7 +154,11 @@ class DecisionTools:
             "snapshot_id": scenario["capsule"]["snapshot"].get("id"),
             "topic": topic,
             "domain": domain,
-            "evidence": evidence,
+            "evidence": page,
+            "total": len(rows),
+            "offset": offset,
+            "next_offset": next_offset if next_offset < len(rows) else None,
+            "export_route": f"/api/workspace/jobs/{job_id}/export",
             "validity": "provisional",
             "interpretation": result["interpretation"],
         }

@@ -30,6 +30,7 @@ def validate_content(content: str) -> ScenarioCapsule:
     config = capsule.experiment.get("dispatch_policy")
     if config is not None:
         from twinflow.policy import configured_runtime
+
         if capsule.model.get("domain", "manufacturing") != "manufacturing":
             raise ValueError("dispatch_policy is supported only for manufacturing")
         configured_runtime(config, {item.location_id for item in capsule.compile().model.locations})
@@ -102,8 +103,13 @@ def evaluate_capsule(
         if remaining <= 0:
             raise TimeoutError("Experiment exceeded 120 second compute budget")
         from twinflow.policy import configured_runtime
+
         config = capsule.experiment.get("dispatch_policy")
-        runtime = configured_runtime(config, {item.location_id for item in compiled.model.locations}) if config is not None else None
+        runtime = (
+            configured_runtime(config, {item.location_id for item in compiled.model.locations})
+            if config is not None
+            else None
+        )
         run = RunDriver(compiled.model).run(
             compiled.plan,
             seed=seed,
@@ -115,7 +121,9 @@ def evaluate_capsule(
             max_wall_seconds=min(remaining, 30),
         )
         if runtime is not None:
-            policy_traces.append({"replication": index, "decisions": [asdict(row) for row in runtime.trace]})
+            policy_traces.append(
+                {"replication": index, "decisions": [asdict(row) for row in runtime.trace]}
+            )
         kpi = compute_kpis(
             run.event_log_path,
             orders_frame(compiled.plan, compiled.model, run.event_log_path),

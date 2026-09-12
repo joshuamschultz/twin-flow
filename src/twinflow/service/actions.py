@@ -56,8 +56,9 @@ def action_router(workspace: Workspace) -> APIRouter:
     @router.post("/proposals/{proposal_id}/dry-run")
     def deliver(proposal_id: str, request: DeliverRequest) -> dict[str, Any]:
         try:
-            return tools.deliver(proposal_id, request.approval_id, request.request_key,
-                                 request.current_revision)
+            return tools.deliver(
+                proposal_id, request.approval_id, request.request_key, request.current_revision
+            )
         except KeyError as exc:
             raise HTTPException(404, "Proposal not found") from exc
         except ValueError as exc:

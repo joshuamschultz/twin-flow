@@ -109,9 +109,10 @@ need a number you can defend, quote the **low edge**, not the mean.
 
 ```python
 import json
+
 kpis = json.load(open("runs/<run-id>/kpis.json"))
 bands = json.load(open("runs/<run-id>/intervals.json"))
-print(bands["on_time_pct"])          # {"mean":..., "lo":..., "hi":..., "p50":..., "n":...}
+print(bands["on_time_pct"])  # {"mean":..., "lo":..., "hi":..., "p50":..., "n":...}
 print(kpis["machine_hours_by_machine"])
 ```
 
@@ -127,16 +128,16 @@ from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import aggregate_kpis
 from twinflow.instrumentation.sweep import orders_frame
 
-model = load_model("model.yaml")                       # parse + validate + compile, once
-plan  = load_plan("plan.csv", model.registry)
+model = load_model("model.yaml")  # parse + validate + compile, once
+plan = load_plan("plan.csv", model.registry)
 results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=0)
 
 per_rep = [
     compute_kpis(r.event_log_path, orders_frame(plan, model, r.event_log_path), r.horizon)
     for r in results
 ]
-bands = aggregate_kpis(per_rep)                         # mean + lo/hi per KPI
-print(bands.on_time_pct)                                # Interval(mean, lo, hi, p50, n)
+bands = aggregate_kpis(per_rep)  # mean + lo/hi per KPI
+print(bands.on_time_pct)  # Interval(mean, lo, hi, p50, n)
 ```
 
 ### Comparing two setups fairly
@@ -149,11 +150,14 @@ the comparison fair, not noise):
 from twinflow.plan.replication import compare
 
 diff = compare(
-    "model_2ops.yaml", "model_3ops.yaml", plan,
-    reps=30, base_seed=0,
-    metric=lambda result: result.horizon,   # any number pulled from a RunResult
+    "model_2ops.yaml",
+    "model_3ops.yaml",
+    plan,
+    reps=30,
+    base_seed=0,
+    metric=lambda result: result.horizon,  # any number pulled from a RunResult
 )
-print(diff.mean_difference, diff.low, diff.high)   # if the band excludes 0, the difference is real
+print(diff.mean_difference, diff.low, diff.high)  # if the band excludes 0, the difference is real
 ```
 
 ## Reproducibility

@@ -46,7 +46,9 @@ class Workspace:
         except BlockingIOError as exc:
             self._ownership.close()
             raise RuntimeError("Workspace is already owned by another service process") from exc
-        self.repository = WorkspaceRepository(workspace_root)
+        self.repository = WorkspaceRepository(
+            workspace_root, max_records_per_kind=max_records_per_kind
+        )
         self.examples_root = Path(examples_root).resolve()
         self.max_active_jobs = max_active_jobs
         self.max_replications = max_replications
@@ -309,6 +311,9 @@ class Workspace:
     def save_draft(
         self, name: str, facts: dict[str, Any], answers: list[dict[str, str]]
     ) -> dict[str, Any]:
+        json.dumps(facts, allow_nan=False)
+        if len(answers) > 1000:
+            raise ValueError("A building brief supports at most 1000 retained answers")
         facts = dict(facts)
         for answer in answers:
             key, value = answer.get("id"), answer.get("answer")

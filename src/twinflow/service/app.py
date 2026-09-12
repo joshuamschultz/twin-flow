@@ -112,6 +112,7 @@ def create_app(
 
     app.include_router(decision_router(workspace))
     from twinflow.service.actions import action_router
+
     app.include_router(action_router(workspace))
     app.add_middleware(
         ServiceBoundaryMiddleware,
@@ -187,7 +188,9 @@ def create_app(
     @app.post("/api/run")
     def run(request: RunRequest) -> dict[str, Any]:
         if not configured.local_only:
-            raise HTTPException(403, "Use the bounded workspace experiment API in remote deployments")
+            raise HTTPException(
+                403, "Use the bounded workspace experiment API in remote deployments"
+            )
         model_path, plan_path = catalog.resolve(request.model)
 
         def work() -> dict[str, Any]:
@@ -211,7 +214,9 @@ def create_app(
     @app.post("/api/sweep")
     def sweep(request: SweepRequest) -> dict[str, Any]:
         if not configured.local_only:
-            raise HTTPException(403, "Use the bounded workspace experiment API in remote deployments")
+            raise HTTPException(
+                403, "Use the bounded workspace experiment API in remote deployments"
+            )
         model_path, plan_path = catalog.resolve(request.model)
 
         def work() -> dict[str, Any]:
@@ -237,7 +242,9 @@ def create_app(
     @app.post("/api/optimize")
     def optimize_endpoint(request: OptimizeRequest) -> dict[str, Any]:
         if not configured.local_only:
-            raise HTTPException(403, "Use the bounded workspace scheduling API in remote deployments")
+            raise HTTPException(
+                403, "Use the bounded workspace scheduling API in remote deployments"
+            )
         model_path, plan_path = catalog.resolve(request.model)
         space = _build_space(request)
         if request.objective not in OBJECTIVES:

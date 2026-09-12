@@ -4,10 +4,10 @@
 
 ### A working software copy of your operation that you can run experiments on.
 
-**Describe your factory floor in a spreadsheet and a config file. Get back honest answers about dates, bottlenecks, and staffing - each with a confidence range, not a guess.**
+**An agent-accessible operational twin: import one scenario file, test alternatives, and retrieve evidence about work, dates, resources, and constraints across manufacturing, front offices, and supply chains.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0b2340)](#status--quality)
-[![tests](https://img.shields.io/badge/tests-507%20passing-1aa179)](#status--quality)
+[![tests](https://img.shields.io/badge/tests-615%20passing-1aa179)](#status--quality)
 [![mypy](https://img.shields.io/badge/mypy-strict-2bb5b5)](#status--quality)
 [![lint](https://img.shields.io/badge/lint-ruff-46a2f1)](#status--quality)
 [![status](https://img.shields.io/badge/status-alpha-f5a623)](#roadmap)
@@ -19,11 +19,17 @@
 
 ---
 
+## Enterprise build
+
+Start with the [workspace user guide](docs/enterprise/README.md) and [agent integration guide](docs/enterprise/AGENT-GUIDE.md). The [roadmap](docs/enterprise-roadmap.md), [build playbook](docs/enterprise-build-playbook.md), and [implementation status](docs/enterprise/BUILD-STATUS.md) distinguish delivered capabilities from the remaining enterprise acceptance gates.
+
+The `enterprise-build` branch adds portable scenarios, a shared API/SDK/MCP surface, a responsive operator workspace, domain adapters, data reconciliation, verified scheduling, and evidence-bound dry-run action review. This is a dedicated-workspace foundation; customer calibration, enterprise identity, distributed execution, and production connector rollout remain explicit next steps.
+
 ## The problem
 
 Most plants promise dates and set staffing from a spreadsheet and years of gut feel. That works until it doesn't: a rush order, a new product mix, a machine down, a temp short. A spreadsheet cannot tell you what happens next, and it never tells you how sure it is.
 
-`twinflow` builds a **digital twin** of your operation - a working software copy you can run experiments on. Because real floors are random (cycle times vary, scrap happens), it simulates each scenario many times and reports a **confidence interval**, a low-to-high range you can trust, instead of a single number pretending to be certain.
+`twinflow` builds a **digital twin** of your operation - a working software copy you can run experiments on. Repeated simulations separate outcome quantiles from confidence intervals on estimated means. Incomplete runs remain visible; a simulated forecast is conditional on its model and data.
 
 > You stop quoting dates you can't hit, and stop adding capacity you don't need.
 
@@ -39,7 +45,7 @@ No custom code per plant. **One `model.yaml` plus a production plan (`.xlsx` or 
 | Where does the line actually choke? | Utilization per cell and per machine, and a clear wait breakdown: starved vs blocked vs waiting-on-material |
 | Is one more operator worth it? | Run each staffing level many times and compare them with a paired confidence interval on the difference |
 | How big should the batch or buffer be? | Every option on a lever grid, side by side, fairly compared |
-| Can I trust last quarter's number? | A reproducibility stamp on every run: same inputs, same answer, forever |
+| Can I trust last quarter's number? | Retained inputs, seed, outcomes, and runtime evidence for reproducibility checks |
 
 ---
 
@@ -173,8 +179,8 @@ from twinflow.model import load_model
 from twinflow.plan import load_plan
 from twinflow.plan.replication import ReplicationRunner
 
-model = load_model("model.yaml")               # parse + validate + compile, once
-plan  = load_plan("plan.csv", model.registry)
+model = load_model("model.yaml")  # parse + validate + compile, once
+plan = load_plan("plan.csv", model.registry)
 results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=42)
 ```
 
@@ -182,7 +188,7 @@ results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=42)
 
 ## ✅ What you get today
 
-Everything here is **built and tested** (507 passing tests). The library API is stable; the `twinflow` command surfaces the same operations.
+Everything here is **built and tested** (615 passing tests). The versioned workspace API is the shared agent/operator boundary; APIs remain pre-1.0.
 
 | Capability | What it means for you |
 |---|---|
@@ -299,12 +305,12 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 ## Status & quality
 
 - **Python** ≥ 3.11.
-- **507 tests** across unit, analytical, and integration layers.
+- **615 tests** across unit, analytical, and integration layers.
 - **Blocking CI gates:** `ruff`, `mypy --strict`, `pytest`, `pip-audit` - the build fails on any finding.
 - **Config is the only trust boundary:** YAML is loaded through one safe door, expressions run in one sandbox, and validation reports every problem before a run starts.
 - **Reproducible by construction:** every run carries a stamp that lets you re-create it exactly.
 
-> Status: **alpha.** The engine, active control, supply chain, and the optimization, calibration, and integration surfaces are complete and tested. The **beta** items in the roadmap below are designed and next up.
+> Status: **alpha.** Supported engine, policy, domain, scheduling, and integration slices are tested. Consult the enterprise build status for specific limitations and production acceptance gates.
 
 ---
 

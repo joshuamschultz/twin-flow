@@ -33,9 +33,7 @@ def test_batch_hold_compiles_fixed_seconds() -> None:
 
 
 def test_batch_hold_compiles_distribution_and_is_seeded() -> None:
-    model = _build_time_model(
-        {"kind": "batch_hold", "dist": "lognormal", "mean": 200.0, "cv": 0.3}
-    )
+    model = _build_time_model({"kind": "batch_hold", "dist": "lognormal", "mean": 200.0, "cv": 0.3})
     a = model.sample(Bundle(qty=1, thing="x", uom="piece"), np.random.default_rng(7))
     b = model.sample(Bundle(qty=1, thing="x", uom="piece"), np.random.default_rng(7))
     assert a.run == b.run  # reproducible from the same seed

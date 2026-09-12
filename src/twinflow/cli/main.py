@@ -138,7 +138,9 @@ def _build_parser() -> argparse.ArgumentParser:
     scenario_validate.set_defaults(handler=_handle_scenario_validate)
     scenario_run = scenario_commands.add_parser("run")
     scenario_run.add_argument("capsule")
-    scenario_run.add_argument("--seed", type=int, default=0)
+    scenario_run.add_argument("--seed", type=int)
+    scenario_run.add_argument("--reps", type=int)
+    scenario_run.add_argument("--out")
     scenario_run.set_defaults(handler=_handle_scenario_run)
     scenario_export = scenario_commands.add_parser("export")
     scenario_export.add_argument("capsule")
@@ -151,6 +153,7 @@ def _build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8000)
     serve_parser.add_argument("--models-root", default="examples")
+    serve_parser.add_argument("--workspace-root", default=".twinflow-workspace")
     serve_parser.set_defaults(handler=_handle_serve)
 
     return parser
@@ -171,11 +174,18 @@ def _handle_scenario_validate(args: argparse.Namespace) -> int:
 
 
 def _handle_scenario_run(args: argparse.Namespace) -> int:
-    result = load_capsule(args.capsule).evaluate(seed=args.seed)
-    if isinstance(result, dict):
-        print(json.dumps(result, sort_keys=True))
-    else:
-        print(json.dumps({"horizon": result.horizon, "event_log": str(result.event_log_path)}))
+    from twinflow.application.scenarios import evaluate_capsule, validate_content
+
+    capsule = validate_content(Path(args.capsule).read_text(encoding="utf-8"))
+    reps = args.reps if args.reps is not None else capsule.experiment.get("replications", 1)
+    seed = args.seed if args.seed is not None else capsule.experiment.get("seed", 0)
+    if not 1 <= reps <= 50 or not 0 <= seed <= 2**32 - 1:
+        raise ValueError("CLI experiments require 1..50 replications and a 32-bit nonnegative seed")
+    output = Path(args.out) if args.out else Path("runs") / _new_run_id()
+    if output.exists() and any(output.iterdir()):
+        raise ValueError("Experiment output directory must be new or empty")
+    result = evaluate_capsule(capsule.to_dict(), output, reps, seed, lambda: False)
+    print(json.dumps({"artifact_dir": str(output.resolve()), **result}, sort_keys=True))
     return 0
 
 
@@ -391,7 +401,16 @@ def _handle_serve(args: argparse.Namespace) -> int:
     from twinflow.service.serve import main as serve_main
 
     return serve_main(
-        ["--host", args.host, "--port", str(args.port), "--models-root", args.models_root]
+        [
+            "--host",
+            args.host,
+            "--port",
+            str(args.port),
+            "--models-root",
+            args.models_root,
+            "--workspace-root",
+            args.workspace_root,
+        ]
     )
 
 

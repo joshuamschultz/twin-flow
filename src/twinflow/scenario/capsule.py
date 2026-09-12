@@ -393,7 +393,17 @@ class ScenarioCapsule:
                 artifact_dir=artifact_dir,
                 limits=limits,
             )
-        return self.run(seed=seed)
+        compiled = self.compile()
+        configured = limits or {}
+        return RunDriver(compiled.model).run(
+            compiled.plan,
+            seed=seed,
+            replication_index=0,
+            artifact_dir=artifact_dir,
+            max_events=int(configured["max_events"]) if "max_events" in configured else None,
+            max_sim_time=configured.get("max_sim_time"),
+            max_wall_seconds=configured.get("max_wall_seconds"),
+        )
 
     def edit(self, path: str, value: Any) -> ScenarioCapsule:
         """Return a new capsule after a bounded semantic JSON-pointer edit."""

@@ -110,3 +110,59 @@ class TwinflowClient:
             dict[str, Any],
             self.request("/compare", {"baseline_id": baseline_id, "candidate_id": candidate_id}),
         )
+
+    def validate(self, content: str) -> dict[str, Any]:
+        return cast(dict[str, Any], self.request("/validate", {"content": content}))
+
+    def query(
+        self,
+        job_id: str,
+        topic: str,
+        entity_id: str | None = None,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                f"/jobs/{quote(job_id, safe='')}/query", {"topic": topic, "entity_id": entity_id}
+            ),
+        )
+
+    def save_brief(self, name: str, facts: dict[str, Any]) -> dict[str, Any]:
+        return cast(dict[str, Any], self.request("/drafts", {"name": name, "facts": facts}))
+
+    def answer_brief(self, draft_id: str, answers: list[dict[str, str]]) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(f"/drafts/{quote(draft_id, safe='')}/answers", {"answers": answers}),
+        )
+
+    def ingest_events(self, records: list[dict[str, Any]]) -> dict[str, Any]:
+        return cast(dict[str, Any], self.request("/data/events", {"records": records}))
+
+    def build_snapshot(
+        self, known_at: str, freshness_rules: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                "/data/snapshots", {"known_at": known_at, "freshness_rules": freshness_rules or []}
+            ),
+        )
+
+    def schedule(
+        self, problem: dict[str, Any], *, backend: str = "baseline", time_limit: float = 10
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                "/schedules", {"problem": problem, "backend": backend, "time_limit": time_limit}
+            ),
+        )
+
+    def propose(self, job_id: str, action: dict[str, Any]) -> dict[str, Any]:
+        return cast(
+            dict[str, Any], self.request("/proposals", {"job_id": job_id, "action": action})
+        )

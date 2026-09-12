@@ -63,7 +63,11 @@ the same surface and optimizers as everything else.
 from twinflow.model import load_model
 from twinflow.plan.loader import load_plan
 from twinflow.modules import (
-    LeverSpace, IntRange, OPTIMIZERS, CalibrationTarget, calibrate,
+    LeverSpace,
+    IntRange,
+    OPTIMIZERS,
+    CalibrationTarget,
+    calibrate,
 )
 from twinflow.instrumentation import compute_kpis
 
@@ -81,11 +85,16 @@ target = CalibrationTarget(
 
 # 4. tune the spread until the twin matches history
 result = calibrate(
-    model, plan,
-    LeverSpace({"defaults.cycle_time_cv": IntRange(0, 40)}),   # searched as 0.00 .. 0.40 if you map it
+    model,
+    plan,
+    LeverSpace(
+        {"defaults.cycle_time_cv": IntRange(0, 40)}
+    ),  # searched as 0.00 .. 0.40 if you map it
     target,
     OPTIMIZERS.create("hill_climb"),
-    budget=15, tolerance=5.0, reps=20,
+    budget=15,
+    tolerance=5.0,
+    reps=20,
 )
 
 print("best-fit params:", result.best_params)

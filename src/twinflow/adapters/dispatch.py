@@ -65,15 +65,7 @@ def _critical_ratio(job: DispatchJob, now: float) -> float:
 
 
 DISPATCH_POLICIES: Registry[DispatchPolicy] = Registry("dispatch_policy")
-DISPATCH_POLICIES.register(
-    "fifo", lambda: KeyedPolicy("fifo", lambda job, now: job.arrival_time)
-)
-DISPATCH_POLICIES.register(
-    "edd", lambda: KeyedPolicy("edd", lambda job, now: job.due_date)
-)
-DISPATCH_POLICIES.register(
-    "spt", lambda: KeyedPolicy("spt", lambda job, now: job.processing_time)
-)
-DISPATCH_POLICIES.register(
-    "critical_ratio", lambda: KeyedPolicy("critical_ratio", _critical_ratio)
-)
+DISPATCH_POLICIES.register("fifo", lambda: KeyedPolicy("fifo", lambda job, now: job.arrival_time))
+DISPATCH_POLICIES.register("edd", lambda: KeyedPolicy("edd", lambda job, now: job.due_date))
+DISPATCH_POLICIES.register("spt", lambda: KeyedPolicy("spt", lambda job, now: job.processing_time))
+DISPATCH_POLICIES.register("critical_ratio", lambda: KeyedPolicy("critical_ratio", _critical_ratio))
