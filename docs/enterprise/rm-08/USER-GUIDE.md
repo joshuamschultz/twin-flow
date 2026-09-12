@@ -53,17 +53,26 @@ fields. A receipt can name its supplier. `quality_status` defaults to `released`
 the supply. Existing allocation rows reserve supply before new allocation.
 
 Orders run in descending priority, then due-date and ID order. The engine consumes each physical
-supply quantity at most once. Finished supply is used before building an assembly. Recursive BOM
+supply quantity at most once. Existing reservations must be released and at the order site, and
+are consumed when their pegged order reaches that item, including a nested component. Finished
+supply is used before building an assembly. Even fully reserved finished supply still passes its
+configured evidence gates. Recursive BOM
 requirements multiply through every level. A failure returns its exact dependency path and every
 affected order. Configured gate output reports the rule revision and evidence IDs used.
 
 ## Result interpretation
 
-`complete` means every order was feasible; `incomplete` preserves blocked orders and reasons;
-`invalid` means execution did not start. With multiple replications, forecasts add P50/P90 dates
-and on-time probability. Common risk groups correlate receipt delays within each replication.
-The seed makes those draws reproducible. The evidence artifact is the same JSON result written
-atomically to `supply-chain-evidence.json`.
+`complete` means every order was feasible in every requested replication; `incomplete` preserves
+blocked orders and reasons; `invalid` means execution did not start. `partially_feasible` at the
+order level means some replications were blocked. Forecasts report sample, feasible, delivery-date,
+and censored counts plus P50/P90 over observed feasible dates. Shortages and gates are unioned over
+all replications with occurrence counts and indices. `replication_samples` retains full evidence.
+
+Common risk groups correlate a latent disruption quantile within each replication, while each
+supplier retains its own delay bounds. The seed makes draws reproducible. Set `max_events` and
+`max_wall_seconds` beside `replications` for cooperative limits; exhaustion returns
+`limit_reached` with partial samples and a reason. The evidence artifact is the same JSON result
+written atomically to `supply-chain-evidence.json`.
 
 These dates cover material availability plus configured process lead time. They are not a
 detailed finite-capacity schedule. Gates only evaluate configured evidence and validity dates;

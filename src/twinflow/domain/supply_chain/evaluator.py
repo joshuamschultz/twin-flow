@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import time
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -25,6 +26,26 @@ from twinflow.domain.supply_chain.parsing import parse_model, parse_snapshot
 from twinflow.domain.supply_chain.validation import validate
 
 MAX_REPLICATIONS = 1_000
+MAX_EVENTS = 1_000_000
+MAX_WALL_SECONDS = 300.0
+
+
+class _LimitReached(Exception):
+    """Cooperative evaluation budget was exhausted."""
+
+
+@dataclass
+class _Budget:
+    max_events: int
+    deadline: float
+    events: int = 0
+
+    def consume(self, count: int = 1) -> None:
+        self.events += count
+        if self.events > self.max_events:
+            raise _LimitReached("max_events exceeded")
+        if time.monotonic() > self.deadline:
+            raise _LimitReached("max_wall_seconds exceeded")
 
 
 @dataclass(frozen=True)
@@ -62,12 +83,31 @@ def evaluate(
         }
     parsed_model = parse_model(model)
     parsed_snapshot = parse_snapshot(snapshot)
-    replications = _replications(limits)
-    samples = [
-        _evaluate_once(parsed_model, parsed_snapshot, np.random.default_rng(seed + index))
-        for index in range(replications)
-    ]
-    result = _aggregate(samples, parsed_model, seed, replications)
+    replications, max_events, max_wall_seconds = _limits(limits)
+    budget = _Budget(max_events, time.monotonic() + max_wall_seconds)
+    samples: list[dict[str, object]] = []
+    limit_reason: str | None = None
+    for index in range(replications):
+        try:
+            budget.consume()
+            samples.append(
+                _evaluate_once(
+                    parsed_model, parsed_snapshot, np.random.default_rng(seed + index), budget
+                )
+            )
+        except _LimitReached as exc:
+            limit_reason = str(exc)
+            break
+    try:
+        result = _aggregate(samples, parsed_model, seed, replications, budget)
+    except _LimitReached as exc:
+        limit_reason = str(exc)
+        result = _limit_result(samples, parsed_model, seed, replications)
+    result["replications_completed"] = len(samples)
+    result["events_processed"] = budget.events
+    if limit_reason is not None:
+        result["status"] = "limit_reached"
+        result["limit_reason"] = limit_reason
     if artifact_dir is not None:
         artifact = _write_artifact(Path(artifact_dir), result)
         result["evidence_artifacts"] = [str(artifact)]
@@ -110,21 +150,43 @@ def describe(model: Mapping[str, object], snapshot: Mapping[str, object]) -> dic
     }
 
 
-def _replications(limits: Mapping[str, object] | None) -> int:
-    value = 1 if limits is None else limits.get("replications", 1)
-    if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= MAX_REPLICATIONS:
+def _limits(limits: Mapping[str, object] | None) -> tuple[int, int, float]:
+    replications = 1 if limits is None else limits.get("replications", 1)
+    max_events = 100_000 if limits is None else limits.get("max_events", 100_000)
+    max_wall = 30.0 if limits is None else limits.get("max_wall_seconds", 30.0)
+    if (
+        not isinstance(replications, int)
+        or isinstance(replications, bool)
+        or not 1 <= replications <= MAX_REPLICATIONS
+    ):
         raise ValueError(f"limits.replications must be an integer from 1 to {MAX_REPLICATIONS}")
-    return value
+    if (
+        not isinstance(max_events, int)
+        or isinstance(max_events, bool)
+        or not 1 <= max_events <= MAX_EVENTS
+    ):
+        raise ValueError(f"limits.max_events must be an integer from 1 to {MAX_EVENTS}")
+    if (
+        not isinstance(max_wall, (int, float))
+        or isinstance(max_wall, bool)
+        or not 0 < float(max_wall) <= MAX_WALL_SECONDS
+    ):
+        raise ValueError(f"limits.max_wall_seconds must be in (0, {MAX_WALL_SECONDS}]")
+    return replications, max_events, float(max_wall)
 
 
 def _evaluate_once(
-    model: NetworkModel, snapshot: NetworkSnapshot, rng: np.random.Generator
+    model: NetworkModel,
+    snapshot: NetworkSnapshot,
+    rng: np.random.Generator,
+    budget: _Budget,
 ) -> dict[str, object]:
     supplier_by_id = {supplier.supplier_id: supplier for supplier in model.suppliers}
-    group_delays: dict[str, float] = {}
+    group_quantiles: dict[str, float] = {}
     delayed_supply: dict[str, datetime] = {}
     assumptions: list[str] = []
     for supply in snapshot.supplies:
+        budget.consume()
         delay = 0.0
         supplier = supplier_by_id.get(supply.supplier_id or "")
         if (
@@ -133,36 +195,40 @@ def _evaluate_once(
             and supplier.delay_risk is not None
         ):
             risk = supplier.delay_risk
-            if risk.common_risk_group not in group_delays:
-                group_delays[risk.common_risk_group] = rng.uniform(
-                    risk.minimum_days, risk.maximum_days
-                )
-            delay = group_delays[risk.common_risk_group]
+            if risk.common_risk_group not in group_quantiles:
+                group_quantiles[risk.common_risk_group] = float(rng.uniform(0.0, 1.0))
+            quantile = group_quantiles[risk.common_risk_group]
+            delay = risk.minimum_days + quantile * (risk.maximum_days - risk.minimum_days)
             assumptions.append(f"configured delay risk {risk.common_risk_group}")
         delayed_supply[supply.supply_id] = supply.available_at + timedelta(days=delay)
     remaining = {supply.supply_id: supply.quantity for supply in snapshot.supplies}
     for allocation in snapshot.allocations:
         remaining[allocation.supply_id] -= allocation.quantity
-    context = _Context(model, snapshot, remaining, delayed_supply)
+    reservations: dict[tuple[str, str], list[list[object]]] = defaultdict(list)
+    supply_by_id = {supply.supply_id: supply for supply in snapshot.supplies}
+    for allocation in snapshot.allocations:
+        supply = supply_by_id[allocation.supply_id]
+        reservations[(allocation.order_id, supply.item_id)].append(
+            [allocation.supply_id, allocation.quantity]
+        )
+    context = _Context(model, snapshot, remaining, delayed_supply, reservations, budget)
     forecasts: list[dict[str, object]] = []
     shortages: list[dict[str, object]] = []
     gates: list[dict[str, object]] = []
     for order in sorted(
         snapshot.orders, key=lambda item: (-item.priority, item.due_at, item.order_id)
     ):
-        allocated_quantity, allocated_at = _allocated_direct(order, snapshot, delayed_supply)
-        needed = order.quantity - allocated_quantity
-        result = context.fulfill(order, order.item_id, max(0.0, needed), (order.item_id,))
-        available_at = max(result.available_at, allocated_at)
+        budget.consume()
+        result = context.fulfill(order, order.item_id, order.quantity, (order.item_id,))
         shortages.extend(result.shortages)
         gates.extend(result.gates)
         forecasts.append(
             {
                 "order_id": order.order_id,
                 "status": "feasible" if result.complete else "blocked",
-                "delivery_at": available_at.isoformat() if result.complete else None,
+                "delivery_at": result.available_at.isoformat() if result.complete else None,
                 "due_at": order.due_at.isoformat(),
-                "on_time": result.complete and available_at <= order.due_at,
+                "on_time": result.complete and result.available_at <= order.due_at,
             }
         )
     return {
@@ -180,20 +246,34 @@ class _Context:
         snapshot: NetworkSnapshot,
         remaining: dict[str, float],
         supply_dates: dict[str, datetime],
+        reservations: dict[tuple[str, str], list[list[object]]],
+        budget: _Budget,
     ) -> None:
         self.model = model
         self.snapshot = snapshot
         self.remaining = remaining
         self.supply_dates = supply_dates
+        self.reservations = reservations
+        self.budget = budget
         self.items = {item.item_id: item for item in model.items}
 
     def fulfill(
         self, order: Order, item_id: str, quantity: float, path: tuple[str, ...]
     ) -> _NeedResult:
+        self.budget.consume()
         latest = self.snapshot.as_of
-        if quantity <= 1e-9:
-            return _NeedResult(True, latest, (), ())
         unmet = quantity
+        for reservation in self.reservations.get((order.order_id, item_id), []):
+            self.budget.consume()
+            reserved = cast(float, reservation[1])
+            used = min(unmet, reserved)
+            reservation[1] = reserved - used
+            unmet -= used
+            latest = max(latest, self.supply_dates[cast(str, reservation[0])])
+            if unmet <= 1e-9:
+                gates = self._evaluate_gates(order, item_id, latest)
+                complete = all(gate["status"] == "passed" for gate in gates)
+                return _NeedResult(complete, latest, (), tuple(gates))
         candidates = sorted(
             (
                 supply
@@ -206,6 +286,7 @@ class _Context:
             key=lambda supply: (self.supply_dates[supply.supply_id], supply.supply_id),
         )
         for supply in candidates:
+            self.budget.consume()
             used = min(unmet, self.remaining[supply.supply_id])
             if used <= 0:
                 continue
@@ -228,6 +309,7 @@ class _Context:
         gate_results: list[dict[str, object]] = []
         complete = True
         for line in bom.lines:
+            self.budget.consume()
             component = self.fulfill(
                 order, line.item_id, unmet * line.quantity, (*path, line.item_id)
             )
@@ -279,6 +361,7 @@ class _Context:
         )
 
     def _evaluate_gates(self, order: Order, item_id: str, at: datetime) -> list[dict[str, object]]:
+        self.budget.consume()
         return [
             self._evaluate_gate(order, gate, at)
             for gate in self.model.gates
@@ -286,6 +369,7 @@ class _Context:
         ]
 
     def _evaluate_gate(self, order: Order, gate: GateRule, at: datetime) -> dict[str, object]:
+        self.budget.consume()
         evidence = [
             document
             for document in self.snapshot.documents
@@ -341,59 +425,85 @@ class _Context:
         return _NeedResult(False, at, (shortage,), ())
 
 
-def _allocated_direct(
-    order: Order, snapshot: NetworkSnapshot, supply_dates: Mapping[str, datetime]
-) -> tuple[float, datetime]:
-    supply_by_id = {supply.supply_id: supply for supply in snapshot.supplies}
-    quantity = 0.0
-    available_at = snapshot.as_of
-    for allocation in snapshot.allocations:
-        supply = supply_by_id.get(allocation.supply_id)
-        if allocation.order_id == order.order_id and supply is not None:
-            if supply.item_id == order.item_id:
-                quantity += allocation.quantity
-                available_at = max(available_at, supply_dates[supply.supply_id])
-    return quantity, available_at
-
-
 def _aggregate(
-    samples: list[dict[str, object]], model: NetworkModel, seed: int, replications: int
+    samples: list[dict[str, object]],
+    model: NetworkModel,
+    seed: int,
+    replications: int,
+    budget: _Budget,
 ) -> dict[str, object]:
+    if not samples:
+        return {
+            "schema_version": 1,
+            "domain": "supply_chain",
+            "status": "incomplete",
+            "seed": seed,
+            "replications": replications,
+            "validation_issues": [],
+            "order_forecasts": [],
+            "shortages": [],
+            "gate_results": [],
+            "affected_orders": [],
+            "metrics": {"order_count": 0, "feasible_count": 0, "blocked_count": 0},
+            "assumptions": [],
+            "evidence_artifacts": [],
+            "replication_samples": [],
+            "model_counts": {"items": len(model.items), "suppliers": len(model.suppliers)},
+        }
     first_forecasts = cast(list[dict[str, object]], samples[0]["order_forecasts"])
     forecasts: list[dict[str, object]] = []
     for index, first in enumerate(first_forecasts):
+        budget.consume()
         rows = [
             cast(list[dict[str, object]], sample["order_forecasts"])[index] for sample in samples
         ]
+        feasible_rows = [row for row in rows if row["status"] == "feasible"]
         dates = sorted(
             datetime.fromisoformat(cast(str, row["delivery_at"]))
-            for row in rows
+            for row in feasible_rows
             if row["delivery_at"] is not None
         )
-        forecast = dict(first)
-        if replications > 1:
+        feasible_count = len(feasible_rows)
+        if feasible_count == len(rows):
+            status = "feasible"
+        elif feasible_count == 0:
+            status = "blocked"
+        else:
+            status = "partially_feasible"
+        forecast = {
+            "order_id": first["order_id"],
+            "status": status,
+            "delivery_at": first["delivery_at"] if len(rows) == 1 else None,
+            "due_at": first["due_at"],
+            "on_time": first["on_time"] if len(rows) == 1 else None,
+            "sample_count": len(rows),
+            "feasible_count": feasible_count,
+            "censored_count": len(rows) - feasible_count,
+            "delivery_date_count": len(dates),
+            "feasibility_probability": feasible_count / len(rows),
+            "on_time_probability": sum(row["on_time"] is True for row in rows) / len(rows),
+        }
+        if len(rows) > 1:
             forecast["delivery_at_p50"] = _percentile_date(dates, 0.5)
             forecast["delivery_at_p90"] = _percentile_date(dates, 0.9)
-            forecast["on_time_probability"] = (
-                sum(row["on_time"] is True for row in rows) / replications
-            )
         forecasts.append(forecast)
-    shortages = cast(list[dict[str, object]], samples[0]["shortages"])
-    gates = cast(list[dict[str, object]], samples[0]["gate_results"])
+    shortages = _union_records(samples, "shortages", ("order_id", "item_id", "reason"), budget)
+    gates = _union_gates(samples, budget)
     affected: dict[str, set[str]] = defaultdict(set)
     for shortage in shortages:
         affected[cast(str, shortage["item_id"])].add(cast(str, shortage["order_id"]))
     for gate in gates:
         if gate["status"] == "blocked":
             affected[cast(str, gate["gate_id"])].update(cast(list[str], gate["affected_order_ids"]))
-    feasible = sum(row["status"] == "feasible" for row in forecasts)
+    fully_feasible = sum(row["status"] == "feasible" for row in forecasts)
     assumptions = sorted(
         {text for sample in samples for text in cast(list[str], sample["assumptions"])}
     )
+    complete = len(samples) == replications and fully_feasible == len(forecasts)
     return {
         "schema_version": 1,
         "domain": "supply_chain",
-        "status": "complete" if feasible == len(forecasts) else "incomplete",
+        "status": "complete" if complete else "incomplete",
         "seed": seed,
         "replications": replications,
         "validation_issues": [],
@@ -406,11 +516,89 @@ def _aggregate(
         ],
         "metrics": {
             "order_count": len(forecasts),
-            "feasible_count": feasible,
-            "blocked_count": len(forecasts) - feasible,
+            "feasible_count": fully_feasible,
+            "blocked_count": len(forecasts) - fully_feasible,
         },
         "assumptions": assumptions,
         "evidence_artifacts": [],
+        "replication_samples": samples,
+        "model_counts": {"items": len(model.items), "suppliers": len(model.suppliers)},
+    }
+
+
+def _union_records(
+    samples: list[dict[str, object]],
+    field: str,
+    identity_fields: tuple[str, ...],
+    budget: _Budget,
+) -> list[dict[str, object]]:
+    grouped: dict[str, tuple[dict[str, object], set[int]]] = {}
+    for replication_index, sample in enumerate(samples):
+        for record in cast(list[dict[str, object]], sample[field]):
+            budget.consume()
+            identity = json.dumps(
+                {name: record.get(name) for name in identity_fields}, sort_keys=True
+            )
+            if identity not in grouped:
+                grouped[identity] = (dict(record), set())
+            grouped[identity][1].add(replication_index)
+    result: list[dict[str, object]] = []
+    for identity in sorted(grouped):
+        record, indices = grouped[identity]
+        record["occurrence_count"] = len(indices)
+        record["replication_indices"] = sorted(indices)
+        result.append(record)
+    return result
+
+
+def _union_gates(samples: list[dict[str, object]], budget: _Budget) -> list[dict[str, object]]:
+    grouped: dict[str, tuple[dict[str, object], set[int], set[str]]] = {}
+    for replication_index, sample in enumerate(samples):
+        for gate in cast(list[dict[str, object]], sample["gate_results"]):
+            budget.consume()
+            identity = json.dumps(
+                {
+                    "gate_id": gate.get("gate_id"),
+                    "status": gate.get("status"),
+                    "reasons": gate.get("reasons"),
+                    "affected_order_ids": gate.get("affected_order_ids"),
+                },
+                sort_keys=True,
+            )
+            if identity not in grouped:
+                grouped[identity] = (dict(gate), set(), set())
+            grouped[identity][1].add(replication_index)
+            grouped[identity][2].add(cast(str, gate["evaluated_at"]))
+    result: list[dict[str, object]] = []
+    for identity in sorted(grouped):
+        gate, indices, evaluated = grouped[identity]
+        gate["occurrence_count"] = len(indices)
+        gate["replication_indices"] = sorted(indices)
+        gate["evaluated_at_samples"] = sorted(evaluated)
+        result.append(gate)
+    return result
+
+
+def _limit_result(
+    samples: list[dict[str, object]], model: NetworkModel, seed: int, replications: int
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "domain": "supply_chain",
+        "status": "limit_reached",
+        "seed": seed,
+        "replications": replications,
+        "validation_issues": [],
+        "order_forecasts": [],
+        "shortages": [],
+        "gate_results": [],
+        "affected_orders": [],
+        "metrics": {},
+        "assumptions": sorted(
+            {text for sample in samples for text in cast(list[str], sample["assumptions"])}
+        ),
+        "evidence_artifacts": [],
+        "replication_samples": samples,
         "model_counts": {"items": len(model.items), "suppliers": len(model.suppliers)},
     }
 
