@@ -84,7 +84,56 @@ def test_ranking_and_optional_solver_status() -> None:
         optional = ORToolsSolver()
     except OptionalDependencyError:
         return
-    assert optional.solve(_problem()).status == "UNKNOWN"
+    solved = optional.solve(_problem())
+    assert solved.status == "OPTIMAL"
+    assert solved.verified
+
+
+def test_real_cpsat_statuses_objective_precision_and_frozen_choice() -> None:
+    solver = ORToolsSolver(workers=1, seed=7)
+    solved = solver.solve(_problem(), time_limit_seconds=5)
+    assert solved.status == "OPTIMAL"
+    assert solved.objective_value == 5
+    assert solved.best_bound == 5
+    impossible = SchedulingProblem((Operation("x", 2),), (ResourceWindow("r", 0, 1),))
+    assert solver.solve(impossible).status == "INFEASIBLE"
+    fractional = SchedulingProblem(
+        (Operation("x", 0.0015, frozen_start=0, frozen_resource="r"),),
+        (ResourceWindow("r", 0, 1),),
+    )
+    fraction_result = solver.solve(fractional)
+    assert fraction_result.status == "OPTIMAL"
+    assert fraction_result.verified
+    assert fraction_result.ends["x"] == pytest.approx(0.0015)
+    frozen_choice = SchedulingProblem(
+        (Operation("x", 1, frozen_start=4, frozen_resource="r2"),),
+        (ResourceWindow("r1", 0, 10), ResourceWindow("r2", 0, 10)),
+    )
+    frozen_result = solver.solve(frozen_choice)
+    assert frozen_result.status == "OPTIMAL"
+    assert frozen_result.resources == {"x": "r2"}
+    lateness = SchedulingProblem(
+        (Operation("x", 2, release_time=3),),
+        (ResourceWindow("r", 0, 10),),
+        objective="lateness",
+        deadline=4,
+    )
+    late_result = solver.solve(lateness)
+    assert late_result.status == "OPTIMAL"
+    assert late_result.objective_value == 1
+
+
+def test_cpsat_rejects_invalid_limit_and_reports_tiny_timeout() -> None:
+    solver = ORToolsSolver()
+    invalid = solve(_problem(), solver=solver, time_limit_seconds=0)
+    assert invalid.status == "UNKNOWN"
+    assert invalid.issues[0].code == "invalid_time_limit"
+    many = SchedulingProblem(
+        tuple(Operation(f"x{i}", 1) for i in range(80)),
+        tuple(ResourceWindow(f"r{i}", 0, 100) for i in range(4)),
+    )
+    timeout = solver.solve(many, time_limit_seconds=1e-9)
+    assert timeout.status == "UNKNOWN"
 
 
 def test_frozen_later_slot_is_reserved_and_cascading_intervals_do_not_overlap() -> None:
