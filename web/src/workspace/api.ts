@@ -1,0 +1,144 @@
+export interface GraphNode {
+  id: string;
+  kind: string;
+  label: string;
+  capacity?: number;
+  skill?: string;
+}
+export interface Scenario {
+  id: string;
+  name: string;
+  digest: string;
+  parent_id: string | null;
+  created_at: string;
+  capsule: {
+    model: Record<string, unknown>;
+    snapshot: Record<string, unknown>;
+    assumptions: unknown;
+    [key: string]: unknown;
+  };
+  summary: {
+    nodes: GraphNode[];
+    edges: { source: string; target: string; label: string }[];
+    orders: number;
+    processes: number;
+    stocks: number;
+  };
+  validity: string;
+}
+export interface Band {
+  mean: number;
+  lo: number;
+  hi: number;
+  p50: number;
+  n: number;
+}
+export interface Experiment {
+  id: string;
+  scenario_id: string;
+  status: string;
+  reps: number;
+  seed: number;
+  created_at: string;
+  error: string | null;
+  result: {
+    metrics: Record<string, number>;
+    intervals: {
+      completion_by_order: Record<string, Band>;
+      completion_distributions?: Record<
+        string,
+        {
+          quantiles: Record<string, number> | null;
+          observed_count: number;
+          censored_count: number;
+          estimability: string;
+        }
+      >;
+      on_time_pct: Band;
+    };
+    outcomes: {
+      replication: number;
+      outcome: string;
+      termination_reason: string;
+    }[];
+    interpretation: string;
+    [key: string]: unknown;
+  } | null;
+}
+export interface Draft {
+  id: string;
+  name: string;
+  status: string;
+  questions: { id: string; question: string }[];
+  facts: Record<string, unknown>;
+  next_step: string;
+}
+export interface Example {
+  id: string;
+  name: string;
+}
+
+async function request<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(
+    `/api/workspace${path}`,
+    body === undefined
+      ? undefined
+      : {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+  );
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const detail = payload?.detail;
+    throw new Error(
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((item: { msg: string }) => item.msg).join("; ")
+          : `Request failed (${response.status}). Please try again.`,
+    );
+  }
+  return response.json() as Promise<T>;
+}
+
+export const workspaceApi = {
+  scenarios: () => request<Scenario[]>("/scenarios"),
+  examples: () => request<Example[]>("/examples"),
+  load: (example_id: string) =>
+    request<Scenario>("/examples/load", { example_id }),
+  import: (name: string, content: string) =>
+    request<Scenario>("/scenarios", { name, content }),
+  branch: (id: string, name: string, content: string) =>
+    request<Scenario>(`/scenarios/${id}/branch`, { name, content }),
+  jobs: () => request<Experiment[]>("/jobs"),
+  evaluate: (id: string, reps: number) =>
+    request<Experiment>(`/scenarios/${id}/evaluate`, {
+      reps,
+      seed: 42,
+      request_key: crypto.randomUUID(),
+    }),
+  cancel: (id: string) => request<Experiment>(`/jobs/${id}/cancel`, {}),
+  drafts: () => request<Draft[]>("/drafts"),
+  draft: (name: string, facts: Record<string, string>) =>
+    request<Draft>("/drafts", { name, facts }),
+  compare: (baseline_id: string, candidate_id: string) =>
+    request<{ delta: Record<string, number>; interpretation: string }>(
+      "/compare",
+      { baseline_id, candidate_id },
+    ),
+};
+
+export function download(
+  name: string,
+  content: string,
+  type = "application/json",
+) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

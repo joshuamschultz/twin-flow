@@ -12,3 +12,8 @@ runs/
 # Working / planning files — keep out of the pushed repo
 .claude/
 *.pdf
+
+.twinflow-workspace/
+
+web/test-results/
+web/playwright-report/

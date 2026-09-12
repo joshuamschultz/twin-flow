@@ -26,6 +26,7 @@ dependencies = [
 # front end drives. The core engine never imports it, so a plain install stays
 # dependency-light; `pip install -e ".[api]"` adds it.
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
+agent = ["mcp>=2,<3"]
 dev = [
     "pytest>=8",
     "ruff>=0.5",

@@ -72,10 +72,26 @@ class ModelCatalog:
         return str(model_path.resolve()), str(plan_path.resolve())
 
 
-def create_app(models_root: str | Path = "examples") -> FastAPI:
+def create_app(
+    models_root: str | Path = "examples", *, workspace_root: str | Path = ".twinflow-workspace"
+) -> FastAPI:
     """Build the app rooted at `models_root`. A fresh `JobStore` lives for the
     app's lifetime."""
-    app = FastAPI(title="twinflow", version="0.1.0")
+    from collections.abc import AsyncIterator
+    from contextlib import asynccontextmanager
+
+    from twinflow.application.workspace import Workspace
+    from twinflow.service.workspace import workspace_router
+
+    workspace = Workspace(workspace_root, models_root)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        yield
+        workspace.close()
+
+    app = FastAPI(title="twinflow", version="0.1.0", lifespan=lifespan)
+    app.include_router(workspace_router(workspace))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

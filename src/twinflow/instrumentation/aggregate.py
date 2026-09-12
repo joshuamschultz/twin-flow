@@ -134,8 +134,8 @@ def _distributions_by_key(
                 "p90": float(np.percentile(array, 90.0)),
             }
         result[key] = OutcomeDistribution(
-            interval.mean,
-            (interval.lo, interval.hi),
+            None if censored else interval.mean,
+            None if censored or len(observed) < 2 else (interval.lo, interval.hi),
             quantiles,
             len(observed),
             censored,
