@@ -13,6 +13,10 @@ federated identity or multitenancy.
 stored records, and evidence results have configured bounds. Public `/health` and `/ready`
 endpoints reveal only process/readiness status. Every response has a validated or generated
 correlation ID. Unexpected responses are sanitized while detailed failures remain in server logs.
+Constructing settings with `local_only=False` and no token fails immediately, including direct
+application embedding that does not use the process runner. Negative declared body lengths fail;
+chunked requests are bounded before application dispatch. A downstream failure after response
+start is logged and propagated without attempting a second response start.
 
 ## Durable jobs and ownership
 
@@ -40,11 +44,15 @@ under `<workspace>/artifacts/<server-generated-job-id>`.
 
 The standalone admin CLI exposes `backup --workspace ROOT --out ARCHIVE` and
 `restore ARCHIVE --workspace ROOT`. Backup uses SQLite's online backup API, includes regular
-artifact files beneath the fixed artifact root, and writes sorted ZIP members plus a SHA-256
-manifest. Restore rejects absolute/traversing/unlisted/duplicate members, oversized archives,
-digest mismatches, invalid SQLite databases, symlinks, and nonempty targets. Extraction occurs in
-a sibling staging directory before atomic rename.
+artifact files beneath the fixed artifact root, and includes the required `workspace.sqlite3`
+plus optional allowlisted `operational-data.sqlite` and `actions.sqlite3` through separate online
+backup calls. The output must be outside the source workspace. Database and artifact symlinks are
+refused. Backup acquires the workspace owner lock nonblockingly and refuses an active service,
+giving all databases and artifacts a quiesced checkpoint boundary. Sorted ZIP members carry a
+bounded SHA-256 manifest. Restore streams members and rejects absolute/traversing/unlisted/
+duplicate members, malformed or oversized metadata, size/digest mismatches, invalid SQLite
+databases, symlinks, and nonempty targets. Extraction occurs in a sibling staging directory before
+atomic rename.
 
-This local backup is application-consistent for repository metadata and completed artifact files;
-operators should quiesce long-running artifact producers for a drill-grade checkpoint. It does
-not provide continuous point-in-time recovery or remote replication.
+The service must be stopped before backup. This local checkpoint does not provide continuous
+point-in-time recovery or remote replication.

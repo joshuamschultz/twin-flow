@@ -22,6 +22,8 @@ class ServiceSettings:
     max_evidence_rows: int = 1_000
 
     def __post_init__(self) -> None:
+        if not self.local_only and self.api_token is None:
+            raise ValueError("dedicated service mode requires an API token")
         if self.api_token is not None and len(self.api_token) < 16:
             raise ValueError("API token must contain at least 16 characters")
         for name, value in (
@@ -35,6 +37,8 @@ class ServiceSettings:
                 raise ValueError(f"{name} must be positive")
         if self.max_request_bytes > 5_242_880:
             raise ValueError("max_request_bytes cannot exceed the API schema bound")
+        if "*" in self.cors_origins or "*" in self.allowed_hosts:
+            raise ValueError("wildcard CORS origins and allowed hosts are not permitted")
 
     @classmethod
     def from_env(cls, *, host: str = "127.0.0.1") -> ServiceSettings:

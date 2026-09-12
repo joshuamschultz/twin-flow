@@ -41,7 +41,13 @@ class ServiceBoundaryMiddleware:
         content_length = headers.get("content-length")
         if content_length is not None:
             try:
-                if int(content_length) > self.max_request_bytes:
+                declared_length = int(content_length)
+                if declared_length < 0:
+                    await _response(
+                        scope, 400, "Invalid Content-Length", correlation_id, receive, send
+                    )
+                    return
+                if declared_length > self.max_request_bytes:
                     await _response(
                         scope, 413, "Request body too large", correlation_id, receive, send
                     )
@@ -49,35 +55,50 @@ class ServiceBoundaryMiddleware:
             except ValueError:
                 await _response(scope, 400, "Invalid Content-Length", correlation_id, receive, send)
                 return
+        request_messages: list[Message] = []
         consumed = 0
-
-        async def bounded_receive() -> Message:
-            nonlocal consumed
+        while True:
             message = await receive()
+            request_messages.append(message)
             if message["type"] == "http.request":
                 consumed += len(message.get("body", b""))
                 if consumed > self.max_request_bytes:
-                    raise _BodyTooLarge
-            return message
+                    await _response(
+                        scope, 413, "Request body too large", correlation_id, receive, send
+                    )
+                    return
+                if not message.get("more_body", False):
+                    break
+            elif message["type"] == "http.disconnect":
+                break
+        message_index = 0
+
+        async def replay_receive() -> Message:
+            nonlocal message_index
+            if message_index < len(request_messages):
+                message = request_messages[message_index]
+                message_index += 1
+                return message
+            return {"type": "http.disconnect"}
+
+        response_started = False
 
         async def correlated_send(message: Message) -> None:
+            nonlocal response_started
             if message["type"] == "http.response.start":
+                response_started = True
                 response_headers = list(message.get("headers", []))
                 response_headers.append((b"x-correlation-id", correlation_id.encode()))
                 message["headers"] = response_headers
             await send(message)
 
         try:
-            await self.app(scope, bounded_receive, correlated_send)
-        except _BodyTooLarge:
-            await _response(scope, 413, "Request body too large", correlation_id, receive, send)
+            await self.app(scope, replay_receive, correlated_send)
         except Exception:
             log.exception("Unhandled service error correlation_id=%s", correlation_id)
+            if response_started:
+                raise
             await _response(scope, 500, "Internal service error", correlation_id, receive, send)
-
-
-class _BodyTooLarge(Exception):
-    pass
 
 
 def _protected(path: str) -> bool:
