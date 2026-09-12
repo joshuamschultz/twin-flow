@@ -1,0 +1,4 @@
+[
+  {"name":"erp orders","source":"demo-erp","maximum_age_seconds":172800},
+  {"name":"MES WIP","source":"demo-mes","entity_type":"operation","maximum_age_seconds":86400}
+]
