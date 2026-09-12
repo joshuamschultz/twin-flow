@@ -15,7 +15,7 @@ test("operator imports, maps, runs and exports a scenario", async ({
     .getByRole("button", { name: "Spring Production flow & resource capacity" })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Spring", exact: true }),
+    page.getByRole("heading", { name: "Spring", exact: true, level: 1 }),
   ).toBeVisible();
   await page.getByRole("tab", { name: "Process map" }).click();
   await expect(page.getByText("The shape of your operation")).toBeVisible();
