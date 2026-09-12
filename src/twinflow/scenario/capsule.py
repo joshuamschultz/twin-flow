@@ -13,14 +13,15 @@ import hashlib
 import json
 import tempfile
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
 from twinflow.model import CompiledModel, load_model, validate_model
+from twinflow.model.loader import load_raw_model
 from twinflow.plan.driver import RunDriver, RunResult
 from twinflow.plan.loader import WorkOrder, load_plan
 
@@ -29,6 +30,8 @@ MAX_CAPSULE_BYTES = 5 * 1024 * 1024
 MAX_NESTING = 32
 MAX_ENTITIES = 100_000
 KNOWN_CAPABILITIES = frozenset({"manufacturing.basic"})
+MAX_REPLICATIONS = 10_000
+MAX_SEED = 2**63 - 1
 _REQUIRED = {
     "schema_version",
     "model",
@@ -105,6 +108,8 @@ class ScenarioCapsule:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> ScenarioCapsule:
+        if not isinstance(data, Mapping):
+            raise CapsuleValidationError([ValidationIssue("$", "capsule must be an object")])
         missing = sorted(_REQUIRED - set(data))
         if missing:
             raise CapsuleValidationError(
@@ -138,6 +143,10 @@ class ScenarioCapsule:
         for key in ("model", "snapshot", "experiment", "provenance"):
             if not isinstance(data[key], dict):
                 raise CapsuleValidationError([ValidationIssue(f"$.{key}", "must be an object")])
+        if not isinstance(data["assumptions"], (dict, list)):
+            raise CapsuleValidationError(
+                [ValidationIssue("$.assumptions", "must be an object or list")]
+            )
         caps = data["required_capabilities"]
         if not isinstance(caps, list) or not all(isinstance(item, str) and item for item in caps):
             raise CapsuleValidationError(
@@ -156,6 +165,47 @@ class ScenarioCapsule:
         )
         if entities > MAX_ENTITIES:
             raise ValueError(f"capsule contains more than {MAX_ENTITIES} values")
+        for field in ("id", "as_of", "model_revision"):
+            if field in snapshot and not isinstance(snapshot[field], str):
+                raise CapsuleValidationError(
+                    [ValidationIssue(f"$.snapshot.{field}", "must be a string")]
+                )
+        if "as_of" in snapshot:
+            try:
+                parsed_as_of = datetime.fromisoformat(snapshot["as_of"])
+            except ValueError as exc:
+                raise CapsuleValidationError(
+                    [ValidationIssue("$.snapshot.as_of", "must be an ISO-8601 timestamp")]
+                ) from exc
+            if parsed_as_of.tzinfo is None:
+                raise CapsuleValidationError(
+                    [ValidationIssue("$.snapshot.as_of", "must include a timezone")]
+                )
+        try:
+            _canonical(data)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise CapsuleValidationError(
+                [ValidationIssue("$", f"capsule contains non-JSON value: {exc}")]
+            ) from exc
+        reps = data["experiment"].get("replications")
+        if reps is not None and (
+            isinstance(reps, bool) or not isinstance(reps, int) or not 1 <= reps <= MAX_REPLICATIONS
+        ):
+            raise CapsuleValidationError(
+                [
+                    ValidationIssue(
+                        "$.experiment.replications",
+                        f"must be an integer from 1 to {MAX_REPLICATIONS}",
+                    )
+                ]
+            )
+        seed = data["experiment"].get("seed")
+        if seed is not None and (
+            isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= MAX_SEED
+        ):
+            raise CapsuleValidationError(
+                [ValidationIssue("$.experiment.seed", f"must be an integer from 0 to {MAX_SEED}")]
+            )
         return cls(
             str(data["schema_version"]),
             model,
@@ -171,8 +221,7 @@ class ScenarioCapsule:
         raw = Path(path).read_bytes()
         if len(raw) > max_bytes:
             raise ValueError(f"capsule exceeds byte limit ({max_bytes})")
-        _reject_yaml_aliases(raw)
-        parsed = yaml.safe_load(raw)
+        parsed = _parse_yaml(raw)
         if not isinstance(parsed, dict):
             raise ValueError("capsule must be a YAML mapping")
         return cls.from_dict(parsed)
@@ -183,8 +232,7 @@ class ScenarioCapsule:
         raw = content.encode("utf-8")
         if len(raw) > max_bytes:
             raise ValueError(f"capsule exceeds byte limit ({max_bytes})")
-        _reject_yaml_aliases(raw)
-        parsed = yaml.safe_load(raw)
+        parsed = _parse_yaml(raw)
         if not isinstance(parsed, dict):
             raise ValueError("capsule must be a YAML mapping")
         return cls.from_dict(parsed)
@@ -230,9 +278,20 @@ class ScenarioCapsule:
                     ValidationIssue(f"$.snapshot.{field}", "missing required snapshot field")
                 )
         reps = self.experiment.get("replications")
-        if reps is not None and (isinstance(reps, bool) or not isinstance(reps, int) or reps < 1):
+        if reps is not None and (
+            isinstance(reps, bool) or not isinstance(reps, int) or not 1 <= reps <= MAX_REPLICATIONS
+        ):
             issues.append(
-                ValidationIssue("$.experiment.replications", "must be a positive integer")
+                ValidationIssue(
+                    "$.experiment.replications", f"must be an integer from 1 to {MAX_REPLICATIONS}"
+                )
+            )
+        seed = self.experiment.get("seed")
+        if seed is not None and (
+            isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= MAX_SEED
+        ):
+            issues.append(
+                ValidationIssue("$.experiment.seed", f"must be an integer from 0 to {MAX_SEED}")
             )
         with tempfile.TemporaryDirectory(prefix="twinflow-validate-") as folder:
             model_file = Path(folder) / "model.yaml"
@@ -306,19 +365,29 @@ class ScenarioCapsule:
         target: Any = data
         for part in parts[:-1]:
             if isinstance(target, list):
-                target = target[int(part)]
+                index = int(part)
+                if index < 0 or index >= len(target):
+                    raise ValueError(f"unknown edit path: {path}")
+                target = target[index]
             elif isinstance(target, dict) and part in target:
                 target = target[part]
             else:
                 raise ValueError(f"unknown edit path: {path}")
         last = parts[-1]
         if isinstance(target, list):
-            target[int(last)] = copy.deepcopy(value)
+            index = int(last)
+            if index < 0 or index >= len(target):
+                raise ValueError(f"unknown edit path: {path}")
+            target[index] = copy.deepcopy(value)
         elif isinstance(target, dict) and last in target:
             target[last] = copy.deepcopy(value)
         else:
             raise ValueError(f"unknown edit path: {path}")
-        return ScenarioCapsule.from_dict(data)
+        edited = ScenarioCapsule.from_dict(data)
+        issues = edited.validate()
+        if issues:
+            raise CapsuleValidationError(issues)
+        return edited
 
     def branch(self, *, scenario_id: str | None = None) -> ScenarioCapsule:
         data = self.to_dict()
@@ -330,13 +399,59 @@ class ScenarioCapsule:
 
 def _reject_yaml_aliases(raw: bytes) -> None:
     """Reject anchors and aliases before safe_load can expand them."""
-    try:
-        tokens = yaml.scan(raw)
-    except yaml.YAMLError:
-        return
+    tokens = yaml.scan(raw)
     for token in tokens:
         if isinstance(token, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken)):
             raise ValueError("YAML anchors and aliases are not allowed in capsules")
+
+
+class _UniqueSafeLoader(yaml.SafeLoader):
+    """SafeLoader variant that rejects duplicate mapping keys."""
+
+
+def _unique_mapping(
+    loader: _UniqueSafeLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise ValueError(f"duplicate YAML key: {key!r}")
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueSafeLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
+
+
+def _parse_yaml(raw: bytes) -> object:
+    """Parse YAML after token/node checks, with stable boundary exceptions."""
+    try:
+        _reject_yaml_aliases(raw)
+        node = yaml.compose(raw)
+        if node is not None:
+            _check_yaml_node(node)
+        return yaml.load(raw, Loader=_UniqueSafeLoader)  # noqa: S506 -- SafeLoader subclass
+    except (yaml.YAMLError, RecursionError) as exc:
+        raise ValueError(f"invalid capsule YAML: {exc}") from exc
+
+
+def _check_yaml_node(node: yaml.Node, depth: int = 0) -> int:
+    if depth > MAX_NESTING:
+        raise ValueError(f"capsule nesting exceeds {MAX_NESTING} levels")
+    if isinstance(node, yaml.MappingNode):
+        keys: set[str] = set()
+        total = 1
+        for key, value in node.value:
+            if isinstance(key, yaml.ScalarNode) and key.value in keys:
+                raise ValueError(f"duplicate YAML key: {key.value!r}")
+            if isinstance(key, yaml.ScalarNode):
+                keys.add(key.value)
+            total += _check_yaml_node(key, depth + 1) + _check_yaml_node(value, depth + 1)
+        return total
+    if isinstance(node, yaml.SequenceNode):
+        return 1 + sum(_check_yaml_node(value, depth + 1) for value in node.value)
+    return 1
 
 
 def _write_plan(rows: list[Any], path: Path) -> None:
@@ -363,18 +478,11 @@ def import_legacy(
     snapshot_id: str = "legacy-import",
     as_of: str | None = None,
 ) -> ScenarioCapsule:
-    """Adapt an existing model.yaml + plan.csv pair into one capsule."""
-    model_data = yaml.safe_load(Path(model_path).read_bytes())
-    if not isinstance(model_data, dict):
-        raise ValueError("legacy model must be a YAML mapping")
-    with Path(plan_path).open(newline="", encoding="utf-8") as handle:
-        rows = [dict(row) for row in csv.DictReader(handle)]
-    for row in rows:
-        for field in ("qty", "initial_wip_qty", "priority"):
-            if row.get(field, "") != "":
-                row[field] = int(row[field])
-        if row.get("initial_wip_remaining_time", "") != "":
-            row["initial_wip_remaining_time"] = float(row["initial_wip_remaining_time"])
+    """Adapt an existing model.yaml plus CSV or XLSX plan into one capsule."""
+    compiled_model = load_model(str(model_path))
+    model_data = load_raw_model(str(model_path)).data
+    work_orders = load_plan(str(plan_path), compiled_model.registry)
+    rows = [asdict(order) for order in work_orders]
     timestamp = as_of or datetime.now().astimezone().isoformat()
     return ScenarioCapsule(
         CAPSULE_SCHEMA_VERSION,
@@ -407,33 +515,7 @@ def loads(content: str) -> ScenarioCapsule:
 
 def schema() -> dict[str, Any]:
     """Return the published JSON-schema-shaped contract for agent inspection."""
-    return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "additionalProperties": False,
-        "required": sorted(_REQUIRED),
-        "properties": {
-            "schema_version": {"const": CAPSULE_SCHEMA_VERSION},
-            "model": {"type": "object"},
-            "snapshot": {
-                "type": "object",
-                "required": ["id", "as_of", "model_revision", "production_plan"],
-                "properties": {
-                    "id": {"type": "string"},
-                    "as_of": {"type": "string"},
-                    "model_revision": {"type": "string"},
-                    "production_plan": {"type": "array", "items": {"type": "object"}},
-                },
-            },
-            "experiment": {
-                "type": "object",
-                "properties": {
-                    "replications": {"type": "integer", "minimum": 1},
-                    "seed": {"type": "integer"},
-                },
-            },
-            "assumptions": {"type": ["object", "array"]},
-            "provenance": {"type": "object"},
-            "required_capabilities": {"type": "array", "items": {"type": "string"}},
-        },
-    }
+    return cast(
+        dict[str, Any],
+        json.loads(Path(__file__).with_name("schema.json").read_text(encoding="utf-8")),
+    )

@@ -14,3 +14,15 @@ Known limits are deliberate: archive (`.twin`) support, dimensional
 normalization, rich calendars, and bounded execution budgets belong to later
 roadmap work. The capsule has extension points for these fields and reports
 unsupported required capabilities instead of silently ignoring them.
+
+## Review fixes
+
+The final boundary review added duplicate-key and malformed-YAML rejection,
+pre-expansion node depth checks, scalar/timestamp/finite-value checks, bounded
+seed and replication values, negative-index rejection, semantic validation for
+edits, copy-isolation coverage for branches, and XLSX legacy-plan support via
+the existing `load_plan` contract. The published JSON schema is loaded from
+the package resource so `schema()` and the inspectable file cannot diverge.
+
+Fresh evidence includes six focused scenario tests plus import/validation of
+all eight runnable example model/plan pairs, Ruff, and strict mypy.

@@ -6,8 +6,8 @@
   "properties": {
     "schema_version": {"const": "0.1"},
     "model": {"type": "object"},
-    "snapshot": {"type": "object"},
-    "experiment": {"type": "object"},
+    "snapshot": {"type": "object", "required": ["id", "as_of", "model_revision", "production_plan"], "properties": {"id": {"type": "string"}, "as_of": {"type": "string"}, "model_revision": {"type": "string"}, "production_plan": {"type": "array", "items": {"type": "object"}}}},
+    "experiment": {"type": "object", "properties": {"replications": {"type": "integer", "minimum": 1, "maximum": 10000}, "seed": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}}},
     "assumptions": {"type": ["object", "array"]},
     "provenance": {"type": "object"},
     "required_capabilities": {"type": "array", "items": {"type": "string"}}

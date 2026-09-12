@@ -44,7 +44,7 @@ twinflow = "twinflow.cli.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-twinflow = ["report/_assets/*.js", "report/_assets/*.png"]
+twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json"]
 
 [tool.ruff]
 line-length = 100
