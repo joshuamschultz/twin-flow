@@ -1,0 +1,43 @@
+schema_version: '0.1'
+required_capabilities:
+  - office.basic
+model:
+  domain: office
+  revision: '1'
+  resources:
+    - id: analyst
+      roles: [analyst]
+      capacity: 1
+      calendar: [[0, 1000]]
+  tasks:
+    - id: intake
+      duration: 2
+      role: analyst
+    - id: legal_review
+      duration: 3
+      role: analyst
+      prerequisites: [intake]
+    - id: finance_review
+      duration: 3
+      role: analyst
+      prerequisites: [intake]
+    - id: release
+      duration: 1
+      role: analyst
+      prerequisites: [legal_review, finance_review]
+snapshot:
+  id: office-demo-snapshot
+  as_of: '2026-09-12T08:00:00-05:00'
+  model_revision: '1'
+  cases:
+    - id: quote-001
+      data:
+        customer: acme
+experiment:
+  id: office-baseline
+  replications: 1
+  seed: 0
+assumptions:
+  - role calendars are expressed in simulated seconds
+provenance:
+  source: rm-07-example

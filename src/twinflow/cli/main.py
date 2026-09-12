@@ -167,8 +167,11 @@ def _handle_scenario_validate(args: argparse.Namespace) -> int:
 
 
 def _handle_scenario_run(args: argparse.Namespace) -> int:
-    result = load_capsule(args.capsule).run(seed=args.seed)
-    print(json.dumps({"horizon": result.horizon, "event_log": str(result.event_log_path)}))
+    result = load_capsule(args.capsule).evaluate(seed=args.seed)
+    if isinstance(result, dict):
+        print(json.dumps(result, sort_keys=True))
+    else:
+        print(json.dumps({"horizon": result.horizon, "event_log": str(result.event_log_path)}))
     return 0
 
 

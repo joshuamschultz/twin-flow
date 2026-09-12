@@ -20,6 +20,7 @@ from typing import Any, cast
 
 import yaml
 
+from twinflow.domain import registry as domain_registry
 from twinflow.model import CompiledModel, load_model, validate_model
 from twinflow.model.loader import load_raw_model
 from twinflow.plan.driver import RunDriver, RunResult
@@ -29,7 +30,7 @@ CAPSULE_SCHEMA_VERSION = "0.1"
 MAX_CAPSULE_BYTES = 5 * 1024 * 1024
 MAX_NESTING = 32
 MAX_ENTITIES = 100_000
-KNOWN_CAPABILITIES = frozenset({"manufacturing.basic"})
+KNOWN_CAPABILITIES = frozenset({"manufacturing.basic", "office.basic"})
 MAX_REPLICATIONS = 10_000
 MAX_SEED = 2**63 - 1
 _REQUIRED = {
@@ -272,7 +273,12 @@ class ScenarioCapsule:
                         suggestion="Install the capability or remove it from the capsule",
                     )
                 )
-        for field in ("id", "as_of", "model_revision", "production_plan"):
+        snapshot_fields: tuple[str, ...] = ("id", "as_of", "model_revision")
+        if self.model.get("domain") == "office":
+            snapshot_fields += ("cases",)
+        else:
+            snapshot_fields += ("production_plan",)
+        for field in snapshot_fields:
             if field not in self.snapshot:
                 issues.append(
                     ValidationIssue(f"$.snapshot.{field}", "missing required snapshot field")
@@ -294,6 +300,17 @@ class ScenarioCapsule:
                 ValidationIssue("$.experiment.seed", f"must be an integer from 0 to {MAX_SEED}")
             )
         with tempfile.TemporaryDirectory(prefix="twinflow-validate-") as folder:
+            if self.model.get("domain") == "office":
+                for domain_issue in domain_registry.validate("office", self.model, self.snapshot):
+                    issues.append(
+                        ValidationIssue(
+                            domain_issue.path,
+                            domain_issue.message,
+                            domain_issue.severity,
+                            domain_issue.suggestion,
+                        )
+                    )
+                return issues
             model_file = Path(folder) / "model.yaml"
             plan_file = Path(folder) / "plan.csv"
             model_file.write_text(yaml.safe_dump(self.model, sort_keys=False), encoding="utf-8")
@@ -353,6 +370,26 @@ class ScenarioCapsule:
         return RunDriver(compiled.model).run(
             compiled.plan, seed=seed, replication_index=replication_index
         )
+
+    def evaluate(
+        self,
+        *,
+        seed: int = 0,
+        artifact_dir: str | None = None,
+        limits: Mapping[str, int | float] | None = None,
+    ) -> dict[str, object] | RunResult:
+        """Evaluate a registered domain; manufacturing retains its RunResult API."""
+        domain = self.model.get("domain")
+        if isinstance(domain, str) and domain != "manufacturing":
+            return domain_registry.evaluate(
+                domain,
+                self.model,
+                self.snapshot,
+                seed=seed,
+                artifact_dir=artifact_dir,
+                limits=limits,
+            )
+        return self.run(seed=seed)
 
     def edit(self, path: str, value: Any) -> ScenarioCapsule:
         """Return a new capsule after a bounded semantic JSON-pointer edit."""
