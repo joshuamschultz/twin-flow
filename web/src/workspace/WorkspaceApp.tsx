@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DecisionLab } from "./DecisionLab";
+import { ActionReview } from "./ActionReview";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { workspaceApi, download, setServiceToken, type Scenario } from "./api";
 import { Icon } from "./Icons";
@@ -14,6 +15,7 @@ const navigation = [
   { id: "build", icon: "spark", label: "Build a twin" },
   { id: "data", icon: "box", label: "Operational data" },
   { id: "schedule", icon: "clock", label: "Scheduling" },
+  { id: "actions", icon: "check", label: "Action review" },
   { id: "agents", icon: "code", label: "Agent access" },
 ];
 
@@ -378,7 +380,10 @@ export default function WorkspaceApp() {
           )}
           {page === "build" && <BuildView />}
           {page === "agents" && <AgentView />}
-          {(page === "data" || page === "schedule") && <DecisionLab key={page} mode={page} />}
+          {page === "actions" && <ActionReview />}
+          {(page === "data" || page === "schedule") && (
+            <DecisionLab key={page} mode={page} />
+          )}
         </main>
         <footer className="ws-footer">
           <span>twinflow · operational decision workspace</span>

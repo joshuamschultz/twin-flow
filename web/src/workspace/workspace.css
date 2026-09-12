@@ -1337,9 +1337,36 @@
     transition: none !important;
   }
 }
-.ws-json-editor { font: 12px/1.6 ui-monospace, monospace; resize: vertical; }
-.ws-schedule-bars { display: grid; gap: 18px; margin: 20px 0; }
-.ws-schedule-bars strong { display: block; font-size: 13px; }
-.ws-schedule-bars small { color: #6c8072; font-size: 11px; }
-.ws-schedule-track { height: 20px; background: #edf2e8; border-radius: 5px; margin: 6px 0; overflow: hidden; }
-.ws-schedule-track span { display: block; height: 100%; min-width: 2px; background: #3f7953; border-radius: 5px; }
+.ws-json-editor {
+  font:
+    12px/1.6 ui-monospace,
+    monospace;
+  resize: vertical;
+}
+.ws-schedule-bars {
+  display: grid;
+  gap: 18px;
+  margin: 20px 0;
+}
+.ws-schedule-bars strong {
+  display: block;
+  font-size: 13px;
+}
+.ws-schedule-bars small {
+  color: #6c8072;
+  font-size: 11px;
+}
+.ws-schedule-track {
+  height: 20px;
+  background: #edf2e8;
+  border-radius: 5px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+.ws-schedule-track span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: #3f7953;
+  border-radius: 5px;
+}

@@ -7,7 +7,7 @@ import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from twinflow.data import (
     ActualRecord,
@@ -23,7 +23,10 @@ from twinflow.data import (
 from twinflow.data.errors import DataError, DataFormatError
 
 
-def add_data_subcommands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
+
+
+def add_data_subcommands(subparsers: argparse._SubParsersAction[ParserT]) -> None:
     """Attach RM-05 commands to an application's subparser collection."""
     data_parser = subparsers.add_parser("data")
     nested = data_parser.add_subparsers(dest="data_command", required=True)
@@ -50,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _configure_commands(
-    commands: argparse._SubParsersAction[argparse.ArgumentParser],
+    commands: argparse._SubParsersAction[ParserT],
 ) -> None:
     import_parser = commands.add_parser("import")
     import_parser.add_argument("--db", required=True)

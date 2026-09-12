@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol
@@ -41,7 +42,7 @@ class SQLiteEventStore:
     def ingest(self, events: Iterable[OperationalEvent]) -> IngestResult:
         inserted = 0
         duplicates = 0
-        with self._connect() as connection:
+        with self._connection() as connection:
             for event in events:
                 row = connection.execute(
                     "SELECT raw_digest FROM operational_events "
@@ -81,7 +82,7 @@ class SQLiteEventStore:
     def events(
         self, *, known_at: datetime | None = None, occurred_through: datetime | None = None
     ) -> tuple[OperationalEvent, ...]:
-        with self._connect() as connection:
+        with self._connection() as connection:
             if known_at is not None and occurred_through is not None:
                 rows = connection.execute(
                     "SELECT raw_record FROM operational_events "
@@ -104,7 +105,7 @@ class SQLiteEventStore:
 
     def raw_record(self, identity: tuple[str, str, str]) -> str | None:
         """Return the immutable canonical source record for lineage inspection."""
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT raw_record FROM operational_events "
                 "WHERE source=? AND event_id=? AND source_revision=?",
@@ -114,7 +115,7 @@ class SQLiteEventStore:
 
     def save_snapshot(self, snapshot: Snapshot) -> None:
         document = json.dumps(snapshot_to_dict(snapshot), sort_keys=True, separators=(",", ":"))
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT document FROM operational_snapshots WHERE snapshot_id=?",
                 (snapshot.snapshot_id,),
@@ -130,7 +131,7 @@ class SQLiteEventStore:
                 )
 
     def snapshot_document(self, snapshot_id: str) -> str | None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT document FROM operational_snapshots WHERE snapshot_id=?", (snapshot_id,)
             ).fetchone()
@@ -141,8 +142,17 @@ class SQLiteEventStore:
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS operational_events (

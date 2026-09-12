@@ -132,7 +132,10 @@ def _active_events(
             )
     latest: dict[tuple[str, str], OperationalEvent] = {}
     for key, revisions in by_identity.items():
-        latest[key] = max(revisions, key=lambda item: _natural_revision(item.source_revision))
+        latest[key] = max(
+            revisions,
+            key=lambda item: (_natural_revision(item.source_revision), item.source_revision),
+        )
         numeric = sorted(
             int(item.source_revision) for item in revisions if item.source_revision.isdigit()
         )
@@ -140,6 +143,36 @@ def _active_events(
             diagnostics.append(
                 DataDiagnostic("revision_gap", "warning", f"revision gap for {key[0]}:{key[1]}")
             )
+    for key, event in latest.items():
+        seen = {key}
+        cursor = event
+        while cursor.supersedes_event_id is not None:
+            target = (cursor.source, cursor.supersedes_event_id)
+            if target in seen:
+                diagnostics.append(
+                    DataDiagnostic(
+                        "correction_cycle", "error", "corrections contain a cycle", event.identity
+                    )
+                )
+                break
+            seen.add(target)
+            if target not in latest:
+                break
+            next_event = latest[target]
+            if (next_event.entity_type, next_event.entity_id) != (
+                event.entity_type,
+                event.entity_id,
+            ):
+                diagnostics.append(
+                    DataDiagnostic(
+                        "correction_entity_mismatch",
+                        "error",
+                        "correction targets a different entity",
+                        event.identity,
+                    )
+                )
+                break
+            cursor = next_event
     suppressed: set[tuple[str, str]] = set()
     for event in latest.values():
         if event.supersedes_event_id is None:
@@ -167,13 +200,14 @@ def _natural_revision(value: str) -> tuple[tuple[int, int | str], ...]:
 
 def _event_order(
     event: OperationalEvent,
-) -> tuple[datetime, datetime, str, str, tuple[tuple[int, int | str], ...]]:
+) -> tuple[datetime, datetime, str, str, tuple[tuple[int, int | str], ...], str]:
     return (
         event.occurred_at,
         event.ingested_at,
         event.source,
         event.event_id,
         _natural_revision(event.source_revision),
+        event.source_revision,
     )
 
 

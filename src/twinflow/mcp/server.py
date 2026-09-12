@@ -161,6 +161,11 @@ def create_server(client: TwinflowClient) -> Any:
             )
         )
 
+    @server.tool()
+    def propose_action(job_id: str, action: dict[str, str | int | float | bool | None]) -> dict[str, Any]:
+        """Create an evidence-bound dry-run proposal for operator review. Does not authorize delivery."""
+        return dict(client.request("/proposals", {"job_id": job_id, "action": action}))
+
     return server
 
 

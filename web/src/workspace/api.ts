@@ -109,12 +109,34 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export interface ActionProposal { id: string; proposal: {digest: string; action_json: string; result_id: string; expected_operational_revision: string}; created_at: string; mode: string }
 export const workspaceApi = {
-  contracts: () => request<{event_example: unknown[]; scheduling_example: Record<string, unknown>; snapshot_example: {known_at: string}}>("/tool-contracts"),
-  ingest: (records: unknown[]) => request<Record<string, unknown>>("/data/events", {records}),
-  snapshot: (known_at: string) => request<Record<string, unknown>>("/data/snapshots", {known_at, freshness_rules: []}),
-  schedule: (problem: Record<string, unknown>, backend: string) => request<Record<string, unknown>>("/schedules", {problem, backend, time_limit: 10}),
-  answerDraft: (id: string, answers: {id: string; answer: string}[]) => request<Draft>(`/drafts/${id}/answers`, {answers}),
+  proposals: () => request<ActionProposal[]>("/proposals"),
+  propose: (job_id: string, action: Record<string, unknown>) => request<ActionProposal>("/proposals", {job_id, action}),
+  approve: (id: string, reviewed_digest: string, reviewer: string) => request<{approval_id: string}>(`/proposals/${id}/approve`, {reviewed_digest, reviewer}),
+  deliver: (id: string, approval_id: string, current_revision: string, request_key: string) => request<Record<string, unknown>>(`/proposals/${id}/dry-run`, {approval_id, current_revision, request_key}),
+
+  contracts: () =>
+    request<{
+      event_example: unknown[];
+      scheduling_example: Record<string, unknown>;
+      snapshot_example: { known_at: string };
+    }>("/tool-contracts"),
+  ingest: (records: unknown[]) =>
+    request<Record<string, unknown>>("/data/events", { records }),
+  snapshot: (known_at: string) =>
+    request<Record<string, unknown>>("/data/snapshots", {
+      known_at,
+      freshness_rules: [],
+    }),
+  schedule: (problem: Record<string, unknown>, backend: string) =>
+    request<Record<string, unknown>>("/schedules", {
+      problem,
+      backend,
+      time_limit: 10,
+    }),
+  answerDraft: (id: string, answers: { id: string; answer: string }[]) =>
+    request<Draft>(`/drafts/${id}/answers`, { answers }),
 
   scenarios: () => request<Scenario[]>("/scenarios"),
   examples: () => request<Example[]>("/examples"),

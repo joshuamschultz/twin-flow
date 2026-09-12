@@ -152,8 +152,10 @@ class WorkspaceRepository:
         """Resolve nonterminal jobs left by the previous owning process."""
         recovered = 0
         with self._connection() as db:
-            rows = db.execute("SELECT body FROM records WHERE kind='jobs' AND "
-                "json_extract(body, '$.status') IN ('queued','running','cancel_requested')").fetchall()
+            rows = db.execute(
+                "SELECT body FROM records WHERE kind='jobs' AND "
+                "json_extract(body, '$.status') IN ('queued','running','cancel_requested')"
+            ).fetchall()
         for row in rows:
             job = json.loads(row[0])
             status = str(job.get("status"))

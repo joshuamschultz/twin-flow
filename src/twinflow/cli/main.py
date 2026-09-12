@@ -80,6 +80,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     from twinflow.cli.data import add_data_subcommands
+
     add_data_subcommands(subparsers)
     for command in ("schedule", "admin"):
         delegated = subparsers.add_parser(command, add_help=False)

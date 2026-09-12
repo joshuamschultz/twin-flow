@@ -27,6 +27,12 @@ def validate_content(content: str) -> ScenarioCapsule:
     issues = capsule.validate()
     if issues:
         raise CapsuleValidationError(issues)
+    config = capsule.experiment.get("dispatch_policy")
+    if config is not None:
+        from twinflow.policy import configured_runtime
+        if capsule.model.get("domain", "manufacturing") != "manufacturing":
+            raise ValueError("dispatch_policy is supported only for manufacturing")
+        configured_runtime(config, {item.location_id for item in capsule.compile().model.locations})
     return capsule
 
 
@@ -85,6 +91,7 @@ def evaluate_capsule(
     compiled = capsule.compile()
     per_rep = []
     outcomes = []
+    policy_traces = []
     out.mkdir(parents=True, exist_ok=True)
     (out / "scenario.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
     start = time.monotonic()
@@ -94,15 +101,21 @@ def evaluate_capsule(
         remaining = 120 - (time.monotonic() - start)
         if remaining <= 0:
             raise TimeoutError("Experiment exceeded 120 second compute budget")
+        from twinflow.policy import configured_runtime
+        config = capsule.experiment.get("dispatch_policy")
+        runtime = configured_runtime(config, {item.location_id for item in compiled.model.locations}) if config is not None else None
         run = RunDriver(compiled.model).run(
             compiled.plan,
             seed=seed,
             replication_index=index,
             artifact_dir=out / f"rep-{index:04}",
+            decision_runtime=runtime,
             max_sim_time=31_536_000,
             max_events=1_000_000,
             max_wall_seconds=min(remaining, 30),
         )
+        if runtime is not None:
+            policy_traces.append({"replication": index, "decisions": [asdict(row) for row in runtime.trace]})
         kpi = compute_kpis(
             run.event_log_path,
             orders_frame(compiled.plan, compiled.model, run.event_log_path),
@@ -126,6 +139,7 @@ def evaluate_capsule(
         "assumptions": capsule.assumptions,
         "intervals": asdict(aggregate),
         "outcomes": outcomes,
+        "policy_traces": policy_traces,
         "metrics": {
             "on_time_pct": aggregate.on_time_pct.mean,
             "run_hours": sum(k.run_hours for k in per_rep) / reps,

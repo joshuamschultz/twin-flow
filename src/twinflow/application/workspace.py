@@ -79,7 +79,20 @@ class Workspace:
         return {
             "schema_version": "1.0",
             "mode": self.deployment_mode,
-            "actions": ["validate", "import", "export", "branch", "evaluate", "compare", "draft", "answer", "ingest_events", "build_snapshot", "schedule", "query_evidence"],
+            "actions": [
+                "validate",
+                "import",
+                "export",
+                "branch",
+                "evaluate",
+                "compare",
+                "draft",
+                "answer",
+                "ingest_events",
+                "build_snapshot",
+                "schedule",
+                "query_evidence",
+            ],
             "limits": {
                 "max_content_bytes": self.max_content_bytes,
                 "max_replications": self.max_replications,

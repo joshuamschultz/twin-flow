@@ -192,6 +192,53 @@ class ReplayPolicy:
         return expected.action
 
 
+@dataclass(frozen=True, slots=True)
+class QueueRule:
+    location_id: str
+    min_queue: int
+    policy: DispatchName
+
+
+class ConfiguredPolicy:
+    """Portable observed-queue rules; no executable expressions or external calls."""
+
+    def __init__(self, default: DispatchName, rules: tuple[QueueRule, ...]) -> None:
+        self.default = default
+        self.rules = rules
+
+    def decide(
+        self, observation: PolicyObservation, allowed_actions: tuple[DispatchAction, ...]
+    ) -> DispatchAction:
+        del allowed_actions
+        selected = next((rule.policy for rule in self.rules
+                         if rule.location_id == observation.location_id
+                         and len(observation.queue) >= rule.min_queue), self.default)
+        return DispatchAction(observation.location_id, selected)
+
+
+def configured_runtime(config: object, location_ids: set[str]) -> PolicyRuntime:
+    """Validate portable rules and return a fresh per-replication runtime."""
+    if not isinstance(config, dict) or set(config) - {"default", "rules"}:
+        raise PolicyError("dispatch_policy requires default and optional rules")
+    default = _as_dispatch(config.get("default", "fifo"))
+    raw_rules = config.get("rules", [])
+    if not isinstance(raw_rules, list) or len(raw_rules) > 100:
+        raise PolicyError("dispatch_policy.rules must be a list with at most 100 rules")
+    rules = []
+    for rule in raw_rules:
+        if not isinstance(rule, dict) or set(rule) != {"location_id", "min_queue", "policy"}:
+            raise PolicyError("each queue rule requires location_id, min_queue and policy")
+        location = rule["location_id"]
+        minimum = rule["min_queue"]
+        if not isinstance(location, str) or location not in location_ids:
+            raise PolicyError("queue rule refers to an unknown location")
+        if isinstance(minimum, bool) or not isinstance(minimum, int) or not 0 <= minimum <= 100_000:
+            raise PolicyError("min_queue must be an integer between 0 and 100000")
+        rules.append(QueueRule(location, minimum, _as_dispatch(rule["policy"])))
+    artifact = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
+    return PolicyRuntime(ConfiguredPolicy(default, tuple(rules)), "configured:" + artifact)
+
+
 def _as_dispatch(value: str) -> DispatchName:
     if value not in _DISPATCH_NAMES:
         raise MaskedActionError(f"unsupported dispatch policy {value!r}")
