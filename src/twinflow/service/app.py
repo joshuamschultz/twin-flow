@@ -109,6 +109,7 @@ def create_app(
     app = FastAPI(title="twinflow", version="0.1.0", lifespan=lifespan)
     app.include_router(workspace_router(workspace))
     from twinflow.service.decisions import decision_router
+
     app.include_router(decision_router(workspace))
     app.add_middleware(
         ServiceBoundaryMiddleware,

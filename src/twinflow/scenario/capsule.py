@@ -18,11 +18,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
-
 from twinflow.domain import registry as domain_registry
-from twinflow.model.loader import parse_document, dump_document
 from twinflow.model import CompiledModel, load_model, validate_model
-from twinflow.model.loader import load_raw_model
+from twinflow.model.loader import dump_document, load_raw_model, parse_document
 from twinflow.plan.driver import RunDriver, RunResult
 from twinflow.plan.loader import WorkOrder, load_plan
 
@@ -255,9 +253,7 @@ class ScenarioCapsule:
         }
 
     def dump(self, path: str | Path) -> None:
-        Path(path).write_text(
-            dump_document(self.to_dict()), encoding="utf-8"
-        )
+        Path(path).write_text(dump_document(self.to_dict()), encoding="utf-8")
 
     def validate(self, available_capabilities: set[str] | None = None) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []

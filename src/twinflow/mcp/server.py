@@ -100,6 +100,11 @@ def create_server(client: TwinflowClient) -> Any:
         return dict(client.request("/drafts", {"name": name, "facts": facts}))
 
     @server.tool()
+    def decision_tool_contracts() -> dict[str, Any]:
+        """Discover exact operational event and scheduling examples, units, topics and limits."""
+        return dict(client.request("/tool-contracts"))
+
+    @server.tool()
     def validate_scenario(content: str) -> dict[str, Any]:
         """Check a drafted capsule and return field issues without saving or running it."""
         return dict(client.request("/validate", {"content": content}))
@@ -112,7 +117,9 @@ def create_server(client: TwinflowClient) -> Any:
     @server.tool()
     def answer_building_brief(draft_id: str, answers: list[dict[str, str]]) -> dict[str, Any]:
         """Retain a new brief revision from explicit answers [{id, answer}]. Never invent facts."""
-        return dict(client.request(f"/drafts/{quote(draft_id, safe='')}/answers", {"answers": answers}))
+        return dict(
+            client.request(f"/drafts/{quote(draft_id, safe='')}/answers", {"answers": answers})
+        )
 
     @server.tool()
     def ingest_operational_events(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -120,23 +127,39 @@ def create_server(client: TwinflowClient) -> Any:
         return dict(client.request("/data/events", {"records": records}))
 
     @server.tool()
-    def build_operational_snapshot(known_at: str, freshness_rules: list[dict[str, Any]]) -> dict[str, Any]:
+    def build_operational_snapshot(
+        known_at: str, freshness_rules: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """Reconcile facts known at an aware ISO timestamp; report data quality and freshness."""
-        return dict(client.request("/data/snapshots", {"known_at": known_at, "freshness_rules": freshness_rules}))
+        return dict(
+            client.request(
+                "/data/snapshots", {"known_at": known_at, "freshness_rules": freshness_rules}
+            )
+        )
 
     @server.tool()
     def query_evidence(job_id: str, topic: str, entity_id: str | None = None) -> dict[str, Any]:
-        """Retrieve metrics/dates/blockers/assumptions/process with scenario and snapshot provenance.
+        """Retrieve decision evidence with scenario and snapshot provenance.
 
         Interpret returned evidence to answer the user's question. Incomplete outcomes cannot
         support unconditional promise dates. Blocker traces describe mechanisms, not causal proof.
         """
-        return dict(client.request(f"/jobs/{quote(job_id, safe='')}/query", {"topic": topic, "entity_id": entity_id}))
+        return dict(
+            client.request(
+                f"/jobs/{quote(job_id, safe='')}/query", {"topic": topic, "entity_id": entity_id}
+            )
+        )
 
     @server.tool()
-    def schedule_operations(problem: dict[str, Any], backend: str = "baseline", time_limit: float = 10) -> dict[str, Any]:
+    def schedule_operations(
+        problem: dict[str, Any], backend: str = "baseline", time_limit: float = 10
+    ) -> dict[str, Any]:
         """Solve and independently verify explicit finite-capacity constraints; retain evidence."""
-        return dict(client.request("/schedules", {"problem": problem, "backend": backend, "time_limit": time_limit}))
+        return dict(
+            client.request(
+                "/schedules", {"problem": problem, "backend": backend, "time_limit": time_limit}
+            )
+        )
 
     return server
 

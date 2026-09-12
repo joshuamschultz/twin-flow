@@ -79,6 +79,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = _NonExitingArgumentParser(prog="twinflow")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    from twinflow.cli.data import add_data_subcommands
+    add_data_subcommands(subparsers)
+    for command in ("schedule", "admin"):
+        delegated = subparsers.add_parser(command, add_help=False)
+        delegated.add_argument("arguments", nargs=argparse.REMAINDER)
+        delegated.set_defaults(handler=_handle_delegated)
+
     validate_parser = subparsers.add_parser("validate")
     validate_parser.add_argument("model")
     validate_parser.set_defaults(handler=_handle_validate)
@@ -441,3 +448,11 @@ def _new_run_id() -> str:
     `<utc-timestamp>-<short-hash>`."""
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
     return f"{stamp}-{uuid.uuid4().hex[:8]}"
+
+
+def _handle_delegated(args: argparse.Namespace) -> int:
+    if args.command == "schedule":
+        from twinflow.cli.schedule import main as delegated
+    else:
+        from twinflow.cli.admin import main as delegated
+    return delegated(args.arguments)

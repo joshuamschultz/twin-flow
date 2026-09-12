@@ -10,7 +10,13 @@ from typing import Any
 
 from twinflow.application import scenarios
 from twinflow.application.workspace import Workspace
-from twinflow.data import FreshnessRule, SnapshotBuilder, SQLiteEventStore, parse_event, snapshot_to_dict
+from twinflow.data import (
+    FreshnessRule,
+    SnapshotBuilder,
+    SQLiteEventStore,
+    parse_event,
+    snapshot_to_dict,
+)
 
 
 class DecisionTools:
@@ -28,8 +34,12 @@ class DecisionTools:
             return {"valid": False, "issues": [asdict(issue) for issue in exc.issues]}
         except ValueError as exc:
             return {"valid": False, "issues": [{"path": "$", "message": str(exc)}]}
-        return {"valid": True, "digest": capsule.digest, "summary": scenarios.describe(capsule),
-                "issues": []}
+        return {
+            "valid": True,
+            "digest": capsule.digest,
+            "summary": scenarios.describe(capsule),
+            "issues": [],
+        }
 
     def ingest(self, records: list[dict[str, Any]]) -> dict[str, int]:
         if not 1 <= len(records) <= 1000:
@@ -46,7 +56,8 @@ class DecisionTools:
         rules = tuple(FreshnessRule(**rule) for rule in freshness_rules)
         store = SQLiteEventStore(self.workspace.repository.root / "operational-data.sqlite")
         snapshot = SnapshotBuilder(store, freshness_rules=rules).as_known_at(
-            datetime.fromisoformat(known_at), save=True)
+            datetime.fromisoformat(known_at), save=True
+        )
         document = snapshot_to_dict(snapshot)
         # Preserve inspectable snapshots in the common workspace catalog as well.
         identity = snapshot.snapshot_id
@@ -67,32 +78,55 @@ class DecisionTools:
         if topic == "metrics":
             evidence = result["metrics"]
         elif topic == "assumptions":
-            evidence = {"assumptions": result["assumptions"], "provenance": scenario["capsule"]["provenance"]}
+            evidence = {
+                "assumptions": result["assumptions"],
+                "provenance": scenario["capsule"]["provenance"],
+            }
         elif topic == "process":
             evidence = scenario["summary"]
         elif topic in ("dates", "blockers"):
             if domain == "manufacturing":
-                evidence = result["intervals"].get("completion_distributions", {}) if topic == "dates" else result["outcomes"]
+                evidence = (
+                    result["intervals"].get("completion_distributions", {})
+                    if topic == "dates"
+                    else result["outcomes"]
+                )
                 if entity_id and isinstance(evidence, dict):
                     evidence = {entity_id: evidence[entity_id]} if entity_id in evidence else {}
             else:
                 evidence = []
                 for index, sample in enumerate(result.get("per_replication", [])):
                     key = "order_forecasts" if domain == "supply_chain" else "cases"
-                    values = sample.get(key, []) if topic == "dates" else (
-                        sample.get("shortages", []) + sample.get("gate_results", [])
-                        if domain == "supply_chain" else sample.get("trace", []))
+                    values = (
+                        sample.get(key, [])
+                        if topic == "dates"
+                        else (
+                            sample.get("shortages", []) + sample.get("gate_results", [])
+                            if domain == "supply_chain"
+                            else sample.get("trace", [])
+                        )
+                    )
                     if entity_id:
-                        values = [row for row in values if entity_id in (
-                            row.get("order_id"), row.get("case_id")) or
-                            entity_id in row.get("affected_order_ids", [])]
+                        values = [
+                            row
+                            for row in values
+                            if entity_id in (row.get("order_id"), row.get("case_id"))
+                            or entity_id in row.get("affected_order_ids", [])
+                        ]
                     evidence.append({"replication": index, "evidence": values})
         else:
             raise ValueError("Topic must be metrics, dates, blockers, assumptions, or process")
-        answer = {"job_id": job_id, "scenario_id": scenario["id"], "scenario_digest": scenario["digest"],
-                  "snapshot_id": scenario["capsule"]["snapshot"].get("id"), "topic": topic,
-                  "domain": domain, "evidence": evidence, "validity": "provisional",
-                  "interpretation": result["interpretation"]}
+        answer = {
+            "job_id": job_id,
+            "scenario_id": scenario["id"],
+            "scenario_digest": scenario["digest"],
+            "snapshot_id": scenario["capsule"]["snapshot"].get("id"),
+            "topic": topic,
+            "domain": domain,
+            "evidence": evidence,
+            "validity": "provisional",
+            "interpretation": result["interpretation"],
+        }
         return answer
 
     def schedule(self, problem: dict[str, Any], backend: str, time_limit: float) -> dict[str, Any]:
@@ -102,10 +136,17 @@ class DecisionTools:
         if backend not in ("baseline", "ortools") or not 0 < time_limit <= 30:
             raise ValueError("Choose baseline/ortools and a time limit from 0 to 30 seconds")
         parsed = problem_from_dict(problem)
-        result = solve(parsed, solver=ORToolsSolver() if backend == "ortools" else None,
-                       time_limit_seconds=time_limit)
-        record = {"id": uuid.uuid4().hex, "problem": problem, "backend": backend,
-                  "result": asdict(result)}
+        result = solve(
+            parsed,
+            solver=ORToolsSolver() if backend == "ortools" else None,
+            time_limit_seconds=time_limit,
+        )
+        record: dict[str, Any] = {
+            "id": uuid.uuid4().hex,
+            "problem": problem,
+            "backend": backend,
+            "result": asdict(result),
+        }
         # Ensure portable evidence before storing it.
         json.dumps(record, allow_nan=False)
         self.workspace.repository.create("schedules", record["id"], record)

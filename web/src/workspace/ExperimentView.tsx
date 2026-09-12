@@ -136,53 +136,59 @@ export function ExperimentView({
                     ))}
                   </div>
                   <p className="ws-note">{job.result.interpretation}</p>
-                  {job.result.domain && job.result.domain !== "manufacturing" ? <DomainResults result={job.result} /> : <>
-                  <h3>Order completion outcomes</h3>
-                  <p>
-                    Simulation seconds from the scenario origin. Bands describe
-                    outcome spread, not certainty about a promise.
-                  </p>
-                  <div className="ws-table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Order</th>
-                          <th>Median</th>
-                          <th>P10</th>
-                          <th>P90</th>
-                          <th>Observed</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(
-                          job.result.intervals?.completion_distributions ?? {},
-                        ).map(([id, band]) => (
-                          <tr key={id}>
-                            <td>{id}</td>
-                            <td>
-                              {band.quantiles
-                                ? band.quantiles.p50.toFixed(1)
-                                : "Not estimable"}
-                            </td>
-                            <td>
-                              {band.quantiles
-                                ? band.quantiles.p10.toFixed(1)
-                                : "—"}
-                            </td>
-                            <td>
-                              {band.quantiles
-                                ? band.quantiles.p90.toFixed(1)
-                                : "—"}
-                            </td>
-                            <td>
-                              {band.observed_count} / {job.reps}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  </>}
+                  {job.result.domain &&
+                  job.result.domain !== "manufacturing" ? (
+                    <DomainResults result={job.result} />
+                  ) : (
+                    <>
+                      <h3>Order completion outcomes</h3>
+                      <p>
+                        Simulation seconds from the scenario origin. Bands
+                        describe outcome spread, not certainty about a promise.
+                      </p>
+                      <div className="ws-table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Order</th>
+                              <th>Median</th>
+                              <th>P10</th>
+                              <th>P90</th>
+                              <th>Observed</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(
+                              job.result.intervals?.completion_distributions ??
+                                {},
+                            ).map(([id, band]) => (
+                              <tr key={id}>
+                                <td>{id}</td>
+                                <td>
+                                  {band.quantiles
+                                    ? band.quantiles.p50.toFixed(1)
+                                    : "Not estimable"}
+                                </td>
+                                <td>
+                                  {band.quantiles
+                                    ? band.quantiles.p10.toFixed(1)
+                                    : "—"}
+                                </td>
+                                <td>
+                                  {band.quantiles
+                                    ? band.quantiles.p90.toFixed(1)
+                                    : "—"}
+                                </td>
+                                <td>
+                                  {band.observed_count} / {job.reps}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                   <details className="ws-outcomes">
                     <summary>Replication outcomes and termination</summary>
                     <pre>{JSON.stringify(job.result.outcomes, null, 2)}</pre>

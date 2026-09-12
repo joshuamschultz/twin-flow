@@ -24,15 +24,23 @@ export function ScenarioView({
   );
   const graph = scenario.summary;
   const domain = String(scenario.capsule.model.domain ?? "manufacturing");
-  const rawOrders = (scenario.capsule.snapshot.production_plan ?? scenario.capsule.snapshot.orders ?? scenario.capsule.snapshot.cases ?? []) as Record<string, unknown>[];
-  const orders = rawOrders.map(row => ({
+  const rawOrders = (scenario.capsule.snapshot.production_plan ??
+    scenario.capsule.snapshot.orders ??
+    scenario.capsule.snapshot.cases ??
+    []) as Record<string, unknown>[];
+  const orders = rawOrders.map((row) => ({
     work_order_id: String(row.work_order_id ?? row.id),
     part: String(row.part ?? row.item_id ?? "Case"),
     qty: String(row.qty ?? row.quantity ?? 1),
     due_date: String(row.due_date ?? row.due_at ?? row.due ?? "Not specified"),
   }));
   const latestMetric = latest?.result?.metrics;
-  const headline = domain === "manufacturing" ? latestMetric?.on_time_pct : domain === "office" ? latestMetric?.completed_cases : latestMetric?.feasible_count;
+  const headline =
+    domain === "manufacturing"
+      ? latestMetric?.on_time_pct
+      : domain === "office"
+        ? latestMetric?.completed_cases
+        : latestMetric?.feasible_count;
   return (
     <>
       <div className="ws-page-heading">
@@ -91,9 +99,15 @@ export function ScenarioView({
           icon="box"
         />
         <Metric
-          label={domain === "manufacturing" ? "On-time · simulated" : "Completed / feasible"}
+          label={
+            domain === "manufacturing"
+              ? "On-time · simulated"
+              : "Completed / feasible"
+          }
           value={
-            headline === undefined ? "—" : `${headline.toFixed(1)}${domain === "manufacturing" ? "%" : ""}`
+            headline === undefined
+              ? "—"
+              : `${headline.toFixed(1)}${domain === "manufacturing" ? "%" : ""}`
           }
           hint={
             latest
@@ -138,7 +152,11 @@ export function ScenarioView({
                     <th>Order</th>
                     <th>Part / work item</th>
                     <th>Quantity</th>
-                    <th>{domain === "supply_chain" ? "Due date" : "Due · simulation time"}</th>
+                    <th>
+                      {domain === "supply_chain"
+                        ? "Due date"
+                        : "Due · simulation time"}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,9 +171,7 @@ export function ScenarioView({
                 </tbody>
               </table>
               {orders.length === 0 && (
-                <p className="ws-table-empty">
-                  No demand in this snapshot.
-                </p>
+                <p className="ws-table-empty">No demand in this snapshot.</p>
               )}
               {orders.length > 100 && (
                 <p className="ws-table-empty">

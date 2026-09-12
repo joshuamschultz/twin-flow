@@ -51,9 +51,7 @@ def build_floor(compiled: CompiledModel) -> dict[str, Any]:
     for stock_name in stock_names:
         target = consumed_things.get(stock_name)
         if target is not None:
-            edges.append(
-                {"source": f"stock:{stock_name}", "target": target, "label": stock_name}
-            )
+            edges.append({"source": f"stock:{stock_name}", "target": target, "label": stock_name})
 
     for part, steps in compiled.routing.items():
         for current_id, next_id in zip(steps, steps[1:], strict=False):

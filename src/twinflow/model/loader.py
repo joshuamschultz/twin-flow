@@ -140,7 +140,6 @@ def _check_yaml_node(node: yaml.Node, depth: int = 0) -> int:
     return 1
 
 
-
 def dump_document(data: object) -> str:
     """Serialize portable data through the same safe YAML boundary."""
     return str(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))

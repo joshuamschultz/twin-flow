@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DecisionLab } from "./DecisionLab";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { workspaceApi, download, setServiceToken, type Scenario } from "./api";
 import { Icon } from "./Icons";
@@ -11,6 +12,8 @@ const navigation = [
   { id: "library", icon: "layers", label: "Scenario library" },
   { id: "experiments", icon: "play", label: "Experiments" },
   { id: "build", icon: "spark", label: "Build a twin" },
+  { id: "data", icon: "box", label: "Operational data" },
+  { id: "schedule", icon: "clock", label: "Scheduling" },
   { id: "agents", icon: "code", label: "Agent access" },
 ];
 
@@ -333,7 +336,9 @@ export default function WorkspaceApp() {
                     >
                       <span className={`ws-example-icon color-${i % 3}`}>
                         <Icon
-                          name={example.domain === "supply_chain" ? "box" : "flow"}
+                          name={
+                            example.domain === "supply_chain" ? "box" : "flow"
+                          }
                           size={21}
                         />
                       </span>
@@ -342,7 +347,9 @@ export default function WorkspaceApp() {
                         <small>
                           {example.domain === "supply_chain"
                             ? "Multi-tier materials, dates & evidence"
-                            : example.domain === "office" ? "Tasks, approvals & information flow" : "Production flow & resource capacity"}
+                            : example.domain === "office"
+                              ? "Tasks, approvals & information flow"
+                              : "Production flow & resource capacity"}
                         </small>
                       </div>
                       <Icon name="arrow" size={17} />
@@ -371,6 +378,7 @@ export default function WorkspaceApp() {
           )}
           {page === "build" && <BuildView />}
           {page === "agents" && <AgentView />}
+          {(page === "data" || page === "schedule") && <DecisionLab key={page} mode={page} />}
         </main>
         <footer className="ws-footer">
           <span>twinflow · operational decision workspace</span>
@@ -552,14 +560,40 @@ function AgentView() {
           <Icon name="arrow" size={16} />
         </a>
       </div>
-      <form className="ws-card" onSubmit={async event => {
-        event.preventDefault(); setServiceToken(token);
-        try { await workspaceApi.scenarios(); setConnection("Connected to the workspace"); await cache.invalidateQueries(); }
-        catch (error) { setConnection(error instanceof Error ? error.message : "Connection failed"); }
-      }}>
-        <h2>Workspace connection</h2><p>If your administrator configured access control, enter the service token. It stays in memory for this tab.</p>
-        <label className="ws-field">Service token<input type="password" autoComplete="off" value={token} onChange={event => setToken(event.target.value)} /></label>
-        <button className="ws-button" type="submit">Connect workspace</button><p role="status">{connection}</p>
+      <form
+        className="ws-card"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setServiceToken(token);
+          try {
+            await workspaceApi.scenarios();
+            setConnection("Connected to the workspace");
+            await cache.invalidateQueries();
+          } catch (error) {
+            setConnection(
+              error instanceof Error ? error.message : "Connection failed",
+            );
+          }
+        }}
+      >
+        <h2>Workspace connection</h2>
+        <p>
+          If your administrator configured access control, enter the service
+          token. It stays in memory for this tab.
+        </p>
+        <label className="ws-field">
+          Service token
+          <input
+            type="password"
+            autoComplete="off"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+          />
+        </label>
+        <button className="ws-button" type="submit">
+          Connect workspace
+        </button>
+        <p role="status">{connection}</p>
       </form>
       <div className="ws-agent-steps">
         {[

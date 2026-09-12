@@ -19,8 +19,10 @@ class SupplyChainDomain:
     def validate(
         self, model: Mapping[str, object], snapshot: Mapping[str, object]
     ) -> list[DomainIssue]:
-        return [DomainIssue(issue.path, issue.message, issue.severity)
-                for issue in validate(model, snapshot)]
+        return [
+            DomainIssue(issue.path, issue.message, issue.severity)
+            for issue in validate(model, snapshot)
+        ]
 
     def describe(
         self, model: Mapping[str, object], snapshot: Mapping[str, object]

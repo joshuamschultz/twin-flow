@@ -42,7 +42,9 @@ def parse_event(record: Mapping[str, Any]) -> OperationalEvent:
     ):
         raise EventValidationError("payload must be a JSON object with string keys")
     _validate_json(payload_value, depth=0, key_count=[0])
-    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    canonical = json.dumps(
+        record, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    )
     if len(canonical.encode()) > MAX_RECORD_BYTES:
         raise EventValidationError(f"record exceeds {MAX_RECORD_BYTES} bytes")
     supersedes = record.get("supersedes_event_id")

@@ -82,17 +82,19 @@ export interface Example {
 }
 
 let serviceToken = "";
-export function setServiceToken(value: string) { serviceToken = value; }
+export function setServiceToken(value: string) {
+  serviceToken = value;
+}
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(
-    `/api/workspace${path}`,
-    {
-      method: body === undefined ? "GET" : "POST",
-      headers: {"Content-Type": "application/json", ...(serviceToken ? {Authorization: `Bearer ${serviceToken}`} : {})},
-      ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+  const response = await fetch(`/api/workspace${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {}),
     },
-  );
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
     const detail = payload?.detail;
@@ -108,6 +110,12 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export const workspaceApi = {
+  contracts: () => request<{event_example: unknown[]; scheduling_example: Record<string, unknown>; snapshot_example: {known_at: string}}>("/tool-contracts"),
+  ingest: (records: unknown[]) => request<Record<string, unknown>>("/data/events", {records}),
+  snapshot: (known_at: string) => request<Record<string, unknown>>("/data/snapshots", {known_at, freshness_rules: []}),
+  schedule: (problem: Record<string, unknown>, backend: string) => request<Record<string, unknown>>("/schedules", {problem, backend, time_limit: 10}),
+  answerDraft: (id: string, answers: {id: string; answer: string}[]) => request<Draft>(`/drafts/${id}/answers`, {answers}),
+
   scenarios: () => request<Scenario[]>("/scenarios"),
   examples: () => request<Example[]>("/examples"),
   load: (example_id: string) =>

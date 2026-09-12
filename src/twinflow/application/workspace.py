@@ -79,7 +79,7 @@ class Workspace:
         return {
             "schema_version": "1.0",
             "mode": self.deployment_mode,
-            "actions": ["import", "export", "branch", "evaluate", "compare", "draft", "answer"],
+            "actions": ["validate", "import", "export", "branch", "evaluate", "compare", "draft", "answer", "ingest_events", "build_snapshot", "schedule", "query_evidence"],
             "limits": {
                 "max_content_bytes": self.max_content_bytes,
                 "max_replications": self.max_replications,
@@ -103,15 +103,20 @@ class Workspace:
 
     def examples(self) -> list[dict[str, str]]:
         legacy = [
-            {"id": p.parent.name, "name": p.parent.name.replace("-", " ").title(),
-             "domain": "manufacturing"}
+            {
+                "id": p.parent.name,
+                "name": p.parent.name.replace("-", " ").title(),
+                "domain": "manufacturing",
+            }
             for p in sorted(self.examples_root.glob("*/model.yaml"))
             if (p.parent / "plan.csv").is_file()
         ]
         capsules = [
-            {"id": "capsule-" + p.name.removesuffix(".twin.yaml"),
-             "name": p.name.removesuffix(".twin.yaml").replace("-", " ").title(),
-             "domain": "supply_chain" if p.name.startswith("supply-") else "office"}
+            {
+                "id": "capsule-" + p.name.removesuffix(".twin.yaml"),
+                "name": p.name.removesuffix(".twin.yaml").replace("-", " ").title(),
+                "domain": "supply_chain" if p.name.startswith("supply-") else "office",
+            }
             for p in sorted((self.examples_root / "capsules").glob("*.twin.yaml"))
             if p.name != "spring.twin.yaml"
         ]
@@ -329,7 +334,9 @@ class Workspace:
     def answer_draft(self, draft_id: str, answers: list[dict[str, str]]) -> dict[str, Any]:
         previous = self.repository.get("drafts", draft_id)
         # Each answer creates a retained revision rather than discarding prior intake.
-        revision = self.save_draft(previous["name"], previous["facts"], previous["answers"] + answers)
+        revision = self.save_draft(
+            previous["name"], previous["facts"], previous["answers"] + answers
+        )
         revision["parent_id"] = draft_id
         self.repository.update("drafts", revision["id"], revision)
         return revision
