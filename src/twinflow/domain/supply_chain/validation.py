@@ -229,6 +229,7 @@ def _bom_rules(
 def _allocations(snapshot: NetworkSnapshot, issues: list[ValidationIssue]) -> None:
     supply_quantity = {supply.supply_id: supply.quantity for supply in snapshot.supplies}
     order_ids = {order.order_id for order in snapshot.orders}
+    orders = {order.order_id: order for order in snapshot.orders}
     totals: dict[str, float] = defaultdict(float)
     for allocation in snapshot.allocations:
         if allocation.supply_id not in supply_quantity:
@@ -257,6 +258,15 @@ def _allocations(snapshot: NetworkSnapshot, issues: list[ValidationIssue]) -> No
                     "allocated_unusable_supply",
                     "allocations.supply_id",
                     f"{allocation.supply_id} is on quality hold",
+                )
+            )
+        order = orders.get(allocation.order_id)
+        if supply is not None and order is not None and supply.site_id != order.site_id:
+            issues.append(
+                ValidationIssue(
+                    "allocated_wrong_site",
+                    "allocations.supply_id",
+                    f"{allocation.supply_id} is not at order site {order.site_id}",
                 )
             )
     for supply_id, total in totals.items():

@@ -12,15 +12,17 @@ evaluation code.
   overlapping effective revisions, and cycles. Evaluation selects the single revision effective
   at the snapshot time and recursively multiplies component demand.
 - Allocation starts from existing reservations and uses a shared remaining-quantity ledger.
-  Overallocated or quality-held reservations fail validation; evaluation never lets one stock lot
-  or receipt satisfy incompatible promises twice.
+  Overallocated, quality-held, or wrong-site reservations fail validation. Reservations are pegged
+  by order and item, including BOM components; fully allocated items still run evidence gates.
 - Quality holds stay unavailable. Assembly builds require a process with a supplier qualification
   valid when components become ready. Evidence gates match item, evidence type, validity start,
   and expiry at the forecast date; results retain rule revisions and evidence IDs.
-- Supplier delay assumptions are explicitly configured. A single seeded draw per common risk group
-  affects every exposed receipt in a replication. Repeated seeds reproduce aggregate dates.
+- Supplier delay assumptions are explicitly configured. A single seeded latent quantile per common
+  risk group maps through each supplier's own bounds. Repeated seeds reproduce aggregate dates.
 - Incomplete results preserve shortages, dependency paths, blocked gates, and affected orders.
-  Result envelopes and evidence artifacts are JSON safe for an API or UI.
+  Aggregation unions blockers across every replication, preserves full samples, and names feasible,
+  delivery-date, and censored denominators. Cooperative event/wall limits cover recursive work and
+  return an explicit outcome. Result envelopes and evidence artifacts are JSON safe for an API/UI.
 
 ## Deferred scope and risk
 
@@ -40,5 +42,7 @@ tenant scope, durable snapshot identity, and PostgreSQL constraints.
 Regression tests cover the multi-tier happy path and shortage, quantity over-allocation, expired
 evidence, missing process qualification, quality hold, correlated supplier disruption,
 deterministic seeds, malformed BOM cycles, overlapping effective revisions, bounded replications,
-artifact creation, the adapter seam, and the distribution-only profile. Fresh Ruff, strict mypy,
+artifact creation, the adapter seam, and the distribution-only profile. Adversarial cases cover
+pegged components, held/wrong-site and fully allocated supply, mixed-replication gate censoring,
+unequal correlated-risk bounds, full sample evidence, and cooperative limits. Fresh Ruff, strict mypy,
 focused pytest, and full regression evidence are reported with the commit.

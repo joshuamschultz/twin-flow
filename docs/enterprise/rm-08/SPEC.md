@@ -27,7 +27,9 @@ Explosion multiplies quantities through every tier and rejects cycles before eva
 ## Allocation and feasibility
 
 Supply is a physical inventory lot or expected receipt. Existing allocations reserve supply by
-ID before forecast allocation; total reservations cannot exceed the supply quantity. New orders
+ID before forecast allocation; total reservations cannot exceed the supply quantity. A reserved
+supply must be released and at the order's site. Reservations are pegged by order and item, so a
+component reservation is consumed when that order's recursive BOM reaches the component. New orders
 are processed by priority, due date, then ID. Each physical supply quantity is consumed at most
 once across all orders and component requirements.
 
@@ -45,12 +47,17 @@ trace each blocking dependency to affected orders.
 
 ## Uncertainty and results
 
-Supplier risks use a configured uniform delay range and optional `common_risk_group`. One draw
-per group per replication applies to every receipt from exposed suppliers, preserving correlated
-delay. `limits.replications` is bounded to 1–1000. The same seed and inputs reproduce the same
-result. When uncertainty exists and replications exceed one, order results include completion
-date P50/P90 and on-time probability; otherwise the single feasible date is deterministic.
+Supplier risks use a configured uniform delay range and optional `common_risk_group`. One latent
+uniform quantile per group per replication is mapped through each supplier's own minimum/maximum
+range, preserving correlation without replacing unequal supplier distributions.
+`limits.replications` is bounded to 1–1000, `max_events` to 1–1,000,000, and
+`max_wall_seconds` to 300. Recursive explosion, allocation, gates, supplies, orders, and
+replications cooperatively consume the budget. Exhaustion returns `limit_reached`, the reason,
+completed replication count, and work count.
 
-The JSON-safe result contains schema version, domain, status, seed, replication count, order
-forecasts, shortages, gate results, affected-order explanations, aggregate metrics, assumptions,
-and optional evidence artifact references. Artifact writes are atomic. No graph database is used.
+The JSON-safe result contains schema version, domain, status, seed, requested/completed replication
+counts, order forecasts, shortages, gate results, affected-order explanations, aggregate metrics,
+assumptions, and optional evidence artifact references. Every completed replication sample is
+retained. Aggregates use all samples: infeasible dates are explicitly censored, quantile counts
+name their denominator, and shortage/gate output is the union with occurrence counts and sample
+indices. Artifact writes are atomic. No graph database is used.
