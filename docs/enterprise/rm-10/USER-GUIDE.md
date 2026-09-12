@@ -26,13 +26,23 @@ proposal ID, scenario ID, result ID, and expected operational revision. Register
 types. `TransactionalOutbox.submit` validates and consumes that approval in the same
 SQLite transaction that creates the idempotent outbox row.
 
-Call `dispatch_pending` with a configured sink and the current operational revision.
-A revision mismatch moves the entry to `conflict` without calling the sink. The included
+Call `dispatch_pending` with a configured sink, the current operational revision, and an
+aware dispatch time. The outbox rechecks approval revocation and expiry in the same
+transaction that claims the pending entry. A failed authorization moves it to `rejected`;
+a revision mismatch moves it to `conflict`, without calling the sink. Supply `entry_id`
+to dispatch one reviewed entry, or use the bounded `limit` for a batch. The included
 `DryRunSink` records deterministic receipts and performs no external operation. A crash
 after claiming a delivery can leave it `delivering`; after restart, call `recover()` to
 return those rows to `pending`. Downstream consumers must honor the supplied idempotency
 key because a crash can occur after a downstream write but before the receipt commits.
 An unconfirmed receipt remains `uncertain` until `reconcile` records the outcome.
+Reconciliation uses a transactional compare-and-set: replaying the same receipt is
+idempotent and a competing receipt cannot overwrite the recorded resolution.
+
+Proposal, approval, revision, receipt, and idempotency identifiers must be non-empty and
+at most 256 characters. Actions contain at most 100 named JSON scalar fields and reject
+non-finite numbers; canonical action JSON is limited to 65,536 bytes. `list_entries` and
+batch dispatch accept limits from 1 to 1,000.
 
 This is a local single-database control boundary. It does not supply authentication,
 authorization policy, distributed consensus, secret management, or an external-system

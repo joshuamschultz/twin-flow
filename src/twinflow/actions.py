@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import sqlite3
 import uuid
 from collections.abc import Iterator, Mapping
@@ -15,6 +16,10 @@ from typing import Literal, Protocol, cast
 
 JsonScalar = str | int | float | bool | None
 OutboxStatus = Literal["pending", "delivering", "sent", "uncertain", "conflict", "rejected"]
+MAX_IDENTIFIER_LENGTH = 256
+MAX_ACTION_FIELDS = 100
+MAX_ACTION_BYTES = 65_536
+MAX_LIST_ENTRIES = 1_000
 
 
 class ActionError(ValueError):
@@ -49,7 +54,17 @@ class Proposal:
         expected_operational_revision: str,
         action: Mapping[str, JsonScalar],
     ) -> Proposal:
+        for name, value in (
+            ("proposal_id", proposal_id),
+            ("scenario_id", scenario_id),
+            ("result_id", result_id),
+            ("expected_operational_revision", expected_operational_revision),
+        ):
+            _validate_identifier(value, name)
+        _validate_action(action)
         action_json = _canonical_json(dict(action))
+        if len(action_json.encode("utf-8")) > MAX_ACTION_BYTES:
+            raise ActionError(f"canonical action exceeds {MAX_ACTION_BYTES} bytes")
         payload = {
             "proposal_id": proposal_id,
             "scenario_id": scenario_id,
@@ -141,7 +156,14 @@ class TransactionalOutbox:
         self._initialize()
 
     def register_approval(self, approval: Approval) -> None:
-        if approval.expires_at.tzinfo is None:
+        _validate_identifier(approval.approval_id, "approval_id")
+        _validate_identifier(approval.proposal_digest, "proposal_digest")
+        _validate_identifier(approval.approved_by, "approved_by")
+        if not approval.scopes or len(approval.scopes) > MAX_ACTION_FIELDS:
+            raise ApprovalError("approval scopes must contain between 1 and 100 values")
+        for scope in approval.scopes:
+            _validate_identifier(scope, "approval scope")
+        if approval.expires_at.tzinfo is None or approval.expires_at.utcoffset() is None:
             raise ApprovalError("approval expiry must be timezone-aware")
         with self._connection() as connection:
             connection.execute(
@@ -159,6 +181,7 @@ class TransactionalOutbox:
             )
 
     def revoke(self, approval_id: str) -> None:
+        _validate_identifier(approval_id, "approval_id")
         with self._connection() as connection:
             cursor = connection.execute(
                 "UPDATE approvals SET revoked = 1 WHERE approval_id = ?", (approval_id,)
@@ -175,7 +198,9 @@ class TransactionalOutbox:
         now: datetime,
     ) -> OutboxEntry:
         """Atomically validate/consume approval and create one idempotent entry."""
-        if now.tzinfo is None:
+        _validate_identifier(approval_id, "approval_id")
+        _validate_identifier(idempotency_key, "idempotency_key")
+        if now.tzinfo is None or now.utcoffset() is None:
             raise ApprovalError("current time must be timezone-aware")
         action_type = proposal.action.get("type")
         if not isinstance(action_type, str):
@@ -241,19 +266,31 @@ class TransactionalOutbox:
         sink: ActionSink,
         *,
         current_operational_revision: str,
+        now: datetime,
+        entry_id: str | None = None,
+        limit: int = 100,
     ) -> list[DispatchReceipt]:
-        """Claim pending entries, revision-check, send, and persist receipts."""
+        """Atomically authorize and claim bounded pending entries, then send them."""
+        _validate_identifier(current_operational_revision, "current_operational_revision")
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ApprovalError("dispatch time must be timezone-aware")
+        if entry_id is not None:
+            _validate_identifier(entry_id, "entry_id")
+        _validate_limit(limit)
         receipts: list[DispatchReceipt] = []
-        for entry in self.list_entries(status="pending"):
-            if entry.proposal.expected_operational_revision != current_operational_revision:
-                self._set_status(entry.entry_id, "conflict", only_from="pending")
+        candidates = (
+            [entry_id]
+            if entry_id is not None
+            else [entry.entry_id for entry in self.list_entries(status="pending", limit=limit)]
+        )
+        for candidate_id in candidates:
+            entry = self._authorize_and_claim(
+                candidate_id, current_operational_revision, now.astimezone(UTC)
+            )
+            if entry is None:
                 continue
-            if not self._set_status(
-                entry.entry_id, "delivering", increment_attempt=True, only_from="pending"
-            ):
-                continue
-            entry = self.get(entry.entry_id)
             receipt = sink.send(entry)
+            _validate_receipt(receipt)
             status: OutboxStatus = "sent" if receipt.confirmed else "uncertain"
             with self._connection() as connection:
                 connection.execute(
@@ -283,12 +320,25 @@ class TransactionalOutbox:
             return cursor.rowcount
 
     def reconcile(self, entry_id: str, receipt: DispatchReceipt) -> None:
-        """Resolve an uncertain delivery using an externally obtained receipt."""
-        entry = self.get(entry_id)
-        if entry.status != "uncertain":
-            raise ActionError("only uncertain entries may be reconciled")
+        """Compare-and-set one uncertain delivery; conflicting receipts fail closed."""
+        _validate_identifier(entry_id, "entry_id")
+        _validate_receipt(receipt)
         status: OutboxStatus = "sent" if receipt.confirmed else "rejected"
         with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """SELECT o.status, r.receipt_id, r.confirmed, r.downstream_revision, r.detail
+                   FROM outbox o LEFT JOIN receipts r ON r.entry_id = o.entry_id
+                   WHERE o.entry_id = ?""",
+                (entry_id,),
+            ).fetchone()
+            if row is None:
+                raise ActionError(f"unknown outbox entry {entry_id!r}")
+            existing_receipt = None if row[1] is None else _receipt_from_row(row[1:])
+            if str(row[0]) != "uncertain":
+                if existing_receipt == receipt:
+                    return
+                raise ActionError("entry was already resolved with a different receipt")
             connection.execute(
                 """INSERT OR REPLACE INTO receipts
                    (entry_id, receipt_id, confirmed, downstream_revision, detail)
@@ -301,11 +351,15 @@ class TransactionalOutbox:
                     receipt.detail,
                 ),
             )
-            connection.execute(
-                "UPDATE outbox SET status = ? WHERE entry_id = ?", (status, entry_id)
+            changed = connection.execute(
+                "UPDATE outbox SET status = ? WHERE entry_id = ? AND status = 'uncertain'",
+                (status, entry_id),
             )
+            if changed.rowcount != 1:
+                raise ActionError("entry was concurrently reconciled")
 
     def get(self, entry_id: str, *, connection: sqlite3.Connection | None = None) -> OutboxEntry:
+        _validate_identifier(entry_id, "entry_id")
         owns_connection = connection is None
         active = connection or self._connect()
         try:
@@ -328,15 +382,56 @@ class TransactionalOutbox:
             if owns_connection:
                 active.close()
 
-    def list_entries(self, *, status: OutboxStatus | None = None) -> list[OutboxEntry]:
+    def list_entries(
+        self, *, status: OutboxStatus | None = None, limit: int = 100
+    ) -> list[OutboxEntry]:
+        _validate_limit(limit)
         with self._connection() as connection:
             if status is None:
-                rows = connection.execute("SELECT entry_id FROM outbox ORDER BY rowid").fetchall()
+                rows = connection.execute(
+                    "SELECT entry_id FROM outbox ORDER BY rowid LIMIT ?", (limit,)
+                ).fetchall()
             else:
                 rows = connection.execute(
-                    "SELECT entry_id FROM outbox WHERE status = ? ORDER BY rowid", (status,)
+                    "SELECT entry_id FROM outbox WHERE status = ? ORDER BY rowid LIMIT ?",
+                    (status, limit),
                 ).fetchall()
             return [self.get(str(row[0]), connection=connection) for row in rows]
+
+    def _authorize_and_claim(
+        self, entry_id: str, current_revision: str, now: datetime
+    ) -> OutboxEntry | None:
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """SELECT o.proposal_json, a.expires_at, a.revoked
+                   FROM outbox o JOIN approvals a ON a.approval_id = o.approval_id
+                   WHERE o.entry_id = ? AND o.status = 'pending'""",
+                (entry_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            proposal = _proposal_from_json(str(row[0]))
+            if proposal.expected_operational_revision != current_revision:
+                connection.execute(
+                    "UPDATE outbox SET status = 'conflict' "
+                    "WHERE entry_id = ? AND status = 'pending'",
+                    (entry_id,),
+                )
+                return None
+            if bool(row[2]) or now >= datetime.fromisoformat(str(row[1])):
+                connection.execute(
+                    "UPDATE outbox SET status = 'rejected' "
+                    "WHERE entry_id = ? AND status = 'pending'",
+                    (entry_id,),
+                )
+                return None
+            changed = connection.execute(
+                """UPDATE outbox SET status = 'delivering', attempts = attempts + 1
+                   WHERE entry_id = ? AND status = 'pending'""",
+                (entry_id,),
+            )
+            return self.get(entry_id, connection=connection) if changed.rowcount == 1 else None
 
     def _initialize(self) -> None:
         with self._connection() as connection:
@@ -393,7 +488,43 @@ class TransactionalOutbox:
 
 
 def _canonical_json(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    )
+
+
+def _validate_identifier(value: str, name: str) -> None:
+    if not isinstance(value, str) or not value.strip() or len(value) > MAX_IDENTIFIER_LENGTH:
+        raise ActionError(f"{name} must be a non-empty string of at most 256 characters")
+
+
+def _validate_action(action: Mapping[str, JsonScalar]) -> None:
+    if not action or len(action) > MAX_ACTION_FIELDS:
+        raise ActionError("action must contain between 1 and 100 fields")
+    for key, value in action.items():
+        _validate_identifier(key, "action field")
+        if not (value is None or isinstance(value, (str, int, float, bool))):
+            raise ActionError("action values must be JSON scalars")
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ActionError("action numbers must be finite")
+
+
+def _validate_limit(limit: int) -> None:
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_LIST_ENTRIES:
+        raise ActionError("limit must be an integer from 1 to 1000")
+
+
+def _validate_receipt(receipt: DispatchReceipt) -> None:
+    _validate_identifier(receipt.receipt_id, "receipt_id")
+    if receipt.downstream_revision is not None:
+        _validate_identifier(receipt.downstream_revision, "downstream_revision")
+    if len(receipt.detail) > 2_000:
+        raise ActionError("receipt detail exceeds 2000 characters")
+
+
+def _receipt_from_row(row: tuple[object, ...]) -> DispatchReceipt:
+    downstream_revision = None if row[2] is None else str(row[2])
+    return DispatchReceipt(str(row[0]), bool(row[1]), downstream_revision, str(row[3]))
 
 
 def _proposal_json(proposal: Proposal) -> str:
