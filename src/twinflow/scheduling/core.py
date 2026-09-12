@@ -208,6 +208,16 @@ class Solver(Protocol):
 
 def validate(problem: SchedulingProblem) -> list[ScheduleIssue]:
     issues: list[ScheduleIssue] = []
+    if not problem.operations:
+        issues.append(
+            ScheduleIssue("empty_problem", "operations", "at least one operation is required")
+        )
+    if not problem.resources:
+        issues.append(
+            ScheduleIssue(
+                "empty_resources", "resources", "at least one resource window is required"
+            )
+        )
     operations = {operation.id: operation for operation in problem.operations}
     if len(operations) != len(problem.operations):
         issues.append(
@@ -314,6 +324,19 @@ def solve(
     if issues:
         return ScheduleResult("INFEASIBLE", issues=tuple(issues))
     if solver is not None:
+        if time_limit_seconds is not None and (
+            not math.isfinite(time_limit_seconds) or time_limit_seconds <= 0
+        ):
+            return ScheduleResult(
+                "UNKNOWN",
+                issues=(
+                    ScheduleIssue(
+                        "invalid_time_limit",
+                        "time_limit_seconds",
+                        "time limit must be finite and positive",
+                    ),
+                ),
+            )
         candidate = solver.solve(problem, time_limit_seconds=time_limit_seconds)
         verification = (
             verify_schedule(problem, candidate)

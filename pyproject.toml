@@ -27,6 +27,7 @@ dependencies = [
 # dependency-light; `pip install -e ".[api]"` adds it.
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
 agent = ["mcp>=2,<3"]
+scheduling = ["ortools>=9.10,<10"]
 dev = [
     "pytest>=8",
     "ruff>=0.5",
