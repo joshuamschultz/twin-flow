@@ -18,6 +18,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from twinflow.model import load_model
 from twinflow.modules import (
@@ -36,12 +37,14 @@ from twinflow.modules.space import Domain
 from twinflow.plan.loader import load_plan
 from twinflow.service.floor import build_floor, suggest_levers
 from twinflow.service.jobs import JobStore
+from twinflow.service.middleware import ServiceBoundaryMiddleware
 from twinflow.service.schemas import OptimizeRequest, RunRequest, SweepRequest
 from twinflow.service.serialize import (
     intervals_to_dict,
     kpis_to_dict,
     optimization_to_dict,
 )
+from twinflow.service.settings import ServiceSettings
 
 
 class ModelCatalog:
@@ -73,7 +76,10 @@ class ModelCatalog:
 
 
 def create_app(
-    models_root: str | Path = "examples", *, workspace_root: str | Path = ".twinflow-workspace"
+    models_root: str | Path = "examples",
+    *,
+    workspace_root: str | Path = ".twinflow-workspace",
+    settings: ServiceSettings | None = None,
 ) -> FastAPI:
     """Build the app rooted at `models_root`. A fresh `JobStore` lives for the
     app's lifetime."""
@@ -83,7 +89,17 @@ def create_app(
     from twinflow.application.workspace import Workspace
     from twinflow.service.workspace import workspace_router
 
-    workspace = Workspace(workspace_root, models_root)
+    configured = settings or ServiceSettings()
+    workspace = Workspace(
+        workspace_root,
+        models_root,
+        max_active_jobs=configured.max_active_jobs,
+        max_replications=configured.max_replications,
+        max_records_per_kind=configured.max_records_per_kind,
+        max_evidence_rows=configured.max_evidence_rows,
+        max_content_bytes=configured.max_request_bytes,
+        deployment_mode="local" if configured.local_only else "dedicated",
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -93,10 +109,16 @@ def create_app(
     app = FastAPI(title="twinflow", version="0.1.0", lifespan=lifespan)
     app.include_router(workspace_router(workspace))
     app.add_middleware(
+        ServiceBoundaryMiddleware,
+        api_token=configured.api_token,
+        max_request_bytes=configured.max_request_bytes,
+    )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(configured.allowed_hosts))
+    app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=list(configured.cors_origins),
+        allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type", "X-Correlation-ID"],
     )
     catalog = ModelCatalog(models_root)
     jobs = JobStore()
@@ -104,6 +126,15 @@ def create_app(
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/health", include_in_schema=False)
+    def public_health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/ready", include_in_schema=False)
+    def readiness() -> dict[str, str]:
+        workspace.repository.list("jobs", 1)
+        return {"status": "ready"}
 
     @app.get("/api/modules")
     def modules() -> dict[str, list[str]]:

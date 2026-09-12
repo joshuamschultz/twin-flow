@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from twinflow.application import scenarios
@@ -147,6 +147,9 @@ def workspace_router(workspace: Workspace) -> APIRouter:
     @router.get("/scenarios/{scenario_id}/export", response_class=Response, status_code=200)
     def export_scenario(scenario_id: str) -> Response:
         record = scenario(scenario_id)
+        workspace.repository.append_audit(
+            workspace.now(), "export", "scenario", scenario_id, "succeeded"
+        )
         return Response(
             json.dumps(record["capsule"], indent=2),
             media_type="application/json",
@@ -194,11 +197,25 @@ def workspace_router(workspace: Workspace) -> APIRouter:
     @router.get("/jobs/{job_id}/export", response_class=Response, status_code=200)
     def export_result(job_id: str) -> Response:
         record = job(job_id)
+        workspace.repository.append_audit(workspace.now(), "export", "job", job_id, "succeeded")
         return Response(
             json.dumps(record, indent=2),
             media_type="application/json",
             headers={"Content-Disposition": 'attachment; filename="experiment-evidence.json"'},
         )
+
+    @router.get("/jobs/{job_id}/evidence", status_code=200)
+    def evidence(
+        job_id: str,
+        offset: int = Query(default=0, ge=0),
+        limit: int = Query(default=100, ge=1, le=1000),
+    ) -> dict[str, Any]:
+        try:
+            return workspace.evidence(job_id, offset=offset, limit=limit)
+        except KeyError as exc:
+            raise HTTPException(404, "Experiment not found") from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @router.post("/compare", response_model=CompareResponse, status_code=200)
     def compare(request: CompareRequest) -> dict[str, Any]:
