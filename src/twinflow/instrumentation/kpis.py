@@ -9,7 +9,7 @@ No KPI is computed anywhere outside this component.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import polars as pl
@@ -52,6 +52,21 @@ class WaitClassifier:
 
 
 @dataclass(frozen=True, slots=True)
+class OrderOutcome:
+    """Quantity-conserving fulfillment evidence for one planned order."""
+
+    order_id: str
+    required_qty: float
+    accepted_qty: float
+    scrapped_qty: float
+    shipped_qty: float
+    remaining_qty: float
+    status: str
+    completion_time: float | None
+    due_state: str
+
+
+@dataclass(frozen=True, slots=True)
 class KpiSet:
     """Every reported KPI, computed once from the event table by `KpiEngine.compute`
     (D-017: all KPIs are Polars expressions over the single ProcessExecution log).
@@ -70,6 +85,10 @@ class KpiSet:
     run_hours: float
     setup_hours: float
     event_counts_by_location: dict[str, int]
+    order_outcomes: dict[str, OrderOutcome] = field(default_factory=dict)
+    on_time_denominator: int = 0
+    completed_order_count: int = 0
+    censored_order_count: int = 0
 
 
 class KpiEngine:
@@ -117,7 +136,18 @@ class KpiEngine:
         total_busy_seconds = sum(busy_seconds_by_location.values())
         setup_hours = self._setup_hours(events)
 
-        completion_by_order, lateness_by_order, on_time_pct = self._order_kpis(events, orders)
+        outcomes = self._order_outcomes(events, orders, horizon)
+        completion_by_order = {key: value.completion_time for key, value in outcomes.items()}
+        lateness_by_order: dict[str, float | None] = {}
+        for row in orders.iter_rows(named=True):
+            order_id = str(row["order_id"])
+            completion_time = completion_by_order[order_id]
+            lateness_by_order[order_id] = (
+                completion_time - float(row["due_date"]) if completion_time is not None else None
+            )
+        denominator = sum(outcome.due_state != "not_yet_due" for outcome in outcomes.values())
+        on_time = sum(outcome.due_state == "on_time" for outcome in outcomes.values())
+        on_time_pct = 100.0 * on_time / denominator if denominator else 0.0
 
         return KpiSet(
             completion_by_order=completion_by_order,
@@ -133,7 +163,76 @@ class KpiEngine:
             run_hours=run_hours,
             setup_hours=setup_hours,
             event_counts_by_location=self._event_counts_by_location(events),
+            order_outcomes=outcomes,
+            on_time_denominator=denominator,
+            completed_order_count=sum(o.status == "completed" for o in outcomes.values()),
+            censored_order_count=sum(o.status != "completed" for o in outcomes.values()),
         )
+
+    @staticmethod
+    def _order_outcomes(
+        events: pl.DataFrame, orders: pl.DataFrame, horizon: float
+    ) -> dict[str, OrderOutcome]:
+        """Account accepted terminal output against every row of declared demand."""
+        outcomes: dict[str, OrderOutcome] = {}
+        modern = {"required_qty", "accepted_qty", "scrapped_qty", "completion_time"}.issubset(
+            orders.columns
+        )
+        if not modern:
+            legacy_completion, _lateness, _pct = KpiEngine._order_kpis(events, orders)
+            for row in (
+                orders.group_by("order_id")
+                .agg(pl.col("due_date").first().alias("due_date"))
+                .iter_rows(named=True)
+            ):
+                order_id = str(row["order_id"])
+                done = legacy_completion.get(order_id)
+                due = float(row["due_date"])
+                outcomes[order_id] = OrderOutcome(
+                    order_id,
+                    1.0,
+                    1.0 if done is not None else 0.0,
+                    0.0,
+                    1.0 if done is not None else 0.0,
+                    0.0 if done is not None else 1.0,
+                    "completed" if done is not None else "incomplete_at_horizon",
+                    done,
+                    "on_time"
+                    if done is not None and done <= due
+                    else ("not_yet_due" if due > horizon else "late"),
+                )
+            return outcomes
+
+        for row in orders.iter_rows(named=True):
+            order_id = str(row["order_id"])
+            required = float(row["required_qty"])
+            due = float(row["due_date"])
+            accepted = float(row["accepted_qty"])
+            scrapped = float(row["scrapped_qty"])
+            raw_completion = row["completion_time"]
+            completion_time = float(raw_completion) if raw_completion is not None else None
+            accepted = min(accepted, required)
+            remaining = max(0.0, required - accepted)
+            status = "completed" if completion_time is not None else "incomplete_at_horizon"
+            due_state = (
+                "on_time"
+                if completion_time is not None and completion_time <= due
+                else "not_yet_due"
+                if completion_time is None and due > horizon
+                else "late"
+            )
+            outcomes[order_id] = OrderOutcome(
+                order_id,
+                required,
+                accepted,
+                scrapped,
+                accepted,
+                remaining,
+                status,
+                completion_time,
+                due_state,
+            )
+        return outcomes
 
     @staticmethod
     def _normalize_event_paths(event_paths: str | Path | Sequence[str | Path]) -> list[str]:

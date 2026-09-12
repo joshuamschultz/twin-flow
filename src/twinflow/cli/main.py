@@ -11,14 +11,10 @@ applied to the CLI boundary itself).
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
-import os
 import shutil
 import sys
-import tempfile
 import uuid
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -106,7 +102,10 @@ def _build_parser() -> argparse.ArgumentParser:
     optimize_parser.add_argument("model")
     optimize_parser.add_argument("--plan", required=True)
     optimize_parser.add_argument(
-        "--lever", action="append", required=True, metavar="PATH:MIN:MAX[:STEP]",
+        "--lever",
+        action="append",
+        required=True,
+        metavar="PATH:MIN:MAX[:STEP]",
         help="a tunable lever and its integer search range, e.g. labor.pools[0].headcount:2:6",
     )
     optimize_parser.add_argument("--objective", default="on_time_pct")
@@ -168,20 +167,24 @@ def _handle_run(args: argparse.Namespace) -> int:
         # so it lands in the right place regardless of the scratch chdir.
         run_dir = Path.cwd() / "runs" / _new_run_id()
         run_dir.mkdir(parents=True, exist_ok=True)
-        with _scratch_cwd():
-            results = ReplicationRunner(model_path).run(work_orders, args.reps, _BASE_SEED)
-            shutil.copyfile(results[0].event_log_path, run_dir / "events.parquet")
-            # Per-replication KPIs (one sample of a random floor each), not the
-            # pooled log: pooling would multiply every count by the rep count and
-            # hide the very variation we are here to measure.
-            per_rep = [
-                compute_kpis(
-                    r.event_log_path,
-                    orders_frame(work_orders, compiled, r.event_log_path),
-                    r.horizon,
-                )
-                for r in results
-            ]
+        results = ReplicationRunner(model_path).run(
+            work_orders,
+            args.reps,
+            _BASE_SEED,
+            artifact_dir=run_dir / "replications",
+        )
+        shutil.copyfile(results[0].event_log_path, run_dir / "events.parquet")
+        # Per-replication KPIs (one sample of a random floor each), not the
+        # pooled log: pooling would multiply every count by the rep count and
+        # hide the very variation we are here to measure.
+        per_rep = [
+            compute_kpis(
+                r.event_log_path,
+                orders_frame(work_orders, compiled, r.event_log_path),
+                r.horizon,
+            )
+            for r in results
+        ]
 
     # The first replication is the representative single run for the charts and
     # tables; the whole set becomes the confidence intervals.
@@ -217,14 +220,13 @@ def _handle_balance(args: argparse.Namespace) -> int:
         sweep = json.load(handle)
 
     run_dir = Path.cwd() / "runs" / _new_run_id()
-    with _scratch_cwd():
-        SweepHarness(model_path).run(
-            plan=work_orders,
-            sweep=sweep,
-            reps=args.reps,
-            base_seed=_BASE_SEED,
-            out_dir=run_dir,
-        )
+    SweepHarness(model_path).run(
+        plan=work_orders,
+        sweep=sweep,
+        reps=args.reps,
+        base_seed=_BASE_SEED,
+        out_dir=run_dir,
+    )
     return 0
 
 
@@ -357,8 +359,13 @@ def _intervals_to_dict(aggregated: AggregatedKpis) -> dict[str, Any]:
     """The confidence intervals as machine-readable JSON (schema-versioned)."""
 
     def iv(interval: Interval) -> dict[str, float | int]:
-        return {"mean": interval.mean, "lo": interval.lo, "hi": interval.hi,
-                "p50": interval.p50, "n": interval.n}
+        return {
+            "mean": interval.mean,
+            "lo": interval.lo,
+            "hi": interval.hi,
+            "p50": interval.p50,
+            "n": interval.n,
+        }
 
     return {
         "schema_version": _INTERVALS_SCHEMA_VERSION,
@@ -376,25 +383,3 @@ def _new_run_id() -> str:
     `<utc-timestamp>-<short-hash>`."""
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
     return f"{stamp}-{uuid.uuid4().hex[:8]}"
-
-
-@contextlib.contextmanager
-def _scratch_cwd() -> Iterator[None]:
-    """Run the wrapped delegated call from a throwaway working directory.
-
-    `plan.driver.RunDriver.run` writes its own `runs/<run-id>/` via a
-    relative `Path("runs")`, resolved against whatever process it executes
-    in. A worker pool (`ReplicationRunner`/`SweepHarness`) spawns one such
-    write per replication — real side effects this CLI does not own and
-    must not let leak into its own `runs/` tree. Every path this CLI passes
-    into the delegated call (model, plan, sweep, its own `out_dir`) is
-    already absolute, so relocating the CWD changes only where an internal
-    *relative* write lands, never what gets written.
-    """
-    previous_cwd = Path.cwd()
-    with tempfile.TemporaryDirectory(prefix="twinflow-cli-scratch-") as scratch_dir:
-        os.chdir(scratch_dir)
-        try:
-            yield
-        finally:
-            os.chdir(previous_cwd)

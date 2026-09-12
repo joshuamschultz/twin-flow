@@ -14,13 +14,10 @@ numbers, and a module turns them into a single score or a proposed change.
 
 from __future__ import annotations
 
-import contextlib
 import copy
 import json
-import os
 import re
-import tempfile
-from collections.abc import Iterator
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -73,10 +70,11 @@ class Evaluation:
     """The representative replication's simulated horizon (seconds) — the paid
     time base for inventory holding and other rate costs."""
 
-    inventory: InventoryKpis = field(
-        default_factory=lambda: InventoryKpis({}, {}, {}, {}, {})
-    )
+    inventory: InventoryKpis = field(default_factory=lambda: InventoryKpis({}, {}, {}, {}, {}))
     """Per-stock supply-chain KPIs (empty for a model with no stocks)."""
+    per_replication_kpis: tuple[KpiSet, ...] = ()
+    per_replication_inventory: tuple[InventoryKpis, ...] = ()
+    artifact_dir: Path | None = None
 
 
 class ScoringSurface:
@@ -95,6 +93,11 @@ class ScoringSurface:
         plan: list[WorkOrder],
         reps: int = 20,
         base_seed: int = 0,
+        artifact_dir: str | Path = "artifacts/evaluations",
+        max_workers: int = 4,
+        max_sim_time: float | None = None,
+        max_events: int | None = None,
+        max_wall_seconds: float | None = None,
     ) -> None:
         if reps < 1:
             raise ValueError("reps must be a positive integer")
@@ -102,6 +105,11 @@ class ScoringSurface:
         self._plan = plan
         self._reps = reps
         self._base_seed = base_seed
+        self._artifact_dir = Path(artifact_dir)
+        self._max_workers = max_workers
+        self._max_sim_time = max_sim_time
+        self._max_events = max_events
+        self._max_wall_seconds = max_wall_seconds
         self._base_data = cast(dict[str, Any], load_raw_model(model_path).data)
 
     @property
@@ -110,38 +118,47 @@ class ScoringSurface:
 
     def evaluate(self, scenario: Scenario) -> Evaluation:
         """Run `scenario` and return its `Evaluation` (representative KPIs + CI band)."""
-        with tempfile.TemporaryDirectory(prefix="twinflow-scenario-") as tmp_dir:
-            variant_path = self._write_variant(scenario, Path(tmp_dir))
-            compiled = load_model(str(variant_path))
-            with _scratch_cwd():
-                results = sorted(
-                    ReplicationRunner(str(variant_path)).run(
-                        self._plan, self._reps, self._base_seed
-                    ),
-                    key=lambda result: cast(int, result.run_meta["replication_index"]),
-                )
-                per_rep = [
-                    compute_kpis(
-                        result.event_log_path,
-                        orders_frame(self._plan, compiled, result.event_log_path),
-                        result.horizon,
-                    )
-                    for result in results
-                ]
-                # Inventory KPIs come from the representative replication's own
-                # `inventory.parquet`, written next to its `events.parquet`.
-                representative = results[0]
-                inventory = compute_inventory_kpis(
-                    representative.event_log_path.parent / "inventory.parquet",
-                    representative.horizon,
-                )
+        evaluation_dir = self._artifact_dir / f"evaluation-{uuid.uuid4().hex}"
+        evaluation_dir.mkdir(parents=True, exist_ok=False)
+        variant_path = self._write_variant(scenario, evaluation_dir)
+        compiled = load_model(str(variant_path))
+        results = sorted(
+            ReplicationRunner(str(variant_path)).run(
+                self._plan,
+                self._reps,
+                self._base_seed,
+                artifact_dir=evaluation_dir / "runs",
+                max_workers=self._max_workers,
+                max_sim_time=self._max_sim_time,
+                max_events=self._max_events,
+                max_wall_seconds=self._max_wall_seconds,
+            ),
+            key=lambda result: cast(int, result.run_meta["replication_index"]),
+        )
+        per_rep = [
+            compute_kpis(
+                result.event_log_path,
+                orders_frame(self._plan, compiled, result.event_log_path),
+                result.horizon,
+            )
+            for result in results
+        ]
+        per_inventory = [
+            compute_inventory_kpis(
+                result.event_log_path.parent / "inventory.parquet", result.horizon
+            )
+            for result in results
+        ]
         return Evaluation(
             scenario=scenario,
             kpis=per_rep[0],
             intervals=aggregate_kpis(per_rep),
             compiled=compiled,
             horizon=results[0].horizon,
-            inventory=inventory,
+            inventory=per_inventory[0],
+            per_replication_kpis=tuple(per_rep),
+            per_replication_inventory=tuple(per_inventory),
+            artifact_dir=evaluation_dir,
         )
 
     def _write_variant(self, scenario: Scenario, tmp_dir: Path) -> Path:
@@ -202,17 +219,3 @@ def _assign_list_item(items: list[Any], selector: str, value: Any) -> None:
             items[index] = value
             return
     raise KeyError(f"no list item named {selector!r}")
-
-
-@contextlib.contextmanager
-def _scratch_cwd() -> Iterator[None]:
-    """Run the wrapped block from a throwaway working directory so the run stack's
-    relative `runs/<id>/` writes never land in the caller's tree (the same guard
-    the CLI applies around `ReplicationRunner`/`SweepHarness`)."""
-    previous_cwd = Path.cwd()
-    with tempfile.TemporaryDirectory(prefix="twinflow-surface-scratch-") as scratch:
-        os.chdir(scratch)
-        try:
-            yield
-        finally:
-            os.chdir(previous_cwd)

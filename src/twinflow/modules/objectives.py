@@ -114,17 +114,29 @@ def _robust_on_time(evaluation: Evaluation) -> float:
 
 
 def _makespan(evaluation: Evaluation) -> float:
-    completions = [c for c in evaluation.kpis.completion_by_order.values() if c is not None]
-    return max(completions) if completions else 0.0
+    samples = evaluation.per_replication_kpis or (evaluation.kpis,)
+    makespans: list[float] = []
+    for kpis in samples:
+        if any(value is None for value in kpis.completion_by_order.values()):
+            return float("inf")
+        completions = [value for value in kpis.completion_by_order.values() if value is not None]
+        makespans.append(max(completions) if completions else 0.0)
+    return sum(makespans) / len(makespans)
 
 
 def _mean_lateness(evaluation: Evaluation) -> float:
-    latenesses = [v for v in evaluation.kpis.lateness_by_order.values() if v is not None]
+    samples = evaluation.per_replication_kpis or (evaluation.kpis,)
+    if any(value is None for kpis in samples for value in kpis.lateness_by_order.values()):
+        return float("inf")
+    latenesses = [
+        value for kpis in samples for value in kpis.lateness_by_order.values() if value is not None
+    ]
     return sum(latenesses) / len(latenesses) if latenesses else 0.0
 
 
 def _mean_utilization(evaluation: Evaluation) -> float:
-    cells = evaluation.kpis.utilization_by_cell.values()
+    samples = evaluation.per_replication_kpis or (evaluation.kpis,)
+    cells = [value for kpis in samples for value in kpis.utilization_by_cell.values()]
     return sum(cells) / len(cells) if cells else 0.0
 
 

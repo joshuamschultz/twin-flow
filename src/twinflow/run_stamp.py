@@ -25,7 +25,7 @@ def _hash_file(path: str) -> str:
         return hashlib.sha256(handle.read()).hexdigest()
 
 
-def _dependency_hash() -> str:
+def dependency_hash() -> str:
     """sha256 hex digest of the sorted `name==version` list of installed distributions.
 
     Deterministic within one environment — same installed set always hashes the same,
@@ -69,7 +69,7 @@ class RunStamp:
             plan_hash=plan_hash,
             base_seed=base_seed,
             python_version=python_version,
-            dependency_hash=_dependency_hash(),
+            dependency_hash=dependency_hash(),
         )
 
     def to_dict(self) -> dict[str, str | int | None]:

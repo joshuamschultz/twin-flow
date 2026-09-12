@@ -11,16 +11,20 @@ in it, is treated as read-only config and is never mutated.
 
 from __future__ import annotations
 
+import json
 import math
+import platform
+import time
 import uuid
 from collections.abc import Callable, Generator
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import cast
 
 import numpy as np
 import simpy
 
+import twinflow
 from twinflow.engine.clock import RunContext
 from twinflow.engine.rng import SOURCE_ABSENCE, SOURCE_BREAKDOWN, RngRegistry
 from twinflow.instrumentation.event_log import EventLog
@@ -33,6 +37,7 @@ from twinflow.primitives.cell import Machine
 from twinflow.primitives.labor import LaborPool
 from twinflow.primitives.location import Location, MaterialRequirementLike, RoutingPolicy
 from twinflow.primitives.stock import Stock
+from twinflow.run_stamp import dependency_hash
 
 
 @dataclass(frozen=True)
@@ -43,6 +48,11 @@ class RunResult:
     event_log_path: Path
     horizon: float
     run_meta: dict[str, object]
+    outcome: str = "completed"
+    termination_reason: str = "natural_exhaustion"
+    event_count: int = 0
+    order_outcomes: dict[str, dict[str, object]] = field(default_factory=dict)
+    artifact_dir: Path | None = None
 
 
 class _AlwaysOnShiftCalendar:
@@ -120,7 +130,9 @@ class _WorkTracker:
         self._expected = 0
         self._target: dict[str, float] = {}
         self._delivered: dict[str, float] = {}
+        self._scrapped: dict[str, float] = {}
         self._done: set[str] = set()
+        self._completion_time: dict[str, float] = {}
         self.drained = env.event()
         self._slot_free = env.event()
 
@@ -130,14 +142,19 @@ class _WorkTracker:
     def register(self, order_id: str, target: float) -> None:
         self._target[order_id] = self._target.get(order_id, 0.0) + target
         self._delivered.setdefault(order_id, 0.0)
+        self._scrapped.setdefault(order_id, 0.0)
         self.active += 1
 
-    def record_terminal(self, order_id: str, qty: float) -> None:
+    def record_terminal(self, order_id: str, qty: float, *, accepted: bool) -> None:
         if order_id not in self._target or order_id in self._done:
+            return
+        if not accepted:
+            self._scrapped[order_id] += qty
             return
         self._delivered[order_id] += qty
         if self._delivered[order_id] >= self._target[order_id] - 1e-9:
             self._done.add(order_id)
+            self._completion_time[order_id] = self.env.now
             self.active -= 1
             if not self._slot_free.triggered:
                 self._slot_free.succeed()
@@ -149,20 +166,45 @@ class _WorkTracker:
     def slot_free(self) -> simpy.Event:
         return self._slot_free
 
+    def outcomes(
+        self, plan: list[WorkOrder], termination_reason: str
+    ) -> dict[str, dict[str, object]]:
+        """Return a complete quantity ledger for every positive-quantity order."""
+        result: dict[str, dict[str, object]] = {}
+        for order in plan:
+            if order.qty <= 0:
+                continue
+            required = float(order.qty)
+            accepted = min(required, self._delivered.get(order.work_order_id, 0.0))
+            completion = self._completion_time.get(order.work_order_id)
+            status = "completed" if completion is not None else "incomplete_at_horizon"
+            result[order.work_order_id] = {
+                "required_qty": required,
+                "accepted_qty": accepted,
+                "scrapped_qty": self._scrapped.get(order.work_order_id, 0.0),
+                "shipped_qty": accepted,
+                "remaining_qty": max(0.0, required - accepted),
+                "status": status,
+                "completion_time": completion,
+                "termination_reason": termination_reason,
+            }
+        return result
+
 
 class _CountingSink(list[Bundle]):
     """A terminal `destinations[thing]` sink that also reports each finished unit to
     the work tracker, attributed to its `order_id` (A2/A4 completion detection)."""
 
-    def __init__(self, tracker: _WorkTracker) -> None:
+    def __init__(self, tracker: _WorkTracker, *, accepted: bool) -> None:
         super().__init__()
         self._tracker = tracker
+        self._accepted = accepted
 
     def append(self, bundle: Bundle) -> None:
         super().append(bundle)
         order_id = bundle.attrs.get("order_id")
         if order_id is not None:
-            self._tracker.record_terminal(str(order_id), bundle.qty)
+            self._tracker.record_terminal(str(order_id), bundle.qty, accepted=self._accepted)
 
 
 class RunDriver:
@@ -183,7 +225,17 @@ class RunDriver:
             skill: pool.name for pool in compiled.labor_pools for skill in pool.skills
         }
 
-    def run(self, plan: list[WorkOrder], seed: int, replication_index: int) -> RunResult:
+    def run(
+        self,
+        plan: list[WorkOrder],
+        seed: int,
+        replication_index: int,
+        *,
+        artifact_dir: str | Path | None = None,
+        max_sim_time: float | None = None,
+        max_events: int | None = None,
+        max_wall_seconds: float | None = None,
+    ) -> RunResult:
         """Run one terminating replication: seed WIP, release orders, simulate.
 
         Builds a FRESH RunContext(env), RngRegistry, EventLog, LaborPools and
@@ -209,10 +261,10 @@ class RunDriver:
         # the historical natural-drain `env.run()` untouched.
         has_orders = any(order.qty > 0 for order in plan)
         has_breakdown = any(spec.breakdown is not None for spec in self._compiled.locations)
-        needs_tracker = has_orders and (
+        needs_bounded_completion = has_orders and (
             self._compiled.release.policy != "plan" or has_breakdown
         )
-        tracker = _WorkTracker(env) if needs_tracker else None
+        tracker = _WorkTracker(env) if has_orders else None
         if tracker is not None:
             self._wrap_terminal_sinks(locations, tracker)
 
@@ -221,15 +273,24 @@ class RunDriver:
         self._release_orders(plan, env, locations, tracker)
 
         downtime: dict[str, float] = {}
-        if tracker is not None:
+        if needs_bounded_completion and tracker is not None:
             # Breakdown loops never self-terminate, so start them only when the
             # tracker bounds the run with `until=tracker.drained`.
             self._start_breakdowns(env, rng, locations, downtime)
-            env.run(until=tracker.drained)
+            until = tracker.drained
         else:
-            env.run()
+            until = None
 
-        run_dir = Path("runs") / run_id
+        event_count, termination_reason = self._advance(
+            env,
+            until=until,
+            max_sim_time=max_sim_time,
+            max_events=max_events,
+            max_wall_seconds=max_wall_seconds,
+        )
+
+        root = Path(artifact_dir) if artifact_dir is not None else Path("runs")
+        run_dir = root / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         event_log_path = event_log.flush(run_dir)
         inventory_log.flush(run_dir)  # always written next to events.parquet (may be empty)
@@ -240,8 +301,82 @@ class RunDriver:
             "replication_index": replication_index,
             "stock_levels": {name: stock.level for name, stock in stocks.items()},
             "downtime_seconds_by_machine": downtime,
+            "termination_reason": termination_reason,
+            "event_count": event_count,
+            "limits": {
+                "max_sim_time": max_sim_time,
+                "max_events": max_events,
+                "max_wall_seconds": max_wall_seconds,
+            },
+            "python_version": platform.python_version(),
+            "engine_version": twinflow.__version__,
+            "engine_commit": None,
+            "dependency_hash": dependency_hash(),
+            "seed_scheme": "base_seed + replication_index + source stream",
         }
-        return RunResult(event_log_path=event_log_path, horizon=env.now, run_meta=run_meta)
+        order_outcomes = tracker.outcomes(plan, termination_reason) if tracker is not None else {}
+        overall = (
+            "completed"
+            if order_outcomes and all(v["status"] == "completed" for v in order_outcomes.values())
+            else "incomplete_at_horizon"
+            if order_outcomes
+            else "completed"
+        )
+        (run_dir / "plan.json").write_text(
+            json.dumps([asdict(order) for order in plan], indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        (run_dir / "run_meta.json").write_text(
+            json.dumps(
+                {**run_meta, "outcome": overall, "orders": order_outcomes}, indent=2, sort_keys=True
+            ),
+            encoding="utf-8",
+        )
+        return RunResult(
+            event_log_path=event_log_path,
+            horizon=env.now,
+            run_meta=run_meta,
+            outcome=overall,
+            termination_reason=termination_reason,
+            event_count=event_count,
+            order_outcomes=order_outcomes,
+            artifact_dir=run_dir,
+        )
+
+    @staticmethod
+    def _advance(
+        env: simpy.Environment,
+        *,
+        until: simpy.Event | None,
+        max_sim_time: float | None,
+        max_events: int | None,
+        max_wall_seconds: float | None,
+    ) -> tuple[int, str]:
+        """Advance deterministically while enforcing optional simulation budgets."""
+        if max_sim_time is not None and max_sim_time < 0:
+            raise ValueError("max_sim_time must be non-negative")
+        if max_events is not None and max_events < 1:
+            raise ValueError("max_events must be positive")
+        if max_wall_seconds is not None and max_wall_seconds <= 0:
+            raise ValueError("max_wall_seconds must be positive")
+        started = time.monotonic()
+        count = 0
+        while True:
+            if until is not None and until.triggered:
+                return count, "demand_completed"
+            next_time = env.peek()
+            if next_time == math.inf:
+                return count, "natural_exhaustion"
+            if max_sim_time is not None and next_time > max_sim_time:
+                if env.now < max_sim_time:
+                    env.run(until=max_sim_time)
+                return count, "sim_time_limit"
+            if max_events is not None and count >= max_events:
+                return count, "event_limit"
+            if max_wall_seconds is not None and time.monotonic() - started >= max_wall_seconds:
+                return count, "wall_time_limit"
+            env.step()
+            count += 1
 
     # -- fresh per-run runtime construction ---------------------------------
 
@@ -357,14 +492,10 @@ class RunDriver:
             upstream = stocks[supplier]
             yield from upstream.pull(upstream.thing, order_qty, upstream.uom)
             upstream.review_reorder()  # the draw may have dropped the upstream below its point
-        runtime_stock.put(
-            Bundle(qty=order_qty, thing=runtime_stock.thing, uom=runtime_stock.uom)
-        )
+        runtime_stock.put(Bundle(qty=order_qty, thing=runtime_stock.thing, uom=runtime_stock.uom))
         in_transit[0] = False
 
-    def _build_labor_pools(
-        self, env: simpy.Environment, rng: RngRegistry
-    ) -> dict[str, LaborPool]:
+    def _build_labor_pools(self, env: simpy.Environment, rng: RngRegistry) -> dict[str, LaborPool]:
         """Fresh `LaborPool`s from the compiled declarative shape — env-bound, so
         never built at `load_model()` time (only here, once per `run()` call).
 
@@ -588,19 +719,17 @@ class RunDriver:
         for location_id, bundle in self._demand_release_bundles(order):
             locations[location_id].enqueue(bundle)
 
-    def _wrap_terminal_sinks(
-        self, locations: dict[str, Location], tracker: _WorkTracker
-    ) -> None:
+    def _wrap_terminal_sinks(self, locations: dict[str, Location], tracker: _WorkTracker) -> None:
         """Wrap the terminal outputs of each part's LAST routing step with a
         `_CountingSink`, so a finished unit is attributed to its order for completion
         tracking. A step's output already routed onward (`_RoutingSink`) is left
         alone; only the terminal plain-list sinks are wrapped."""
-        for steps in self._compiled.routing.values():
+        for part, steps in self._compiled.routing.items():
             last = locations[steps[-1]]
             for thing, dest in list(last.spec.destinations.items()):
-                if isinstance(dest, _RoutingSink):
+                if isinstance(dest, (_RoutingSink, Stock)):
                     continue
-                last.spec.destinations[thing] = _CountingSink(tracker)
+                last.spec.destinations[thing] = _CountingSink(tracker, accepted=thing == part)
 
     def _start_breakdowns(
         self,

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from twinflow.instrumentation.aggregate import AggregatedKpis, Interval
+from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, OutcomeDistribution
 from twinflow.instrumentation.kpis import KpiSet
 from twinflow.modules.optimizers import OptimizationResult
 from twinflow.modules.surface import Evaluation
@@ -28,6 +28,22 @@ def kpis_to_dict(kpis: KpiSet) -> dict[str, Any]:
         "run_hours": kpis.run_hours,
         "setup_hours": kpis.setup_hours,
         "event_counts_by_location": dict(kpis.event_counts_by_location),
+        "order_outcomes": {
+            key: {
+                "required_qty": outcome.required_qty,
+                "accepted_qty": outcome.accepted_qty,
+                "scrapped_qty": outcome.scrapped_qty,
+                "shipped_qty": outcome.shipped_qty,
+                "remaining_qty": outcome.remaining_qty,
+                "status": outcome.status,
+                "completion_time": outcome.completion_time,
+                "due_state": outcome.due_state,
+            }
+            for key, outcome in kpis.order_outcomes.items()
+        },
+        "on_time_denominator": kpis.on_time_denominator,
+        "completed_order_count": kpis.completed_order_count,
+        "censored_order_count": kpis.censored_order_count,
     }
 
 
@@ -38,6 +54,18 @@ def interval_to_dict(interval: Interval) -> dict[str, float | int]:
         "hi": interval.hi,
         "p50": interval.p50,
         "n": interval.n,
+    }
+
+
+def distribution_to_dict(distribution: OutcomeDistribution) -> dict[str, Any]:
+    """Serialize explicitly named outcome and sampling uncertainty."""
+    return {
+        "mean": distribution.mean,
+        "mean_ci": distribution.mean_ci,
+        "quantiles": distribution.quantiles,
+        "observed_count": distribution.observed_count,
+        "censored_count": distribution.censored_count,
+        "estimability": distribution.estimability,
     }
 
 
@@ -55,6 +83,14 @@ def intervals_to_dict(aggregated: AggregatedKpis) -> dict[str, Any]:
         },
         "utilization_by_cell": {
             k: interval_to_dict(v) for k, v in aggregated.utilization_by_cell.items()
+        },
+        "completion_distributions": {
+            key: distribution_to_dict(value)
+            for key, value in aggregated.completion_distributions.items()
+        },
+        "lateness_distributions": {
+            key: distribution_to_dict(value)
+            for key, value in aggregated.lateness_distributions.items()
         },
     }
 
@@ -77,7 +113,6 @@ def optimization_to_dict(result: OptimizationResult) -> dict[str, Any]:
         "best_score": result.best_score,
         "evaluations_used": result.evaluations_used,
         "history": [
-            {"levers": dict(scenario.levers), "score": score}
-            for scenario, score in result.history
+            {"levers": dict(scenario.levers), "score": score} for scenario, score in result.history
         ],
     }

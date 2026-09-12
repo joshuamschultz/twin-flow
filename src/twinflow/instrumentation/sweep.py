@@ -47,6 +47,10 @@ _ORDERS_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "part_id": pl.Utf8,
     "due_date": pl.Float64,
     "lot_id": pl.Utf8,
+    "required_qty": pl.Float64,
+    "accepted_qty": pl.Float64,
+    "scrapped_qty": pl.Float64,
+    "completion_time": pl.Float64,
 }
 
 
@@ -105,7 +109,12 @@ class SweepHarness:
                 compiled = load_model(str(variant_path))
 
                 results = sorted(
-                    ReplicationRunner(str(variant_path)).run(plan, reps, base_seed),
+                    ReplicationRunner(str(variant_path)).run(
+                        plan,
+                        reps,
+                        base_seed,
+                        artifact_dir=out_dir_path / f"sweep_point={point_id}" / "artifacts",
+                    ),
                     key=lambda result: cast(int, result.run_meta["replication_index"]),
                 )
                 run_results[point_id] = results
@@ -219,20 +228,26 @@ def orders_frame(
     routing location in this run's own event log — the join key `KpiEngine`
     needs, rebuilt per replication since lot ids are generated fresh (per-
     location, per-firing) every run."""
-    events = pl.read_parquet(event_log_path)
-    rows: list[tuple[str, str, float, str]] = []
+    del compiled
+    evidence_path = event_log_path.parent / "run_meta.json"
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    ledgers = cast(dict[str, dict[str, Any]], evidence.get("orders", {}))
+    rows: list[tuple[str, str, float, str, float, float, float, float | None]] = []
     for order in plan:
-        terminal_location = compiled.routing[order.part][-1]
-        lot_ids = (
-            events.filter(pl.col("location_id") == terminal_location)
-            .select("lot_id")
-            .unique()
-            .to_series()
-            .to_list()
-        )
         due_date = float(order.due_date)
-        for lot_id in lot_ids:
-            rows.append((order.work_order_id, order.part, due_date, str(lot_id)))
+        ledger = ledgers.get(order.work_order_id, {})
+        rows.append(
+            (
+                order.work_order_id,
+                order.part,
+                due_date,
+                "",
+                float(order.qty),
+                float(ledger.get("accepted_qty", 0.0)),
+                float(ledger.get("scrapped_qty", 0.0)),
+                cast(float | None, ledger.get("completion_time")),
+            )
+        )
 
     if not rows:
         return pl.DataFrame(schema=_ORDERS_SCHEMA)
