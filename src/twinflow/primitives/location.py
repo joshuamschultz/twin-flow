@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Generator, Sequence
+from dataclasses import replace
 from typing import Protocol
 
 import simpy
@@ -188,6 +189,7 @@ class Location:
         rng: RngRegistry,
         resource_log: ResourceSink | None = None,
         decision_runtime: PolicyRuntime | None = None,
+        available_machines: list[Machine] | None = None,
     ) -> None:
         self.spec = spec
         self.env = env
@@ -203,17 +205,21 @@ class Location:
         self._lot_counter = 0
         self._capacity: int = getattr(spec, "capacity", 1)
         base_machine = spec.machine
-        self._available_machines = [
-            Machine(
-                machine_id=(
-                    base_machine.machine_id
-                    if self._capacity == 1
-                    else f"{base_machine.machine_id}-{index + 1}"
-                ),
-                initial_setup=base_machine.current_setup,
-            )
-            for index in range(self._capacity)
-        ]
+        self._available_machines = (
+            available_machines
+            if available_machines is not None
+            else [
+                Machine(
+                    machine_id=(
+                        base_machine.machine_id
+                        if self._capacity == 1
+                        else f"{base_machine.machine_id}-{index + 1}"
+                    ),
+                    initial_setup=base_machine.current_setup,
+                )
+                for index in range(self._capacity)
+            ]
+        )
         self._in_flight = 0
         self._free_event: simpy.Event | None = None
         # Active-control dispatch rule (A1): which queued job this center runs next.
@@ -364,9 +370,11 @@ class Location:
             )
 
             # Step 3: pull and consume required input material, if any is declared.
+            job_bundle = selected[0]
+            active_wip = job_bundle.attrs.get("active_wip") is True
             material_ready_time: float | None = None
             material_requirement = self.spec.material_requirement
-            if material_requirement is not None:
+            if material_requirement is not None and not active_wip:
                 yield from material_requirement.stock.pull(
                     material_requirement.thing, material_requirement.qty, material_requirement.uom
                 )
@@ -376,7 +384,6 @@ class Location:
             # for setup/time sampling. A batch spanning multiple `thing`s inside
             # one setup group (D-047) is out of scope until a real batch case
             # exercises it.
-            job_bundle = selected[0]
             setup_start = self.env.now
 
             # Step 4: charge setup, if the job's setup group differs from the
@@ -384,6 +391,8 @@ class Location:
             setup_seconds, new_setup = self.spec.setup_policy.changeover(
                 machine.current_setup, job_bundle
             )
+            if active_wip:
+                setup_seconds = 0.0
             crossing = getattr(self.spec, "shift_crossing", "overtime")
             yield from self.labor_pool.work(setup_seconds, crossing)
             machine.current_setup = new_setup
@@ -394,6 +403,14 @@ class Location:
             phase_times = self.spec.time_model.sample(
                 job_bundle, self.rng.generator(SOURCE_CYCLE_TIME)
             )
+            remaining_time = job_bundle.attrs.get("remaining_time")
+            if remaining_time is not None:
+                phase_times = replace(
+                    phase_times,
+                    load=0.0,
+                    run=float(remaining_time),
+                    unload=0.0,
+                )
             run_seconds = phase_times.load + phase_times.run + phase_times.unload
             labor_seconds = setup_seconds + run_seconds
             if crossing == "finish_unattended":
@@ -437,7 +454,11 @@ class Location:
                 (
                     self.spec.location_id,
                     job_bundle.thing,
-                    f"{self.spec.location_id}-{self._lot_counter}",
+                    str(
+                        job_bundle.attrs.get(
+                            "lot_id", f"{self.spec.location_id}-{self._lot_counter}"
+                        )
+                    ),
                     "transform",
                     sum(bundle.qty for bundle in selected),
                     queue_arrival_time,

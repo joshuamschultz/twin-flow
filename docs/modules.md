@@ -5,6 +5,9 @@ functions, and machine-learning models all attach to the same way. The idea: the
 already turns a **scenario** (a set of config lever overrides) into **KPIs with a
 confidence band**. Everything else is a small function over that.
 
+The module surface operates on the legacy replicated DES evaluation contract. It does
+not wrap or replace the typed `twinflow.production` scheduler/runtime in this release.
+
 ```
 ScoringSurface(model, plan)  ──►  Scenario ──► Evaluation (KPIs + band)
        │                                   │                    │

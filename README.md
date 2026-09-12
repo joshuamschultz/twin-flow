@@ -6,10 +6,10 @@
 
 **An agent-accessible operational twin: import a scenario capsule, test bounded alternatives, and retrieve evidence about work, dates, resources, and constraints across manufacturing, office workflows, and supply networks.**
 
-Release `0.3.0-alpha.1` · Python `0.3.0a1` · web `0.3.0-alpha.1`
+Release `0.4.0-alpha.1` · Python `0.4.0a1` · web `0.4.0-alpha.1`
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0b2340)](#status--quality)
-[![tests](https://img.shields.io/badge/tests-619%20passing-1aa179)](#status--quality)
+[![tests](https://img.shields.io/badge/tests-689%20passed-1aa179)](#status--quality)
 [![mypy](https://img.shields.io/badge/mypy-strict-2bb5b5)](#status--quality)
 [![lint](https://img.shields.io/badge/lint-ruff-46a2f1)](#status--quality)
 [![status](https://img.shields.io/badge/status-alpha-f5a623)](#release-scope-and-roadmap)
@@ -151,6 +151,35 @@ You model a floor by naming a few kinds of thing in config. Here is the whole vo
 Everything above is declared in config. The engine has no per-client code, so the same vocabulary models any discrete floor. See [`docs/modeling.md`](docs/modeling.md) for the full config reference.
 
 ---
+
+## Production capability alpha
+
+The `twinflow.production` namespace contains the typed, deterministic capability
+contracts for the Western Spring assessment. The [production guide](docs/production/README.md)
+covers the public state ledgers and runtime composition; its [validation matrix](docs/production/VALIDATION.md)
+maps the ten capability specifications to source and evidence. The rich scheduler is an
+earliest-feasible baseline: `FEASIBLE` means the declared constraints were satisfied, and
+does not claim certified optimality or empirical plant validation.
+
+The production surface can be consumed after installing the package from source:
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -e .
+python - <<'PY'
+from twinflow.production import contracts, scheduling
+
+print(contracts.Resource, scheduling.solve)
+PY
+```
+
+The state ledgers preserve order and lot identity across WIP, material reservations,
+qualification gates, and outside-processing receipts. Calendars, attendance phases,
+thermal recipe batching, and per-order commitments are represented in the typed rich
+contract; unsupported or missing plant facts remain explicit in the result. The legacy
+`model.yaml` + plan DES CLI remains a separate compatible surface. Repeated legacy
+locations that name the same machine now share its capacity and setup state, while rich
+schedule verification remains specific to `twinflow.production`.
 
 ## 🚀 Quick start
 
@@ -324,7 +353,8 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 ## Status & quality
 
 - **Python** ≥ 3.11.
-- **619 tests** across unit, analytical, and integration layers.
+- **689 tests passed** across unit, analytical, integration, enterprise, boundary, and
+  production capability layers in the release validation run.
 - **Blocking CI gates:** `ruff`, `mypy --strict`, `pytest`, `pip-audit` - the build fails on any finding.
 - **Layered validation:** YAML is loaded through one safe door, expressions run in one sandbox, and workspace/API boundaries enforce request, capability, evidence, and action limits before work starts.
 - **Reproducibility evidence:** every run carries a stamp describing its inputs, seed, runtime, and dependencies for audit and rerun under recorded conditions.
@@ -335,7 +365,8 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 
 ## Release scope and roadmap
 
-Release `0.3.0-alpha.1` is an integrated local workspace. Delivered slices and
+Release `0.4.0-alpha.1` is an integrated local workspace plus the typed production
+capability alpha. Delivered slices and
 their remaining acceptance gates are maintained in [enterprise build status](docs/enterprise/BUILD-STATUS.md)
 and the [validation record](docs/enterprise/VALIDATION.md). The [enterprise
 roadmap](docs/enterprise-roadmap.md) describes proposed product direction; it

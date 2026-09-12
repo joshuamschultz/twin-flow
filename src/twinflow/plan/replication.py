@@ -101,7 +101,8 @@ class ReplicationRunner:
             for index in range(reps)
         ]
         processes = min(reps, max_workers, os.cpu_count() or max_workers)
-        with multiprocessing.Pool(processes=processes) as pool:
+        context = multiprocessing.get_context("spawn")
+        with context.Pool(processes=processes) as pool:
             return pool.starmap(_run_one_replication, args)
 
 

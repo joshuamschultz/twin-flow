@@ -231,12 +231,17 @@ def test_replication_runner_dispatches_via_multiprocessing_pool(isolated_cwd: Pa
     plan = _plan()
     runner = ReplicationRunner(str(model_path))
 
-    with mock.patch("multiprocessing.Pool", wraps=multiprocessing.Pool) as pool_spy:
+    with mock.patch(
+        "multiprocessing.get_context", wraps=multiprocessing.get_context
+    ) as context_spy:
         results = runner.run(plan, reps=3, base_seed=11)
 
-    assert pool_spy.call_count >= 1, (
-        "ReplicationRunner.run() must dispatch replications through "
-        "multiprocessing.Pool, one replication per process (D-028)"
+    (
+        context_spy.assert_called_once_with("spawn"),
+        (
+            "ReplicationRunner.run() must dispatch replications through "
+            "an explicit spawn multiprocessing context, one replication per process (D-028)"
+        ),
     )
     assert len(results) == 3
 

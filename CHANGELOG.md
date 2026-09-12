@@ -4,6 +4,67 @@ All notable changes to twinflow are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims at
 [semantic versioning](https://semver.org/).
 
+## [0.4.0-alpha.1] — 2026-09-12
+
+This release adds the typed production capability alpha for deterministic, reviewable
+manufacturing planning. The existing model/plan DES and workspace contracts remain
+available as separate compatible surfaces.
+
+### Added
+
+- `twinflow.production.contracts` for typed resources, time windows, phase-coupled
+  operations, recipe alternatives, jobs/cohorts, thermal batch requirements, schedules,
+  and independent verification results.
+- `twinflow.production.scheduling` for an earliest-feasible baseline with resource
+  calendars, multi-resource phase uses, interruptible work, restart rules, shared
+  physical resources, recipe alternatives, and thermal batch compatibility.
+- `twinflow.production.lots` and `materials` for attributed WIP, split lots, terminal
+  states, atomic multi-material reservations, explicit production/scrap consumption,
+  reweigh events, and reconciliation.
+- `twinflow.production.qualification` and `external` for bounded setup qualification,
+  immutable acceptance evidence, vendor dispatch/receipt identity, partial returns, and
+  explicit customer shipment state.
+- `twinflow.production.runtime` to compose qualification, WIP, material readiness,
+  external receipts, scheduling, and ledger transitions under an exclusive transaction;
+  runtime results retain the requested graph, verified executable subgraph, pending work,
+  unresolved jobs, and whole-request service state.
+
+### Changed
+
+- Release metadata is now `0.4.0a1` for Python and `0.4.0-alpha.1` for the web package.
+- Runtime failures leave participating ledgers unchanged. Expected partial execution
+  retains verified qualification attempts and material evidence while reporting blocked
+  production, vendor quantity still in transit, and unavailable full-request service.
+- Qualification samples use separate immutable accounts rather than customer production
+  lots. Known-capacity vendor work uses ordinary scheduler resources and calendars;
+  unknown capacity remains an explicit receipt-time mode.
+- Active WIP resumes its remaining phase time without replaying completed setup. Full
+  setup, calendar holds, and resource identity remain visible in the rich schedule.
+
+### Fixed
+
+- Shared machine and setup identity is retained through phase occupations, including
+  active WIP continuation and explicit full-setup accounting.
+- Initial WIP credits the supplied remaining quantity and time without duplicating raw
+  release or replaying completed work.
+- Replication pools now use the multiprocessing `spawn` context, avoiding unsafe process
+  forks after Polars has initialized.
+
+### Limits
+
+- The rich scheduler's `FEASIBLE` result is a deterministic baseline claim for the
+  declared inputs, not certified optimality, stochastic confidence, or empirical plant
+  validation. Missing calendars, capacities, recipe measurements, and commitments remain
+  explicit caller obligations.
+- The legacy DES, workspace REST/SDK/MCP, and capsule schema contracts remain separate;
+  the new Python namespace does not imply automatic API, SDK, MCP, or web support.
+- Western Spring capability coverage and evidence are tracked in
+  [`docs/production/VALIDATION.md`](docs/production/VALIDATION.md). The ten specifications
+  describe requirements and alpha boundaries; a passing solver result is not a field
+  acceptance result.
+
+The API and capsule schema versions remain independent from the product release version.
+
 ## [0.3.0-alpha.1] — 2026-09-12
 
 The first integrated enterprise workspace build. This release keeps the

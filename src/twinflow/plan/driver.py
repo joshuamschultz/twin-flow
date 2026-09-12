@@ -139,6 +139,7 @@ class _WorkTracker:
         self._delivered: dict[str, float] = {}
         self._scrapped: dict[str, float] = {}
         self._done: set[str] = set()
+        self._active_orders: set[str] = set()
         self._completion_time: dict[str, float] = {}
         self.drained = env.event()
         self._slot_free = env.event()
@@ -146,10 +147,26 @@ class _WorkTracker:
     def set_expected(self, expected: int) -> None:
         self._expected = expected
 
-    def register(self, order_id: str, target: float) -> None:
+    def register(
+        self,
+        order_id: str,
+        target: float,
+        completed_good: float = 0.0,
+        *,
+        active: bool = False,
+    ) -> None:
         self._target[order_id] = self._target.get(order_id, 0.0) + target
-        self._delivered.setdefault(order_id, 0.0)
+        self._delivered[order_id] = self._delivered.get(order_id, 0.0) + completed_good
         self._scrapped.setdefault(order_id, 0.0)
+        if active:
+            self.activate(order_id)
+        if self._delivered[order_id] >= self._target[order_id] - 1e-9:
+            self._complete(order_id)
+
+    def activate(self, order_id: str) -> None:
+        if order_id in self._done or order_id in self._active_orders:
+            return
+        self._active_orders.add(order_id)
         self.active += 1
 
     def record_terminal(self, order_id: str, qty: float, *, accepted: bool) -> None:
@@ -160,14 +177,21 @@ class _WorkTracker:
             return
         self._delivered[order_id] += qty
         if self._delivered[order_id] >= self._target[order_id] - 1e-9:
-            self._done.add(order_id)
-            self._completion_time[order_id] = self.env.now
+            self._complete(order_id)
+
+    def _complete(self, order_id: str) -> None:
+        if order_id in self._done:
+            return
+        self._done.add(order_id)
+        self._completion_time[order_id] = self.env.now
+        if order_id in self._active_orders:
+            self._active_orders.remove(order_id)
             self.active -= 1
             if not self._slot_free.triggered:
                 self._slot_free.succeed()
             self._slot_free = self.env.event()
-            if len(self._done) >= self._expected and not self.drained.triggered:
-                self.drained.succeed()
+        if len(self._done) >= self._expected and not self.drained.triggered:
+            self.drained.succeed()
 
     @property
     def slot_free(self) -> simpy.Event:
@@ -187,9 +211,11 @@ class _WorkTracker:
             status = "completed" if completion is not None else "incomplete_at_horizon"
             result[order.work_order_id] = {
                 "required_qty": required,
+                "produced_qty": accepted,
+                "quality_accepted_qty": accepted,
                 "accepted_qty": accepted,
                 "scrapped_qty": self._scrapped.get(order.work_order_id, 0.0),
-                "shipped_qty": accepted,
+                "shipped_qty": 0.0,
                 "remaining_qty": max(0.0, required - accepted),
                 "status": status,
                 "completion_time": completion,
@@ -577,9 +603,30 @@ class RunDriver:
             for spec in self._compiled.locations
         }
 
+        capacities: dict[str, int] = {}
+        for spec in fresh_specs.values():
+            machine_id = spec.machine.machine_id
+            prior = capacities.setdefault(machine_id, spec.capacity)
+            if prior != spec.capacity:
+                raise ValueError(
+                    f"locations sharing machine {machine_id!r} declare different capacities"
+                )
+        machine_pools = {
+            machine_id: simpy.PriorityResource(env, capacity=capacity)
+            for machine_id, capacity in capacities.items()
+        }
+        available_machines = {
+            machine_id: [
+                Machine(machine_id=(machine_id if capacity == 1 else f"{machine_id}-{index + 1}"))
+                for index in range(capacity)
+            ]
+            for machine_id, capacity in capacities.items()
+        }
+
         locations: dict[str, Location] = {}
         for location_id, spec in fresh_specs.items():
-            machine_pool = simpy.PriorityResource(env, capacity=spec.capacity)
+            machine_id = spec.machine.machine_id
+            machine_pool = machine_pools[machine_id]
             labor_pool = labor_pools[self._pool_name_by_skill[spec.labor_skill]]
             locations[location_id] = Location(
                 spec,
@@ -590,6 +637,7 @@ class RunDriver:
                 rng,
                 resource_log,
                 decision_runtime,
+                available_machines[machine_id],
             )
 
         self._wire_routing(fresh_specs, locations)
@@ -692,7 +740,18 @@ class RunDriver:
         thing = next(iter(spec.pull_rule.setup_key_of))
         uom = self._compiled.registry.uom(thing)
         qty = float(order.initial_wip_qty or 0)
-        locations[order.initial_wip_location].enqueue(Bundle(qty=qty, thing=thing, uom=uom))
+        attrs: dict[str, float | str | bool] = {
+            "due_date": _as_float(order.due_date),
+            "priority": float(order.priority),
+            "order_id": order.work_order_id,
+            "lot_id": order.work_order_id,
+        }
+        if order.initial_wip_remaining_time is not None and order.initial_wip_remaining_time > 0:
+            attrs["remaining_time"] = order.initial_wip_remaining_time
+            attrs["active_wip"] = True
+        locations[order.initial_wip_location].enqueue(
+            Bundle(qty=qty, thing=thing, uom=uom, attrs=attrs)
+        )
 
     def _release_orders(
         self,
@@ -709,6 +768,13 @@ class RunDriver:
         releasable = [order for order in plan if order.qty > 0]
         if tracker is not None:
             tracker.set_expected(len(releasable))
+            for order in releasable:
+                tracker.register(
+                    order.work_order_id,
+                    float(order.qty),
+                    float(order.completed_good_qty),
+                    active=order.initial_wip_location is not None,
+                )
 
         if self._compiled.release.policy == "plan":
             for order in releasable:
@@ -759,8 +825,12 @@ class RunDriver:
         """Register the order with the tracker (if active control) and enqueue its
         raw-material release bundles onto the floor."""
         if tracker is not None:
-            tracker.register(order.work_order_id, float(order.qty))
-        for location_id, bundle in self._demand_release_bundles(order):
+            tracker.activate(order.work_order_id)
+        release_qty = max(
+            0,
+            order.qty - order.completed_good_qty - (order.initial_wip_qty or 0),
+        )
+        for location_id, bundle in self._demand_release_bundles(order, release_qty):
             locations[location_id].enqueue(bundle)
 
     def _wrap_terminal_sinks(self, locations: dict[str, Location], tracker: _WorkTracker) -> None:
@@ -784,9 +854,14 @@ class RunDriver:
     ) -> None:
         """Start one seeded breakdown process per location that declares `breakdown`
         (A4). Each accumulates its machine's repair downtime into `downtime`."""
+        started: set[str] = set()
         for spec in self._compiled.locations:
             if spec.breakdown is None:
                 continue
+            machine_id = spec.machine.machine_id
+            if machine_id in started:
+                continue
+            started.add(machine_id)
             location = locations[spec.location_id]
             env.process(
                 self._breakdown_process(
@@ -794,7 +869,7 @@ class RunDriver:
                     rng,
                     location.machine_pool,
                     spec.breakdown,
-                    spec.machine.machine_id,
+                    machine_id,
                     downtime,
                 )
             )
@@ -824,7 +899,9 @@ class RunDriver:
             machine_pool.release(request)
             downtime[machine_id] = downtime.get(machine_id, 0.0) + repair
 
-    def _demand_release_bundles(self, order: WorkOrder) -> list[tuple[str, Bundle]]:
+    def _demand_release_bundles(
+        self, order: WorkOrder, release_qty: int | None = None
+    ) -> list[tuple[str, Bundle]]:
         """Resolve one demand WorkOrder into (location_id, Bundle) release
         targets: one release per raw material in the finished part's rolled-up
         BOM (COMP-016 `CompileResult.bom`, which already resolves down to true
@@ -846,11 +923,14 @@ class RunDriver:
             "due_date": _as_float(order.due_date),
             "priority": float(order.priority),
             "order_id": order.work_order_id,
+            "lot_id": order.work_order_id,
         }
         releases: list[tuple[str, Bundle]] = []
         for raw_thing, qty_per_unit in self._compiled.bom[order.part].items():
             location_id = consumed_by[raw_thing]
             uom = self._compiled.registry.uom(raw_thing)
-            qty = order.qty * qty_per_unit
+            qty = (order.qty if release_qty is None else release_qty) * qty_per_unit
+            if qty <= 0:
+                continue
             releases.append((location_id, Bundle(qty=qty, thing=raw_thing, uom=uom, attrs=attrs)))
         return releases

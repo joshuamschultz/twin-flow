@@ -12,6 +12,17 @@ pip install -e ".[dev]"
 That gives you the `twinflow` command and the library. The core depends only on
 simpy, numpy, polars, scipy, pyyaml, simpleeval, plotly, and openpyxl.
 
+To consume a reviewed source revision from another project, pin the Git commit in the
+requirement rather than installing a moving branch:
+
+```text
+twinflow @ git+ssh://git@github.com/joshuamschultz/twin-flow.git@<release-commit>
+```
+
+The typed `twinflow.production` contracts, deterministic baseline scheduler, verifier,
+state ledgers, and runtime are included in the core install. The `scheduling` extra is
+for the separate legacy CP-SAT scheduler and is not required by the baseline.
+
 ## API extra (the REST service)
 
 The service (`twinflow.service`) and the `twinflow serve` command need FastAPI and
@@ -40,6 +51,7 @@ See [frontend.md](frontend.md) to run it.
 ```bash
 twinflow validate examples/cnc-shop/model.yaml    # should print nothing, exit 0
 pytest -q                                          # the full test suite
+pytest -q tests/production                         # typed production capability checks
 ruff check src tests                               # lint gate
 mypy                                               # strict type gate
 ```

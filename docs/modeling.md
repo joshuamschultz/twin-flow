@@ -5,6 +5,11 @@ per-client code — every capability below is declarative config the Layer-2 com
 turns into pure primitives. This page is the config reference; the README's "building
 blocks" section is the plain-language tour.
 
+For typed Western Spring capability work, use the separate `twinflow.production`
+contracts and [`production/README.md`](production/README.md). Those immutable resources,
+phases, lots, materials, qualifications, and external operations are not silently
+compiled from this legacy YAML surface.
+
 ## Skeleton
 
 ```yaml
@@ -56,6 +61,11 @@ Add `cv: C` to any time model (or set `defaults.cycle_time_cv`) for a lognormal 
 - **`setup_key: grp_x`** — parts in the same group run back to back; see changeover.
 - **`output_stocks: {thing: stock_name}`** — route an output back into a named stock
   (recycle / remelt).
+
+Locations that name the same `machine` use one physical machine pool and one setup state
+within a replication. Its declared capacity and breakdown configuration must agree at
+every reference. Recipe and route definitions remain location-specific; the shared name
+does not create extra machine capacity.
 
 ## Tier 0 capabilities
 
@@ -143,9 +153,14 @@ A table (`.xlsx` first sheet, or `.csv`) with these columns:
 |---|---|---|---|---|
 | WO-1001 | carton | 500 | 0 | 3600 |
 
-Optional initial-WIP columns: `initial_wip_location`, `initial_wip_qty`,
-`initial_wip_remaining_time` (all three together or none). Formula cells are rejected,
-never evaluated.
+Optional snapshot columns are `completed_good_qty`, `initial_wip_location`,
+`initial_wip_qty`, and `initial_wip_remaining_time`. The three initial-WIP fields appear
+together or not at all. Positive active remaining time resumes only the retained active
+phase and does not repeat setup or material already consumed. Completed good contributes
+to the order outcome without creating another release. The legacy quantity-zero WIP row
+convention remains supported for queued full-cycle work. Contradictory completed/WIP
+quantities and non-finite or negative values are rejected. Formula cells are never
+evaluated.
 
 ## Worked examples
 

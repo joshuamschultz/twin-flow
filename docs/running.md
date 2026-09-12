@@ -7,6 +7,14 @@ needed.
 New here? Start with [quickstart.md](quickstart.md) and [concepts.md](concepts.md), then
 come back.
 
+This guide describes the configuration driven DES and its replicated confidence bands.
+The typed `twinflow.production` surface uses finite deterministic schedules and reports
+`FEASIBLE` against declared constraints; read its [production guide](production/README.md)
+for that API and do not interpret its result as a confidence interval. In the integrated
+runtime, schedule feasibility applies to `expanded_problem`; check `ProductionRun.completed`
+and its pending/unresolved fields before treating that executable subset as the full
+request.
+
 ## The one idea to hold onto
 
 A real floor is random: cycle times vary, scrap happens, machines break. So **one run is

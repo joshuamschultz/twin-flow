@@ -11,6 +11,7 @@ row, or a formula cell, naming the 1-indexed row (header = row 1).
 from __future__ import annotations
 
 import csv
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,39 @@ class WorkOrder:
     priority: int = 0
     """Rush priority (A4): a higher number jumps the dispatch queue at every work
     center. Optional `priority` plan column; absent or blank means 0 (normal)."""
+    completed_good_qty: int = 0
+
+    def __post_init__(self) -> None:
+        if isinstance(self.qty, bool) or not isinstance(self.qty, int) or self.qty < 0:
+            raise ValueError("qty must be a non-negative integer")
+        if (
+            isinstance(self.completed_good_qty, bool)
+            or not isinstance(self.completed_good_qty, int)
+            or self.completed_good_qty < 0
+        ):
+            raise ValueError("completed_good_qty must be a non-negative integer")
+        wip_fields = (
+            self.initial_wip_location,
+            self.initial_wip_qty,
+            self.initial_wip_remaining_time,
+        )
+        if any(value is not None for value in wip_fields) and not all(
+            value is not None for value in wip_fields
+        ):
+            raise ValueError("initial WIP fields must be populated together")
+        if self.initial_wip_qty is not None and (
+            isinstance(self.initial_wip_qty, bool)
+            or not isinstance(self.initial_wip_qty, int)
+            or self.initial_wip_qty < 0
+        ):
+            raise ValueError("initial_wip_qty must be a non-negative integer")
+        if self.initial_wip_remaining_time is not None and (
+            not math.isfinite(self.initial_wip_remaining_time)
+            or self.initial_wip_remaining_time < 0
+        ):
+            raise ValueError("initial_wip_remaining_time must be finite and non-negative")
+        if self.qty > 0 and self.completed_good_qty + (self.initial_wip_qty or 0) > self.qty:
+            raise ValueError("completed good plus initial WIP exceeds order quantity")
 
 
 def load_plan(path: str, registry: PartTypeRegistry) -> list[WorkOrder]:
@@ -98,6 +132,12 @@ def _parse_row(row: dict[str, object], row_number: int, registry: PartTypeRegist
 
     priority_cell = row.get("priority")
     priority = 0 if _is_blank(priority_cell) else _to_int(priority_cell, row_number, "priority")
+    completed_cell = row.get("completed_good_qty")
+    completed_good = (
+        0
+        if _is_blank(completed_cell)
+        else _to_int(completed_cell, row_number, "completed_good_qty")
+    )
 
     return WorkOrder(
         work_order_id=_to_str(row.get("work_order_id")),
@@ -109,6 +149,7 @@ def _parse_row(row: dict[str, object], row_number: int, registry: PartTypeRegist
         initial_wip_qty=wip_qty,
         initial_wip_remaining_time=remaining_time,
         priority=priority,
+        completed_good_qty=completed_good,
     )
 
 

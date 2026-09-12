@@ -174,6 +174,7 @@ def _graph_checks(
     # Per-location reference checks (machine, labor_skill) — path uses the location's
     # own index in the original `locations` list.
     errors.extend(_location_reference_checks(data, machine_names, declared_skills))
+    errors.extend(_shared_machine_checks(data))
 
     errors.extend(_orphan_stock_checks(data, locations_by_name))
     errors.extend(_output_stock_destination_checks(data))
@@ -185,6 +186,30 @@ def _graph_checks(
     for r_idx, entry in enumerate(routing):
         errors.extend(_routing_entry_checks(r_idx, entry, locations_by_name, model_max_rework))
 
+    return errors
+
+
+def _shared_machine_checks(data: dict[str, Any]) -> list[ValidationError]:
+    """Reject conflicting physical-resource declarations across recipe locations."""
+
+    seen: dict[str, tuple[int, object]] = {}
+    errors: list[ValidationError] = []
+    for index, location in enumerate(cast(list[RawLocation], data.get("locations", []))):
+        machine = location.get("machine")
+        if not isinstance(machine, str):
+            continue
+        signature = (location.get("capacity", 1), location.get("breakdown"))
+        prior = seen.setdefault(machine, signature)
+        if prior != signature:
+            errors.append(
+                ValidationError(
+                    path=f"locations[{index}].machine",
+                    message=(
+                        f"locations sharing machine {machine!r} must declare identical "
+                        "capacity and breakdown"
+                    ),
+                )
+            )
     return errors
 
 

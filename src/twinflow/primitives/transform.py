@@ -19,7 +19,7 @@ AttrFn = Callable[[list[Bundle]], AttrValue]
 # order's due date / priority survives each transform and stays visible to the
 # dispatch rule at the NEXT work center. Only these keys are carried (never a part
 # type's own domain attributes); a spec's own `attrs` fn for the same key overrides.
-_FLOW_ATTRS = ("due_date", "priority", "order_id")
+_FLOW_ATTRS = ("due_date", "priority", "order_id", "lot_id")
 
 
 @dataclass(frozen=True)
