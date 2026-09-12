@@ -5,6 +5,10 @@
 The complete manual. Whether you have never opened twinflow or you are looking up one
 config field, start here.
 
+Product direction: [Enterprise roadmap](enterprise-roadmap.md) and its linked
+[implementation playbook](enterprise-build-playbook.md) describe the proposed path to
+agent-driven manufacturing, front-office, and complex supply-chain decision twins.
+
 ## New here? Follow this path
 
 1. [concepts.md](concepts.md) — what a digital twin is here, the vocabulary, and why
