@@ -235,6 +235,12 @@ def evaluate_domain(
                 "max_wall_seconds": min(remaining, 30),
             },
         )
+        if domain == "office":
+            office_metrics = sample.get("metrics")
+            horizon = sample.get("horizon")
+            if not isinstance(office_metrics, dict) or not isinstance(horizon, (int, float)):
+                raise ValueError("Office adapter returned invalid metrics or horizon")
+            office_metrics["elapsed_simulation_seconds"] = float(horizon)
         samples.append(sample)
     keys = samples[0].get("metrics", {}).keys()
     metrics = {key: sum(float(sample["metrics"][key]) for sample in samples) / reps for key in keys}

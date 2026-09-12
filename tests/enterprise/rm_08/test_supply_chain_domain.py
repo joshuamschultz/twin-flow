@@ -193,6 +193,8 @@ def test_all_replications_contribute_censoring_gates_and_samples() -> None:
     result = evaluate(model, snapshot, seed=4, limits={"replications": 100})
     forecast = cast(list[dict[str, object]], result["order_forecasts"])[0]
     assert forecast["status"] == "partially_feasible"
+    assert forecast["delivery_at_p50"] is None
+    assert forecast["delivery_at_p90"] is None
     assert 0 < cast(int, forecast["censored_count"]) < 100
     assert cast(int, forecast["delivery_date_count"]) + cast(int, forecast["censored_count"]) == 100
     statuses = {gate["status"] for gate in cast(list[dict[str, object]], result["gate_results"])}

@@ -60,3 +60,11 @@ python -m twinflow.cli.admin backup --workspace .twinflow-workspace --out worksp
 ```
 
 The backup command requires the workspace to be stopped. Restore uses `python -m twinflow.cli.admin restore workspace-backup.zip --workspace .twinflow-workspace`. See [RM-02](rm-02/USER-GUIDE.md), [RM-06](rm-06/USER-GUIDE.md), [RM-07](rm-07/USER-GUIDE.md), [RM-08](rm-08/USER-GUIDE.md), and [RM-10](rm-10/USER-GUIDE.md) for domain details.
+
+## Workspace previews
+
+![Scenario library with manufacturing, office, and supply examples](images/library.png)
+
+![Scheduling workspace with verified assignments and export](images/scheduling.png)
+
+See the [operator walkthrough](rm-04/USER-GUIDE.md), [agent guide](AGENT-GUIDE.md), and [validation evidence](VALIDATION.md).

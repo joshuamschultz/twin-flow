@@ -7,7 +7,7 @@
 **An agent-accessible operational twin: import one scenario file, test alternatives, and retrieve evidence about work, dates, resources, and constraints across manufacturing, front offices, and supply chains.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0b2340)](#status--quality)
-[![tests](https://img.shields.io/badge/tests-615%20passing-1aa179)](#status--quality)
+[![tests](https://img.shields.io/badge/tests-619%20passing-1aa179)](#status--quality)
 [![mypy](https://img.shields.io/badge/mypy-strict-2bb5b5)](#status--quality)
 [![lint](https://img.shields.io/badge/lint-ruff-46a2f1)](#status--quality)
 [![status](https://img.shields.io/badge/status-alpha-f5a623)](#roadmap)
@@ -188,7 +188,7 @@ results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=42)
 
 ## ✅ What you get today
 
-Everything here is **built and tested** (615 passing tests). The versioned workspace API is the shared agent/operator boundary; APIs remain pre-1.0.
+Everything here is **built and tested** (619 passing tests). The versioned workspace API is the shared agent/operator boundary; APIs remain pre-1.0.
 
 | Capability | What it means for you |
 |---|---|
@@ -305,7 +305,7 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 ## Status & quality
 
 - **Python** ≥ 3.11.
-- **615 tests** across unit, analytical, and integration layers.
+- **619 tests** across unit, analytical, and integration layers.
 - **Blocking CI gates:** `ruff`, `mypy --strict`, `pytest`, `pip-audit` - the build fails on any finding.
 - **Config is the only trust boundary:** YAML is loaded through one safe door, expressions run in one sandbox, and validation reports every problem before a run starts.
 - **Reproducible by construction:** every run carries a stamp that lets you re-create it exactly.

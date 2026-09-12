@@ -1,6 +1,6 @@
 # Twinflow: roadmap to an enterprise decision twin
 
-Prepared 2026-09-12. Repository reviewed at `af5500d`.
+Prepared 2026-09-12. Baseline repository reviewed at `af5500d`. The [enterprise build status](enterprise/BUILD-STATUS.md) records the subsequent implementation against this roadmap.
 
 Companion: [Implementation playbook](enterprise-build-playbook.md). Every `RM-NN` below has a matching implementation section with architecture, tools, code sketches, and acceptance tests. This is a proposed product direction, not an implementation-complete specification.
 

@@ -1,6 +1,6 @@
 # Enterprise build status
 
-Integration branch: `enterprise-build`. This page records the integrated implementation slice, not enterprise readiness. Stable goals remain in the [roadmap](../enterprise-roadmap.md); rationale remains in the [playbook](../enterprise-build-playbook.md). Root will append final aggregate test totals.
+Integration branch: `enterprise-build`. This page records the integrated implementation slice, not enterprise readiness. Stable goals remain in the [roadmap](../enterprise-roadmap.md); rationale remains in the [playbook](../enterprise-build-playbook.md). See [validation evidence](VALIDATION.md) for the final checks and known limits.
 
 Principles: agent-first contracts; simple modules; explicit domain boundaries; operator UI over the same application API; no hidden production-readiness claims.
 
@@ -29,4 +29,4 @@ The operator API exposes proposal approval and dry-run delivery. MCP exposes pro
 
 ## Review checks
 
-Docs were checked against source routes in `src/twinflow/service`, SDK/MCP methods, CLI parsers, and UI calls in `web/src/workspace/api.ts`. All RM links resolve to existing epic documents. Root reports final integration evidence: 615 pytest tests passed, six Chromium journeys passed with screenshots inspected, strict mypy over 110 files passed, Ruff source checks passed, and npm/pip dependency audits reported no known vulnerabilities. No source, test, web, or application files are changed by this documentation branch.
+Docs were checked against source routes in `src/twinflow/service`, SDK/MCP methods, CLI parsers, and UI calls in `web/src/workspace/api.ts`. All RM links resolve to existing epic documents. Final integration evidence: 619 pytest tests passed, six Chromium journeys passed with screenshots inspected, strict mypy over 110 files passed, Ruff source checks passed, and npm/pip dependency audits reported no known vulnerabilities.

@@ -43,6 +43,7 @@ class SQLiteEventStore:
         inserted = 0
         duplicates = 0
         with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             for event in events:
                 row = connection.execute(
                     "SELECT raw_digest FROM operational_events "
@@ -116,6 +117,7 @@ class SQLiteEventStore:
     def save_snapshot(self, snapshot: Snapshot) -> None:
         document = json.dumps(snapshot_to_dict(snapshot), sort_keys=True, separators=(",", ":"))
         with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 "SELECT document FROM operational_snapshots WHERE snapshot_id=?",
                 (snapshot.snapshot_id,),

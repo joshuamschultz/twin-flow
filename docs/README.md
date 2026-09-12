@@ -9,6 +9,8 @@ Product direction: [Enterprise roadmap](enterprise-roadmap.md) and its linked
 [implementation playbook](enterprise-build-playbook.md) describe the proposed path to
 agent-driven manufacturing, front-office, and complex supply-chain decision twins.
 
+For the implemented enterprise branch, start with the [operator workspace guide](enterprise/README.md), [agent integration guide](enterprise/AGENT-GUIDE.md), and [build status](enterprise/BUILD-STATUS.md).
+
 ## New here? Follow this path
 
 1. [concepts.md](concepts.md) — what a digital twin is here, the vocabulary, and why

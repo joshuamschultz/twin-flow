@@ -464,7 +464,7 @@ def _aggregate(
             if row["delivery_at"] is not None
         )
         feasible_count = len(feasible_rows)
-        if feasible_count == len(rows):
+        if feasible_count == replications:
             status = "feasible"
         elif feasible_count == 0:
             status = "blocked"
@@ -478,14 +478,22 @@ def _aggregate(
             "on_time": first["on_time"] if len(rows) == 1 else None,
             "sample_count": len(rows),
             "feasible_count": feasible_count,
-            "censored_count": len(rows) - feasible_count,
+            "censored_count": replications - feasible_count,
             "delivery_date_count": len(dates),
-            "feasibility_probability": feasible_count / len(rows),
-            "on_time_probability": sum(row["on_time"] is True for row in rows) / len(rows),
+            "feasibility_probability": feasible_count / replications
+            if len(rows) == replications
+            else None,
+            "on_time_probability": (
+                sum(row["on_time"] is True for row in rows) / replications
+                if len(rows) == replications
+                else None
+            ),
         }
         if len(rows) > 1:
-            forecast["delivery_at_p50"] = _percentile_date(dates, 0.5)
-            forecast["delivery_at_p90"] = _percentile_date(dates, 0.9)
+            estimable = feasible_count == replications
+            forecast["delivery_at_p50"] = _percentile_date(dates, 0.5) if estimable else None
+            forecast["delivery_at_p90"] = _percentile_date(dates, 0.9) if estimable else None
+            forecast["date_estimability"] = "complete" if estimable else "censored"
         forecasts.append(forecast)
     shortages = _union_records(samples, "shortages", ("order_id", "item_id", "reason"), budget)
     gates = _union_gates(samples, budget)

@@ -213,7 +213,8 @@ def test_manufacturing_capsule_evaluate_honors_artifact_and_limits(tmp_path: Pat
     assert isinstance(result, RunResult)
     assert result.outcome == "incomplete_at_horizon"
     assert result.termination_reason == "event_limit"
-    assert result.event_log_path.parent == tmp_path
+    assert result.event_log_path.is_relative_to(tmp_path)
+    assert result.event_log_path.is_file()
 
 
 def test_evidence_query_pages_and_repository_quotas(tmp_path: Path) -> None:
@@ -239,3 +240,17 @@ def test_evidence_query_pages_and_repository_quotas(tmp_path: Path) -> None:
         ).json()
         assert first["total"] == 2 and len(first["evidence"]) == 1
         assert first["evidence"] != second["evidence"] and second["next_offset"] is None
+
+
+def test_concurrent_event_retries_are_idempotent(tmp_path: Path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    source = json.loads(
+        (ROOT / "examples/data/operational-events.jsonl").read_text().splitlines()[0]
+    )
+    event = parse_event(source)
+    store = SQLiteEventStore(tmp_path / "events.sqlite")
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda _: store.ingest([event]), range(8)))
+    assert sum(result.inserted for result in results) == 1
+    assert sum(result.duplicates for result in results) == 7

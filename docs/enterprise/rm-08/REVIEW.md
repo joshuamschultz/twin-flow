@@ -46,3 +46,5 @@ artifact creation, the adapter seam, and the distribution-only profile. Adversar
 pegged components, held/wrong-site and fully allocated supply, mixed-replication gate censoring,
 unequal correlated-risk bounds, full sample evidence, and cooperative limits. Fresh Ruff, strict mypy,
 focused pytest, and full regression evidence are reported with the commit.
+
+Integration review additionally suppresses unconditional delivery quantiles for censored or unfinished replication sets. The regression test asserts null P50/P90 for mixed feasible/blocked outcomes.
