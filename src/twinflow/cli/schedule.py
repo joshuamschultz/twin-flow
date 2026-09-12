@@ -7,15 +7,22 @@ import json
 from pathlib import Path
 from typing import Any
 
-from twinflow.scheduling import Operation, ResourceWindow, SchedulingProblem, solve
+from twinflow.scheduling import SchedulingProblem, problem_from_dict, solve
+from twinflow.scheduling.ortools import OptionalDependencyError, ORToolsSolver
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="twinflow-schedule")
     parser.add_argument("problem", type=Path)
+    parser.add_argument("--solver", choices=("baseline", "ortools"), default="baseline")
+    parser.add_argument("--time-limit", type=float)
     args = parser.parse_args(argv)
     problem = _load(args.problem)
-    result = solve(problem)
+    try:
+        selected = ORToolsSolver() if args.solver == "ortools" else None
+        result = solve(problem, solver=selected, time_limit_seconds=args.time_limit)
+    except OptionalDependencyError as exc:
+        parser.error(str(exc))
     print(
         json.dumps(
             {
@@ -34,33 +41,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _load(path: Path) -> SchedulingProblem:
     raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-    operations = tuple(
-        Operation(
-            item["id"],
-            item["duration"],
-            tuple(item.get("predecessors", [])),
-            tuple(item.get("eligible_resources", [])),
-            frozenset(item.get("required_qualifications", [])),
-            item.get("release_time", 0),
-            item.get("material_ready_time", 0),
-            item.get("document_ready_time", 0),
-            item.get("frozen_start"),
-            item.get("frozen_resource"),
-        )
-        for item in raw["operations"]
-    )
-    resources = tuple(
-        ResourceWindow(
-            item["resource_id"],
-            item["start"],
-            item["end"],
-            frozenset(item.get("qualifications", [])),
-        )
-        for item in raw["resources"]
-    )
-    return SchedulingProblem(
-        operations, resources, raw.get("objective", "makespan"), raw.get("deadline")
-    )
+    return problem_from_dict(raw)
 
 
 if __name__ == "__main__":
