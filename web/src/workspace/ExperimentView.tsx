@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { download, workspaceApi, type Experiment, type Scenario } from "./api";
 import { Icon } from "./Icons";
+import { DomainResults } from "./DomainResults";
 
 export function ExperimentView({
   jobs,
@@ -135,6 +136,7 @@ export function ExperimentView({
                     ))}
                   </div>
                   <p className="ws-note">{job.result.interpretation}</p>
+                  {job.result.domain && job.result.domain !== "manufacturing" ? <DomainResults result={job.result} /> : <>
                   <h3>Order completion outcomes</h3>
                   <p>
                     Simulation seconds from the scenario origin. Bands describe
@@ -180,6 +182,7 @@ export function ExperimentView({
                       </tbody>
                     </table>
                   </div>
+                  </>}
                   <details className="ws-outcomes">
                     <summary>Replication outcomes and termination</summary>
                     <pre>{JSON.stringify(job.result.outcomes, null, 2)}</pre>

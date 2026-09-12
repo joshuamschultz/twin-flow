@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections import defaultdict
 from collections.abc import Iterable
@@ -38,9 +39,10 @@ class SnapshotBuilder:
     ) -> None:
         self._store = store
         self._freshness_rules = tuple(freshness_rules)
-        if delayed_after_seconds < 0:
+        if not math.isfinite(delayed_after_seconds) or delayed_after_seconds < 0:
             raise ValueError("delayed_after_seconds must be non-negative")
-        if any(rule.maximum_age_seconds < 0 for rule in self._freshness_rules):
+        if any(not math.isfinite(rule.maximum_age_seconds) or rule.maximum_age_seconds < 0
+               for rule in self._freshness_rules):
             raise ValueError("freshness maximum ages must be non-negative")
         self._delayed_after_seconds = delayed_after_seconds
 
@@ -132,7 +134,7 @@ def _active_events(
         numeric = sorted(
             int(item.source_revision) for item in revisions if item.source_revision.isdigit()
         )
-        if numeric and numeric != list(range(numeric[0], numeric[-1] + 1)):
+        if numeric and any(b - a != 1 for a, b in zip(numeric, numeric[1:], strict=False)):
             diagnostics.append(
                 DataDiagnostic("revision_gap", "warning", f"revision gap for {key[0]}:{key[1]}")
             )

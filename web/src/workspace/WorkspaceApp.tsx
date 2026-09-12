@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { workspaceApi, download, type Scenario } from "./api";
+import { workspaceApi, download, setServiceToken, type Scenario } from "./api";
 import { Icon } from "./Icons";
 import { ImportDialog } from "./ImportDialog";
 import { ScenarioView } from "./ScenarioView";
@@ -333,16 +333,16 @@ export default function WorkspaceApp() {
                     >
                       <span className={`ws-example-icon color-${i % 3}`}>
                         <Icon
-                          name={example.id.includes("supply") ? "box" : "flow"}
+                          name={example.domain === "supply_chain" ? "box" : "flow"}
                           size={21}
                         />
                       </span>
                       <div>
                         <strong>{example.name}</strong>
                         <small>
-                          {example.id.includes("supply")
-                            ? "Inventory & replenishment"
-                            : "Production flow & resource capacity"}
+                          {example.domain === "supply_chain"
+                            ? "Multi-tier materials, dates & evidence"
+                            : example.domain === "office" ? "Tasks, approvals & information flow" : "Production flow & resource capacity"}
                         </small>
                       </div>
                       <Icon name="arrow" size={17} />
@@ -531,6 +531,9 @@ function BuildView() {
 }
 
 function AgentView() {
+  const cache = useQueryClient();
+  const [token, setToken] = useState("");
+  const [connection, setConnection] = useState("");
   const origin = location.origin;
   const example = `# Discover the contract\ncurl ${origin}/api/workspace/capabilities\ncurl ${origin}/api/workspace/schema\n\n# Load an included example\ncurl -X POST ${origin}/api/workspace/examples/load \\\n  -H 'Content-Type: application/json' \\\n  -d '{"example_id":"spring"}'\n\n# Evaluate the returned scenario ID\ncurl -X POST ${origin}/api/workspace/scenarios/SCENARIO_ID/evaluate \\\n  -H 'Content-Type: application/json' \\\n  -d '{"reps":10,"seed":42,"request_key":"baseline-001"}'`;
   return (
@@ -549,6 +552,15 @@ function AgentView() {
           <Icon name="arrow" size={16} />
         </a>
       </div>
+      <form className="ws-card" onSubmit={async event => {
+        event.preventDefault(); setServiceToken(token);
+        try { await workspaceApi.scenarios(); setConnection("Connected to the workspace"); await cache.invalidateQueries(); }
+        catch (error) { setConnection(error instanceof Error ? error.message : "Connection failed"); }
+      }}>
+        <h2>Workspace connection</h2><p>If your administrator configured access control, enter the service token. It stays in memory for this tab.</p>
+        <label className="ws-field">Service token<input type="password" autoComplete="off" value={token} onChange={event => setToken(event.target.value)} /></label>
+        <button className="ws-button" type="submit">Connect workspace</button><p role="status">{connection}</p>
+      </form>
       <div className="ws-agent-steps">
         {[
           {

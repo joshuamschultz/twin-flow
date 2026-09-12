@@ -55,7 +55,7 @@ class Workspace:
                 "max_active_jobs": 4,
                 "max_wall_seconds": 120,
             },
-            "supported_profiles": ["manufacturing.basic"],
+            "supported_profiles": ["manufacturing.basic", "office.basic", "supply_chain.basic"],
             "agent_workflow": [
                 "discover schema",
                 "collect facts",
@@ -71,19 +71,32 @@ class Workspace:
         }
 
     def examples(self) -> list[dict[str, str]]:
-        return [
-            {"id": p.parent.name, "name": p.parent.name.replace("-", " ").title()}
+        legacy = [
+            {"id": p.parent.name, "name": p.parent.name.replace("-", " ").title(),
+             "domain": "manufacturing"}
             for p in sorted(self.examples_root.glob("*/model.yaml"))
             if (p.parent / "plan.csv").is_file()
         ]
+        capsules = [
+            {"id": "capsule-" + p.name.removesuffix(".twin.yaml"),
+             "name": p.name.removesuffix(".twin.yaml").replace("-", " ").title(),
+             "domain": "supply_chain" if p.name.startswith("supply-") else "office"}
+            for p in sorted((self.examples_root / "capsules").glob("*.twin.yaml"))
+            if p.name != "spring.twin.yaml"
+        ]
+        return legacy + capsules
 
     def load_example(self, name: str) -> dict[str, Any]:
-        if name not in {e["id"] for e in self.examples()}:
+        example = next((e for e in self.examples() if e["id"] == name), None)
+        if example is None:
             raise KeyError(name)
+        if name.startswith("capsule-"):
+            path = self.examples_root / "capsules" / (name.removeprefix("capsule-") + ".twin.yaml")
+            return self.import_scenario(path.read_text(encoding="utf-8"), example["name"])
         capsule = scenarios.example_capsule(
             self.examples_root / name / "model.yaml", self.examples_root / name / "plan.csv"
         )
-        return self.import_scenario(json.dumps(capsule.to_dict()), name.replace("-", " ").title())
+        return self.import_scenario(json.dumps(capsule.to_dict()), example["name"])
 
     def import_scenario(
         self, content: str, name: str, parent_id: str | None = None
@@ -191,6 +204,10 @@ class Workspace:
         sa, sb = (self.repository.get("scenarios", j["scenario_id"]) for j in (a, b))
         if sa["capsule"]["snapshot"] != sb["capsule"]["snapshot"]:
             raise ValueError("Compare requires the same operational snapshot")
+        if a["result"].get("domain", "manufacturing") != b["result"].get("domain", "manufacturing"):
+            raise ValueError("Compare requires the same domain")
+        if a["result"]["metrics"].keys() != b["result"]["metrics"].keys():
+            raise ValueError("Compare requires compatible metric contracts")
         return {
             "baseline_id": baseline_id,
             "candidate_id": candidate_id,
@@ -204,6 +221,11 @@ class Workspace:
     def save_draft(
         self, name: str, facts: dict[str, Any], answers: list[dict[str, str]]
     ) -> dict[str, Any]:
+        facts = dict(facts)
+        for answer in answers:
+            key, value = answer.get("id"), answer.get("answer")
+            if key and value:
+                facts[key] = value
         questions = [
             {"id": key, "question": question}
             for key, question in (
@@ -233,3 +255,11 @@ class Workspace:
         }
         self.repository.create("drafts", draft["id"], draft)
         return draft
+
+    def answer_draft(self, draft_id: str, answers: list[dict[str, str]]) -> dict[str, Any]:
+        previous = self.repository.get("drafts", draft_id)
+        # Each answer creates a retained revision rather than discarding prior intake.
+        revision = self.save_draft(previous["name"], previous["facts"], previous["answers"] + answers)
+        revision["parent_id"] = draft_id
+        self.repository.update("drafts", revision["id"], revision)
+        return revision

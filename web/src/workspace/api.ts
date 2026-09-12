@@ -42,6 +42,8 @@ export interface Experiment {
   created_at: string;
   error: string | null;
   result: {
+    domain?: string;
+    per_replication?: Record<string, unknown>[];
     metrics: Record<string, number>;
     intervals: {
       completion_by_order: Record<string, Band>;
@@ -76,18 +78,20 @@ export interface Draft {
 export interface Example {
   id: string;
   name: string;
+  domain?: string;
 }
+
+let serviceToken = "";
+export function setServiceToken(value: string) { serviceToken = value; }
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(
     `/api/workspace${path}`,
-    body === undefined
-      ? undefined
-      : {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
+    {
+      method: body === undefined ? "GET" : "POST",
+      headers: {"Content-Type": "application/json", ...(serviceToken ? {Authorization: `Bearer ${serviceToken}`} : {})},
+      ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+    },
   );
   if (!response.ok) {
     const payload = await response.json().catch(() => null);

@@ -1,0 +1,104 @@
+{
+  "schema_version": "0.1",
+  "model": {
+    "sites": [
+      {
+        "id": "dc"
+      }
+    ],
+    "suppliers": [
+      {
+        "id": "carrier-a",
+        "site_id": "dc",
+        "delay_risk": {
+          "minimum_days": 1,
+          "maximum_days": 3,
+          "common_risk_group": "port-closure"
+        }
+      },
+      {
+        "id": "carrier-b",
+        "site_id": "dc",
+        "delay_risk": {
+          "minimum_days": 1,
+          "maximum_days": 3,
+          "common_risk_group": "port-closure"
+        }
+      }
+    ],
+    "items": [
+      {
+        "id": "case-good",
+        "kind": "purchased",
+        "uom": "case"
+      }
+    ],
+    "bom_revisions": [],
+    "processes": [],
+    "qualifications": [],
+    "gates": [],
+    "domain": "supply_chain"
+  },
+  "snapshot": {
+    "as_of": "2026-01-01T00:00:00Z",
+    "inventory": [],
+    "receipts": [
+      {
+        "id": "receipt-a",
+        "item_id": "case-good",
+        "site_id": "dc",
+        "quantity": 5,
+        "uom": "case",
+        "available_at": "2026-01-05T00:00:00Z",
+        "supplier_id": "carrier-a"
+      },
+      {
+        "id": "receipt-b",
+        "item_id": "case-good",
+        "site_id": "dc",
+        "quantity": 5,
+        "uom": "case",
+        "available_at": "2026-01-05T00:00:00Z",
+        "supplier_id": "carrier-b"
+      }
+    ],
+    "allocations": [],
+    "documents": [],
+    "orders": [
+      {
+        "id": "retailer-a",
+        "item_id": "case-good",
+        "site_id": "dc",
+        "quantity": 5,
+        "uom": "case",
+        "due_at": "2026-01-09T00:00:00Z",
+        "priority": 2
+      },
+      {
+        "id": "retailer-b",
+        "item_id": "case-good",
+        "site_id": "dc",
+        "quantity": 5,
+        "uom": "case",
+        "due_at": "2026-01-09T00:00:00Z",
+        "priority": 1
+      }
+    ],
+    "id": "distribution-snapshot",
+    "model_revision": "1"
+  },
+  "experiment": {
+    "id": "baseline",
+    "replications": 10,
+    "seed": 42
+  },
+  "assumptions": [
+    "Material-feasibility forecast; finite production capacity is not modeled."
+  ],
+  "provenance": {
+    "source": "included-example"
+  },
+  "required_capabilities": [
+    "supply_chain.basic"
+  ]
+}

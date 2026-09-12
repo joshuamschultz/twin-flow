@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -41,7 +42,7 @@ def parse_event(record: Mapping[str, Any]) -> OperationalEvent:
     ):
         raise EventValidationError("payload must be a JSON object with string keys")
     _validate_json(payload_value, depth=0, key_count=[0])
-    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     if len(canonical.encode()) > MAX_RECORD_BYTES:
         raise EventValidationError(f"record exceeds {MAX_RECORD_BYTES} bytes")
     supersedes = record.get("supersedes_event_id")
@@ -120,6 +121,8 @@ def _timestamp(value: object, name: str) -> datetime:
 def _validate_json(value: object, *, depth: int, key_count: list[int]) -> None:
     if depth > MAX_PAYLOAD_DEPTH:
         raise EventValidationError(f"payload exceeds maximum depth {MAX_PAYLOAD_DEPTH}")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise EventValidationError("payload numbers must be finite")
     if value is None or isinstance(value, (bool, int, float, str)):
         return
     if isinstance(value, list):

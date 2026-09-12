@@ -80,6 +80,7 @@ class CapabilitiesResponse(BaseModel):
 class ExampleResponse(BaseModel):
     id: str
     name: str
+    domain: str = "manufacturing"
 
 
 class CompareResponse(BaseModel):

@@ -6,7 +6,11 @@ Never resolves includes or external references.
 
 from __future__ import annotations
 
+from typing import Any
+
 import yaml
+
+MAX_NESTING = 32
 
 
 class RawModel:
@@ -73,3 +77,70 @@ def load_raw_model(path: str) -> RawModel:
         )
 
     return RawModel(parsed)
+
+
+def _reject_yaml_aliases(raw: bytes) -> None:
+    """Reject anchors and aliases before safe_load can expand them."""
+    tokens = yaml.scan(raw)
+    for token in tokens:
+        if isinstance(token, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken)):
+            raise ValueError("YAML anchors and aliases are not allowed in capsules")
+
+
+class _UniqueSafeLoader(yaml.SafeLoader):
+    """SafeLoader variant that rejects duplicate mapping keys."""
+
+
+def _unique_mapping(
+    loader: _UniqueSafeLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise ValueError(f"duplicate YAML key: {key!r}")
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueSafeLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
+
+
+def parse_document(raw: bytes) -> object:
+    """Parse YAML after token/node checks, with stable boundary exceptions."""
+    try:
+        _reject_yaml_aliases(raw)
+        node = yaml.compose(raw)
+        if node is not None:
+            _check_yaml_node(node)
+        loader = _UniqueSafeLoader(raw)
+        try:
+            return loader.get_single_data()
+        finally:
+            loader.dispose()
+    except (yaml.YAMLError, RecursionError) as exc:
+        raise ValueError(f"invalid capsule YAML: {exc}") from exc
+
+
+def _check_yaml_node(node: yaml.Node, depth: int = 0) -> int:
+    if depth > MAX_NESTING:
+        raise ValueError(f"capsule nesting exceeds {MAX_NESTING} levels")
+    if isinstance(node, yaml.MappingNode):
+        keys: set[str] = set()
+        total = 1
+        for key, value in node.value:
+            if isinstance(key, yaml.ScalarNode) and key.value in keys:
+                raise ValueError(f"duplicate YAML key: {key.value!r}")
+            if isinstance(key, yaml.ScalarNode):
+                keys.add(key.value)
+            total += _check_yaml_node(key, depth + 1) + _check_yaml_node(value, depth + 1)
+        return total
+    if isinstance(node, yaml.SequenceNode):
+        return 1 + sum(_check_yaml_node(value, depth + 1) for value in node.value)
+    return 1
+
+
+
+def dump_document(data: object) -> str:
+    """Serialize portable data through the same safe YAML boundary."""
+    return str(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))

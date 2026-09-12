@@ -17,3 +17,5 @@ runs/
 
 web/test-results/
 web/playwright-report/
+
+/artifacts/

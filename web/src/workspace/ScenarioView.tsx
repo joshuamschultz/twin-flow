@@ -23,12 +23,16 @@ export function ScenarioView({
     (job) => job.scenario_id === scenario.id && job.status === "completed",
   );
   const graph = scenario.summary;
-  const orders = (scenario.capsule.snapshot.production_plan ?? []) as {
-    work_order_id: string;
-    part: string;
-    qty: number;
-    due_date: string;
-  }[];
+  const domain = String(scenario.capsule.model.domain ?? "manufacturing");
+  const rawOrders = (scenario.capsule.snapshot.production_plan ?? scenario.capsule.snapshot.orders ?? scenario.capsule.snapshot.cases ?? []) as Record<string, unknown>[];
+  const orders = rawOrders.map(row => ({
+    work_order_id: String(row.work_order_id ?? row.id),
+    part: String(row.part ?? row.item_id ?? "Case"),
+    qty: String(row.qty ?? row.quantity ?? 1),
+    due_date: String(row.due_date ?? row.due_at ?? row.due ?? "Not specified"),
+  }));
+  const latestMetric = latest?.result?.metrics;
+  const headline = domain === "manufacturing" ? latestMetric?.on_time_pct : domain === "office" ? latestMetric?.completed_cases : latestMetric?.feasible_count;
   return (
     <>
       <div className="ws-page-heading">
@@ -69,13 +73,13 @@ export function ScenarioView({
       </div>
       <div className="ws-metrics">
         <Metric
-          label="Processes"
+          label={domain === "supply_chain" ? "Items" : "Processes"}
           value={graph.processes}
-          hint="Connected work centers"
+          hint="Connected model elements"
           icon="flow"
         />
         <Metric
-          label="Orders in scope"
+          label={domain === "office" ? "Cases in scope" : "Orders in scope"}
           value={graph.orders}
           hint="From this snapshot"
           icon="layers"
@@ -87,9 +91,9 @@ export function ScenarioView({
           icon="box"
         />
         <Metric
-          label="On-time · simulated"
+          label={domain === "manufacturing" ? "On-time · simulated" : "Completed / feasible"}
           value={
-            latest ? `${latest.result!.metrics.on_time_pct.toFixed(1)}%` : "—"
+            headline === undefined ? "—" : `${headline.toFixed(1)}${domain === "manufacturing" ? "%" : ""}`
           }
           hint={
             latest
@@ -134,7 +138,7 @@ export function ScenarioView({
                     <th>Order</th>
                     <th>Part / work item</th>
                     <th>Quantity</th>
-                    <th>Due · simulation time</th>
+                    <th>{domain === "supply_chain" ? "Due date" : "Due · simulation time"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -150,7 +154,7 @@ export function ScenarioView({
               </table>
               {orders.length === 0 && (
                 <p className="ws-table-empty">
-                  No production orders in this snapshot.
+                  No demand in this snapshot.
                 </p>
               )}
               {orders.length > 100 && (
