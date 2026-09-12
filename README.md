@@ -45,7 +45,7 @@ The legacy manufacturing engine remains configuration-driven. The integrated wor
 |---|---|
 | Will these orders complete on time? | Accepted completion dates and on-time %, each with a confidence range |
 | Where does the line actually choke? | Utilization per cell and per machine, and a clear wait breakdown: starved vs blocked vs waiting-on-material |
-| Is one more operator worth it? | Run each staffing level many times and compare them with a paired confidence interval on the difference |
+| Is one more operator worth it? | Compare staffing scenarios across replications; workspace results report mean differences, while legacy sweep analysis supports paired intervals |
 | How big should the batch or buffer be? | Every option on a lever grid, side by side, fairly compared |
 | Can I trust last quarter's number? | Retained inputs, seed, outcomes, and runtime evidence for reproducibility checks |
 

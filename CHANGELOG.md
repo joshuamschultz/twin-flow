@@ -21,7 +21,7 @@ and operator UI.
 - A local operator workspace for manufacturing, office workflow, and
   supply-network capsules, including import/export UI, data snapshots,
   schedule views, evidence panels, and dry-run action review.
-- Manufacturing, office, and supply-chain adapters with domain-specific
+- Manufacturing, office, and supply-chain execution paths with domain-specific
   validation and JSON-safe results; actual source events can be reconciled into
   snapshots with freshness and provenance metadata.
 - Workspace settings, health/readiness checks, SQLite persistence, bounded jobs,

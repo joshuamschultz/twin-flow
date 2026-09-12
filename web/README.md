@@ -15,6 +15,8 @@ for the shared contracts.
 
 ## Prerequisites
 
+Use Node.js 22.12 or newer.
+
 Install the Python service from the repository root, then start it on the local
 operator address:
 
