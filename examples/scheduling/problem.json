@@ -1,0 +1,11 @@
+{
+  "objective": "makespan",
+  "operations": [
+    {"id": "cut", "duration": 2, "required_qualifications": ["machinist"]},
+    {"id": "assemble", "duration": 3, "predecessors": ["cut"], "required_qualifications": ["assembler"]}
+  ],
+  "resources": [
+    {"resource_id": "machine-1", "start": 0, "end": 20, "qualifications": ["machinist"]},
+    {"resource_id": "bench-1", "start": 0, "end": 20, "qualifications": ["assembler"]}
+  ]
+}
