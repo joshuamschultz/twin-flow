@@ -37,7 +37,7 @@ No custom code per plant. **One `model.yaml` plus a production plan (`.xlsx` or 
 |---|---|
 | Will these orders ship on time? | Completion dates and on-time %, each with a confidence range |
 | Where does the line actually choke? | Utilization per cell and per machine, and a clear wait breakdown: starved vs blocked vs waiting-on-material |
-| Is one more operator worth it? | Run each staffing level many times and compare their on-time confidence ranges side by side (a paired confidence interval on the *difference* is on the roadmap) |
+| Is one more operator worth it? | Run each staffing level many times and compare them with a paired confidence interval on the difference |
 | How big should the batch or buffer be? | Every option on a lever grid, side by side, fairly compared |
 | Can I trust last quarter's number? | A reproducibility stamp on every run: same inputs, same answer, forever |
 
@@ -191,7 +191,7 @@ Everything here is **built and tested** (507 passing tests). The library API is 
 | **Reproducible, seeded runs** | Every run is repeatable to the number. Same inputs, same answer - which is what makes fair comparison possible. |
 | **KPIs from one event log** | Completion dates and on-time %, per-cell and per-machine utilization, a clear wait breakdown (starved / blocked / waiting-on-material), labor and machine hours, setup hours separate from run hours, and work-in-progress over time. |
 | **What-if lever sweeps** | Try staffing, buffers, and batch sizes across a grid and see every option side by side, fairly paired with common random numbers. The twin shows the trade space and deliberately picks **no winner** - the call stays yours. |
-| **Replications + confidence intervals** | Run many replications in parallel; every headline KPI comes back as a mean with a low-to-high confidence range, shown in the report as range charts. (A paired confidence interval on the *difference* between two setups is on the roadmap.) |
+| **Replications + uncertainty** | Run many replications in a bounded process pool; outcome quantiles, confidence intervals on estimated means, censoring counts, and paired differences have distinct contracts. |
 | **One emailable report** | A single self-contained HTML file that opens offline with no internet, plus a versioned JSON file for machines. Every report opens with the assumptions the engine had to make, stated plainly. |
 | **Full reproducibility stamp** | Each run records hashes of the model and plan, the seed, the engine version, the Python version, and the exact dependency set. A result can always be traced back and re-created. |
 

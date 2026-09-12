@@ -9,9 +9,11 @@ from __future__ import annotations
 import math
 import multiprocessing
 import os
+import shutil
 import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 import scipy.stats  # type: ignore[import-untyped]  # no stub package; SciPy is the D-036-endorsed CI library
@@ -28,6 +30,10 @@ def _run_one_replication(
     plan: list[WorkOrder],
     base_seed: int,
     replication_index: int,
+    artifact_dir: str,
+    max_sim_time: float | None,
+    max_events: int | None,
+    max_wall_seconds: float | None,
 ) -> RunResult:
     """Per-process worker (D-028). MODULE-LEVEL so macOS `spawn` can pickle it
     by qualified name, and takes only picklable arguments: a model PATH, never
@@ -38,7 +44,15 @@ def _run_one_replication(
     """
     compiled = load_model(model_path)
     driver = RunDriver(compiled)
-    return driver.run(plan, seed=base_seed, replication_index=replication_index)
+    return driver.run(
+        plan,
+        seed=base_seed,
+        replication_index=replication_index,
+        artifact_dir=Path(artifact_dir) / f"replication-{replication_index:04d}",
+        max_sim_time=max_sim_time,
+        max_events=max_events,
+        max_wall_seconds=max_wall_seconds,
+    )
 
 
 class ReplicationRunner:
@@ -51,12 +65,42 @@ class ReplicationRunner:
     def __init__(self, model_path: str) -> None:
         self._model_path = model_path
 
-    def run(self, plan: list[WorkOrder], reps: int, base_seed: int) -> list[RunResult]:
+    def run(
+        self,
+        plan: list[WorkOrder],
+        reps: int,
+        base_seed: int,
+        *,
+        artifact_dir: str | Path | None = None,
+        max_workers: int = 4,
+        max_sim_time: float | None = None,
+        max_events: int | None = None,
+        max_wall_seconds: float | None = None,
+    ) -> list[RunResult]:
         """Dispatch `reps` replications, each to its own process, and return
         their `RunResult`s. `base_seed` and the replication index are threaded
         through explicitly to every worker — never a per-worker default."""
-        args = [(self._model_path, plan, base_seed, index) for index in range(reps)]
-        processes = min(reps, os.cpu_count() or reps)
+        if reps < 1:
+            raise ValueError("reps must be positive")
+        if max_workers < 1:
+            raise ValueError("max_workers must be positive")
+        root = Path(artifact_dir) if artifact_dir is not None else Path("runs")
+        root.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(self._model_path, root / "resolved-model.yaml")
+        args = [
+            (
+                self._model_path,
+                plan,
+                base_seed,
+                index,
+                str(root.resolve()),
+                max_sim_time,
+                max_events,
+                max_wall_seconds,
+            )
+            for index in range(reps)
+        ]
+        processes = min(reps, max_workers, os.cpu_count() or max_workers)
         with multiprocessing.Pool(processes=processes) as pool:
             return pool.starmap(_run_one_replication, args)
 
