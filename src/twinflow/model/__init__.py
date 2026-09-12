@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any, cast
 
 from twinflow.model.compile import LocationCompiler
@@ -10,6 +11,13 @@ from twinflow.model.expressions import ExpressionSandbox
 from twinflow.model.loader import RawModel, load_raw_model
 from twinflow.model.schema import LocationSpec
 from twinflow.model.validate import ModelValidator, ValidationError
+from twinflow.primitives.calendar import (
+    CalendarConfig,
+    CalendarException,
+    WorkingInterval,
+    parse_clock,
+    parse_day,
+)
 from twinflow.primitives.part import PartTypeRegistry, PartTypeSpec
 
 __all__ = [
@@ -41,6 +49,7 @@ class LaborPoolConfig:
     headcount: int
     skills: frozenset[str]
     absence_rate: float = 0.0
+    calendar: CalendarConfig | None = None
     """Operator-absence disruption (A4): the seeded probability that each headcount
     slot is unavailable for a run (0.0 = fully staffed, the default). The driver draws
     the number of absent slots once per run from the SOURCE_ABSENCE stream and builds
@@ -190,9 +199,40 @@ def _build_labor_pools(raw_model: RawModel) -> list[LaborPoolConfig]:
             headcount=int(pool["headcount"]),
             skills=frozenset(str(skill) for skill in pool.get("skills", [])),
             absence_rate=float(pool.get("absence_rate", 0.0)),
+            calendar=_build_calendar(pool.get("calendar")),
         )
         for pool in pools
     ]
+
+
+def _build_calendar(raw_value: object) -> CalendarConfig | None:
+    """Compile a validated labor calendar mapping into immutable value objects."""
+    if raw_value is None:
+        return None
+    raw = cast(dict[str, Any], raw_value)
+    weekly = tuple(
+        WorkingInterval(
+            days=frozenset(parse_day(str(day)) for day in item["days"]),
+            start=parse_clock(str(item["start"])),
+            end=parse_clock(str(item["end"])),
+        )
+        for item in raw["weekly"]
+    )
+    exceptions = tuple(
+        CalendarException(
+            day=date.fromisoformat(str(item["date"])),
+            closed=bool(item.get("closed", False)),
+            start=parse_clock(str(item["start"])) if item.get("start") is not None else None,
+            end=parse_clock(str(item["end"])) if item.get("end") is not None else None,
+        )
+        for item in raw.get("exceptions", [])
+    )
+    return CalendarConfig(
+        timezone=str(raw["timezone"]),
+        origin=datetime.fromisoformat(str(raw["origin"])),
+        weekly=weekly,
+        exceptions=exceptions,
+    )
 
 
 def _build_release(raw_model: RawModel) -> ReleaseConfig:
@@ -219,9 +259,7 @@ def _build_stocks(raw_model: RawModel) -> list[StockConfig]:
             reorder_point=(
                 float(stock["reorder_point"]) if stock.get("reorder_point") is not None else None
             ),
-            refill_to=(
-                float(stock["refill_to"]) if stock.get("refill_to") is not None else None
-            ),
+            refill_to=(float(stock["refill_to"]) if stock.get("refill_to") is not None else None),
             lead_time=float(stock.get("lead_time", 0.0)),
             supplier=(str(stock["supplier"]) if stock.get("supplier") is not None else None),
         )

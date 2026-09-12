@@ -113,3 +113,6 @@ class LocationSpec:
     breakdown: BreakdownSpec | None = None
     """A declared machine-breakdown disruption (A4), or None. `RunDriver` starts a
     seeded failure process from it that makes the machine unavailable for repair."""
+
+    shift_crossing: str = "overtime"
+    """How setup/run work behaves at shift end: pause, finish_unattended, overtime."""

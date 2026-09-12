@@ -125,14 +125,23 @@ class KpiEngine:
             .collect()
         )
 
+        resource_events = self._resource_events(event_paths)
+
         busy_seconds_by_location = self._busy_seconds_by_location(events)
-        utilization_by_cell = {
-            location_id: busy / horizon for location_id, busy in busy_seconds_by_location.items()
-        }
-        machine_hours_by_machine = {
-            location_id: busy / 3600.0 for location_id, busy in busy_seconds_by_location.items()
-        }
-        run_hours = sum(machine_hours_by_machine.values())
+        if resource_events is None:
+            utilization_by_cell = {
+                location_id: busy / horizon
+                for location_id, busy in busy_seconds_by_location.items()
+            }
+            machine_hours_by_machine = {
+                location_id: busy / 3600.0 for location_id, busy in busy_seconds_by_location.items()
+            }
+            labor_hours = {("default", "default"): sum(machine_hours_by_machine.values())}
+        else:
+            utilization_by_cell, machine_hours_by_machine, labor_hours = self._resource_attribution(
+                resource_events, horizon
+            )
+        run_hours = sum(busy_seconds_by_location.values()) / 3600.0
         total_busy_seconds = sum(busy_seconds_by_location.values())
         setup_hours = self._setup_hours(events)
 
@@ -159,7 +168,7 @@ class KpiEngine:
             labor_pool_utilization={"default": total_busy_seconds / (horizon * capacity)},
             wip_by_location=self._wip_by_location(events),
             machine_hours_by_machine=machine_hours_by_machine,
-            labor_hours_by_pool_skill={("default", "default"): run_hours},
+            labor_hours_by_pool_skill=labor_hours,
             run_hours=run_hours,
             setup_hours=setup_hours,
             event_counts_by_location=self._event_counts_by_location(events),
@@ -168,6 +177,48 @@ class KpiEngine:
             completed_order_count=sum(o.status == "completed" for o in outcomes.values()),
             censored_order_count=sum(o.status != "completed" for o in outcomes.values()),
         )
+
+    @staticmethod
+    def _resource_events(
+        event_paths: str | Path | Sequence[str | Path],
+    ) -> pl.DataFrame | None:
+        """Load the colocated resource ledger for a single run when present."""
+        if not isinstance(event_paths, (str, Path)):
+            return None
+        path = Path(event_paths).parent / "resource_usage.parquet"
+        return pl.read_parquet(path) if path.exists() else None
+
+    @staticmethod
+    def _resource_attribution(
+        resources: pl.DataFrame, horizon: float
+    ) -> tuple[dict[str, float], dict[str, float], dict[tuple[str, str], float]]:
+        """Compute utilization and occupied hours from named resource intervals."""
+        with_duration = resources.with_columns(
+            (pl.col("run_end") - pl.col("setup_start")).alias("occupied_seconds")
+        )
+        machines = with_duration.group_by("location_id", "machine_id").agg(
+            pl.col("occupied_seconds").sum()
+        )
+        machine_hours = {
+            str(row["machine_id"]): float(row["occupied_seconds"]) / 3600.0
+            for row in machines.iter_rows(named=True)
+        }
+        cells = machines.group_by("location_id").agg(
+            pl.col("occupied_seconds").sum().alias("busy"),
+            pl.col("machine_id").n_unique().alias("machines"),
+        )
+        utilization = {
+            str(row["location_id"]): float(row["busy"]) / (horizon * int(row["machines"]))
+            for row in cells.iter_rows(named=True)
+        }
+        labor = with_duration.group_by("labor_pool", "labor_skill").agg(
+            pl.col("labor_seconds").sum()
+        )
+        labor_hours = {
+            (str(row["labor_pool"]), str(row["labor_skill"])): float(row["labor_seconds"]) / 3600.0
+            for row in labor.iter_rows(named=True)
+        }
+        return utilization, machine_hours, labor_hours
 
     @staticmethod
     def _order_outcomes(

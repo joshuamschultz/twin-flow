@@ -21,7 +21,7 @@ from simpy.resources.resource import PriorityRequest
 from twinflow.engine.rng import SOURCE_CYCLE_TIME, SOURCE_ROUTING, RngRegistry
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.cell import Machine, SetupPolicy
-from twinflow.primitives.labor import PRIORITY_LOAD, LaborPool
+from twinflow.primitives.labor import PRIORITY_LOAD, PRIORITY_UNLOAD, LaborPool
 from twinflow.primitives.part import PartTypeRegistry
 from twinflow.primitives.stock import Stock
 from twinflow.primitives.time_model import TimeModel
@@ -31,9 +31,7 @@ from twinflow.primitives.transform import Transform
 # (instrumentation/event_log.py). Defined here Polars-free so that primitives never
 # imports instrumentation (structure.md boundary): Location produces plain tuples;
 # the Layer-4 EventLog owns the schema/Enum and the Polars conversion at flush time.
-RecordTuple = tuple[
-    str, str, str, str, float, float, float | None, float, float, float, str, float
-]
+RecordTuple = tuple[str, str, str, str, float, float, float | None, float, float, float, str, float]
 
 
 class EventSink(Protocol):
@@ -47,6 +45,15 @@ class EventSink(Protocol):
     """
 
     def append(self, record: RecordTuple) -> None: ...
+
+
+class ResourceSink(Protocol):
+    """Structural sink for per-firing resource attribution."""
+
+    def append(
+        self,
+        record: tuple[str, str, str, str, float, float, float, float, float, float, float],
+    ) -> None: ...
 
 
 class PullRule:
@@ -178,6 +185,7 @@ class Location:
         labor_pool: LaborPool,
         event_log: EventSink,
         rng: RngRegistry,
+        resource_log: ResourceSink | None = None,
     ) -> None:
         self.spec = spec
         self.env = env
@@ -185,11 +193,24 @@ class Location:
         self.labor_pool = labor_pool
         self.event_log = event_log
         self.rng = rng
+        self.resource_log = resource_log
         self._queue: list[Bundle] = []
         self._arrival_times: dict[int, float] = {}
         self._arrival_event: simpy.Event = env.event()
         self._lot_counter = 0
         self._capacity: int = getattr(spec, "capacity", 1)
+        base_machine = spec.machine
+        self._available_machines = [
+            Machine(
+                machine_id=(
+                    base_machine.machine_id
+                    if self._capacity == 1
+                    else f"{base_machine.machine_id}-{index + 1}"
+                ),
+                initial_setup=base_machine.current_setup,
+            )
+            for index in range(self._capacity)
+        ]
         self._in_flight = 0
         self._free_event: simpy.Event | None = None
         # Active-control dispatch rule (A1): which queued job this center runs next.
@@ -238,7 +259,11 @@ class Location:
         off the head of the DISPATCH-ORDERED queue — the job the active-control rule
         would run first sets the machine's initial setup.
         """
-        current = self.spec.machine.current_setup
+        current = (
+            self._available_machines[0].current_setup
+            if len(self._available_machines) == 1
+            else None
+        )
         if current is not None:
             return current
         if not ordered:
@@ -300,6 +325,7 @@ class Location:
         # ResourceAcquirer's raw dual-PriorityResource contract.
         machine_request: PriorityRequest = self.machine_pool.request()
         yield machine_request
+        machine = self._available_machines.pop(0)
         operator_handle: PriorityRequest | None = None
         try:
             operator_handle = yield from self.labor_pool.request(
@@ -320,14 +346,16 @@ class Location:
             # one setup group (D-047) is out of scope until a real batch case
             # exercises it.
             job_bundle = selected[0]
+            setup_start = self.env.now
 
             # Step 4: charge setup, if the job's setup group differs from the
             # machine's current one (D-045: setup sits after material pull).
             setup_seconds, new_setup = self.spec.setup_policy.changeover(
-                self.spec.machine.current_setup, job_bundle
+                machine.current_setup, job_bundle
             )
-            yield self.env.timeout(setup_seconds)
-            self.spec.machine.current_setup = new_setup
+            crossing = getattr(self.spec, "shift_crossing", "overtime")
+            yield from self.labor_pool.work(setup_seconds, crossing)
+            machine.current_setup = new_setup
 
             actual_start = self.env.now
 
@@ -335,7 +363,20 @@ class Location:
             phase_times = self.spec.time_model.sample(
                 job_bundle, self.rng.generator(SOURCE_CYCLE_TIME)
             )
-            yield self.env.timeout(phase_times.load + phase_times.run + phase_times.unload)
+            run_seconds = phase_times.load + phase_times.run + phase_times.unload
+            labor_seconds = setup_seconds + run_seconds
+            if crossing == "finish_unattended":
+                yield from self.labor_pool.work(phase_times.load, crossing)
+                self.labor_pool.release(operator_handle)
+                operator_handle = None
+                yield self.env.timeout(phase_times.run)
+                operator_handle = yield from self.labor_pool.request(
+                    self.spec.labor_skill, PRIORITY_UNLOAD
+                )
+                yield from self.labor_pool.work(phase_times.unload, crossing)
+                labor_seconds = setup_seconds + phase_times.load + phase_times.unload
+            else:
+                yield from self.labor_pool.work(run_seconds, crossing)
 
             actual_end = self.env.now
 
@@ -377,10 +418,27 @@ class Location:
                     setup_seconds,
                 )
             )
+            if self.resource_log is not None:
+                self.resource_log.append(
+                    (
+                        self.spec.location_id,
+                        machine.machine_id,
+                        self.labor_pool.name,
+                        self.spec.labor_skill,
+                        setup_start,
+                        actual_start,
+                        actual_end,
+                        release_time,
+                        setup_seconds,
+                        run_seconds,
+                        labor_seconds,
+                    )
+                )
         finally:
             # Step 8: release operator, THEN machine — the reverse of the
             # acquisition order, and symmetric on any mid-firing failure
             # (D-053): release only whatever leg was actually acquired.
             if operator_handle is not None:
                 self.labor_pool.release(operator_handle)
+            self._available_machines.append(machine)
             self.machine_pool.release(machine_request)

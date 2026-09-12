@@ -132,6 +132,7 @@ class LocationCompiler:
             material_spec=_build_material_spec(loc),
             dispatch=str(loc.get("dispatch", "fifo")),
             breakdown=_build_breakdown(loc),
+            shift_crossing=str(loc.get("shift_crossing", "overtime")),
         )
 
 

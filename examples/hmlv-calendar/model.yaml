@@ -1,0 +1,39 @@
+stocks: []
+
+part_types:
+  - {name: raw, uom: piece, attributes: {}}
+  - {name: finished, uom: piece, attributes: {}}
+
+machines:
+  - {name: mill}
+
+labor:
+  pools:
+    - name: machinists
+      headcount: 2
+      skills: [mill]
+      calendar:
+        timezone: America/Chicago
+        origin: "2026-03-02T07:00:00-06:00"
+        weekly:
+          - {days: [mon, tue, wed, thu, fri], start: "07:00", end: "15:30"}
+        exceptions:
+          - {date: "2026-03-09", closed: true}
+
+locations:
+  - name: mill
+    consumes: [{thing: raw, qty: 1, uom: piece}]
+    emits: [{thing: finished, qty: 1, uom: piece}]
+    setup_key: finished-family
+    changeover_seconds: 600
+    capacity: 2
+    time_model: {kind: rate_based, rate: 0.0002777777777777778}
+    machine: mill
+    labor_skill: mill
+    shift_crossing: pause
+
+routing:
+  - {part: finished, steps: [mill]}
+
+processes: []
+bom: []
