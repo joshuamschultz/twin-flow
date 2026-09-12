@@ -1,6 +1,6 @@
 # Enterprise build status
 
-Integration branch: `enterprise/integration-docs`. This page records the integrated implementation slice, not enterprise readiness. Stable goals remain in the [roadmap](../enterprise-roadmap.md); rationale remains in the [playbook](../enterprise-build-playbook.md). Root will append final aggregate test totals.
+Integration branch: `enterprise-build`. This page records the integrated implementation slice, not enterprise readiness. Stable goals remain in the [roadmap](../enterprise-roadmap.md); rationale remains in the [playbook](../enterprise-build-playbook.md). Root will append final aggregate test totals.
 
 Principles: agent-first contracts; simple modules; explicit domain boundaries; operator UI over the same application API; no hidden production-readiness claims.
 
@@ -8,11 +8,11 @@ Principles: agent-first contracts; simple modules; explicit domain boundaries; o
 
 Each epic must include SPEC.md, implementation, independent review evidence, and user documentation. Customer-data validation and external operational accreditation cannot be replaced with synthetic tests.
 
-| Epic | Scope | Status |
+| Epic | Implemented scope | Remaining readiness gates |
 |---|---|---|
 | RM-01 | Bounded runs, outcomes, evidence and concurrency-safe artifacts | Customer acceptance and production observability |
 | RM-02 | Versioned capsules, digest/export, safe YAML, schema, edits, legacy import and dispatch | Migration breadth, archive format and customer onboarding |
-| RM-03 | Manufacturing simulation plus typed capsule compilation | Calendars, resource identity, WIP/material fidelity and credible dates |
+| RM-03 | Manufacturing simulation, working calendars, resource identity, shift crossing and typed capsule compilation | Broader WIP/material fidelity, customer acceptance and credible date validation |
 | RM-04 | Workspace REST, SDK, MCP, draft intake, jobs, compare, evidence and React UI | Independent clients, verified identity/RBAC and customer evidence; see [review](rm-04/REVIEW.md) |
 | RM-05 | Event ingestion, snapshots, freshness and forecast backtest | Production connectors and held-out calibration |
 | RM-06 | Strict parser, verified baseline and optional CP-SAT backend/CLI/API | Broad objectives, scale proof and operational validation |
@@ -29,4 +29,4 @@ The operator API exposes proposal approval and dry-run delivery. MCP exposes pro
 
 ## Review checks
 
-Docs were checked against source routes in `src/twinflow/service`, SDK/MCP methods, CLI parsers, and UI calls in `web/src/workspace/api.ts`. All RM links resolve to existing epic documents. No source, test, web, or application files are changed by this documentation branch.
+Docs were checked against source routes in `src/twinflow/service`, SDK/MCP methods, CLI parsers, and UI calls in `web/src/workspace/api.ts`. All RM links resolve to existing epic documents. Root reports final integration evidence: 615 pytest tests passed, six Chromium journeys passed with screenshots inspected, strict mypy over 110 files passed, Ruff source checks passed, and npm/pip dependency audits reported no known vulnerabilities. No source, test, web, or application files are changed by this documentation branch.

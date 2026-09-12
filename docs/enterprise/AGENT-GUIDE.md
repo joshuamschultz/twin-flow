@@ -1,17 +1,93 @@
 # Agent guide
 
-Agents use the public SDK or MCP; they do not import private modules or read workspace files. Evaluations are asynchronous jobs and must be polled.
+Agents use the public SDK or MCP; they do not import private application modules or read workspace files. Evaluations are asynchronous jobs and must be polled. The following complete script assumes the API is running at `127.0.0.1:8000`, constructs an office capsule from supplied facts, and exercises the full baseline/branch/compare/evidence flow.
 
-## Connected workflow
+## Executable SDK workflow
 
-1. Construct `TwinflowClient("http://127.0.0.1:8000")` and call `capabilities()` and `schema()`.
-2. Save supplied facts with `request("/drafts", {"name": ..., "facts": ...})`; answer returned IDs with `request("/drafts/{id}/answers", {"answers": [...]})`. Answers must come from records or an operator.
-3. Call `request("/validate", {"content": capsule_text})`, then `import_scenario(name, capsule_text)`.
-4. Create a validated child with `branch(scenario_id, name, edited_content)`; the server owns the parent relationship and digest.
-5. Submit `evaluate(scenario_id, request_key, reps=10, seed=42)`, poll `job(job_id)` to `completed`, `failed`, `canceled`, or `interrupted`, then retrieve `request("/jobs/{id}/evidence?offset=0&limit=100")`.
-6. Compare compatible completed same-domain jobs with `compare(baseline_id, candidate_id)` and export through `/scenarios/{id}/export`.
+```python
+import json
+import time
 
-Raw routes are `GET /api/workspace/capabilities`, `GET /schema`, `POST /drafts`, `POST /validate`, `POST /scenarios`, `POST /scenarios/{id}/branch`, `POST /scenarios/{id}/evaluate`, `GET /jobs/{id}`, `GET /jobs/{id}/evidence`, and `POST /compare`. Request models reject unknown fields; content is capped at 5 MiB, replications at 50, event batches at 1,000, and schedule time at 30 seconds.
+from twinflow.sdk import TwinflowClient
+
+
+client = TwinflowClient("http://127.0.0.1:8000")
+print(client.capabilities())
+print(client.schema())
+
+# These are explicit facts from an operator or source record.
+facts = {
+    "process": "intake, legal review, finance review, release",
+    "resources": "one analyst; capacity can be increased to two",
+    "demand": "case quote-001 for customer acme",
+    "durations": "intake 2 seconds, each review 3 seconds, release 1 second",
+    "constraints": "reviews wait for intake; release waits for both reviews",
+}
+brief = client.request("/drafts", {"name": "office-from-facts", "facts": facts})
+answers = [{"id": key, "answer": value} for key, value in facts.items()]
+brief = client.request(f"/drafts/{brief['id']}/answers", {"answers": answers})
+assert brief["facts"]["process"] == facts["process"]
+
+capsule = {
+    "schema_version": "0.1",
+    "required_capabilities": ["office.basic"],
+    "model": {
+        "domain": "office",
+        "revision": "1",
+        "resources": [{"id": "analyst", "roles": ["analyst"], "capacity": 1, "calendar": [[0, 1000]]}],
+        "tasks": [
+            {"id": "intake", "duration": 2, "role": "analyst"},
+            {"id": "legal_review", "duration": 3, "role": "analyst", "prerequisites": ["intake"]},
+            {"id": "finance_review", "duration": 3, "role": "analyst", "prerequisites": ["intake"]},
+            {"id": "release", "duration": 1, "role": "analyst", "prerequisites": ["legal_review", "finance_review"]},
+        ],
+    },
+    "snapshot": {
+        "id": "office-facts-snapshot",
+        "as_of": "2026-09-12T08:00:00-05:00",
+        "model_revision": "1",
+        "cases": [{"id": "quote-001", "data": {"customer": "acme"}}],
+    },
+    "experiment": {"id": "office-facts-baseline", "replications": 1, "seed": 42},
+    "assumptions": ["role calendars use simulated seconds"],
+    "provenance": {"source": "operator-intake", "facts": facts},
+}
+capsule_text = json.dumps(capsule)
+validation = client.request("/validate", {"content": capsule_text})
+assert validation["valid"], validation
+baseline = client.import_scenario("office-facts-baseline", capsule_text)
+
+baseline_job = client.evaluate(baseline["id"], "office-facts-baseline-42", reps=1, seed=42)
+while True:
+    baseline_state = client.job(baseline_job["id"])
+    if baseline_state["status"] in {"completed", "failed", "canceled", "interrupted"}:
+        break
+    time.sleep(0.1)
+assert baseline_state["status"] == "completed", baseline_state
+
+candidate_capsule = dict(capsule)
+candidate_capsule["model"] = dict(capsule["model"])
+candidate_capsule["model"]["resources"] = [
+    {"id": "analyst", "roles": ["analyst"], "capacity": 2, "calendar": [[0, 1000]]}
+]
+candidate_text = json.dumps(candidate_capsule)
+candidate = client.branch(baseline["id"], "office-two-analysts", candidate_text)
+candidate_job = client.evaluate(candidate["id"], "office-two-analysts-42", reps=1, seed=42)
+while True:
+    candidate_state = client.job(candidate_job["id"])
+    if candidate_state["status"] in {"completed", "failed", "canceled", "interrupted"}:
+        break
+    time.sleep(0.1)
+assert candidate_state["status"] == "completed", candidate_state
+
+print(client.compare(baseline["id"], candidate["id"]))
+print(client.request(f"/jobs/{candidate_job['id']}/query", {"topic": "dates"}))
+print(client.request(f"/scenarios/{candidate['id']}/export"))
+```
+
+The draft intentionally retains facts and explicit answers before constructing the capsule; unknown values must remain unknown. `branch` receives edited content while the server assigns the parent relationship and digest. A `request_key` makes retries idempotent for the same scenario, seed, and replication count. Compare only completed compatible same-domain jobs.
+
+Raw routes are `GET /api/workspace/capabilities`, `GET /schema`, `POST /drafts`, `POST /drafts/{id}/answers`, `POST /validate`, `POST /scenarios`, `POST /scenarios/{id}/branch`, `POST /scenarios/{id}/evaluate`, `GET /jobs/{id}`, `POST /jobs/{id}/query`, `GET /scenarios/{id}/export`, and `POST /compare`. Evidence pagination uses `GET /jobs/{id}/evidence?offset=0&limit=100` directly over HTTP; `TwinflowClient.request` intentionally rejects query strings.
 
 ## MCP and evidence
 
