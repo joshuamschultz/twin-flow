@@ -9,10 +9,13 @@ origin allowlist.
 ## Findings
 
 - Service settings are frozen and injected. The process runner reads environment once and rejects
-  a non-loopback bind without `TWINFLOW_API_TOKEN`. Bearer checks use constant-time comparison and
+  a non-loopback bind without `TWINFLOW_API_TOKEN`; direct nonlocal settings reject the same state.
+  Bearer checks use constant-time comparison and
   cover API, schema, OpenAPI, and documentation routes. Public probes disclose only status.
 - Trusted hosts, restrictive CORS, bounded bodies, correlation IDs, and sanitized unexpected
-  errors are enforced in middleware. Pydantic request models retain their narrower field bounds.
+  errors are enforced in middleware. Negative lengths fail and chunked bodies are bounded before
+  dispatch. A post-start failure is never converted into a second HTTP response start. Pydantic
+  request models retain their narrower field bounds.
 - An exclusive OS file lock prevents two processes from recovering or executing the same
   workspace. SQLite uses WAL and immediate transactions for idempotency plus queue admission.
   Matching replay wins before the full-queue check.
@@ -21,9 +24,11 @@ origin allowlist.
 - Evidence lookup uses a server-resolved job and bounded page parameters. Server-generated job IDs
   remain the only artifact-directory selectors. Audit metadata is append-only for import,
   evaluate, cancel, and export operations.
-- Backup uses SQLite's online backup API. Restore checks path safety, duplicate and unlisted files,
-  total size/count, SHA-256 digests, required tables, and SQLite quick-check in staging before an
-  atomic directory rename.
+- Backup requires the owner lock to be free and uses SQLite's online backup API separately for
+  `workspace.sqlite3` and optional `operational-data.sqlite`/`actions.sqlite3`. Output-inside-source,
+  database/artifact symlinks, and unknown files are refused. Restore streams members and checks
+  typed allowlisted metadata, path safety, duplicate/unlisted files, total size/count, SHA-256
+  digests, required tables, and every SQLite quick-check before an atomic directory rename.
 
 ## Remaining limits
 
@@ -37,12 +42,15 @@ must quiesce artifact producers when they require a single artifact checkpoint.
 
 These limits mean the broader RM-09 roadmap and procurement exit gate remain open. The increment
 is suitable for a bounded dedicated pilot after normal deployment review, not a shared multi-tenant
-service claim.
+  service claim.
 
 ## Verification scope
 
 Focused tests cover auth denial and success, docs/schema protection, probe access, restrictive
-CORS and hosts, body bounds, remote-bind refusal, idempotent replay under a full queue, terminal
+CORS and hosts, declared/chunked body bounds, post-start failure behavior, direct/runner remote-mode
+refusal, idempotent replay under a full queue, terminal
 compare-and-set behavior, restart recovery, owner locking, backup/restore, traversal rejection,
-and the admin CLI. Fresh lint, strict typing, focused tests, and the full suite are reported with
+and the admin CLI. Backup adversarial cases cover active ownership, all allowlisted databases,
+inside-source output, missing sources, database symlinks, streamed restore, and malformed manifest
+metadata. Fresh lint, strict typing, focused tests, and the full suite are reported with
 the commit.

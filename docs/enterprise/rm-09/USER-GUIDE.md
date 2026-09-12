@@ -46,7 +46,8 @@ the bind token and allowlists at present.
 
 ## Backup and restore
 
-Create a backup while the workspace is idle if artifact-level checkpoint consistency matters:
+Stop the service before creating a backup. The command checks the same owner lock as the service
+and refuses to run while that workspace is active:
 
 ```bash
 python -m twinflow.cli.admin backup \
@@ -60,8 +61,10 @@ python -m twinflow.cli.admin restore /backups/twinflow-workspace.zip \
   --workspace /srv/twinflow/restored-workspace
 ```
 
-The archive contains an online SQLite backup, fixed-root artifacts, and SHA-256 metadata. Restore
-validates member paths, the exact manifest, sizes, digests, and SQLite integrity before installing
-the staged workspace. Run a periodic restore drill; creating an archive alone does not prove
-recoverability. This facility is a local checkpoint, not continuous replication or point-in-time
-recovery.
+The archive contains `workspace.sqlite3`, optional `operational-data.sqlite` and `actions.sqlite3`
+when present, fixed-root artifacts, and SHA-256 metadata. Each database is copied through SQLite's
+online backup API while the workspace is quiesced. The output path must be outside the workspace.
+Restore streams data into staging and validates member paths, the exact allowlisted manifest,
+metadata types, sizes, digests, and every SQLite database before installing the staged workspace.
+Run a periodic restore drill; creating an archive alone does not prove recoverability. This
+facility is a local checkpoint, not continuous replication or point-in-time recovery.
