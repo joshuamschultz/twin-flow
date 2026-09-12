@@ -11,6 +11,16 @@ runs/
 
 # Working / planning files — keep out of the pushed repo
 .claude/
+# Codex and agent-local configuration, instructions, and planning files
+.codex/
+.codex*
+codex/
+codex.*
+CODEX/
+CODEX.*
+.agents/
+AGENTS.md
+AGENTS.override.md
 *.pdf
 
 .twinflow-workspace/
