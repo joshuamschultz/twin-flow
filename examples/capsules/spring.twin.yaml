@@ -1,0 +1,197 @@
+schema_version: '0.1'
+model:
+  defaults:
+    cycle_time_cv: 0.2
+  stocks:
+  - name: wire
+    uom: ft
+  part_types:
+  - name: wire
+    uom: ft
+    attributes: {}
+  - name: wire_remainder
+    uom: ft
+    attributes: {}
+  - name: blank
+    uom: piece
+    attributes: {}
+  - name: formed
+    uom: piece
+    attributes: {}
+  - name: relieved
+    uom: piece
+    attributes: {}
+  - name: ground
+    uom: piece
+    attributes: {}
+  - name: coated
+    uom: piece
+    attributes: {}
+  machines:
+  - name: cut_m
+  - name: form_m
+  - name: relief_m
+  - name: grind_m
+  - name: coat_m
+  labor:
+    pools:
+    - name: floor_pool
+      headcount: 5
+      skills:
+      - cut_op
+      - form_op
+      - relief_op
+      - grind_op
+      - coat_op
+  locations:
+  - name: cut
+    consumes:
+    - thing: wire
+      qty: 1
+      uom: ft
+    emits:
+    - thing: blank
+      qty: 5
+      uom: piece
+    - thing: wire_remainder
+      qty: 0.16667
+      uom: ft
+    setup_key: grp_cut
+    time_model:
+      kind: rate_based
+      rate: 0.1
+    machine: cut_m
+    labor_skill: cut_op
+  - name: form
+    consumes:
+    - thing: blank
+      qty: 1
+      uom: piece
+    emits:
+    - thing: formed
+      qty: 1
+      uom: piece
+    setup_key: grp_form
+    time_model:
+      kind: rate_based
+      rate: 0.5
+    machine: form_m
+    labor_skill: form_op
+  - name: stress_relief
+    consumes:
+    - thing: formed
+      qty: 1
+      uom: piece
+    emits:
+    - thing: relieved
+      qty: 1
+      uom: piece
+    batch_size: 50 piece
+    setup_key: grp_relief
+    time_model:
+      kind: rate_based
+      rate: 0.2
+    machine: relief_m
+    labor_skill: relief_op
+  - name: grind
+    consumes:
+    - thing: relieved
+      qty: 1
+      uom: piece
+    emits:
+    - thing: ground
+      qty: 1
+      uom: piece
+    setup_key: grp_grind
+    time_model:
+      kind: rate_based
+      rate: 0.3
+    machine: grind_m
+    labor_skill: grind_op
+  - name: coat
+    consumes:
+    - thing: ground
+      qty: 1
+      uom: piece
+    emits:
+    - thing: coated
+      qty: 1
+      uom: piece
+    setup_key: grp_coat
+    time_model:
+      kind: rate_based
+      rate: 0.4
+    machine: coat_m
+    labor_skill: coat_op
+  routing:
+  - part: coated
+    steps:
+    - cut
+    - form
+    - stress_relief
+    - grind
+    - coat
+  processes: []
+  bom: []
+snapshot:
+  id: legacy-import
+  as_of: '2026-09-12T10:49:49.117231-05:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: wo-1
+    part: coated
+    qty: 20
+    start_date: '0'
+    due_date: '100000'
+  - work_order_id: wo-2
+    part: coated
+    qty: 30
+    start_date: '500'
+    due_date: '100000'
+  - work_order_id: wo-3
+    part: coated
+    qty: 15
+    start_date: '1000'
+    due_date: '100000'
+  - work_order_id: wo-4
+    part: coated
+    qty: 25
+    start_date: '1500'
+    due_date: '100000'
+  - work_order_id: wo-5
+    part: coated
+    qty: 40
+    start_date: '2000'
+    due_date: '100000'
+  - work_order_id: wo-6
+    part: coated
+    qty: 18
+    start_date: '2500'
+    due_date: '100000'
+  - work_order_id: wo-7
+    part: coated
+    qty: 22
+    start_date: '3000'
+    due_date: '100000'
+  - work_order_id: wo-8
+    part: coated
+    qty: 35
+    start_date: '3500'
+    due_date: '100000'
+  - work_order_id: wo-9
+    part: coated
+    qty: 28
+    start_date: '4000'
+    due_date: '100000'
+experiment:
+  id: legacy-import
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/spring/model.yaml
+  plan: examples/spring/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

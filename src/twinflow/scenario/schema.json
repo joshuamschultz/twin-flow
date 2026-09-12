@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "model", "snapshot", "experiment", "assumptions", "provenance", "required_capabilities"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "model": {"type": "object"},
+    "snapshot": {"type": "object"},
+    "experiment": {"type": "object"},
+    "assumptions": {"type": ["object", "array"]},
+    "provenance": {"type": "object"},
+    "required_capabilities": {"type": "array", "items": {"type": "string"}}
+  }
+}

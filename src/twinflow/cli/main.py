@@ -37,6 +37,9 @@ from twinflow.plan.replication import ReplicationRunner
 from twinflow.report import render_html, write_kpi_json
 from twinflow.report.assumptions import AssumptionsCollector
 from twinflow.run_stamp import RunStamp
+from twinflow.scenario import import_legacy
+from twinflow.scenario import load as load_capsule
+from twinflow.scenario import schema as capsule_schema
 
 _BASE_SEED = 0
 _KPI_SCHEMA_VERSION = 1
@@ -106,7 +109,10 @@ def _build_parser() -> argparse.ArgumentParser:
     optimize_parser.add_argument("model")
     optimize_parser.add_argument("--plan", required=True)
     optimize_parser.add_argument(
-        "--lever", action="append", required=True, metavar="PATH:MIN:MAX[:STEP]",
+        "--lever",
+        action="append",
+        required=True,
+        metavar="PATH:MIN:MAX[:STEP]",
         help="a tunable lever and its integer search range, e.g. labor.pools[0].headcount:2:6",
     )
     optimize_parser.add_argument("--objective", default="on_time_pct")
@@ -116,6 +122,27 @@ def _build_parser() -> argparse.ArgumentParser:
     optimize_parser.add_argument("--seed", type=int, default=0)
     optimize_parser.set_defaults(handler=_handle_optimize)
 
+    scenario_parser = subparsers.add_parser("scenario")
+    scenario_commands = scenario_parser.add_subparsers(dest="scenario_command", required=True)
+    scenario_import = scenario_commands.add_parser("import")
+    scenario_import.add_argument("model")
+    scenario_import.add_argument("plan")
+    scenario_import.add_argument("--out", required=True)
+    scenario_import.set_defaults(handler=_handle_scenario_import)
+    scenario_validate = scenario_commands.add_parser("validate")
+    scenario_validate.add_argument("capsule")
+    scenario_validate.set_defaults(handler=_handle_scenario_validate)
+    scenario_run = scenario_commands.add_parser("run")
+    scenario_run.add_argument("capsule")
+    scenario_run.add_argument("--seed", type=int, default=0)
+    scenario_run.set_defaults(handler=_handle_scenario_run)
+    scenario_export = scenario_commands.add_parser("export")
+    scenario_export.add_argument("capsule")
+    scenario_export.add_argument("--out", required=True)
+    scenario_export.set_defaults(handler=_handle_scenario_export)
+    scenario_schema = scenario_commands.add_parser("schema")
+    scenario_schema.set_defaults(handler=_handle_scenario_schema)
+
     serve_parser = subparsers.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8000)
@@ -123,6 +150,37 @@ def _build_parser() -> argparse.ArgumentParser:
     serve_parser.set_defaults(handler=_handle_serve)
 
     return parser
+
+
+def _handle_scenario_import(args: argparse.Namespace) -> int:
+    import_legacy(args.model, args.plan).dump(args.out)
+    print(args.out)
+    return 0
+
+
+def _handle_scenario_validate(args: argparse.Namespace) -> int:
+    capsule = load_capsule(args.capsule)
+    issues = capsule.validate()
+    for issue in issues:
+        print(f"{issue.severity}: {issue.path}: {issue.message}")
+    return 0 if not issues else 1
+
+
+def _handle_scenario_run(args: argparse.Namespace) -> int:
+    result = load_capsule(args.capsule).run(seed=args.seed)
+    print(json.dumps({"horizon": result.horizon, "event_log": str(result.event_log_path)}))
+    return 0
+
+
+def _handle_scenario_export(args: argparse.Namespace) -> int:
+    load_capsule(args.capsule).dump(args.out)
+    print(args.out)
+    return 0
+
+
+def _handle_scenario_schema(args: argparse.Namespace) -> int:
+    print(json.dumps(capsule_schema(), indent=2, sort_keys=True))
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -357,8 +415,13 @@ def _intervals_to_dict(aggregated: AggregatedKpis) -> dict[str, Any]:
     """The confidence intervals as machine-readable JSON (schema-versioned)."""
 
     def iv(interval: Interval) -> dict[str, float | int]:
-        return {"mean": interval.mean, "lo": interval.lo, "hi": interval.hi,
-                "p50": interval.p50, "n": interval.n}
+        return {
+            "mean": interval.mean,
+            "lo": interval.lo,
+            "hi": interval.hi,
+            "p50": interval.p50,
+            "n": interval.n,
+        }
 
     return {
         "schema_version": _INTERVALS_SCHEMA_VERSION,
