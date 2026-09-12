@@ -26,7 +26,7 @@ The core engine never imports the service, so a plain install stays dependency-l
 
 ## Front end
 
-Node 18+ and npm.
+Node 22.12+ and npm.
 
 ```bash
 cd web

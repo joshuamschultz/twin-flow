@@ -1,69 +1,70 @@
 # twinflow web
 
-React + TypeScript + Vite front end for twinflow, a manufacturing digital-twin
-engine. This is the alpha UI: model picker, floor map, and three work tabs
-(Run, Sweep, Optimize) driven entirely by the local FastAPI backend.
+The Twinflow web package is the local operator workspace for the integrated
+enterprise build. It uses the same workspace API as the Python SDK and MCP
+adapter to import or construct scenario capsules, validate and branch them, run
+bounded evaluations, inspect evidence, compare results, review schedules, and
+export scenarios. It covers manufacturing, office workflows, and supply
+networks through the domain adapters registered by the API.
+
+The UI is an operator surface for a dedicated local workspace. It does not
+contain an LLM and it does not write to external systems: proposals are
+reviewed through the API's evidence-bound dry-run flow. See the [workspace
+guide](../docs/enterprise/README.md) and [agent guide](../docs/enterprise/AGENT-GUIDE.md)
+for the shared contracts.
 
 ## Prerequisites
 
-The API must be running on `http://localhost:8000` before you use the app —
-the Vite dev server proxies `/api/*` to it. From the repo root:
+Install the Python service from the repository root, then start it on the local
+operator address:
 
 ```bash
-python -m twinflow.service.serve
-# or, equivalently:
-uvicorn twinflow.service.app:create_app --factory --host 0.0.0.0 --port 8000
+python -m twinflow.service.serve --host 127.0.0.1 --port 8000 \
+  --models-root examples --workspace-root .twinflow-workspace
 ```
+
+The service should be running before the Vite app. The development server
+proxies `/api` to `http://127.0.0.1:8000`; no CORS setting or browser-side API
+secret is needed for this local setup.
 
 ## Development
 
 ```bash
 cd web
-npm install
+npm ci
 npm run dev
 ```
 
-Open the printed local URL (typically `http://localhost:5173`). The dev
-server proxies any `/api/...` fetch to the backend on `:8000`, so no CORS
-configuration or env vars are needed locally.
+Open the printed local URL, typically `http://127.0.0.1:5173`. Use `npm run
+build` for the type check and production bundle, or `npm run preview` to serve
+the built files locally. Preview does not include the development proxy, so a
+reverse proxy or same-origin API is required.
 
-## Build
+## Workspace flow
 
-```bash
-npm run build
-```
+1. Discover capabilities, schemas, examples, and tool contracts.
+2. Import a capsule or use the draft intake to record facts and unanswered
+   questions.
+3. Validate, save, branch, and export a versioned scenario.
+4. Evaluate asynchronously, then inspect bounded evidence and compare a
+   candidate with its baseline.
+5. Review schedules or proposals with the recorded assumptions and limits.
 
-Runs a type check (`tsc --noEmit`) then produces a production bundle in
-`dist/`. `npm run preview` serves that bundle locally if you want to sanity
-check it (the `/api` proxy only applies to `npm run dev`, so `preview`
-expects the API to be reachable at the same origin, or you serve `dist/`
-behind a proxy that forwards `/api`).
+The legacy manufacturing model picker and floor view remain available for
+`model.yaml` examples, but the capsule workspace is the release's shared
+agent/operator boundary.
 
 ## Structure
 
-```
-src/
-  api.ts                 typed fetch client + response/request types for every endpoint
-  App.tsx                shell: header, model picker, left nav, tab routing
-  index.css              the "BlackArc" theme — CSS variables + component styles
-  components/
-    FloorTab.tsx          fetches /floor, renders FloorMap
-    FloorMap.tsx          React Flow graph of locations + stocks
-    floorLayout.ts        layered left-to-right layout from routing order
-    RunTab.tsx             single-scenario run + KPI cards
-    SweepTab.tsx            one lever, several candidate values, side by side
-    OptimizeTab.tsx        objective/optimizer search + convergence chart
-    ConfidenceBand.tsx     the range-bar visual used for every interval
-    UtilizationList.tsx    per-cell utilization bars with confidence overlay
-    Spinner.tsx             small inline loading indicator
-```
+The main workspace client and views live under `src/workspace/`; the older
+manufacturing views and typed API helpers remain alongside them. Browser
+journeys are under `tests/browser` and use a disposable local workspace.
 
 ## Design notes
 
-- Confidence intervals are a first-class visual (a filled range with a mean
-  tick), not an afterthought — the product's stance is honest ranges over
-  point estimates.
-- The Sweep tab intentionally does not highlight a "winner": the user reads
-  the bands and decides.
-- The Optimize tab does pick a best score (that's the point of optimization),
-  but says so plainly: "the twin scores; you decide."
+- Confidence ranges and evidence are shown with the assumptions that produced
+  them; a result is model evidence rather than a commitment.
+- Scenario edits are validated and persisted with provenance and digests.
+- Agents propose facts and changes; the deterministic service executes bounded
+  work and records the result. Natural-language reasoning belongs to the host
+  agent.

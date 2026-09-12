@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from twinflow import __version__
 from twinflow.model import load_model
 from twinflow.modules import (
     COSTS,
@@ -106,7 +107,7 @@ def create_app(
         yield
         workspace.close()
 
-    app = FastAPI(title="twinflow", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="twinflow", version=__version__, lifespan=lifespan)
     app.include_router(workspace_router(workspace))
     from twinflow.service.decisions import decision_router
 

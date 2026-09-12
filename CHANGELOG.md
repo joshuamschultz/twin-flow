@@ -4,6 +4,80 @@ All notable changes to twinflow are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims at
 [semantic versioning](https://semver.org/).
 
+## [0.3.0-alpha.1] — 2026-09-12
+
+The first integrated enterprise workspace build. This release keeps the
+deterministic simulation core and legacy manufacturing CLI available while
+adding a portable scenario workflow shared by the API, Python SDK, MCP adapter,
+and operator UI.
+
+### Added
+
+- Portable `.twin.yaml` scenario capsules with validation, digest, import,
+  branching, export, provenance, assumptions, and explicit capability checks.
+- Agent-first REST, SDK, and MCP contracts for discovery, draft intake,
+  scenario construction, asynchronous evaluation, evidence queries, compare,
+  scheduling, and bounded proposal creation.
+- A local operator workspace for manufacturing, office workflow, and
+  supply-network capsules, including import/export UI, data snapshots,
+  schedule views, evidence panels, and dry-run action review.
+- Manufacturing, office, and supply-chain adapters with domain-specific
+  validation and JSON-safe results; actual source events can be reconciled into
+  snapshots with freshness and provenance metadata.
+- Workspace settings, health/readiness checks, SQLite persistence, bounded jobs,
+  cancellation/recovery transitions, workspace locking, backup/restore, and a
+  narrow verified scheduling service with optional CP-SAT support.
+
+### Changed
+
+- Release metadata is now `0.3.0-alpha.1` for the web package and `0.3.0a1`
+  for Python. FastAPI reads its version from the Python runtime package.
+- The shared workspace contract is the recommended integration boundary. The
+  existing `model.yaml` + plan CLI remains supported for legacy manufacturing
+  runs and examples.
+- Proposal approval and delivery are operator-only routes; the available
+  delivery sink is forced to a recorded dry run.
+
+### Fixed
+
+- Preserved source IDs, model and snapshot revisions, capsule digests, seeds,
+  limits, job IDs, and evidence references across workspace results and exports.
+- Rejected unsafe or ambiguous inputs at the capsule, adapter, scheduling, and
+  action boundaries, including unsupported scheduling grammars. Host agents
+  must treat imported notes as untrusted facts; the service preserves them as
+  supplied context.
+
+### Limits
+
+- This is a local dedicated-workspace alpha, not a production enterprise
+  deployment. SSO, verified identity, tenant RBAC/RLS, distributed workers,
+  production connectors, external writeback, and enterprise SLO evidence are
+  not included.
+- The engine has no built-in LLM. Host agents perform retrieval and
+  natural-language reasoning; Twinflow validates supplied facts, executes the
+  deterministic model, and records evidence. Imported notes are facts, never
+  executable instructions.
+- Forecasts and schedules are model evidence. Customer calibration, held-out
+  validation, and broad operational semantics across all three domains remain
+  deployment work.
+
+The API and capsule schema versions remain independent from the product release
+version. See [`docs/enterprise/README.md`](docs/enterprise/README.md), the
+[agent guide](docs/enterprise/AGENT-GUIDE.md), and [validation evidence](docs/enterprise/VALIDATION.md).
+
+### Migration notes
+
+- Existing `model.yaml` and plan files continue to work with the manufacturing
+  CLI. To enter the workspace flow, import them into a capsule with
+  `twinflow scenario import ... --out baseline.twin.yaml`, then validate and
+  export using the scenario commands.
+- Capsule `schema_version` and workspace API capability/schema versions are
+  independent contracts and remain unchanged by this product release. Do not
+  substitute `0.3.0` for those values.
+- Python consumers should read `twinflow.__version__`; web tooling uses the
+  npm semver `0.3.0-alpha.1`. The Python distribution uses PEP 440
+  `0.3.0a1`.
+
 ## [0.2.0-alpha] — 2026-08-29
 
 The **alpha release**: the single-floor engine gains the last of its v1 physics, a

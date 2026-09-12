@@ -4,16 +4,18 @@
 
 ### A working software copy of your operation that you can run experiments on.
 
-**An agent-accessible operational twin: import one scenario file, test alternatives, and retrieve evidence about work, dates, resources, and constraints across manufacturing, front offices, and supply chains.**
+**An agent-accessible operational twin: import a scenario capsule, test bounded alternatives, and retrieve evidence about work, dates, resources, and constraints across manufacturing, office workflows, and supply networks.**
+
+Release `0.3.0-alpha.1` · Python `0.3.0a1` · web `0.3.0-alpha.1`
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0b2340)](#status--quality)
 [![tests](https://img.shields.io/badge/tests-619%20passing-1aa179)](#status--quality)
 [![mypy](https://img.shields.io/badge/mypy-strict-2bb5b5)](#status--quality)
 [![lint](https://img.shields.io/badge/lint-ruff-46a2f1)](#status--quality)
-[![status](https://img.shields.io/badge/status-alpha-f5a623)](#roadmap)
+[![status](https://img.shields.io/badge/status-alpha-f5a623)](#release-scope-and-roadmap)
 [![license](https://img.shields.io/badge/license-proprietary-6e7681)](#license)
 
-**[Quick start](#-quick-start)  ·  [How it works](#-how-it-works)  ·  [For AI agents](#-for-ai-agents-and-multi-agent-systems)  ·  [Roadmap](#roadmap)**
+**[Quick start](#-quick-start)  ·  [Enterprise workspace](#enterprise-build)  ·  [For AI agents](#-for-ai-agents-and-multi-agent-systems)  ·  [Status](#status--quality)**
 
 </div>
 
@@ -23,7 +25,7 @@
 
 Start with the [workspace user guide](docs/enterprise/README.md) and [agent integration guide](docs/enterprise/AGENT-GUIDE.md). The [roadmap](docs/enterprise-roadmap.md), [build playbook](docs/enterprise-build-playbook.md), and [implementation status](docs/enterprise/BUILD-STATUS.md) distinguish delivered capabilities from the remaining enterprise acceptance gates.
 
-The `enterprise-build` branch adds portable scenarios, a shared API/SDK/MCP surface, a responsive operator workspace, domain adapters, data reconciliation, verified scheduling, and evidence-bound dry-run action review. This is a dedicated-workspace foundation; customer calibration, enterprise identity, distributed execution, and production connector rollout remain explicit next steps.
+The integrated build adds portable scenario capsules, a shared API/SDK/MCP surface, a responsive operator workspace, manufacturing/office/supply-network adapters, data reconciliation, verified scheduling, and evidence-bound dry-run action review. It is a dedicated-workspace alpha; customer calibration, enterprise identity, distributed execution, and production connector rollout remain explicit next steps.
 
 ## The problem
 
@@ -33,7 +35,7 @@ Most plants promise dates and set staffing from a spreadsheet and years of gut f
 
 > You stop quoting dates you can't hit, and stop adding capacity you don't need.
 
-No custom code per plant. **One `model.yaml` plus a production plan (`.xlsx` or `.csv`) is a complete client.**
+The legacy manufacturing engine remains configuration-driven. The integrated workspace packages model, snapshot, experiment, assumptions, and provenance in a versioned `.twin.yaml` capsule; a new operation still requires mapping and validation.
 
 ---
 
@@ -41,7 +43,7 @@ No custom code per plant. **One `model.yaml` plus a production plan (`.xlsx` or 
 
 | The question you're stuck on | What `twinflow` hands back |
 |---|---|
-| Will these orders ship on time? | Completion dates and on-time %, each with a confidence range |
+| Will these orders complete on time? | Accepted completion dates and on-time %, each with a confidence range |
 | Where does the line actually choke? | Utilization per cell and per machine, and a clear wait breakdown: starved vs blocked vs waiting-on-material |
 | Is one more operator worth it? | Run each staffing level many times and compare them with a paired confidence interval on the difference |
 | How big should the batch or buffer be? | Every option on a lever grid, side by side, fairly compared |
@@ -152,6 +154,20 @@ Everything above is declared in config. The engine has no per-client code, so th
 
 ## 🚀 Quick start
 
+For the integrated workspace, install the service and start the local API:
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[api,agent,scheduling,dev]"
+python -m twinflow.service.serve --host 127.0.0.1 --port 8000 \
+  --models-root examples --workspace-root .twinflow-workspace
+```
+
+In another terminal, start the operator UI with `cd web && npm ci && npm run dev`.
+Use the [workspace guide](docs/enterprise/README.md) and [agent guide](docs/enterprise/AGENT-GUIDE.md)
+for capsule import/export, SDK, MCP, evidence, and operator flows. The commands
+below are the supported legacy manufacturing CLI.
+
 Install from source:
 
 ```bash
@@ -188,18 +204,18 @@ results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=42)
 
 ## ✅ What you get today
 
-Everything here is **built and tested** (619 passing tests). The versioned workspace API is the shared agent/operator boundary; APIs remain pre-1.0.
+The integrated alpha includes the delivered slices listed in the [build status](docs/enterprise/BUILD-STATUS.md). The validation page records integration evidence from the release build; it is not a production-readiness claim. The versioned workspace API is the shared agent/operator boundary; APIs remain pre-1.0.
 
 | Capability | What it means for you |
 |---|---|
-| **Model any discrete floor from config** | Stocks, work centers, machines, labor pools, routings, scrap, rework, batching, and setup/changeover - all declared, never coded. One contract covers cutting, pouring, assembly, sorting, and yield loss. |
-| **Plan from Excel or CSV** | Your production plan drives order releases and any work already on the floor. Hand over the spreadsheet you already keep. |
-| **Reproducible, seeded runs** | Every run is repeatable to the number. Same inputs, same answer - which is what makes fair comparison possible. |
+| **Model supported discrete processes from config** | Stocks, work centers, machines, labor pools, routings, scrap, rework, batching, and setup/changeover are declared for the manufacturing engine. |
+| **Plan from Excel or CSV** | The legacy manufacturing engine reads production plans and releases work orders; capsule imports preserve the resulting model and provenance. |
+| **Seeded experiments** | Runs record their seed and inputs so comparisons can be repeated under the same engine and dependency conditions. |
 | **KPIs from one event log** | Completion dates and on-time %, per-cell and per-machine utilization, a clear wait breakdown (starved / blocked / waiting-on-material), labor and machine hours, setup hours separate from run hours, and work-in-progress over time. |
-| **What-if lever sweeps** | Try staffing, buffers, and batch sizes across a grid and see every option side by side, fairly paired with common random numbers. The twin shows the trade space and deliberately picks **no winner** - the call stays yours. |
+| **What-if comparisons** | Legacy engine sweeps can use common random numbers for paired analysis; workspace compare reports bounded baseline/candidate differences with recorded assumptions. The twin shows the trade space and deliberately picks **no winner** - the call stays yours. |
 | **Replications + uncertainty** | Run many replications in a bounded process pool; outcome quantiles, confidence intervals on estimated means, censoring counts, and paired differences have distinct contracts. |
 | **One emailable report** | A single self-contained HTML file that opens offline with no internet, plus a versioned JSON file for machines. Every report opens with the assumptions the engine had to make, stated plainly. |
-| **Full reproducibility stamp** | Each run records hashes of the model and plan, the seed, the engine version, the Python version, and the exact dependency set. A result can always be traced back and re-created. |
+| **Reproducibility evidence** | Runs record hashes, seeds, engine/runtime metadata, and dependency evidence so a result can be audited and rerun under the recorded conditions. |
 
 ---
 
@@ -254,9 +270,10 @@ Full guide, including how to add your own: [`docs/modules.md`](docs/modules.md).
 
 ## 🖥️ Front end & API
 
-The twin ships with a local **REST API** and a **React front end** to map the floor, run
-it, sweep a lever, and optimize - all in the browser, with the confidence band as the
-central visual.
+The twin ships with a local **REST API**, Python SDK, MCP adapter, and React
+operator workspace. The UI imports and exports capsules, runs bounded jobs,
+shows evidence, compares baseline/candidate scenarios, and exposes legacy floor
+maps and optimization views.
 
 ```bash
 pip install -e ".[api]"
@@ -270,11 +287,13 @@ and [`docs/frontend.md`](docs/frontend.md).
 
 ---
 
-## 🧭 Beyond the single floor (shipped in alpha)
+## 🧭 Three domains in the integrated alpha
 
-> These extend the same one-contract engine rather than replacing it. All are built and tested today; the [Roadmap](#roadmap) covers what is still direction.
+> These adapters share the workspace contract and return bounded, JSON-safe evidence. See the [build status](docs/enterprise/BUILD-STATUS.md) for remaining readiness gates.
 
-- **Supply-chain twin** - orders, finite stocks, reorder points, supplier lead time, and multi-echelon inventory, with inventory KPIs and economics you can optimize. See [`docs/supply-chain.md`](docs/supply-chain.md).
+- **Manufacturing** - the deterministic discrete-event engine, plans, schedules, resources, and seeded experiments. See [`docs/modeling.md`](docs/modeling.md).
+- **Office workflows** - cases, documents, approvals, calendars, roles, and bounded rework through the `office` adapter.
+- **Supply networks** - stock, receipts, BOMs, qualifications, gates, and bounded lead-time decisions through the `supply_chain` adapter.
 - **Active control** - dispatch policies, order release (CONWIP / WIP-cap), and seeded disruptions turn the twin from a viewer into a decision tool. See [`docs/active-control.md`](docs/active-control.md).
 - **Optimizers** - *search* the scoring surface for the best staffing / capacity / reorder settings, not just enumerate a grid. See [`docs/optimizing.md`](docs/optimizing.md).
 - **Reinforcement-learning surface** - the twin as a Gymnasium-style environment (`TwinEnv`) an RL agent plugs straight into.
@@ -298,7 +317,7 @@ A five-layer design. Lower layers never import higher ones. Layers 0 through 2 n
 
 **The core rule:** a new client is data, never code. A capability a floor needs is added to the engine for everyone, never subclassed per client.
 
-Deep docs: **operating guides for every feature and build live in [`docs/`](docs/)** (install, CLI, modeling, modules, API, front end, quickstart). The product/design/plan specs live in [`.claude/specs/factory-twin-scaffold/`](.claude/specs/factory-twin-scaffold/) and the stable project context in [`.claude/steering/`](.claude/steering/).
+Deep docs: **operating guides for every feature and build live in [`docs/`](docs/)** (install, CLI, modeling, modules, API, front end, quickstart). Release history and migration notes are in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -307,52 +326,25 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 - **Python** ≥ 3.11.
 - **619 tests** across unit, analytical, and integration layers.
 - **Blocking CI gates:** `ruff`, `mypy --strict`, `pytest`, `pip-audit` - the build fails on any finding.
-- **Config is the only trust boundary:** YAML is loaded through one safe door, expressions run in one sandbox, and validation reports every problem before a run starts.
-- **Reproducible by construction:** every run carries a stamp that lets you re-create it exactly.
+- **Layered validation:** YAML is loaded through one safe door, expressions run in one sandbox, and workspace/API boundaries enforce request, capability, evidence, and action limits before work starts.
+- **Reproducibility evidence:** every run carries a stamp describing its inputs, seed, runtime, and dependencies for audit and rerun under recorded conditions.
 
 > Status: **alpha.** Supported engine, policy, domain, scheduling, and integration slices are tested. Consult the enterprise build status for specific limitations and production acceptance gates.
 
 ---
 
-## Roadmap
+## Release scope and roadmap
 
-**v1 - available now (built and tested)**
-- Single-floor digital twin from pure config
-- Excel/CSV plans, initial WIP, terminating stochastic runs
-- KPI suite, what-if lever sweeps, parallel replications with confidence intervals
-- Self-contained HTML report + versioned JSON sidecar
-- `twinflow` CLI: `validate`, `run`, `balance`, `report`
+Release `0.3.0-alpha.1` is an integrated local workspace. Delivered slices and
+their remaining acceptance gates are maintained in [enterprise build status](docs/enterprise/BUILD-STATUS.md)
+and the [validation record](docs/enterprise/VALIDATION.md). The [enterprise
+roadmap](docs/enterprise-roadmap.md) describes proposed product direction; it
+is not a promise that every roadmap item is in this release.
 
-**v2 - alpha (built and tested)**
-- Tier 0 floor physics: reorder-point stock, probabilistic quality gate, batch/hold, changeover time
-- Active control: dispatch policies (FIFO/EDD/SPT/critical-ratio), order release (CONWIP/WIP-cap), and seeded disruptions (machine breakdown, operator absence, rush priority)
-- Trust loop: calibration that tunes a model until its KPIs match a real run
-- Supply chain: supplier lead time, multi-echelon inventory, inventory KPIs, and inventory economics (holding/stockout costs, `service_level`) optimizable through the same surface
-- Unified module surface: objectives, cost functions, optimizers, and surrogate ML models over one scoring seam
-- Unified adapter surfaces: ERP/MES connectors, demand generation, forecasters, dispatch policies, a Gymnasium-style RL environment, plan-vs-actual reconciliation, orders/deliveries KPIs
-- `twinflow optimize` CLI and a local REST API (`twinflow serve`)
-- React front end (`web/`) to map, run, sweep, and optimize the twin in the browser
-
-**Beta - next up (designed, not yet built)**
-- Mid-run decide-act loop: a control seam so a policy or agent observes floor state at each decision point and acts within a seeded run (the seam the RL environment and an agent interface plug into)
-- Resource / labor assignment policy: choose *which* machine and *which* operator by skill or load, not just first-free
-- ERP / MES export → draft `model.yaml`: point a connector at an export and get a starting model, so a planner does not author YAML from scratch
-- Plain-language tuning: "Steady / Normal / Jumpy" instead of a raw `cv`
-- Sanity guardrails: validation warnings that catch foot-guns before a run
-- Industry default profiles: sensible starting configs per shop type
-- Paired-difference confidence interval surfaced in the report
-
-**Near-term**
-- Supply-chain at network scale: multi-plant, supplier tiers beyond one echelon
-- Richer demand / order generation from customer and feature models (the generation surface ships today)
-- Concrete forecasters (Prophet etc.) behind the shipped forecaster surface
-
-**Later**
-- Live ERP / MES connectors (the connector *surfaces* ship today; the concrete integrations come next)
-- RL training against the shipped Gymnasium environment
-- Closed-loop work instruction: push a chosen schedule back to the floor
-
-> Everything under **v1** and **v2 - alpha** is real and running today. Everything below it is direction.
+The deterministic simulation core is separate from host-agent reasoning. Twinflow
+has no built-in LLM: an agent may retrieve source facts, construct a capsule,
+branch it, and ask Twinflow to validate and evaluate bounded experiments. The
+service records assumptions and evidence, while operators decide what to act on.
 
 ---
 

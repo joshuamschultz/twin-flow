@@ -1,12 +1,16 @@
 # Integrated validation evidence
 
-Validated locally on 2026-09-12 for the integration of RM-01 through RM-10 into `enterprise-build`. The [build status](BUILD-STATUS.md) distinguishes delivered slices from the remaining [roadmap](../enterprise-roadmap.md) goals. Each epic has its own specification, review, and user guide.
+This page preserves integration evidence recorded on 2026-09-12 for RM-01
+through RM-10 in `enterprise-build`; it is not a claim that every check was
+rerun for each documentation change. The [build status](BUILD-STATUS.md)
+distinguishes delivered slices from the remaining [roadmap](../enterprise-roadmap.md)
+goals. Each epic has its own specification, review, and user guide.
 
 ## Results
 
 | Check | Observed result |
 | --- | --- |
-| Full Python suite, including installed MCP and OR-Tools extras | 619 passed in 32.19 seconds |
+| Full Python suite, including installed MCP and OR-Tools extras (integration evidence) | 619 passed in 32.19 seconds |
 | Strict mypy | 110 source files passed |
 | Ruff lint and formatting | Passed |
 | TypeScript and production Vite build | Passed |

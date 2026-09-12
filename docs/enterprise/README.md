@@ -1,6 +1,6 @@
 # Twinflow enterprise workspace
 
-This directory documents the integrated local decision workspace. Start with the [roadmap](../enterprise-roadmap.md) for stable RM-01 through RM-10 goals, then use the [build playbook](../enterprise-build-playbook.md) for design rationale. [BUILD-STATUS.md](BUILD-STATUS.md) is the current implementation and readiness view.
+This directory documents the integrated local decision workspace. Start with the [roadmap](../enterprise-roadmap.md) for stable RM-01 through RM-10 goals, then use the [build playbook](../enterprise-build-playbook.md) for design rationale. [BUILD-STATUS.md](BUILD-STATUS.md) is the current implementation and readiness view. Release history and migration notes are in the root [CHANGELOG](../../CHANGELOG.md).
 
 ## Start locally
 
