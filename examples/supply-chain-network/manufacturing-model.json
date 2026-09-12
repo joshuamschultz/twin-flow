@@ -1,0 +1,27 @@
+{
+  "sites": [{"id": "plant"}],
+  "suppliers": [
+    {"id": "tier-1", "site_id": "plant"},
+    {"id": "tier-2", "site_id": "plant", "delay_risk": {"minimum_days": 0, "maximum_days": 2, "common_risk_group": "regional-port"}},
+    {"id": "tier-3", "site_id": "plant", "delay_risk": {"minimum_days": 0, "maximum_days": 2, "common_risk_group": "regional-port"}}
+  ],
+  "items": [
+    {"id": "mineral", "kind": "purchased", "uom": "kg"},
+    {"id": "fastener", "kind": "purchased", "uom": "piece"},
+    {"id": "module", "kind": "part", "uom": "piece"},
+    {"id": "finished-unit", "kind": "assembly", "uom": "piece"}
+  ],
+  "bom_revisions": [
+    {"id": "module-r1", "assembly_item_id": "module", "revision": "1", "effective_from": "2026-01-01T00:00:00Z", "lines": [{"item_id": "mineral", "quantity": 2, "uom": "kg"}]},
+    {"id": "unit-r2", "assembly_item_id": "finished-unit", "revision": "2", "effective_from": "2026-01-01T00:00:00Z", "lines": [{"item_id": "module", "quantity": 1, "uom": "piece"}, {"item_id": "fastener", "quantity": 4, "uom": "piece"}]}
+  ],
+  "processes": [
+    {"id": "form-module", "item_id": "module", "lead_time_days": 1},
+    {"id": "final-assembly", "item_id": "finished-unit", "lead_time_days": 1}
+  ],
+  "qualifications": [
+    {"supplier_id": "tier-2", "process_id": "form-module", "valid_from": "2025-01-01T00:00:00Z"},
+    {"supplier_id": "tier-1", "process_id": "final-assembly", "valid_from": "2025-01-01T00:00:00Z"}
+  ],
+  "gates": [{"id": "release-test", "item_id": "finished-unit", "evidence_type": "release-report", "rule_revision": "release-v2"}]
+}

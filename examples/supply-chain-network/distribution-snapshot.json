@@ -1,0 +1,12 @@
+{
+  "as_of": "2026-01-01T00:00:00Z", "inventory": [],
+  "receipts": [
+    {"id": "receipt-a", "item_id": "case-good", "site_id": "dc", "quantity": 5, "uom": "case", "available_at": "2026-01-05T00:00:00Z", "supplier_id": "carrier-a"},
+    {"id": "receipt-b", "item_id": "case-good", "site_id": "dc", "quantity": 5, "uom": "case", "available_at": "2026-01-05T00:00:00Z", "supplier_id": "carrier-b"}
+  ],
+  "allocations": [], "documents": [],
+  "orders": [
+    {"id": "retailer-a", "item_id": "case-good", "site_id": "dc", "quantity": 5, "uom": "case", "due_at": "2026-01-09T00:00:00Z", "priority": 2},
+    {"id": "retailer-b", "item_id": "case-good", "site_id": "dc", "quantity": 5, "uom": "case", "due_at": "2026-01-09T00:00:00Z", "priority": 1}
+  ]
+}

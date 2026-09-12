@@ -1,0 +1,8 @@
+{
+  "as_of": "2026-01-01T00:00:00Z",
+  "inventory": [{"id": "fasteners", "item_id": "fastener", "site_id": "plant", "quantity": 20, "uom": "piece", "available_at": "2026-01-01T00:00:00Z", "quality_status": "released"}],
+  "receipts": [{"id": "mineral-po", "item_id": "mineral", "site_id": "plant", "quantity": 10, "uom": "kg", "available_at": "2026-01-02T00:00:00Z", "supplier_id": "tier-2", "quality_status": "released"}],
+  "allocations": [],
+  "documents": [{"id": "release-2026", "evidence_type": "release-report", "subject_id": "finished-unit", "valid_from": "2026-01-01T00:00:00Z", "expires_at": "2026-12-31T00:00:00Z"}],
+  "orders": [{"id": "order-1", "item_id": "finished-unit", "site_id": "plant", "quantity": 2, "uom": "piece", "due_at": "2026-01-10T00:00:00Z", "priority": 10}]
+}
