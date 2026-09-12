@@ -1,0 +1,50 @@
+# RM-09 Dedicated Service Hardening Specification
+
+## Deployment boundary
+
+This increment supports one dedicated workspace owned by one service process. Local mode binds
+to loopback and may run without authentication. A non-loopback bind is refused unless
+`TWINFLOW_API_TOKEN` is configured. Token mode protects API, data, schema, and interactive API
+documentation routes with constant-time Bearer comparison. It is a shared service token, not
+federated identity or multitenancy.
+
+`ServiceSettings` is constructed at the process boundary and injected into `create_app` and
+`Workspace`. CORS origins and allowed hosts are explicit allowlists. Request bodies, active jobs,
+stored records, and evidence results have configured bounds. Public `/health` and `/ready`
+endpoints reveal only process/readiness status. Every response has a validated or generated
+correlation ID. Unexpected responses are sanitized while detailed failures remain in server logs.
+
+## Durable jobs and ownership
+
+A workspace holds an exclusive nonblocking process lock until close. A second server cannot own
+the same repository concurrently. Job idempotency and active-queue admission occur in one SQLite
+`BEGIN IMMEDIATE` transaction; an existing matching idempotency key is returned even when the
+queue is full. Reuse with another digest fails.
+
+Job changes use compare-and-set transitions. Valid flow is queued to running or cancel_requested;
+running to cancel_requested; running to completed/failed; and cancel_requested to canceled.
+Terminal states cannot be overwritten by a late worker or cancellation. On startup, queued and
+running jobs become interrupted; cancel_requested jobs become canceled.
+
+Import, experiment submission, cancellation, and exports append bounded audit events. Audit data
+records operation, object kind/ID, outcome, time, and correlation metadata supplied by the trusted
+service boundary. It does not claim user identity.
+
+## Evidence and artifacts
+
+Evidence queries accept a job ID and bounded offset/limit only. The repository returns evidence
+embedded in that job result; callers cannot submit artifact paths. Artifact creation remains
+under `<workspace>/artifacts/<server-generated-job-id>`.
+
+## Backup and restore
+
+The standalone admin CLI exposes `backup --workspace ROOT --out ARCHIVE` and
+`restore ARCHIVE --workspace ROOT`. Backup uses SQLite's online backup API, includes regular
+artifact files beneath the fixed artifact root, and writes sorted ZIP members plus a SHA-256
+manifest. Restore rejects absolute/traversing/unlisted/duplicate members, oversized archives,
+digest mismatches, invalid SQLite databases, symlinks, and nonempty targets. Extraction occurs in
+a sibling staging directory before atomic rename.
+
+This local backup is application-consistent for repository metadata and completed artifact files;
+operators should quiesce long-running artifact producers for a drill-grade checkpoint. It does
+not provide continuous point-in-time recovery or remote replication.

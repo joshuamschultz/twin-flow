@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import logging
@@ -10,7 +11,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 from twinflow.application import scenarios
 from twinflow.application.repository import WorkspaceRepository
@@ -25,34 +26,64 @@ def _now() -> str:
 class Workspace:
     """One trusted local workspace with immutable scenarios and bounded experiments."""
 
-    def __init__(self, root: str | Path, examples_root: str | Path = "examples") -> None:
-        self.repository = WorkspaceRepository(root)
+    def __init__(
+        self,
+        root: str | Path,
+        examples_root: str | Path = "examples",
+        *,
+        max_active_jobs: int = 4,
+        max_replications: int = 50,
+        max_records_per_kind: int = 10_000,
+        max_evidence_rows: int = 1_000,
+        max_content_bytes: int = 5_242_880,
+        deployment_mode: str = "local",
+    ) -> None:
+        workspace_root = Path(root).resolve()
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        self._ownership: IO[bytes] = (workspace_root / ".owner.lock").open("a+b")
+        try:
+            fcntl.flock(self._ownership.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            self._ownership.close()
+            raise RuntimeError("Workspace is already owned by another service process") from exc
+        self.repository = WorkspaceRepository(workspace_root)
         self.examples_root = Path(examples_root).resolve()
+        self.max_active_jobs = max_active_jobs
+        self.max_replications = max_replications
+        self.max_records_per_kind = max_records_per_kind
+        self.max_evidence_rows = max_evidence_rows
+        self.max_content_bytes = max_content_bytes
+        self.deployment_mode = deployment_mode
         self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="twinflow-workspace")
         self._lock = threading.Lock()
+        self._closed = False
         self._canceled: set[str] = set()
         self._active: set[str] = set()
-        for job in self.repository.list("jobs", 1000):
-            if job["status"] in ("queued", "running"):
-                job.update(
-                    status="interrupted", error="Service restarted before result publication"
-                )
-                self.repository.update("jobs", job["id"], job)
+        self.repository.recover_jobs(_now())
 
     def close(self) -> None:
+        if self._closed:
+            return
         with self._lock:
             self._canceled.update(self._active)
         self._pool.shutdown(wait=True, cancel_futures=False)
+        fcntl.flock(self._ownership.fileno(), fcntl.LOCK_UN)
+        self._ownership.close()
+        self._closed = True
+
+    def now(self) -> str:
+        """Return the service timestamp used for repository audit events."""
+        return _now()
 
     def capabilities(self) -> dict[str, Any]:
         return {
             "schema_version": "1.0",
-            "mode": "local",
+            "mode": self.deployment_mode,
             "actions": ["import", "export", "branch", "evaluate", "compare", "draft", "answer"],
             "limits": {
-                "max_content_bytes": 5_242_880,
-                "max_replications": 50,
-                "max_active_jobs": 4,
+                "max_content_bytes": self.max_content_bytes,
+                "max_replications": self.max_replications,
+                "max_active_jobs": self.max_active_jobs,
                 "max_wall_seconds": 120,
             },
             "supported_profiles": ["manufacturing.basic", "office.basic", "supply_chain.basic"],
@@ -101,6 +132,8 @@ class Workspace:
     def import_scenario(
         self, content: str, name: str, parent_id: str | None = None
     ) -> dict[str, Any]:
+        if self.repository.count("scenarios") >= self.max_records_per_kind:
+            raise ValueError("Scenario quota reached")
         capsule = scenarios.validate_content(content)
         record: dict[str, Any] = {
             "id": uuid.uuid4().hex,
@@ -113,6 +146,7 @@ class Workspace:
             "validity": "provisional",
         }
         self.repository.create("scenarios", record["id"], record)
+        self.repository.append_audit(_now(), "import", "scenario", record["id"], "created")
         return record
 
     def branch(self, scenario_id: str, name: str, content: str) -> dict[str, Any]:
@@ -123,7 +157,12 @@ class Workspace:
         return self.import_scenario(json.dumps(child), name, scenario_id)
 
     def submit(self, scenario_id: str, reps: int, seed: int, key: str) -> dict[str, Any]:
-        if not 1 <= reps <= 50 or not 0 <= seed <= 2**32 - 1 or not key or len(key) > 200:
+        if (
+            not 1 <= reps <= self.max_replications
+            or not 0 <= seed <= 2**32 - 1
+            or not key
+            or len(key) > 200
+        ):
             raise ValueError("Invalid experiment settings or request key")
         scenario = self.repository.get("scenarios", scenario_id)
         fingerprint = hashlib.sha256(
@@ -140,12 +179,13 @@ class Workspace:
             "error": None,
         }
         with self._lock:
-            if len(self._active) >= 4:
-                raise ValueError("Workspace compute queue is full; wait for an existing job")
-            job_id, created = self.repository.claim_job(key, fingerprint, proposed)
+            job_id, created = self.repository.claim_job(
+                key, fingerprint, proposed, self.max_active_jobs
+            )
             if created:
                 self._active.add(job_id)
                 self._pool.submit(self._execute, job_id, scenario["capsule"])
+                self.repository.append_audit(_now(), "evaluate", "job", job_id, "queued")
         return self.repository.get("jobs", job_id)
 
     def _is_canceled(self, job_id: str) -> bool:
@@ -157,17 +197,23 @@ class Workspace:
         if job["status"] in ("queued", "running", "cancel_requested"):
             with self._lock:
                 self._canceled.add(job_id)
-                job["status"] = "cancel_requested"
-                self.repository.update("jobs", job_id, job)
-        return job
+                changed = self.repository.transition_job(
+                    job_id, ("queued", "running"), {"status": "cancel_requested"}
+                )
+                if changed is not None:
+                    job = changed
+                    self.repository.append_audit(_now(), "cancel", "job", job_id, "requested")
+        return self.repository.get("jobs", job_id)
 
     def _execute(self, job_id: str, capsule: dict[str, Any]) -> None:
         job = self.repository.get("jobs", job_id)
         try:
             if self._is_canceled(job_id):
                 raise InterruptedError("Experiment canceled")
-            job["status"] = "running"
-            self.repository.update("jobs", job_id, job)
+            running = self.repository.transition_job(job_id, ("queued",), {"status": "running"})
+            if running is None:
+                raise InterruptedError("Experiment canceled")
+            job = running
             result = scenarios.evaluate_capsule(
                 capsule,
                 self.repository.root / "artifacts" / job_id,
@@ -177,23 +223,47 @@ class Workspace:
             )
             if self._is_canceled(job_id):
                 raise InterruptedError("Experiment canceled")
-            job.update(status="completed", result=result, finished_at=_now())
+            changes = {"status": "completed", "result": result, "finished_at": _now()}
+            if self.repository.transition_job(job_id, ("running",), changes) is None:
+                self._finish_cancellation(job_id)
         except InterruptedError:
-            job.update(status="canceled", error=None, finished_at=_now())
+            self.repository.transition_job(
+                job_id,
+                ("queued", "running", "cancel_requested"),
+                {"status": "canceled", "error": None, "finished_at": _now()},
+            )
         except (ValueError, TimeoutError) as exc:
-            job.update(status="failed", error=str(exc), finished_at=_now())
+            failed = self.repository.transition_job(
+                job_id,
+                ("running",),
+                {"status": "failed", "error": str(exc), "finished_at": _now()},
+            )
+            if failed is None:
+                self._finish_cancellation(job_id)
         except Exception:
             log.exception("Workspace experiment failed: %s", job_id)
-            job.update(
-                status="failed",
-                error="Experiment failed; inspect the server log with this job ID",
-                finished_at=_now(),
+            failed = self.repository.transition_job(
+                job_id,
+                ("running",),
+                {
+                    "status": "failed",
+                    "error": "Experiment failed; inspect the server log with this job ID",
+                    "finished_at": _now(),
+                },
             )
+            if failed is None:
+                self._finish_cancellation(job_id)
         finally:
-            self.repository.update("jobs", job_id, job)
             with self._lock:
                 self._active.discard(job_id)
                 self._canceled.discard(job_id)
+
+    def _finish_cancellation(self, job_id: str) -> None:
+        self.repository.transition_job(
+            job_id,
+            ("cancel_requested",),
+            {"status": "canceled", "error": None, "finished_at": _now()},
+        )
 
     def compare(self, baseline_id: str, candidate_id: str) -> dict[str, Any]:
         a, b = (self.repository.get("jobs", i) for i in (baseline_id, candidate_id))
@@ -263,3 +333,24 @@ class Workspace:
         revision["parent_id"] = draft_id
         self.repository.update("drafts", revision["id"], revision)
         return revision
+
+    def evidence(self, job_id: str, *, offset: int = 0, limit: int = 100) -> dict[str, Any]:
+        """Return bounded embedded evidence; callers never provide filesystem paths."""
+        if offset < 0 or limit < 1 or limit > self.max_evidence_rows:
+            raise ValueError("Invalid evidence page")
+        job = self.repository.get("jobs", job_id)
+        result = job.get("result")
+        evidence: list[Any] = []
+        if isinstance(result, dict):
+            evidence = list(result.get("outcomes", []))
+            for index, sample in enumerate(result.get("per_replication", [])):
+                for key in ("trace", "gate_results", "shortages", "order_forecasts", "cases"):
+                    for row in sample.get(key, []):
+                        evidence.append({"replication": index, "kind": key, "record": row})
+        return {
+            "job_id": job_id,
+            "offset": offset,
+            "limit": limit,
+            "items": evidence[offset : offset + limit],
+            "total": len(evidence),
+        }

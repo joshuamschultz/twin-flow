@@ -14,14 +14,21 @@ def main(argv: list[str] | None = None) -> int:
     import uvicorn
 
     from twinflow.service.app import create_app
+    from twinflow.service.settings import ServiceSettings
 
     parser = argparse.ArgumentParser(prog="twinflow-serve")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--models-root", default="examples")
+    parser.add_argument("--workspace-root", default=".twinflow-workspace")
     args = parser.parse_args(argv)
 
-    uvicorn.run(create_app(args.models_root), host=args.host, port=args.port)
+    settings = ServiceSettings.from_env(host=args.host)
+    uvicorn.run(
+        create_app(args.models_root, workspace_root=args.workspace_root, settings=settings),
+        host=args.host,
+        port=args.port,
+    )
     return 0
 
 
