@@ -1,0 +1,210 @@
+# Scenario capsule for the active-control example. Import this file in the workspace UI,
+# or run: twinflow scenario run examples/active-control/active-control.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  defaults:
+    cycle_time_cv: 0.15
+  release:
+    policy: wip_cap
+    wip_cap: 5
+  machines:
+  - name: press_m
+  - name: pack_m
+  part_types:
+  - name: steel
+    uom: piece
+    attributes: {}
+  - name: pressed
+    uom: piece
+    attributes: {}
+  - name: part
+    uom: piece
+    attributes: {}
+  stocks: []
+  labor:
+    pools:
+    - name: floor
+      headcount: 2
+      skills:
+      - press_op
+      - pack_op
+  locations:
+  - name: press
+    consumes:
+    - thing: steel
+      qty: 1
+      uom: piece
+    emits:
+    - thing: pressed
+      qty: 1
+      uom: piece
+    setup_key: g_press
+    dispatch: edd
+    breakdown:
+      mtbf: 20m
+      mttr:
+        dist: lognormal
+        mean: 5m
+        cv: 0.4
+    time_model:
+      kind: rate_based
+      rate: 0.02
+    machine: press_m
+    labor_skill: press_op
+  - name: pack
+    consumes:
+    - thing: pressed
+      qty: 1
+      uom: piece
+    emits:
+    - thing: part
+      qty: 1
+      uom: piece
+    setup_key: g_pack
+    time_model:
+      kind: rate_based
+      rate: 0.1
+    machine: pack_m
+    labor_skill: pack_op
+  routing:
+  - part: part
+    steps:
+    - press
+    - pack
+snapshot:
+  id: active-control-example
+  as_of: '2026-09-12T00:00:00+00:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: wo-01
+    part: part
+    qty: 3
+    start_date: '0'
+    due_date: '1200'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-02
+    part: part
+    qty: 4
+    start_date: '0'
+    due_date: '900'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-03
+    part: part
+    qty: 2
+    start_date: '0'
+    due_date: '1500'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-04
+    part: part
+    qty: 3
+    start_date: '100'
+    due_date: '700'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-05
+    part: part
+    qty: 4
+    start_date: '150'
+    due_date: '2000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-06
+    part: part
+    qty: 2
+    start_date: '200'
+    due_date: '600'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-07
+    part: part
+    qty: 3
+    start_date: '300'
+    due_date: '2500'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-08
+    part: part
+    qty: 4
+    start_date: '350'
+    due_date: '1100'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-09
+    part: part
+    qty: 2
+    start_date: '400'
+    due_date: '800'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-10
+    part: part
+    qty: 3
+    start_date: '500'
+    due_date: '3000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-11
+    part: part
+    qty: 4
+    start_date: '600'
+    due_date: '1300'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-12
+    part: part
+    qty: 2
+    start_date: '700'
+    due_date: '450'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 5
+    completed_good_qty: 0
+experiment:
+  id: active-control-example
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/active-control/model.yaml
+  plan: examples/active-control/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

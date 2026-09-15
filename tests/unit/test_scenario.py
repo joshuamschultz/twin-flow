@@ -73,3 +73,19 @@ def test_all_runnable_example_pairs_import() -> None:
         plan_path = model_path.with_name("plan.csv")
         capsule = import_legacy(model_path, plan_path, as_of="2026-09-12T08:00:00-05:00")
         assert capsule.validate() == []
+
+
+def test_legacy_model_yaml_is_named_not_reported_as_generic_missing_fields() -> None:
+    """A floor `model.yaml` dropped into the capsule import must say what it is
+    and how to convert it, instead of listing every capsule section as missing."""
+    from pathlib import Path
+
+    from twinflow.scenario import CapsuleValidationError, loads
+
+    content = Path("examples/spring/model.yaml").read_text(encoding="utf-8")
+    with pytest.raises(CapsuleValidationError) as caught:
+        loads(content)
+    message = str(caught.value)
+    assert "legacy floor model" in message
+    assert "twinflow scenario import" in message
+    assert "missing required field" not in message

@@ -1,0 +1,4 @@
+{
+  "locations[press].capacity": [1, 2],
+  "labor.pools[0].headcount": [2, 3]
+}

@@ -52,3 +52,34 @@ twinflow report <run-id> --out html
 
 Use `--reps 30` so the report shows each KPI as a confidence range, not a
 single number — that is what makes the before/after comparison trustworthy.
+
+## Sweep the levers
+
+`examples/cnc-shop-3mill/sweep.json` grids the shaft mill's machine count
+around this example's own starting point of 3:
+
+```json
+{ "locations[mill_shaft].capacity": [2, 3, 4] }
+```
+
+```bash
+twinflow balance examples/cnc-shop-3mill/model.yaml --plan examples/cnc-shop-3mill/plan.csv \
+  --sweep examples/cnc-shop-3mill/sweep.json --reps 10
+```
+
+This checks the "moved, not fixed" claim above from the other side: does a
+4th mill buy another real jump in on-time delivery, or has the constraint
+already moved to labor/setup/downstream, so a 4th machine mostly sits idle?
+
+## Import into the workspace UI
+
+`cnc-shop-3mill.twin.yaml` in this folder is the same floor and plan packaged as a
+scenario capsule. Choose it in the workspace's **Import scenario** dialog, or
+run it directly:
+
+```bash
+twinflow scenario validate examples/cnc-shop-3mill/cnc-shop-3mill.twin.yaml
+twinflow scenario run examples/cnc-shop-3mill/cnc-shop-3mill.twin.yaml --seed 42
+```
+
+`model.yaml` on its own is not a capsule; the importer says so if you pick it.

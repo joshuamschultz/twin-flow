@@ -68,3 +68,38 @@ twinflow validate examples/foundry/model.yaml
 twinflow run examples/foundry/model.yaml --plan examples/foundry/plan.csv --reps 1
 twinflow report <run-id> --out html
 ```
+
+## Sweep the levers
+
+`examples/foundry/sweep.json` grids each casting line's melt-furnace machine
+count independently:
+
+```json
+{
+  "locations[melt_a].capacity": [1, 2],
+  "locations[melt_b].capacity": [1, 2]
+}
+```
+
+```bash
+twinflow balance examples/foundry/model.yaml --plan examples/foundry/plan.csv \
+  --sweep examples/foundry/sweep.json --reps 10
+```
+
+This runs all four combinations (each line at 1 or 2 furnaces), 10
+replications each, so you can see whether a second furnace on line A, line
+B, or both moves the KPIs more, given the two lines share only the raw
+`metal_ingot` feedstock and the `remelt` recycle stock.
+
+## Import into the workspace UI
+
+`foundry.twin.yaml` in this folder is the same floor and plan packaged as a
+scenario capsule. Choose it in the workspace's **Import scenario** dialog, or
+run it directly:
+
+```bash
+twinflow scenario validate examples/foundry/foundry.twin.yaml
+twinflow scenario run examples/foundry/foundry.twin.yaml --seed 42
+```
+
+`model.yaml` on its own is not a capsule; the importer says so if you pick it.

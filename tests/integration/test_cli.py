@@ -366,6 +366,22 @@ class TestRunSubcommand:
         assert "run_hours" in kpi_payload
         assert "setup_hours" in kpi_payload
 
+    def test_run_prints_completion_summary(
+        self, isolated_cwd: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """`run` must print a human-readable KPI headline, not just paths: how
+        many orders completed, the on-time figure, and the makespan."""
+        model_path = _write_valid_model(isolated_cwd)
+        plan_path = _write_plan(isolated_cwd)
+
+        exit_code = main(["run", str(model_path), "--plan", str(plan_path), "--reps", "1"])
+
+        assert exit_code == 0
+        out = capsys.readouterr().out.lower()
+        assert "orders" in out
+        assert "on-time" in out or "on time" in out
+        assert "makespan" in out
+
     def test_run_missing_plan_file_exits_nonzero(self, isolated_cwd: Path) -> None:
         model_path = _write_valid_model(isolated_cwd)
 
@@ -447,6 +463,43 @@ class TestBalanceSubcommand:
         assert len(partition_dirs) == 2
         for partition_dir in partition_dirs:
             assert list(partition_dir.glob("*.parquet")), f"{partition_dir} has no parquet output"
+
+    def test_balance_prints_comparison_and_writes_summary(
+        self, isolated_cwd: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """`balance` must not run silently: it prints a per-point comparison
+        (the swept lever's values against on-time %) and writes a machine-
+        readable `summary.json` next to the sweep partitions."""
+        model_path = _write_valid_model(isolated_cwd)
+        plan_path = _write_plan(isolated_cwd)
+        sweep_path = _write_sweep(isolated_cwd)
+        before = _run_dir_names(isolated_cwd)
+
+        exit_code = main(
+            [
+                "balance",
+                str(model_path),
+                "--plan",
+                str(plan_path),
+                "--sweep",
+                str(sweep_path),
+                "--reps",
+                "1",
+            ]
+        )
+
+        assert exit_code == 0
+        out = capsys.readouterr().out.lower()
+        assert "on_time_pct" in out or "on-time" in out
+        # the swept lever appears in the printed comparison
+        assert "locations[cut].time_model.rate" in out
+
+        run_id = _new_run_id(before, _run_dir_names(isolated_cwd))
+        summary = isolated_cwd / "runs" / run_id / "summary.json"
+        assert summary.is_file()
+        payload = json.loads(summary.read_text(encoding="utf-8"))
+        assert isinstance(payload, list) and len(payload) == 2
+        assert {"sweep_point", "levers", "on_time_pct"} <= set(payload[0])
 
     def test_balance_missing_sweep_file_exits_nonzero(self, isolated_cwd: Path) -> None:
         model_path = _write_valid_model(isolated_cwd)
@@ -634,3 +687,19 @@ class TestNothingImportsCli:
                 if name == "twinflow.cli" or name.startswith("twinflow.cli."):
                     offending.append(f"{py_file}: {name}")
         assert offending == []
+
+
+class TestDelegatedHelp:
+    """`schedule` and `admin` hand their argv to their own parsers. A leading
+    `--help` must reach that parser and print its usage, not die silently."""
+
+    @pytest.mark.parametrize("command", ["schedule", "admin"])
+    def test_delegated_help_prints_usage_and_exits_zero(
+        self, command: str, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from twinflow.cli.main import main
+
+        code = main([command, "--help"])
+        out = capsys.readouterr().out
+        assert code == 0
+        assert "usage:" in out.lower()

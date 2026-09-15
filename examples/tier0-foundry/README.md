@@ -36,3 +36,34 @@ band across the replications.
   them.
 - Reproducibility holds: the quality gate draws from its own seeded RNG stream, so the
   same seed always produces the same pass/fail split (common random numbers, D-033).
+
+## Sweep the levers
+
+`examples/tier0-foundry/sweep.json` grids the mold station's machine count:
+
+```json
+{ "locations[mold].capacity": [1, 2, 3] }
+```
+
+```bash
+twinflow balance examples/tier0-foundry/model.yaml --plan examples/tier0-foundry/plan.csv \
+  --sweep examples/tier0-foundry/sweep.json --reps 10
+```
+
+This runs the floor at 1, 2, and 3 molds, 10 replications each, so you can
+see how adding a second mold interacts with the other three Tier 0
+capabilities already on this floor — the finite `sand` stock it draws from,
+the `anneal` batch hold downstream, and the `inspect` quality gate.
+
+## Import into the workspace UI
+
+`tier0-foundry.twin.yaml` in this folder is the same floor and plan packaged as a
+scenario capsule. Choose it in the workspace's **Import scenario** dialog, or
+run it directly:
+
+```bash
+twinflow scenario validate examples/tier0-foundry/tier0-foundry.twin.yaml
+twinflow scenario run examples/tier0-foundry/tier0-foundry.twin.yaml --seed 42
+```
+
+`model.yaml` on its own is not a capsule; the importer says so if you pick it.

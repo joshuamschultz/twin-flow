@@ -129,3 +129,36 @@ or a `changeover_matrix` entry. `setup_key` is real and load-bearing for
 `setup_key` exactly as the schema defines it today (grouping/eligibility),
 and documents the gap here rather than inventing a new YAML field or
 changing `compile.py`/`SetupPolicy` to add one.
+
+## Sweep the levers
+
+The "what to look for" section above shows the mill (`mill_shaft` /
+`mill_bracket`) as the floor's bottleneck, fixed at one machine each.
+`examples/cnc-shop/sweep.json` grids the shaft mill's machine count:
+
+```json
+{ "locations[mill_shaft].capacity": [1, 2, 3] }
+```
+
+```bash
+twinflow balance examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv \
+  --sweep examples/cnc-shop/sweep.json --reps 10
+```
+
+This runs the shop at 1, 2, and 3 shaft mills, 10 replications each, so you
+can see how much of the on-time gain [`cnc-shop-3mill`](../cnc-shop-3mill/)
+reports actually comes from the mill alone, one machine at a time, instead
+of taking the finished 3-mill floor on faith.
+
+## Import into the workspace UI
+
+`cnc-shop.twin.yaml` in this folder is the same floor and plan packaged as a
+scenario capsule. Choose it in the workspace's **Import scenario** dialog, or
+run it directly:
+
+```bash
+twinflow scenario validate examples/cnc-shop/cnc-shop.twin.yaml
+twinflow scenario run examples/cnc-shop/cnc-shop.twin.yaml --seed 42
+```
+
+`model.yaml` on its own is not a capsule; the importer says so if you pick it.

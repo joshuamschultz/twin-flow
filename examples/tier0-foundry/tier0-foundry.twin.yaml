@@ -1,0 +1,259 @@
+# Scenario capsule for the tier0-foundry example. Import this file in the workspace UI,
+# or run: twinflow scenario run examples/tier0-foundry/tier0-foundry.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  stocks:
+  - name: ingot
+    uom: piece
+  - name: sand
+    uom: kg
+    initial: 0
+    reorder_point: 20
+    refill_to: 200
+  part_types:
+  - name: ingot
+    uom: piece
+    attributes: {}
+  - name: molten
+    uom: piece
+    attributes: {}
+  - name: casting
+    uom: piece
+    attributes: {}
+  - name: annealed
+    uom: piece
+    attributes: {}
+  - name: part
+    uom: piece
+    attributes: {}
+  - name: part_scrap
+    uom: piece
+    attributes: {}
+  machines:
+  - name: melt_m
+  - name: mold_m
+  - name: anneal_m
+  - name: inspect_m
+  - name: scrap_m
+  labor:
+    pools:
+    - name: floor_pool
+      headcount: 4
+      skills:
+      - furnace
+      - finish
+  locations:
+  - name: melt
+    consumes:
+    - thing: ingot
+      qty: 1
+      uom: piece
+    emits:
+    - thing: molten
+      qty: 1
+      uom: piece
+    setup_key: grp_melt
+    changeover_seconds: 120
+    time_model:
+      kind: rate_based
+      rate: 0.5
+    machine: melt_m
+    labor_skill: furnace
+  - name: mold
+    consumes:
+    - thing: molten
+      qty: 1
+      uom: piece
+    emits:
+    - thing: casting
+      qty: 1
+      uom: piece
+    setup_key: grp_mold
+    material:
+      stock: sand
+      qty: 3
+      uom: kg
+    time_model:
+      kind: rate_based
+      rate: 0.5
+    machine: mold_m
+    labor_skill: furnace
+  - name: anneal
+    consumes:
+    - thing: casting
+      qty: 1
+      uom: piece
+    emits:
+    - thing: annealed
+      qty: 1
+      uom: piece
+    setup_key: grp_anneal
+    batch_size: 5 piece
+    time_model:
+      kind: batch_hold
+      seconds: 400
+    machine: anneal_m
+    labor_skill: finish
+  - name: inspect
+    consumes:
+    - thing: annealed
+      qty: 1
+      uom: piece
+    emits:
+    - thing: part
+      qty: 1
+      uom: piece
+    setup_key: grp_inspect
+    time_model:
+      kind: rate_based
+      rate: 1.0
+    machine: inspect_m
+    labor_skill: finish
+    quality_gate:
+      thing: part
+      branches:
+      - prob: 0.9
+        to: null
+      - prob: 0.1
+        to: scrap_bin
+  - name: scrap_bin
+    consumes:
+    - thing: part
+      qty: 1
+      uom: piece
+    emits:
+    - thing: part_scrap
+      qty: 1
+      uom: piece
+    setup_key: grp_scrap
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: scrap_m
+    labor_skill: finish
+  routing:
+  - part: part
+    steps:
+    - melt
+    - mold
+    - anneal
+    - inspect
+  processes: []
+  bom: []
+snapshot:
+  id: tier0-foundry-example
+  as_of: '2026-09-12T00:00:00+00:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: wo-1
+    part: part
+    qty: 1
+    start_date: '0'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-2
+    part: part
+    qty: 1
+    start_date: '50'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-3
+    part: part
+    qty: 1
+    start_date: '100'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-4
+    part: part
+    qty: 1
+    start_date: '150'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-5
+    part: part
+    qty: 1
+    start_date: '200'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-6
+    part: part
+    qty: 1
+    start_date: '250'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-7
+    part: part
+    qty: 1
+    start_date: '300'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-8
+    part: part
+    qty: 1
+    start_date: '350'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-9
+    part: part
+    qty: 1
+    start_date: '400'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-10
+    part: part
+    qty: 1
+    start_date: '450'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+experiment:
+  id: tier0-foundry-example
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/tier0-foundry/model.yaml
+  plan: examples/tier0-foundry/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

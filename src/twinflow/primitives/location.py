@@ -36,6 +36,21 @@ from twinflow.primitives.transform import Transform
 RecordTuple = tuple[str, str, str, str, float, float, float | None, float, float, float, str, float]
 
 
+def _explode(bundle: Bundle) -> list[Bundle]:
+    """A lot bundle to a list of unit bundles (qty 1 each), preserving thing,
+    uom and attrs. A whole-number qty N yields N units; a fractional remainder
+    (a non-integer qty) trails as one final bundle carrying it, so quantity is
+    conserved exactly. qty <= 1 is returned unchanged (nothing to split)."""
+    if bundle.qty <= 1.0:
+        return [bundle]
+    whole = int(bundle.qty)
+    units = [bundle.with_qty(1.0) for _ in range(whole)]
+    remainder = bundle.qty - whole
+    if remainder > 1e-9:
+        units.append(bundle.with_qty(remainder))
+    return units
+
+
 class EventSink(Protocol):
     """Minimal structural sink Location appends ProcessExecution records to.
 
@@ -432,6 +447,15 @@ class Location:
             # (D-043) — apply the transform, then emit every output to its
             # declared destination (a Stock is put() into; a list sink appended).
             outputs = self.spec.transform.apply(selected, self.spec.registry)
+            if getattr(self.spec, "split_output", False):
+                # Explode each produced lot into individual unit bundles — the
+                # inverse of a `batch_size` accumulation. A step that turns a lot
+                # of 6 into 6 units (divide dough into loaves, cut a coil into
+                # blanks, singulate a tray) so each unit then flows, queues, holds
+                # its own capacity slot and is tracked to its order on its own.
+                # Every unit inherits the lot's attrs (order_id, due_date, ...),
+                # so within one order the split preserves that order's identity.
+                outputs = [unit for bundle in outputs for unit in _explode(bundle)]
             routers = getattr(self.spec, "routers", {})
             for output_bundle in outputs:
                 router = routers.get(output_bundle.thing)

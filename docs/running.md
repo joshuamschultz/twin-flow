@@ -65,29 +65,36 @@ Everything about the run lives in `runs/<run-id>/`:
 | `intervals.json` | The confidence bands across all replications (mean + lo/hi per metric). |
 | `run_meta.json` | The reproducibility stamp: model/plan hashes, seed, engine + Python versions, dependencies. |
 | `events.parquet` | The raw event log the KPIs are computed from. |
+| `resource_usage.parquet` | Per-firing machine/labor time attribution, including shared physical resource identity. |
+| `inventory.parquet` | Stock level changes and replenishment activity. |
 
 `twinflow report <run-id> --out html` re-confirms and locates the report for a finished run.
 
 ## Step 4 — read the report
 
-The report opens with **the assumptions the engine had to make**, stated plainly (for
-example: no shift calendar, so every pool is always on shift). Read these first — they
-tell you what the numbers do and do not account for.
-
-Then the headline card shows **on-time %** as a mean with its low-to-high band, a
-value-stream diagram of your floor, and range charts for the key KPIs.
+The Overview tab shows **on-time %** as a mean with its confidence interval and shared
+resource tables. The due-date to completion timeline appears on the Charts tab. Open the
+Assumptions tab to see defaults the engine used (for example, no shift calendar, so every
+labor pool is treated as always on shift); those assumptions show what the numbers do and
+do not account for.
+Charts, material flow, and detail each have their own tab. Calendar-aware runs label time
+axes with dates.
+Machine occupancy is measured over the full 24/7 run. Labor tables show utilization over
+on-shift hours plus the 24/7 figure. Per-location busy hours remain separate from machine
+occupancy.
 
 ## The KPIs, in plain language
 
-Every number below comes from the one event log. Where a run has more than one
-replication, it comes back as a band.
+Event KPIs come from the event log; resource hours and occupancy come from the resource
+usage table, and stock KPIs come from inventory events. Where a KPI is aggregated across
+replications, the report and `intervals.json` provide its band.
 
 | KPI | What it tells you |
 |---|---|
 | **On-time %** | Share of orders that finished on or before their due date. The headline. |
 | **Completion by order** | When each order actually finished (simulated seconds). `None` means it never finished within the run. |
 | **Lateness by order** | Finish minus due date, per order. Negative = early, positive = late. |
-| **Utilization by cell / machine** | Share of the run each work center was busy. High = a likely bottleneck. |
+| **Utilization by cell / machine** | Work-center and machine occupancy use wall-clock run time. Shared labor tables show utilization against on-shift hours and 24/7 wall time; high utilization can indicate a constraint. |
 | **Wait breakdown** (per center) | Why a center was idle: **starved** (nothing to work on), **blocked** (finished a job but can't hand it off), **material-starved** (waiting on a finite stock). This is how you find the *real* choke point: the bottleneck runs busy while the centers it feeds show high **starved**. |
 | **WIP over time** | Work-in-progress at each center across the run — where jobs pile up. |
 | **Machine hours / labor hours** | Total busy hours by machine and by pool/skill. |
@@ -102,14 +109,14 @@ replication, it comes back as a band.
 ```
 
 - **mean** — the average across replications. The single number, if you must pick one.
-- **lo / hi** — the low and high edge of the band (a percentile range, so a skewed spread
-  is shown as it really falls, not assumed symmetric).
+- **lo / hi** — the confidence interval limits for the estimated mean. This describes
+  uncertainty in the mean, not the percentile spread of individual simulated outcomes.
 - **p50** — the median.
 - **n** — how many replications fed the band.
 
-Read it as: *"on-time is about 82%, and on a normal run it lands between 74% and 90%."*
-If the band is wide, your floor is volatile and a single promised date is risky. If you
-need a number you can defend, quote the **low edge**, not the mean.
+Read it as: *"estimated mean on-time is about 82%, with the interval for that mean from
+74% to 90%."* A wide interval means the mean is estimated imprecisely; use outcome
+quantiles separately when asking how a typical or bad individual run may land.
 
 ## Reading results programmatically
 
@@ -138,14 +145,14 @@ from twinflow.instrumentation.sweep import orders_frame
 
 model = load_model("model.yaml")  # parse + validate + compile, once
 plan = load_plan("plan.csv", model.registry)
-results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=0)
-
-per_rep = [
-    compute_kpis(r.event_log_path, orders_frame(plan, model, r.event_log_path), r.horizon)
-    for r in results
-]
-bands = aggregate_kpis(per_rep)  # mean + lo/hi per KPI
-print(bands.on_time_pct)  # Interval(mean, lo, hi, p50, n)
+if __name__ == "__main__":
+    results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=0)
+    per_rep = [
+        compute_kpis(r.event_log_path, orders_frame(plan, model, r.event_log_path), r.horizon)
+        for r in results
+    ]
+    bands = aggregate_kpis(per_rep)  # mean and confidence interval for supported KPIs
+    print(bands.on_time_pct)
 ```
 
 ### Comparing two setups fairly

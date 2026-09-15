@@ -4,6 +4,42 @@ All notable changes to twinflow are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims at
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `split_output: true` on locations to explode each produced bundle into quantity-one
+  bundles while preserving thing, unit, attributes, and order identity. A fractional
+  remainder is emitted as one final fractional bundle. See [modeling](docs/modeling.md)
+  and the [`home-bakery` example](examples/home-bakery/README.md).
+- `WorkingCalendar.available_seconds()` and location-level busy-hour reporting so
+  calendar availability and work-center occupancy can be read separately.
+- HTML report views for completion dates, resource usage, and clearer flow diagrams.
+- A refreshed visual presentation across the workspace shell and scenario views.
+- README, a `sweep.json`, and a ready-to-import `<name>.twin.yaml` capsule in every
+  manufacturing example folder, plus an `examples/README.md` index, so each example
+  runs from copy-paste commands in its own folder and imports in the workspace UI.
+- `TWINFLOW_API_TARGET` for the web dev server and browser tests, so the UI proxy can
+  reach a twinflow API on a port other than 8000.
+
+### Fixed
+
+- Importing a bare `model.yaml` as a scenario now says it is a legacy floor model
+  and how to convert it, instead of listing every capsule section as missing.
+- `twinflow schedule --help` and `twinflow admin --help` now print usage instead of
+  exiting silently with status 2.
+
+### Changed
+
+- The HTML report includes a due-to-finish order timeline, shared-machine occupancy,
+  per-location busy hours, and calendar-aware labels. Utilization denominators remain
+  metric-specific; see [running results](docs/running.md).
+- `twinflow balance` writes a `summary.json` with mean `on_time_pct` and `busy_hours`
+  for each scenario point (`busy_hours` is the legacy sweep's mean `run_hours`).
+- `twinflow run` prints completion counts, on-time count and percentage, late count,
+  makespan, and a warning when orders remain incomplete. With multiple replications the
+  console summary is for replication 1; aggregate intervals use all replications.
+
 ## [0.4.0-alpha.1] — 2026-09-12
 
 This release adds the typed production capability alpha for deterministic, reviewable
@@ -40,6 +76,9 @@ available as separate compatible surfaces.
   unknown capacity remains an explicit receipt-time mode.
 - Active WIP resumes its remaining phase time without replaying completed setup. Full
   setup, calendar holds, and resource identity remain visible in the rich schedule.
+- The legacy manufacturing DES now shares physical machine capacity and setup identity
+  across locations that declare the same machine, and plan rows can seed completed-good
+  quantity and active WIP without releasing that quantity again.
 
 ### Fixed
 
@@ -88,6 +127,9 @@ and operator UI.
 - Workspace settings, health/readiness checks, SQLite persistence, bounded jobs,
   cancellation/recovery transitions, workspace locking, backup/restore, and a
   narrow verified scheduling service with optional CP-SAT support.
+- Timezone-aware HMLV labor calendars with closed-date exceptions and shift-crossing
+  policies, plus `resource_usage.parquet` evidence for physical machine identity and
+  per-machine/labor usage.
 
 ### Changed
 
@@ -98,11 +140,16 @@ and operator UI.
   runs and examples.
 - Proposal approval and delivery are operator-only routes; the available
   delivery sink is forced to a recorded dry run.
+- Replication reports distinguish confidence intervals for estimated means from the
+  distribution of individual outcomes, and paired runs support fair scenario comparisons.
 
 ### Fixed
 
 - Preserved source IDs, model and snapshot revisions, capsule digests, seeds,
   limits, job IDs, and evidence references across workspace results and exports.
+- Manufacturing outcomes count terminal accepted quantities, retain incomplete orders as
+  censored rather than reassuring completion, and use paired replications for scenario
+  comparisons so shared randomness supports more trustworthy differences.
 - Rejected unsafe or ambiguous inputs at the capsule, adapter, scheduling, and
   action boundaries, including unsupported scheduling grammars. Host agents
   must treat imported notes as untrusted facts; the service preserves them as

@@ -1,0 +1,8 @@
+work_order_id,part,qty,start_date,due_date,priority
+tub-plain-d1,plain,6,0,266400,0
+tub-pumpkin-d1,pumpkin,6,0,266400,0
+tub-blueberry-d1,blueberry,6,0,266400,0
+tub-plain-d2,plain,6,172800,468000,0
+tub-pumpkin-d2,pumpkin,6,172800,468000,0
+tub-blueberry-d2,blueberry,6,172800,468000,0
+tub-plain-rush,plain,6,172800,468000,1

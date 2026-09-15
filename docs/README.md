@@ -34,6 +34,7 @@ For the implemented enterprise branch, start with the [operator workspace guide]
 | [glossary.md](glossary.md) | Every term, defined |
 | [production/README.md](production/README.md) | Typed production contracts, state ledgers, and runtime composition |
 | [production/VALIDATION.md](production/VALIDATION.md) | Ten-spec traceability and alpha evidence |
+| [../examples/README.md](../examples/README.md) | Importable floor examples, parameter sweeps, and scenario capsules |
 
 **Using it**
 | Doc | Covers |
@@ -64,8 +65,10 @@ mechanism.
 
 ## Three ways to drive it
 
-- **The `twinflow` command** — `validate`, `run`, `balance`, `report`, `optimize`,
-  `serve`. See [cli.md](cli.md).
+- **The `twinflow` command** — legacy simulation commands (`validate`, `run`, `balance`,
+  `report`, `optimize`, `serve`) plus workspace commands for scenarios, data,
+  scheduling, and administration. See [CLI reference](cli.md), [enterprise workspace
+  guide](enterprise/README.md), and [agent guide](enterprise/AGENT-GUIDE.md).
 - **The Python library** — the same operations, callable in your own code. See
   [running.md](running.md) and [optimizing.md](optimizing.md).
 - **The web UI** — map the floor and run / sweep / optimize in the browser. See

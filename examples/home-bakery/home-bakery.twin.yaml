@@ -1,0 +1,816 @@
+# Scenario capsule for the home-bakery example. Import this file in the workspace
+# UI, or run: twinflow scenario run examples/home-bakery/home-bakery.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  defaults:
+    cycle_time_cv: 0.12
+  stocks:
+  - name: flour
+    uom: kg
+    initial: 120
+    reorder_point: 40
+    refill_to: 240
+    lead_time: 172800
+  - name: starter
+    uom: g
+    initial: 3600
+    reorder_point: 1400
+    refill_to: 8000
+    lead_time: 36000
+  - name: pumpkin_puree
+    uom: kg
+    initial: 6
+    reorder_point: 2
+    refill_to: 12
+    lead_time: 86400
+  - name: blueberry
+    uom: kg
+    initial: 6
+    reorder_point: 2
+    refill_to: 12
+    lead_time: 86400
+  machines:
+  - name: scale_m
+  - name: mixer_m
+  - name: tub_m
+  - name: bench_m
+  - name: fridge_m
+  - name: oven_m
+  - name: rack_m
+  - name: scrap_m
+  labor:
+    pools:
+    - name: bakers
+      headcount: 1
+      skills:
+      - bake
+      calendar:
+        timezone: America/Chicago
+        origin: '2026-09-14T04:00:00-05:00'
+        weekly:
+        - days:
+          - mon
+          - tue
+          - wed
+          - thu
+          - fri
+          - sat
+          start: 04:00
+          end: 07:00
+        - days:
+          - mon
+          - tue
+          - wed
+          - thu
+          - fri
+          - sat
+          start: '19:00'
+          end: '20:00'
+        exceptions:
+        - date: '2026-09-20'
+          closed: true
+  part_types:
+  - name: flour
+    uom: kg
+    attributes: {}
+  - name: starter
+    uom: g
+    attributes: {}
+  - name: pumpkin_puree
+    uom: kg
+    attributes: {}
+  - name: blueberry
+    uom: kg
+    attributes: {}
+  - name: bakery_scrap
+    uom: loaf
+    attributes: {}
+  - name: order_plain
+    uom: loaf
+    attributes: {}
+  - name: scaled_plain
+    uom: loaf
+    attributes: {}
+  - name: dough_plain
+    uom: loaf
+    attributes: {}
+  - name: bulked_plain
+    uom: loaf
+    attributes: {}
+  - name: divided_plain
+    uom: loaf
+    attributes: {}
+  - name: shaped_plain
+    uom: loaf
+    attributes: {}
+  - name: proofed_plain
+    uom: loaf
+    attributes: {}
+  - name: baked_plain
+    uom: loaf
+    attributes: {}
+  - name: plain
+    uom: loaf
+    attributes: {}
+  - name: order_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: scaled_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: dough_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: bulked_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: folded_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: divided_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: shaped_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: proofed_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: baked_pumpkin
+    uom: loaf
+    attributes: {}
+  - name: pumpkin
+    uom: loaf
+    attributes: {}
+  - name: order_blueberry
+    uom: loaf
+    attributes: {}
+  - name: scaled_blueberry
+    uom: loaf
+    attributes: {}
+  - name: dough_blueberry
+    uom: loaf
+    attributes: {}
+  - name: bulked_blueberry
+    uom: loaf
+    attributes: {}
+  - name: folded_blueberry
+    uom: loaf
+    attributes: {}
+  - name: divided_blueberry
+    uom: loaf
+    attributes: {}
+  - name: shaped_blueberry
+    uom: loaf
+    attributes: {}
+  - name: proofed_blueberry
+    uom: loaf
+    attributes: {}
+  - name: baked_blueberry
+    uom: loaf
+    attributes: {}
+  - name: blueberry
+    uom: loaf
+    attributes: {}
+  locations:
+  - name: scale_plain
+    consumes:
+    - thing: order_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: scaled_plain
+      qty: 1
+      uom: loaf
+    material:
+      stock: flour
+      qty: 3.0
+      uom: kg
+    setup_key: grp_scale
+    time_model:
+      kind: rate_based
+      rate: 0.033333
+    machine: scale_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: mix_plain
+    consumes:
+    - thing: scaled_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: dough_plain
+      qty: 1
+      uom: loaf
+    material:
+      stock: starter
+      qty: 660
+      uom: g
+    setup_key: grp_mix
+    time_model:
+      kind: rate_based
+      rate: 0.02
+    machine: mixer_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: bulk_plain
+    consumes:
+    - thing: dough_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: bulked_plain
+      qty: 1
+      uom: loaf
+    setup_key: grp_bulk
+    capacity: 8
+    time_model:
+      kind: batch_hold
+      seconds: 16200
+      load: 300
+      unload: 120
+    machine: tub_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: divide_plain
+    consumes:
+    - thing: bulked_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: divided_plain
+      qty: 1
+      uom: loaf
+    setup_key: grp_bench
+    split_output: true
+    time_model:
+      kind: rate_based
+      rate: 0.008333
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: shape_plain
+    consumes:
+    - thing: divided_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: shaped_plain
+      qty: 1
+      uom: loaf
+    setup_key: grp_bench
+    dispatch: edd
+    time_model:
+      kind: rate_based
+      rate: 0.002381
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: retard_plain
+    consumes:
+    - thing: shaped_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: proofed_plain
+      qty: 1
+      uom: loaf
+    setup_key: grp_fridge
+    capacity: 24
+    time_model:
+      kind: batch_hold
+      seconds: 50400
+      load: 45
+      unload: 45
+    machine: fridge_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: bake_plain
+    consumes:
+    - thing: proofed_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: baked_plain
+      qty: 1
+      uom: loaf
+    setup_key: grp_oven
+    capacity: 4
+    changeover_seconds: 120
+    dispatch: edd
+    time_model:
+      kind: batch_hold
+      seconds: 3300
+      load: 300
+      unload: 180
+    machine: oven_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: coolpack_plain
+    consumes:
+    - thing: baked_plain
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: plain
+      qty: 1
+      uom: loaf
+    setup_key: grp_rack
+    capacity: 12
+    time_model:
+      kind: batch_hold
+      seconds: 7200
+      load: 60
+      unload: 300
+    machine: rack_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: scale_pumpkin
+    consumes:
+    - thing: order_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: scaled_pumpkin
+      qty: 1
+      uom: loaf
+    material:
+      stock: flour
+      qty: 3.0
+      uom: kg
+    setup_key: grp_scale
+    time_model:
+      kind: rate_based
+      rate: 0.033333
+    machine: scale_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: mix_pumpkin
+    consumes:
+    - thing: scaled_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: dough_pumpkin
+      qty: 1
+      uom: loaf
+    material:
+      stock: starter
+      qty: 660
+      uom: g
+    setup_key: grp_mix
+    time_model:
+      kind: rate_based
+      rate: 0.02
+    machine: mixer_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: bulk_pumpkin
+    consumes:
+    - thing: dough_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: bulked_pumpkin
+      qty: 1
+      uom: loaf
+    setup_key: grp_bulk
+    capacity: 8
+    time_model:
+      kind: batch_hold
+      seconds: 16200
+      load: 300
+      unload: 120
+    machine: tub_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: inclusion_pumpkin
+    consumes:
+    - thing: bulked_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: folded_pumpkin
+      qty: 1
+      uom: loaf
+    material:
+      stock: pumpkin_puree
+      qty: 1.08
+      uom: kg
+    setup_key: grp_bench
+    time_model:
+      kind: rate_based
+      rate: 0.004167
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: divide_pumpkin
+    consumes:
+    - thing: folded_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: divided_pumpkin
+      qty: 1
+      uom: loaf
+    setup_key: grp_bench
+    split_output: true
+    time_model:
+      kind: rate_based
+      rate: 0.008333
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: shape_pumpkin
+    consumes:
+    - thing: divided_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: shaped_pumpkin
+      qty: 1
+      uom: loaf
+    setup_key: grp_bench
+    dispatch: edd
+    time_model:
+      kind: rate_based
+      rate: 0.002381
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: retard_pumpkin
+    consumes:
+    - thing: shaped_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: proofed_pumpkin
+      qty: 1
+      uom: loaf
+    setup_key: grp_fridge
+    capacity: 24
+    time_model:
+      kind: batch_hold
+      seconds: 50400
+      load: 45
+      unload: 45
+    machine: fridge_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: bake_pumpkin
+    consumes:
+    - thing: proofed_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: baked_pumpkin
+      qty: 1
+      uom: loaf
+    setup_key: grp_oven
+    capacity: 4
+    changeover_seconds: 120
+    dispatch: edd
+    time_model:
+      kind: batch_hold
+      seconds: 3300
+      load: 300
+      unload: 180
+    machine: oven_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: coolpack_pumpkin
+    consumes:
+    - thing: baked_pumpkin
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: pumpkin
+      qty: 1
+      uom: loaf
+    setup_key: grp_rack
+    capacity: 12
+    time_model:
+      kind: batch_hold
+      seconds: 7200
+      load: 60
+      unload: 300
+    machine: rack_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: scale_blueberry
+    consumes:
+    - thing: order_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: scaled_blueberry
+      qty: 1
+      uom: loaf
+    material:
+      stock: flour
+      qty: 3.0
+      uom: kg
+    setup_key: grp_scale
+    time_model:
+      kind: rate_based
+      rate: 0.033333
+    machine: scale_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: mix_blueberry
+    consumes:
+    - thing: scaled_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: dough_blueberry
+      qty: 1
+      uom: loaf
+    material:
+      stock: starter
+      qty: 660
+      uom: g
+    setup_key: grp_mix
+    time_model:
+      kind: rate_based
+      rate: 0.02
+    machine: mixer_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: bulk_blueberry
+    consumes:
+    - thing: dough_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: bulked_blueberry
+      qty: 1
+      uom: loaf
+    setup_key: grp_bulk
+    capacity: 8
+    time_model:
+      kind: batch_hold
+      seconds: 16200
+      load: 300
+      unload: 120
+    machine: tub_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: inclusion_blueberry
+    consumes:
+    - thing: bulked_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: folded_blueberry
+      qty: 1
+      uom: loaf
+    material:
+      stock: blueberry
+      qty: 0.84
+      uom: kg
+    setup_key: grp_bench
+    time_model:
+      kind: rate_based
+      rate: 0.004167
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: divide_blueberry
+    consumes:
+    - thing: folded_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: divided_blueberry
+      qty: 1
+      uom: loaf
+    setup_key: grp_bench
+    split_output: true
+    time_model:
+      kind: rate_based
+      rate: 0.008333
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: shape_blueberry
+    consumes:
+    - thing: divided_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: shaped_blueberry
+      qty: 1
+      uom: loaf
+    setup_key: grp_bench
+    dispatch: edd
+    time_model:
+      kind: rate_based
+      rate: 0.002381
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  - name: retard_blueberry
+    consumes:
+    - thing: shaped_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: proofed_blueberry
+      qty: 1
+      uom: loaf
+    setup_key: grp_fridge
+    capacity: 24
+    time_model:
+      kind: batch_hold
+      seconds: 50400
+      load: 45
+      unload: 45
+    machine: fridge_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: bake_blueberry
+    consumes:
+    - thing: proofed_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: baked_blueberry
+      qty: 1
+      uom: loaf
+    setup_key: grp_oven
+    capacity: 4
+    changeover_seconds: 120
+    dispatch: edd
+    time_model:
+      kind: batch_hold
+      seconds: 3300
+      load: 300
+      unload: 180
+    machine: oven_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+    quality_gate:
+      thing: baked_blueberry
+      branches:
+      - prob: 0.95
+        to: coolpack_blueberry
+      - prob: 0.05
+        to: flat_loaf_bin
+  - name: coolpack_blueberry
+    consumes:
+    - thing: baked_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: blueberry
+      qty: 1
+      uom: loaf
+    setup_key: grp_rack
+    capacity: 12
+    time_model:
+      kind: batch_hold
+      seconds: 7200
+      load: 60
+      unload: 300
+    machine: rack_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  - name: flat_loaf_bin
+    consumes:
+    - thing: baked_blueberry
+      qty: 1
+      uom: loaf
+    emits:
+    - thing: bakery_scrap
+      qty: 1
+      uom: loaf
+    setup_key: grp_flat_loaf
+    time_model:
+      kind: rate_based
+      rate: 0.016667
+    machine: scrap_m
+    labor_skill: bake
+    shift_crossing: pause
+  routing:
+  - part: plain
+    steps:
+    - scale_plain
+    - mix_plain
+    - bulk_plain
+    - divide_plain
+    - shape_plain
+    - retard_plain
+    - bake_plain
+    - coolpack_plain
+  - part: pumpkin
+    steps:
+    - scale_pumpkin
+    - mix_pumpkin
+    - bulk_pumpkin
+    - inclusion_pumpkin
+    - divide_pumpkin
+    - shape_pumpkin
+    - retard_pumpkin
+    - bake_pumpkin
+    - coolpack_pumpkin
+  - part: blueberry
+    steps:
+    - scale_blueberry
+    - mix_blueberry
+    - bulk_blueberry
+    - inclusion_blueberry
+    - divide_blueberry
+    - shape_blueberry
+    - retard_blueberry
+    - bake_blueberry
+    - coolpack_blueberry
+  processes: []
+  bom: []
+snapshot:
+  id: home-bakery-example
+  as_of: '2026-09-14T04:00:00-05:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: tub-plain-d1
+    part: plain
+    qty: 6
+    start_date: '0'
+    due_date: '266400'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: tub-pumpkin-d1
+    part: pumpkin
+    qty: 6
+    start_date: '0'
+    due_date: '266400'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: tub-blueberry-d1
+    part: blueberry
+    qty: 6
+    start_date: '0'
+    due_date: '266400'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: tub-plain-d2
+    part: plain
+    qty: 6
+    start_date: '172800'
+    due_date: '468000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: tub-pumpkin-d2
+    part: pumpkin
+    qty: 6
+    start_date: '172800'
+    due_date: '468000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: tub-blueberry-d2
+    part: blueberry
+    qty: 6
+    start_date: '172800'
+    due_date: '468000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: tub-plain-rush
+    part: plain
+    qty: 6
+    start_date: '172800'
+    due_date: '468000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 1
+    completed_good_qty: 0
+experiment:
+  id: home-bakery-example
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/home-bakery/model.yaml
+  plan: examples/home-bakery/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

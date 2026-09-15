@@ -9,7 +9,7 @@
 Release `0.4.0-alpha.1` · Python `0.4.0a1` · web `0.4.0-alpha.1`
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0b2340)](#status--quality)
-[![tests](https://img.shields.io/badge/tests-689%20passed-1aa179)](#status--quality)
+[![recorded test evidence](https://img.shields.io/badge/release%20evidence-689%20tests%20recorded-1aa179)](#status--quality)
 [![mypy](https://img.shields.io/badge/mypy-strict-2bb5b5)](#status--quality)
 [![lint](https://img.shields.io/badge/lint-ruff-46a2f1)](#status--quality)
 [![status](https://img.shields.io/badge/status-alpha-f5a623)](#release-scope-and-roadmap)
@@ -133,10 +133,11 @@ You model a floor by naming a few kinds of thing in config. Here is the whole vo
 | **Variation** | Real floors are variable. Add `cv: 0.2` to any time model, or set `defaults: {cycle_time_cv: 0.2}` once, and every cycle time gets a lognormal spread - so replicated runs report a confidence range instead of a fake-certain number. `0` keeps it deterministic. | ✅ |
 | **Scrap** | Declare `scrap: {rate: 0.05, ...}` and the engine makes the good/scrap split for you. Scrap is just an ordinary output bundle. | ✅ |
 | **Batching / pull rule** | Take the queue in arrival order by default, or accumulate to a batch threshold in the thing's own unit (`batch_size: "200 piece"`, `"500 lb"`). | ✅ |
+| **Unit-level output tracking** | Set `split_output: true` to send individual quantity-one bundles downstream; a fractional remainder stays together as a final bundle. | ✅ |
 | **Setup / changeover** | A changeover matrix: parts in the same setup group run back to back for free; others pay the declared changeover time. | ✅ |
 | **Routing** | The ordered list of work centers a part visits (`routing: [{part, steps}]`). | ✅ |
 | **Bill of materials** | Rolled up automatically from what each operation consumes. You never hand-write it. | ✅ |
-| **Capacity-N work center** | `capacity: N` on a work center gives it N identical machines in parallel; jobs pull whichever is free, so up to N run at once. The report's flow diagram draws it as a stack of N machines. (v1 shares one setup state across the N machines.) See [`examples/cnc-shop-3mill`](examples/cnc-shop-3mill/). | ✅ |
+| **Capacity-N work center** | `capacity: N` gives a center N independently set up physical machine instances in parallel. Locations naming the same `machine` share that pool and each instance's setup identity. The report shows one work-center box annotated with its number of slots. See [`examples/cnc-shop-3mill`](examples/cnc-shop-3mill/). | ✅ |
 
 **Four general capabilities** - each is framework-wide, usable by any floor; the [`tier0-foundry`](examples/tier0-foundry/) example composes all four at once.
 
@@ -149,6 +150,12 @@ You model a floor by naming a few kinds of thing in config. Here is the whole vo
 | **Output-to-stock (recycle / remelt)** | Route scrap or rework back into a named stock so the material re-enters the flow. | ✅ |
 
 Everything above is declared in config. The engine has no per-client code, so the same vocabulary models any discrete floor. See [`docs/modeling.md`](docs/modeling.md) for the full config reference.
+
+Locations can also declare `split_output: true` when one bulk firing produces separately
+tracked units. Each output bundle is expanded into unit bundles, with any fractional
+remainder kept as one final bundle; thing, unit, and order attributes are preserved. The
+[home bakery example](examples/home-bakery/README.md) uses this after mixing and fermenting
+dough as a tub, then sends each loaf through shaping, proofing, and baking independently.
 
 ---
 
@@ -196,6 +203,11 @@ In another terminal, start the operator UI with `cd web && npm ci && npm run dev
 Use the [workspace guide](docs/enterprise/README.md) and [agent guide](docs/enterprise/AGENT-GUIDE.md)
 for capsule import/export, SDK, MCP, evidence, and operator flows. The commands
 below are the supported legacy manufacturing CLI.
+
+> If port 8000 is already taken on your machine, start the API with `--port 8010`
+> and run the UI with `TWINFLOW_API_TARGET=http://127.0.0.1:8010 npm run dev`.
+> The UI proxies every `/api` call to that address; pointing it at the wrong
+> server is what makes the example cards fail to load.
 
 Install from source:
 
@@ -353,8 +365,9 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 ## Status & quality
 
 - **Python** ≥ 3.11.
-- **689 tests passed** across unit, analytical, integration, enterprise, boundary, and
-  production capability layers in the release validation run.
+- **Recorded release validation:** 689 tests passed across unit, analytical, integration,
+  enterprise, boundary, and production capability layers. This is release evidence, not a
+  fresh count for the current working tree.
 - **Blocking CI gates:** `ruff`, `mypy --strict`, `pytest`, `pip-audit` - the build fails on any finding.
 - **Layered validation:** YAML is loaded through one safe door, expressions run in one sandbox, and workspace/API boundaries enforce request, capability, evidence, and action limits before work starts.
 - **Reproducibility evidence:** every run carries a stamp describing its inputs, seed, runtime, and dependencies for audit and rerun under recorded conditions.

@@ -116,3 +116,10 @@ class LocationSpec:
 
     shift_crossing: str = "overtime"
     """How setup/run work behaves at shift end: pause, finish_unattended, overtime."""
+
+    split_output: bool = False
+    """When true, explode each produced lot into individual unit bundles (qty 1),
+    the inverse of a `batch_size` accumulation. A center that turns a lot of N into
+    N units (divide dough into loaves, cut stock into blanks, singulate a tray) so
+    each unit then flows, queues, and holds its own capacity slot independently, and
+    is tracked to its owning order. Default false keeps the lot intact (D-044)."""

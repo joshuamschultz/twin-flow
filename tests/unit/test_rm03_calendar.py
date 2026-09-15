@@ -6,6 +6,7 @@ import pytest
 import simpy
 
 from twinflow.primitives.calendar import (
+    AlwaysWorkingCalendar,
     CalendarConfig,
     CalendarException,
     WorkingCalendar,
@@ -81,3 +82,46 @@ def test_finish_unattended_waits_for_start_then_crosses_shift_end() -> None:
     env.process(operation())
     env.run()
     assert env.now == pytest.approx(3 * 3600.0)
+
+
+# ---------------------------------------------------------------------------
+# available_seconds: the operating-time denominator for TRUE utilization.
+# ---------------------------------------------------------------------------
+
+
+def test_available_seconds_counts_split_daily_windows() -> None:
+    """Mon-Sat, two windows a day (04:00-07:00 = 3h and 19:00-20:00 = 1h) = 4h
+    of operating time per working day. Over exactly one Monday (origin Mon
+    00:00, horizon 24h) that is 4 * 3600 s; the overnight gaps count for nothing."""
+    calendar = WorkingCalendar(
+        CalendarConfig(
+            timezone="UTC",
+            origin=datetime.fromisoformat("2026-09-14T00:00:00+00:00"),  # a Monday
+            weekly=(
+                WorkingInterval(frozenset(range(6)), parse_clock("04:00"), parse_clock("07:00")),
+                WorkingInterval(frozenset(range(6)), parse_clock("19:00"), parse_clock("20:00")),
+            ),
+        )
+    )
+
+    assert calendar.available_seconds(24 * 3600.0) == pytest.approx(4 * 3600.0)
+
+
+def test_available_seconds_clips_a_partial_final_shift_to_horizon() -> None:
+    """A horizon ending mid-shift counts only the elapsed part of that shift."""
+    calendar = WorkingCalendar(
+        CalendarConfig(
+            timezone="UTC",
+            origin=datetime.fromisoformat("2026-09-14T00:00:00+00:00"),
+            weekly=(
+                WorkingInterval(frozenset(range(7)), parse_clock("04:00"), parse_clock("07:00")),
+            ),
+        )
+    )
+
+    # horizon at 05:00 -> only 04:00-05:00 counts = 1h.
+    assert calendar.available_seconds(5 * 3600.0) == pytest.approx(1 * 3600.0)
+
+
+def test_always_working_calendar_available_seconds_is_the_whole_horizon() -> None:
+    assert AlwaysWorkingCalendar().available_seconds(1234.0) == pytest.approx(1234.0)

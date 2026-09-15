@@ -257,10 +257,10 @@ export function ScenarioView({
                 },
                 style: {
                   width: 200,
-                  borderRadius: 12,
-                  border: "1px solid #ceddd5",
+                  borderRadius: 4,
+                  border: "1px solid var(--ba-border)",
                   padding: 4,
-                  background: "#fff",
+                  background: "var(--ba-surface)",
                 },
               }))}
               edges={graph.edges.map((edge, i) => ({
@@ -270,12 +270,12 @@ export function ScenarioView({
                 label: edge.label,
                 type: "smoothstep",
                 markerEnd: { type: MarkerType.ArrowClosed },
-                style: { stroke: "#578477", strokeWidth: 1.5 },
+                style: { stroke: "var(--ba-azure-200)", strokeWidth: 1.5 },
               }))}
               nodesDraggable
               elementsSelectable
             >
-              <Background color="#d7dfda" gap={20} />
+              <Background color="var(--ba-grid-dot)" gap={20} />
               <Controls />
             </ReactFlow>
           </div>

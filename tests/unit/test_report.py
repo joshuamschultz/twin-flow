@@ -70,6 +70,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import polars as pl
@@ -380,3 +381,185 @@ def test_kpi_json_sidecar_facade_delegates_with_same_contract(tmp_path: Path) ->
     assert payload["schema_version"] == 2
     assert payload["lateness_by_order"]["WO-3"] is None
     assert payload["setup_hours"] != payload["run_hours"]
+
+
+# ---------------------------------------------------------------------------
+# Shared-resource utilization: one row per physical machine pool / labor pool,
+# aggregated across the routing steps that share it (a single fridge used by
+# three bread chains is ONE resource, not three). Regression guard for the
+# per-step-utilization-only report that fragmented shared equipment.
+# ---------------------------------------------------------------------------
+
+
+def _fake_model_two_steps_one_machine():
+    """A model-shaped stand-in: `bake_a` and `bake_b` share machine `oven_m`
+    (capacity 2), staffed by one `bakers` pool of 1."""
+    from types import SimpleNamespace
+
+    loc = lambda lid: SimpleNamespace(  # noqa: E731 - terse test builder
+        location_id=lid,
+        machine=SimpleNamespace(machine_id="oven_m"),
+        capacity=2,
+        pull_rule=SimpleNamespace(setup_key_of={}),
+        stock_destinations={},
+    )
+    return SimpleNamespace(
+        locations=[loc("bake_a"), loc("bake_b")],
+        labor_pools=[SimpleNamespace(name="bakers", headcount=1, skills={"bake"})],
+        stocks=[],
+        routing={},
+    )
+
+
+def test_shared_resource_rows_aggregate_by_physical_machine() -> None:
+    kpis = _build_kpi_set()
+    kpis = replace(  # busy hours attributed to the two steps that share oven_m
+        kpis, busy_hours_by_location={"bake_a": 6.0, "bake_b": 4.0}
+    )
+    horizon_seconds = 20 * 3600.0  # 20 h run
+
+    machine_rows, labor_rows = HtmlReport._shared_resource_rows(
+        kpis, _fake_model_two_steps_one_machine(), horizon_seconds
+    )
+
+    # ONE oven_m row, not two: its two steps' busy hours (6+4=10) over
+    # horizon x capacity (20 h x 2 slots = 40) -> 25%.
+    assert len(machine_rows) == 1
+    oven = machine_rows[0]
+    assert oven["resource"] == "oven_m"
+    assert oven["capacity"] == 2
+    assert set(oven["steps"]) == {"bake_a", "bake_b"}
+    # no calendar on this pool -> open 24/7, so operating and wall-clock agree.
+    assert oven["util_wall"] == pytest.approx(10.0 / 40.0)
+    assert oven["util_operating"] == pytest.approx(10.0 / 40.0)
+
+    # the single baker pool's utilization comes from labor hours, not machine hours
+    assert len(labor_rows) == 1
+    assert labor_rows[0]["resource"] == "bakers"
+
+
+def test_operating_hours_utilization_exceeds_wall_clock_when_shifts_are_limited() -> None:
+    """A baker open only part of the day is busier against OPEN hours than against
+    the 24/7 clock: true (operating) utilization must exceed wall-clock."""
+    from datetime import datetime
+    from types import SimpleNamespace
+
+    from twinflow.primitives.calendar import CalendarConfig, WorkingInterval, parse_clock
+
+    calendar = CalendarConfig(
+        timezone="UTC",
+        origin=datetime.fromisoformat("2026-09-14T00:00:00+00:00"),  # Monday
+        weekly=(WorkingInterval(frozenset(range(7)), parse_clock("00:00"), parse_clock("06:00")),),
+    )  # open 6 of every 24 hours
+    model = SimpleNamespace(
+        locations=[],
+        labor_pools=[
+            SimpleNamespace(name="bakers", headcount=1, skills={"bake"}, calendar=calendar)
+        ],
+    )
+    # 3 busy labor-hours over a 24 h run: 3/24 = 12.5% wall, 3/6 = 50% of open hours.
+    kpis = replace(_build_kpi_set(), labor_hours_by_pool_skill={("bakers", "bake"): 3.0})
+
+    _machines, labor_rows = HtmlReport._shared_resource_rows(kpis, model, 24 * 3600.0)
+
+    assert labor_rows[0]["util_wall"] == pytest.approx(3 / 24)
+    assert labor_rows[0]["util_operating"] == pytest.approx(3 / 6)
+    assert labor_rows[0]["operating_hours"] == pytest.approx(6.0)
+
+
+def test_shared_resource_section_appears_only_with_horizon(tmp_path: Path) -> None:
+    model = _fake_model_two_steps_one_machine()
+    kpis = replace(_build_kpi_set(), busy_hours_by_location={"bake_a": 6.0, "bake_b": 4.0})
+
+    with_h = tmp_path / "with.html"
+    HtmlReport().render(kpis, [], _build_run_stamp(), with_h, model=model, horizon=20 * 3600.0)
+    without_h = tmp_path / "without.html"
+    HtmlReport().render(kpis, [], _build_run_stamp(), without_h, model=model)
+
+    assert "Shared resources" in with_h.read_text(encoding="utf-8")
+    assert "Shared resources" not in without_h.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Per-order completion timeline: a Gantt-lite of due -> finished, on a real
+# date axis when the model carries a calendar origin.
+# ---------------------------------------------------------------------------
+
+
+def test_completion_timeline_uses_real_dates_when_origin_present() -> None:
+    from datetime import datetime
+
+    origin = datetime.fromisoformat("2026-09-14T04:00:00+00:00")
+    fig = HtmlReport()._completion_timeline_figure(_build_kpi_set(), origin)
+
+    # at least one trace carries python datetimes on x (real-date axis), not raw
+    # second counts, and the on-time / late split is present.
+    xs = [x for trace in fig.data for x in (trace.x or []) if x is not None]
+    assert any(isinstance(x, datetime) for x in xs)
+    names = {trace.name for trace in fig.data}
+    assert {"on time", "late", "due", "finished"} <= names
+
+
+def test_completion_timeline_falls_back_to_seconds_without_origin() -> None:
+    fig = HtmlReport()._completion_timeline_figure(_build_kpi_set(), None)
+    xs = [x for trace in fig.data for x in (trace.x or []) if x is not None]
+    # WO-1 finished at 95.0 s with lateness -5.0 -> due at 100.0 s: raw seconds,
+    # never coerced to a date.
+    assert all(isinstance(x, (int, float)) for x in xs)
+    assert 100.0 in xs
+
+
+# ---------------------------------------------------------------------------
+# Tabbed layout + grouped assumptions: the assumptions block (one entry per
+# work center) must not monopolize the top of the report. It lives in its own
+# tab, and repeated substitutions collapse into one counted row.
+# ---------------------------------------------------------------------------
+
+
+def test_report_has_tab_nav_and_assumptions_panel(tmp_path: Path) -> None:
+    out_path = tmp_path / "report.html"
+    HtmlReport().render(_build_kpi_set(), _build_assumptions(), _build_run_stamp(), out_path)
+    html = out_path.read_text(encoding="utf-8")
+
+    assert "class='tabs'" in html
+    assert "data-tab='assumptions'" in html
+    assert "data-panel='assumptions'" in html
+    # the overview panel is the one shown by default (not hidden)
+    assert "data-panel='overview'>" in html
+
+
+def test_repeated_assumptions_collapse_to_a_counted_row(tmp_path: Path) -> None:
+    """23 'no pull rule for location X' entries become ONE row with count 23,
+    not 23 near-identical cards."""
+    assumptions = [
+        Assumption(
+            field=f"pull_rule.stn_{i}",
+            default_used="arrival order used as sequence",
+            why_absent=f"no pull rule declared for location 'stn_{i}'",
+        )
+        for i in range(23)
+    ]
+    out_path = tmp_path / "report.html"
+    HtmlReport().render(_build_kpi_set(), assumptions, _build_run_stamp(), out_path)
+    html = out_path.read_text(encoding="utf-8")
+
+    # one summarized group, and the count 23 is shown
+    assert "23 default(s) substituted, grouped into 1 kind(s)" in html
+    assert "for a location" in html  # the collapsed pattern, not 23 verbatim sentences
+
+
+def test_flow_svg_is_sized_to_its_viewbox_not_collapsed(tmp_path: Path) -> None:
+    """Regression: the material-flow mermaid SVG carries width='100%' and only a
+    viewBox, so inside the inline-block flow stage it renders 0x0 and the diagram
+    looks empty. The report must (a) NOT force `width:auto` on the flow SVG, which
+    collapses it, and (b) pin the SVG's natural viewBox size in px after mermaid
+    renders it."""
+    out_path = tmp_path / "report.html"
+    HtmlReport().render(_build_kpi_set(), _build_assumptions(), _build_run_stamp(), out_path)
+    doc = out_path.read_text(encoding="utf-8")
+
+    assert "width:auto!important" not in doc
+    assert "sizeFlowSvg" in doc
+    # sets the svg's width/height from viewBox coordinates 2 and 3
+    assert "s.style.width=vb[2]" in doc
+    assert "s.style.height=vb[3]" in doc

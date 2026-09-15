@@ -89,6 +89,11 @@ class KpiSet:
     on_time_denominator: int = 0
     completed_order_count: int = 0
     censored_order_count: int = 0
+    busy_hours_by_location: dict[str, float] = field(default_factory=dict)
+    """Busy hours (sum of `actual_end - actual_start`) per LOCATION id, always
+    keyed by location even when resource attribution keys `machine_hours_by_machine`
+    by physical machine instance. The per-stage cycle-time view and the flow
+    diagram read this so a shared-machine floor still reports per-step timings."""
 
 
 class KpiEngine:
@@ -176,6 +181,10 @@ class KpiEngine:
             on_time_denominator=denominator,
             completed_order_count=sum(o.status == "completed" for o in outcomes.values()),
             censored_order_count=sum(o.status != "completed" for o in outcomes.values()),
+            busy_hours_by_location={
+                location_id: seconds / 3600.0
+                for location_id, seconds in busy_seconds_by_location.items()
+            },
         )
 
     @staticmethod

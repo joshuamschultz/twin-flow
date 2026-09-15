@@ -15,14 +15,22 @@ twinflow validate examples/cnc-shop/model.yaml
 ## `twinflow run <model> --plan <plan> --reps N`
 
 Simulate `N` replications and write a run folder under `runs/<run-id>/` containing
-`report.html`, `kpis.json`, `intervals.json`, and `run_meta.json`.
+`report.html`, `kpis.json`, `intervals.json`, and `run_meta.json`, plus the event and
+resource tables described in [data contracts](data.md).
 
 ```bash
 twinflow run examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv --reps 30
 ```
 
-Use `--reps` greater than 1 to get confidence ranges — the report's headline and its
-range charts then show each KPI's mean and its low-to-high band.
+Use `--reps` greater than 1 to estimate confidence intervals — the report shows a
+mean and interval for supported aggregate metrics.
+
+The console summary shows completed orders out of the total, on-time count and percentage,
+late count, and makespan in hours. With multiple replications these console figures describe
+replication 1 (the representative run), marked `rep 1 of N`; the report's aggregate
+intervals use all replications. With `--reps 1`, there is no `rep 1 of 1` note and no
+multi-replication interval. If orders remain incomplete, the console prints a warning with
+possible causes, including reaching the horizon, quality-gate scrap, or a resource deadlock.
 
 ## `twinflow balance <model> --plan <plan> --sweep <sweep.json> --reps N`
 
@@ -37,6 +45,10 @@ common random numbers. The sweep file is plain JSON:
 twinflow balance examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv \
   --sweep sweep.json --reps 30
 ```
+
+The command prints and writes `summary.json` in the sweep output directory. Each point
+includes its lever values, replication count, mean `on_time_pct`, and mean `busy_hours`
+(the legacy sweep's total machine `run_hours`).
 
 ## `twinflow report <run-id> --out html`
 
@@ -74,3 +86,9 @@ twinflow serve --port 8000
 ```
 
 See [api.md](api.md) for the endpoints and [frontend.md](frontend.md) for the UI.
+
+The workspace CLI also provides scenario capsule, snapshot/data, and verified scheduling
+commands, plus administration commands for local workspace operations. Their supported
+flows and boundaries are documented in the [workspace guide](enterprise/README.md) and
+[agent integration guide](enterprise/AGENT-GUIDE.md); they use workspace contracts,
+separate from the legacy `model.yaml` simulation commands above.

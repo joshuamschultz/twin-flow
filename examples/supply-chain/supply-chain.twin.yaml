@@ -1,0 +1,384 @@
+# Scenario capsule for the supply-chain example. Import this file in the workspace UI,
+# or run: twinflow scenario run examples/supply-chain/supply-chain.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  defaults:
+    cycle_time_cv: 0.15
+  stocks:
+  - name: bulk_resin
+    uom: kg
+    initial: 500
+    reorder_point: 180
+    refill_to: 800
+    lead_time: 4000
+  - name: resin
+    uom: kg
+    initial: 300
+    reorder_point: 130
+    refill_to: 450
+    lead_time: 1200
+    supplier: bulk_resin
+  part_types:
+  - name: raw_blank
+    uom: piece
+    attributes: {}
+  - name: part
+    uom: piece
+    attributes: {}
+  - name: resin
+    uom: kg
+    attributes: {}
+  - name: bulk_resin
+    uom: kg
+    attributes: {}
+  machines:
+  - name: mold_m
+  labor:
+    pools:
+    - name: floor_pool
+      headcount: 3
+      skills:
+      - molder
+  locations:
+  - name: mold
+    consumes:
+    - thing: raw_blank
+      qty: 1
+      uom: piece
+    emits:
+    - thing: part
+      qty: 1
+      uom: piece
+    material:
+      stock: resin
+      qty: 15
+      uom: kg
+    setup_key: grp_mold
+    time_model:
+      kind: rate_based
+      rate: 0.05
+    machine: mold_m
+    labor_skill: molder
+  routing:
+  - part: part
+    steps:
+    - mold
+  processes: []
+  bom: []
+snapshot:
+  id: supply-chain-example
+  as_of: '2026-09-12T00:00:00+00:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: wo-1
+    part: part
+    qty: 10
+    start_date: '0'
+    due_date: '4000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-2
+    part: part
+    qty: 10
+    start_date: '120'
+    due_date: '4120'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-3
+    part: part
+    qty: 10
+    start_date: '240'
+    due_date: '4240'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-4
+    part: part
+    qty: 10
+    start_date: '360'
+    due_date: '4360'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-5
+    part: part
+    qty: 10
+    start_date: '480'
+    due_date: '4480'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-6
+    part: part
+    qty: 10
+    start_date: '600'
+    due_date: '4600'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-7
+    part: part
+    qty: 10
+    start_date: '720'
+    due_date: '4720'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-8
+    part: part
+    qty: 10
+    start_date: '840'
+    due_date: '4840'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-9
+    part: part
+    qty: 10
+    start_date: '960'
+    due_date: '4960'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-10
+    part: part
+    qty: 10
+    start_date: '1080'
+    due_date: '5080'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-11
+    part: part
+    qty: 10
+    start_date: '1200'
+    due_date: '5200'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-12
+    part: part
+    qty: 10
+    start_date: '1320'
+    due_date: '5320'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-13
+    part: part
+    qty: 10
+    start_date: '1440'
+    due_date: '5440'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-14
+    part: part
+    qty: 10
+    start_date: '1560'
+    due_date: '5560'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-15
+    part: part
+    qty: 10
+    start_date: '1680'
+    due_date: '5680'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-16
+    part: part
+    qty: 10
+    start_date: '1800'
+    due_date: '5800'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-17
+    part: part
+    qty: 10
+    start_date: '1920'
+    due_date: '5920'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-18
+    part: part
+    qty: 10
+    start_date: '2040'
+    due_date: '6040'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-19
+    part: part
+    qty: 10
+    start_date: '2160'
+    due_date: '6160'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-20
+    part: part
+    qty: 10
+    start_date: '2280'
+    due_date: '6280'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-21
+    part: part
+    qty: 10
+    start_date: '2400'
+    due_date: '6400'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-22
+    part: part
+    qty: 10
+    start_date: '2520'
+    due_date: '6520'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-23
+    part: part
+    qty: 10
+    start_date: '2640'
+    due_date: '6640'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-24
+    part: part
+    qty: 10
+    start_date: '2760'
+    due_date: '6760'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-25
+    part: part
+    qty: 10
+    start_date: '2880'
+    due_date: '6880'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-26
+    part: part
+    qty: 10
+    start_date: '3000'
+    due_date: '7000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-27
+    part: part
+    qty: 10
+    start_date: '3120'
+    due_date: '7120'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-28
+    part: part
+    qty: 10
+    start_date: '3240'
+    due_date: '7240'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-29
+    part: part
+    qty: 10
+    start_date: '3360'
+    due_date: '7360'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-30
+    part: part
+    qty: 10
+    start_date: '3480'
+    due_date: '7480'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+experiment:
+  id: supply-chain-example
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/supply-chain/model.yaml
+  plan: examples/supply-chain/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

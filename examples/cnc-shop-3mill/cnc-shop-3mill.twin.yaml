@@ -1,0 +1,325 @@
+# Scenario capsule for the cnc-shop-3mill example. Import this file in the workspace UI,
+# or run: twinflow scenario run examples/cnc-shop-3mill/cnc-shop-3mill.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  defaults:
+    cycle_time_cv: 0.2
+  stocks:
+  - name: round_bar
+    uom: ft
+  - name: square_billet
+    uom: piece
+  part_types:
+  - name: round_bar
+    uom: ft
+    attributes: {}
+  - name: square_billet
+    uom: piece
+    attributes: {}
+  - name: shaft_blank
+    uom: piece
+    attributes: {}
+  - name: shaft_milled
+    uom: piece
+    attributes: {}
+  - name: shaft_deburred
+    uom: piece
+    attributes: {}
+  - name: shaft
+    uom: piece
+    attributes: {}
+  - name: shaft_scrap
+    uom: piece
+    attributes: {}
+  - name: bracket_blank
+    uom: piece
+    attributes: {}
+  - name: bracket_milled
+    uom: piece
+    attributes: {}
+  - name: bracket_deburred
+    uom: piece
+    attributes: {}
+  - name: bracket
+    uom: piece
+    attributes: {}
+  - name: bracket_scrap
+    uom: piece
+    attributes: {}
+  machines:
+  - name: saw_shaft_m
+  - name: mill_shaft_m
+  - name: deburr_shaft_m
+  - name: inspect_shaft_m
+  - name: saw_bracket_m
+  - name: mill_bracket_m
+  - name: deburr_bracket_m
+  - name: inspect_bracket_m
+  labor:
+    pools:
+    - name: floor_pool
+      headcount: 6
+      skills:
+      - machinist
+      - inspector
+  locations:
+  - name: saw_shaft
+    consumes:
+    - thing: round_bar
+      qty: 1
+      uom: ft
+    emits:
+    - thing: shaft_blank
+      qty: 4
+      uom: piece
+    setup_key: grp_saw_shaft
+    time_model:
+      kind: rate_based
+      rate: 0.5
+    machine: saw_shaft_m
+    labor_skill: machinist
+  - name: mill_shaft
+    consumes:
+    - thing: shaft_blank
+      qty: 1
+      uom: piece
+    emits:
+    - thing: shaft_milled
+      qty: 1
+      uom: piece
+    setup_key: grp_mill_shaft
+    capacity: 3
+    time_model:
+      kind: rate_based
+      rate: 0.03
+    machine: mill_shaft_m
+    labor_skill: machinist
+  - name: deburr_shaft
+    consumes:
+    - thing: shaft_milled
+      qty: 1
+      uom: piece
+    emits:
+    - thing: shaft_deburred
+      qty: 1
+      uom: piece
+    setup_key: grp_deburr_shaft
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: deburr_shaft_m
+    labor_skill: inspector
+  - name: inspect_shaft
+    consumes:
+    - thing: shaft_deburred
+      qty: 1
+      uom: piece
+    emits:
+    - thing: shaft
+      uom: piece
+    scrap:
+      rate: 0.03
+      thing: shaft_scrap
+      uom: piece
+    setup_key: grp_inspect_shaft
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: inspect_shaft_m
+    labor_skill: inspector
+  - name: saw_bracket
+    consumes:
+    - thing: square_billet
+      qty: 1
+      uom: piece
+    emits:
+    - thing: bracket_blank
+      qty: 1
+      uom: piece
+    setup_key: grp_saw_bracket
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: saw_bracket_m
+    labor_skill: machinist
+  - name: mill_bracket
+    consumes:
+    - thing: bracket_blank
+      qty: 1
+      uom: piece
+    emits:
+    - thing: bracket_milled
+      qty: 1
+      uom: piece
+    setup_key: grp_mill_bracket
+    capacity: 3
+    time_model:
+      kind: rate_based
+      rate: 0.03
+    machine: mill_bracket_m
+    labor_skill: machinist
+  - name: deburr_bracket
+    consumes:
+    - thing: bracket_milled
+      qty: 1
+      uom: piece
+    emits:
+    - thing: bracket_deburred
+      qty: 1
+      uom: piece
+    setup_key: grp_deburr_bracket
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: deburr_bracket_m
+    labor_skill: inspector
+  - name: inspect_bracket
+    consumes:
+    - thing: bracket_deburred
+      qty: 1
+      uom: piece
+    emits:
+    - thing: bracket
+      uom: piece
+    scrap:
+      rate: 0.05
+      thing: bracket_scrap
+      uom: piece
+    setup_key: grp_inspect_bracket
+    time_model:
+      kind: rate_based
+      rate: 2.0
+    machine: inspect_bracket_m
+    labor_skill: inspector
+  routing:
+  - part: shaft
+    steps:
+    - saw_shaft
+    - mill_shaft
+    - deburr_shaft
+    - inspect_shaft
+  - part: bracket
+    steps:
+    - saw_bracket
+    - mill_bracket
+    - deburr_bracket
+    - inspect_bracket
+  processes: []
+  bom: []
+snapshot:
+  id: cnc-shop-3mill-example
+  as_of: '2026-09-12T00:00:00+00:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: wo-1
+    part: shaft
+    qty: 15
+    start_date: '0'
+    due_date: '1500'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-2
+    part: bracket
+    qty: 20
+    start_date: '100'
+    due_date: '1600'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-3
+    part: shaft
+    qty: 25
+    start_date: '300'
+    due_date: '2000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-4
+    part: bracket
+    qty: 10
+    start_date: '400'
+    due_date: '2100'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-5
+    part: shaft
+    qty: 30
+    start_date: '600'
+    due_date: '2500'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-6
+    part: bracket
+    qty: 18
+    start_date: '700'
+    due_date: '2600'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-7
+    part: shaft
+    qty: 12
+    start_date: '900'
+    due_date: '3000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-8
+    part: bracket
+    qty: 22
+    start_date: '1000'
+    due_date: '3100'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-9
+    part: shaft
+    qty: 20
+    start_date: '1200'
+    due_date: '3500'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-10
+    part: bracket
+    qty: 16
+    start_date: '1300'
+    due_date: '3600'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+experiment:
+  id: cnc-shop-3mill-example
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/cnc-shop-3mill/model.yaml
+  plan: examples/cnc-shop-3mill/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

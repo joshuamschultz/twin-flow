@@ -29,6 +29,16 @@ The service should be running before the Vite app. The development server
 proxies `/api` to `http://127.0.0.1:8000`; no CORS setting or browser-side API
 secret is needed for this local setup.
 
+If port 8000 is already used by another program (the API then fails to start,
+or every workspace call in the browser returns a 404 or 500 from the wrong
+server), start the API on a free port and point the proxy at it:
+
+```bash
+python -m twinflow.service.serve --host 127.0.0.1 --port 8010 \
+  --models-root examples --workspace-root .twinflow-workspace
+TWINFLOW_API_TARGET=http://127.0.0.1:8010 npm run dev
+```
+
 ## Development
 
 ```bash

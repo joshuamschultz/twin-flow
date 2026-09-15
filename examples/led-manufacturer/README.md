@@ -160,3 +160,36 @@ twinflow validate examples/led-manufacturer/model.yaml
 twinflow run examples/led-manufacturer/model.yaml --plan examples/led-manufacturer/plan.csv --reps 1
 twinflow report <run-id> --out html
 ```
+
+## Sweep the levers
+
+The "labor shortage, not a machine bottleneck" thesis above rests on the
+single assembler in `assembler_pool` (headcount 1).
+`examples/led-manufacturer/sweep.json` grids that headcount directly:
+
+```json
+{ "labor.pools[0].headcount": [1, 2, 3] }
+```
+
+```bash
+twinflow balance examples/led-manufacturer/model.yaml --plan examples/led-manufacturer/plan.csv \
+  --sweep examples/led-manufacturer/sweep.json --reps 10
+```
+
+This runs the floor with 1, 2, and 3 assemblers, 10 replications each, so you
+can check the hire decision this example points to: does adding a second
+assembler actually move `on_time_pct`, or does the constraint move somewhere
+else first?
+
+## Import into the workspace UI
+
+`led-manufacturer.twin.yaml` in this folder is the same floor and plan packaged as a
+scenario capsule. Choose it in the workspace's **Import scenario** dialog, or
+run it directly:
+
+```bash
+twinflow scenario validate examples/led-manufacturer/led-manufacturer.twin.yaml
+twinflow scenario run examples/led-manufacturer/led-manufacturer.twin.yaml --seed 42
+```
+
+`model.yaml` on its own is not a capsule; the importer says so if you pick it.

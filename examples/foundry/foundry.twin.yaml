@@ -1,0 +1,325 @@
+# Scenario capsule for the foundry example. Import this file in the workspace UI,
+# or run: twinflow scenario run examples/foundry/foundry.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  defaults:
+    cycle_time_cv: 0.2
+  stocks:
+  - name: metal_ingot
+    uom: lb
+  - name: remelt
+    uom: piece
+  part_types:
+  - name: metal_ingot
+    uom: lb
+    attributes: {}
+  - name: remelt
+    uom: piece
+    attributes: {}
+  - name: molten_bracket
+    uom: lb
+    attributes: {}
+  - name: bracket_casting
+    uom: piece
+    attributes: {}
+  - name: bracket_clean
+    uom: piece
+    attributes: {}
+  - name: bracket
+    uom: piece
+    attributes: {}
+  - name: molten_flywheel
+    uom: lb
+    attributes: {}
+  - name: flywheel_casting
+    uom: piece
+    attributes: {}
+  - name: flywheel_clean
+    uom: piece
+    attributes: {}
+  - name: flywheel
+    uom: piece
+    attributes: {}
+  machines:
+  - name: melt_a_m
+  - name: pour_a_m
+  - name: clean_a_m
+  - name: machine_a_m
+  - name: melt_b_m
+  - name: pour_b_m
+  - name: clean_b_m
+  - name: machine_b_m
+  labor:
+    pools:
+    - name: floor_pool
+      headcount: 6
+      skills:
+      - melt_op
+      - pour_op
+      - clean_op
+      - machine_op
+  locations:
+  - name: melt_a
+    consumes:
+    - thing: metal_ingot
+      qty: 1
+      uom: lb
+    emits:
+    - thing: molten_bracket
+      qty: 1
+      uom: lb
+    batch_size: 40 lb
+    setup_key: grp_melt_a
+    time_model:
+      kind: rate_based
+      rate: 10
+    machine: melt_a_m
+    labor_skill: melt_op
+  - name: pour_a
+    consumes:
+    - thing: molten_bracket
+      qty: 1
+      uom: lb
+    emits:
+    - thing: bracket_casting
+      qty: 3
+      uom: piece
+    setup_key: grp_pour_a
+    time_model:
+      kind: rate_based
+      rate: 6
+    machine: pour_a_m
+    labor_skill: pour_op
+  - name: clean_a
+    consumes:
+    - thing: bracket_casting
+      qty: 1
+      uom: piece
+    emits:
+    - thing: bracket_clean
+      uom: piece
+    scrap:
+      rate: 0.08
+      thing: remelt
+      uom: piece
+    output_stocks:
+      remelt: remelt
+    setup_key: grp_clean_a
+    time_model:
+      kind: rate_based
+      rate: 12
+    machine: clean_a_m
+    labor_skill: clean_op
+  - name: machine_a
+    consumes:
+    - thing: bracket_clean
+      qty: 1
+      uom: piece
+    emits:
+    - thing: bracket
+      qty: 1
+      uom: piece
+    setup_key: grp_machine_a
+    time_model:
+      kind: rate_based
+      rate: 8
+    machine: machine_a_m
+    labor_skill: machine_op
+  - name: melt_b
+    consumes:
+    - thing: metal_ingot
+      qty: 1
+      uom: lb
+    emits:
+    - thing: molten_flywheel
+      qty: 1
+      uom: lb
+    batch_size: 60 lb
+    setup_key: grp_melt_b
+    time_model:
+      kind: rate_based
+      rate: 9
+    machine: melt_b_m
+    labor_skill: melt_op
+  - name: pour_b
+    consumes:
+    - thing: molten_flywheel
+      qty: 1
+      uom: lb
+    emits:
+    - thing: flywheel_casting
+      qty: 2
+      uom: piece
+    setup_key: grp_pour_b
+    time_model:
+      kind: rate_based
+      rate: 5
+    machine: pour_b_m
+    labor_skill: pour_op
+  - name: clean_b
+    consumes:
+    - thing: flywheel_casting
+      qty: 1
+      uom: piece
+    emits:
+    - thing: flywheel_clean
+      uom: piece
+    scrap:
+      rate: 0.12
+      thing: remelt
+      uom: piece
+    output_stocks:
+      remelt: remelt
+    setup_key: grp_clean_b
+    time_model:
+      kind: rate_based
+      rate: 10
+    machine: clean_b_m
+    labor_skill: clean_op
+  - name: machine_b
+    consumes:
+    - thing: flywheel_clean
+      qty: 1
+      uom: piece
+    emits:
+    - thing: flywheel
+      qty: 1
+      uom: piece
+    setup_key: grp_machine_b
+    time_model:
+      kind: rate_based
+      rate: 6
+    machine: machine_b_m
+    labor_skill: machine_op
+  routing:
+  - part: bracket
+    steps:
+    - melt_a
+    - pour_a
+    - clean_a
+    - machine_a
+  - part: flywheel
+    steps:
+    - melt_b
+    - pour_b
+    - clean_b
+    - machine_b
+  processes: []
+  bom: []
+snapshot:
+  id: foundry-example
+  as_of: '2026-09-12T00:00:00+00:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: wo-1
+    part: bracket
+    qty: 15
+    start_date: '0'
+    due_date: '50000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-2
+    part: flywheel
+    qty: 10
+    start_date: '300'
+    due_date: '50000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-3
+    part: bracket
+    qty: 8
+    start_date: '900'
+    due_date: '55000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-4
+    part: flywheel
+    qty: 18
+    start_date: '1500'
+    due_date: '55000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-5
+    part: bracket
+    qty: 22
+    start_date: '2200'
+    due_date: '60000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-6
+    part: flywheel
+    qty: 6
+    start_date: '3000'
+    due_date: '60000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-7
+    part: bracket
+    qty: 12
+    start_date: '3800'
+    due_date: '65000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-8
+    part: flywheel
+    qty: 14
+    start_date: '4600'
+    due_date: '65000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-9
+    part: bracket
+    qty: 9
+    start_date: '5400'
+    due_date: '70000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-10
+    part: flywheel
+    qty: 20
+    start_date: '6200'
+    due_date: '70000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+experiment:
+  id: foundry-example
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/foundry/model.yaml
+  plan: examples/foundry/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

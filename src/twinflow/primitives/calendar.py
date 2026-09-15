@@ -101,6 +101,31 @@ class WorkingCalendar:
                 return self.simulation_time(end)
         raise ValueError(f"simulation time {t} is outside a working interval")
 
+    def available_seconds(self, horizon: float) -> float:
+        """Total on-shift (operating) seconds in the window [0, horizon].
+
+        The denominator for TRUE utilization: a resource is busy against the time
+        it is actually open, not the 24/7 wall clock. Walks shift by shift from
+        simulation second 0, summing each interval's overlap with [0, horizon],
+        so a split day (e.g. 04:00-07:00 and 19:00-20:00) counts both windows and
+        the overnight gap between counts for nothing."""
+        if horizon <= 0:
+            return 0.0
+        total = 0.0
+        t = 0.0
+        while t < horizon:
+            if not self.is_on_shift(t):
+                try:
+                    t = self.next_shift_start(t)
+                except ValueError:
+                    break  # no further shift within the calendar's search window
+                if t >= horizon:
+                    break
+            shift_end = self.current_shift_end(t)
+            total += min(shift_end, horizon) - t
+            t = shift_end
+        return total
+
     def _covering_intervals(self, day: date) -> list[tuple[datetime, datetime]]:
         """Intervals starting on `day` plus an overnight interval from the day before."""
         previous = self._intervals_for_date(day - timedelta(days=1))
@@ -139,3 +164,8 @@ class AlwaysWorkingCalendar:
 
     def current_shift_end(self, t: float) -> float:
         return float("inf")
+
+    def available_seconds(self, horizon: float) -> float:
+        """A resource with no declared schedule is open 24/7, so all of [0, horizon]
+        is operating time."""
+        return max(0.0, horizon)

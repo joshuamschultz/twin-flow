@@ -89,6 +89,9 @@ def _canonical(value: object) -> str:
     )
 
 
+_LEGACY_MODEL_KEYS = frozenset({"locations", "part_types", "routing", "stocks", "labor"})
+
+
 @dataclass(frozen=True)
 class ScenarioCapsule:
     """Portable value object with copy-on-write edits and branches.
@@ -110,6 +113,21 @@ class ScenarioCapsule:
         if not isinstance(data, Mapping):
             raise CapsuleValidationError([ValidationIssue("$", "capsule must be an object")])
         missing = sorted(_REQUIRED - set(data))
+        if missing and "schema_version" not in data and _LEGACY_MODEL_KEYS & set(data):
+            # A floor `model.yaml` on its own, not a capsule. Name it, and say
+            # how to get a capsule, instead of listing every section as missing.
+            raise CapsuleValidationError(
+                [
+                    ValidationIssue(
+                        "$",
+                        "this file is a legacy floor model (model.yaml), not a scenario "
+                        "capsule; convert it with `twinflow scenario import model.yaml "
+                        "plan.csv --out model.twin.yaml`, or import the .twin.yaml "
+                        "shipped next to it",
+                        suggestion="Import a .twin.yaml capsule, or pick the example card",
+                    )
+                ]
+            )
         if missing:
             raise CapsuleValidationError(
                 [

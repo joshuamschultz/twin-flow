@@ -66,15 +66,18 @@ twinflow run examples/hmlv-calendar/model.yaml \
   --plan examples/hmlv-calendar/plan.csv --reps 1
 ```
 
-## Current limits
+## Current limits of the legacy manufacturing DES
 
 Calendar exceptions replace one whole local date; multiple replacement intervals per
 exception date are not yet supported. Paused work holds a machine while off shift and
 does not model an explicit safely parked/released machine. Breakdowns still act on the
 location capacity pool rather than a named machine. Machine speed, maintenance
 calendars, tooling, expiring qualifications, multi-resource atomic acquisition,
-split/merge genealogy, route revisions, and outside processing remain unsupported.
+split/merge genealogy, route revisions, and outside processing are not modeled by this
+configuration-driven DES. The separate typed production API covers multi-resource phase
+scheduling, lot genealogy, qualifications, and outside processing; see the
+[production capability guide](../../production/README.md). Those capabilities are
+not automatically available through this legacy workspace adapter.
 
 The result is a mechanics foundation. Credible customer promise dates still require
 customer calendars, snapshot quality, calibration, and operational validation.
-

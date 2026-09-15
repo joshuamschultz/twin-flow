@@ -1,0 +1,445 @@
+# Scenario capsule for the led-manufacturer example. Import this file in the workspace UI,
+# or run: twinflow scenario run examples/led-manufacturer/led-manufacturer.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  defaults:
+    cycle_time_cv: 0.2
+  stocks: []
+  part_types:
+  - name: diffuser_sheet
+    uom: ft
+    attributes: {}
+  - name: sheet_remainder
+    uom: ft
+    attributes: {}
+  - name: panel_small
+    uom: piece
+    attributes: {}
+  - name: panel_medium
+    uom: piece
+    attributes: {}
+  - name: panel_large
+    uom: piece
+    attributes: {}
+  - name: led_strip
+    uom: ft
+    attributes: {}
+  - name: driver
+    uom: piece
+    attributes: {}
+  - name: housing_small
+    uom: piece
+    attributes: {}
+  - name: housing_medium
+    uom: piece
+    attributes: {}
+  - name: housing_large
+    uom: piece
+    attributes: {}
+  - name: light_small
+    uom: piece
+    attributes: {}
+  - name: light_medium
+    uom: piece
+    attributes: {}
+  - name: light_large
+    uom: piece
+    attributes: {}
+  - name: tested_light_small
+    uom: piece
+    attributes: {}
+  - name: tested_light_medium
+    uom: piece
+    attributes: {}
+  - name: tested_light_large
+    uom: piece
+    attributes: {}
+  - name: packed_light_small
+    uom: piece
+    attributes: {}
+  - name: packed_light_medium
+    uom: piece
+    attributes: {}
+  - name: packed_light_large
+    uom: piece
+    attributes: {}
+  machines:
+  - name: cut_small_m
+  - name: cut_medium_m
+  - name: cut_large_m
+  - name: asm_small_m
+  - name: asm_medium_m
+  - name: asm_large_m
+  - name: burnin_small_m
+  - name: burnin_medium_m
+  - name: burnin_large_m
+  - name: pack_small_m
+  - name: pack_medium_m
+  - name: pack_large_m
+  labor:
+    pools:
+    - name: assembler_pool
+      headcount: 1
+      skills:
+      - asm_op
+    - name: support_pool
+      headcount: 6
+      skills:
+      - cut_op
+      - qa_op
+      - pack_op
+  locations:
+  - name: cut_small
+    consumes:
+    - thing: diffuser_sheet
+      qty: 1
+      uom: ft
+    emits:
+    - thing: panel_small
+      qty: 4
+      uom: piece
+    - thing: sheet_remainder
+      qty: 0.05
+      uom: ft
+    setup_key: grp_cut_small
+    time_model:
+      kind: rate_based
+      rate: 2
+    machine: cut_small_m
+    labor_skill: cut_op
+  - name: cut_medium
+    consumes:
+    - thing: diffuser_sheet
+      qty: 1
+      uom: ft
+    emits:
+    - thing: panel_medium
+      qty: 2
+      uom: piece
+    - thing: sheet_remainder
+      qty: 0.08
+      uom: ft
+    setup_key: grp_cut_medium
+    time_model:
+      kind: rate_based
+      rate: 1.5
+    machine: cut_medium_m
+    labor_skill: cut_op
+  - name: cut_large
+    consumes:
+    - thing: diffuser_sheet
+      qty: 1
+      uom: ft
+    emits:
+    - thing: panel_large
+      qty: 1
+      uom: piece
+    - thing: sheet_remainder
+      qty: 0.1
+      uom: ft
+    setup_key: grp_cut_large
+    time_model:
+      kind: rate_based
+      rate: 1.0
+    machine: cut_large_m
+    labor_skill: cut_op
+  - name: assemble_small
+    consumes:
+    - thing: panel_small
+      qty: 1
+      uom: piece
+    - thing: led_strip
+      qty: 2
+      uom: ft
+    - thing: driver
+      qty: 1
+      uom: piece
+    - thing: housing_small
+      qty: 1
+      uom: piece
+    emits:
+    - thing: light_small
+      qty: 1
+      uom: piece
+    setup_key: grp_asm_small
+    time_model:
+      kind: rate_based
+      rate: 0.02
+    machine: asm_small_m
+    labor_skill: asm_op
+  - name: assemble_medium
+    consumes:
+    - thing: panel_medium
+      qty: 1
+      uom: piece
+    - thing: led_strip
+      qty: 3
+      uom: ft
+    - thing: driver
+      qty: 1
+      uom: piece
+    - thing: housing_medium
+      qty: 1
+      uom: piece
+    emits:
+    - thing: light_medium
+      qty: 1
+      uom: piece
+    setup_key: grp_asm_medium
+    time_model:
+      kind: rate_based
+      rate: 0.015
+    machine: asm_medium_m
+    labor_skill: asm_op
+  - name: assemble_large
+    consumes:
+    - thing: panel_large
+      qty: 1
+      uom: piece
+    - thing: led_strip
+      qty: 4.5
+      uom: ft
+    - thing: driver
+      qty: 1
+      uom: piece
+    - thing: housing_large
+      qty: 1
+      uom: piece
+    emits:
+    - thing: light_large
+      qty: 1
+      uom: piece
+    setup_key: grp_asm_large
+    time_model:
+      kind: rate_based
+      rate: 0.01
+    machine: asm_large_m
+    labor_skill: asm_op
+  - name: burnin_small
+    consumes:
+    - thing: light_small
+      qty: 1
+      uom: piece
+    emits:
+    - thing: tested_light_small
+      qty: 1
+      uom: piece
+    setup_key: grp_burnin_small
+    time_model:
+      kind: rate_based
+      rate: 0.5
+    machine: burnin_small_m
+    labor_skill: qa_op
+  - name: burnin_medium
+    consumes:
+    - thing: light_medium
+      qty: 1
+      uom: piece
+    emits:
+    - thing: tested_light_medium
+      qty: 1
+      uom: piece
+    setup_key: grp_burnin_medium
+    time_model:
+      kind: rate_based
+      rate: 0.35
+    machine: burnin_medium_m
+    labor_skill: qa_op
+  - name: burnin_large
+    consumes:
+    - thing: light_large
+      qty: 1
+      uom: piece
+    emits:
+    - thing: tested_light_large
+      qty: 1
+      uom: piece
+    setup_key: grp_burnin_large
+    time_model:
+      kind: rate_based
+      rate: 0.25
+    machine: burnin_large_m
+    labor_skill: qa_op
+  - name: pack_small
+    consumes:
+    - thing: tested_light_small
+      qty: 1
+      uom: piece
+    emits:
+    - thing: packed_light_small
+      qty: 1
+      uom: piece
+    setup_key: grp_pack_small
+    time_model:
+      kind: rate_based
+      rate: 1.2
+    machine: pack_small_m
+    labor_skill: pack_op
+  - name: pack_medium
+    consumes:
+    - thing: tested_light_medium
+      qty: 1
+      uom: piece
+    emits:
+    - thing: packed_light_medium
+      qty: 1
+      uom: piece
+    setup_key: grp_pack_medium
+    time_model:
+      kind: rate_based
+      rate: 1.0
+    machine: pack_medium_m
+    labor_skill: pack_op
+  - name: pack_large
+    consumes:
+    - thing: tested_light_large
+      qty: 1
+      uom: piece
+    emits:
+    - thing: packed_light_large
+      qty: 1
+      uom: piece
+    setup_key: grp_pack_large
+    time_model:
+      kind: rate_based
+      rate: 0.8
+    machine: pack_large_m
+    labor_skill: pack_op
+  routing:
+  - part: packed_light_small
+    steps:
+    - cut_small
+    - assemble_small
+    - burnin_small
+    - pack_small
+  - part: packed_light_medium
+    steps:
+    - cut_medium
+    - assemble_medium
+    - burnin_medium
+    - pack_medium
+  - part: packed_light_large
+    steps:
+    - cut_large
+    - assemble_large
+    - burnin_large
+    - pack_large
+  processes: []
+  bom: []
+snapshot:
+  id: led-manufacturer-example
+  as_of: '2026-09-12T00:00:00+00:00'
+  model_revision: legacy
+  production_plan:
+  - work_order_id: wo-1
+    part: packed_light_small
+    qty: 5
+    start_date: '0'
+    due_date: '6000'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-2
+    part: packed_light_medium
+    qty: 4
+    start_date: '900'
+    due_date: '6900'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-3
+    part: packed_light_large
+    qty: 3
+    start_date: '1800'
+    due_date: '7800'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-4
+    part: packed_light_small
+    qty: 6
+    start_date: '2700'
+    due_date: '8700'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-5
+    part: packed_light_medium
+    qty: 5
+    start_date: '3600'
+    due_date: '9600'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-6
+    part: packed_light_large
+    qty: 3
+    start_date: '4500'
+    due_date: '10500'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-7
+    part: packed_light_small
+    qty: 7
+    start_date: '5400'
+    due_date: '11400'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-8
+    part: packed_light_medium
+    qty: 4
+    start_date: '6300'
+    due_date: '12300'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-9
+    part: packed_light_large
+    qty: 3
+    start_date: '7200'
+    due_date: '13200'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+  - work_order_id: wo-10
+    part: packed_light_small
+    qty: 5
+    start_date: '8100'
+    due_date: '14100'
+    initial_wip_location: null
+    initial_wip_qty: null
+    initial_wip_remaining_time: null
+    priority: 0
+    completed_good_qty: 0
+experiment:
+  id: led-manufacturer-example
+  replications: 1
+  seed: 0
+assumptions:
+  source: legacy model + plan
+provenance:
+  model: examples/led-manufacturer/model.yaml
+  plan: examples/led-manufacturer/plan.csv
+  migration: legacy-pair-to-capsule-v0.1
+required_capabilities:
+- manufacturing.basic

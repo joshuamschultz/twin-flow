@@ -20,6 +20,10 @@ npm ci
 npm run dev
 ```
 
+If port 8000 is already in use, start the API with `--port 8010` and run the UI with
+`TWINFLOW_API_TARGET=http://127.0.0.1:8010 npm run dev` so the development proxy reaches
+the twinflow service and not whatever else owns port 8000.
+
 The SDK and MCP client use the same `/api/workspace` application contract. After the API is running, MCP can be started with `python -m twinflow.mcp.server --url http://127.0.0.1:8000`; set `TWINFLOW_API_TOKEN` when the host has configured token middleware. MCP is a stdio adapter and does not provide approval or delivery tools.
 
 ## Operator navigation

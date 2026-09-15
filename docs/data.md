@@ -31,6 +31,7 @@ which work orders are released, when, and any work already on the floor at the s
 | `initial_wip_location` | text | Seed work already on the floor at this work center (t=0) |
 | `initial_wip_qty` | integer | How much initial WIP |
 | `initial_wip_remaining_time` | number | Remaining process time on that WIP |
+| `completed_good_qty` | integer | Accepted quantity already completed for the order; it counts toward demand and is not released again |
 
 The three `initial_wip_*` columns are all-or-nothing: populate all three or none.
 
@@ -47,12 +48,13 @@ or a formula cell (a cell starting with `=` is never evaluated).
 
 ## What comes out
 
-Every run writes a folder `runs/<run-id>/` with four artifacts, plus two event tables.
+Every run writes a folder `runs/<run-id>/` with JSON artifacts and Parquet event/resource
+tables. Multi-replication runs also include aggregate intervals.
 
 ### `events.parquet` — the event log
 
-One row per firing (one operation at one work center). Every KPI is derived from this one
-table; nothing is computed anywhere else.
+One row per firing (one operation at one work center). Event-based KPIs use this table;
+resource occupancy is recorded separately in `resource_usage.parquet`.
 
 | Column | Meaning |
 |---|---|
@@ -72,6 +74,14 @@ table; nothing is computed anywhere else.
 The wait breakdown reads straight off these: `busy = actual_end - actual_start`,
 `blocked = release_time - actual_end`, and the idle remainder is `starved`.
 
+### `resource_usage.parquet` — physical resource occupancy
+
+One row per firing's machine/labor time attribution, with columns `location_id`,
+`machine_id`, `labor_pool`, `labor_skill`, `setup_start`, `run_start`, `run_end`,
+`release_time`, `setup_seconds`, `run_seconds`, and `labor_seconds`. This preserves
+shared-machine identity and makes resource hours auditable independently from firing
+events.
+
 ### `inventory.parquet` — inventory over time
 
 One row per stock-level change (written next to `events.parquet`). Present even when a
@@ -90,9 +100,12 @@ stockout seconds, orders placed, and total ordered per stock. See [supply-chain.
 
 ### `kpis.json` — machine-readable KPIs
 
-A versioned sidecar of the objective-agnostic KPIs: signed lateness per order, labor hours
-by pool and skill, machine hours by machine, run hours, setup hours (separate), and WIP
-over time. See [running.md](running.md) for what each KPI means.
+A versioned sidecar of objective-agnostic KPIs: signed lateness per order, labor hours
+by pool and skill, machine hours by physical machine, run hours, setup hours (separate),
+and WIP over time. The in-process `KpiSet` and HTML report also use location-level busy
+hours; those report values and calendar availability are not fields in `kpis.json`. See
+[running.md](running.md) for definitions. `intervals.json` contains aggregate intervals
+for supported metrics across replications, not every KPI field.
 
 ### `intervals.json` — the confidence bands
 

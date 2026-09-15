@@ -1,0 +1,124 @@
+# Scenario capsule for the manufacturing supply-network profile. Import this file in the
+# workspace UI, or run: twinflow scenario run examples/supply-chain-network/manufacturing.twin.yaml --seed 42
+schema_version: '0.1'
+model:
+  sites:
+  - id: plant
+  suppliers:
+  - id: tier-1
+    site_id: plant
+  - id: tier-2
+    site_id: plant
+    delay_risk:
+      minimum_days: 0
+      maximum_days: 2
+      common_risk_group: regional-port
+  - id: tier-3
+    site_id: plant
+    delay_risk:
+      minimum_days: 0
+      maximum_days: 2
+      common_risk_group: regional-port
+  items:
+  - id: mineral
+    kind: purchased
+    uom: kg
+  - id: fastener
+    kind: purchased
+    uom: piece
+  - id: module
+    kind: part
+    uom: piece
+  - id: finished-unit
+    kind: assembly
+    uom: piece
+  bom_revisions:
+  - id: module-r1
+    assembly_item_id: module
+    revision: '1'
+    effective_from: '2026-01-01T00:00:00Z'
+    lines:
+    - item_id: mineral
+      quantity: 2
+      uom: kg
+  - id: unit-r2
+    assembly_item_id: finished-unit
+    revision: '2'
+    effective_from: '2026-01-01T00:00:00Z'
+    lines:
+    - item_id: module
+      quantity: 1
+      uom: piece
+    - item_id: fastener
+      quantity: 4
+      uom: piece
+  processes:
+  - id: form-module
+    item_id: module
+    lead_time_days: 1
+  - id: final-assembly
+    item_id: finished-unit
+    lead_time_days: 1
+  qualifications:
+  - supplier_id: tier-2
+    process_id: form-module
+    valid_from: '2025-01-01T00:00:00Z'
+  - supplier_id: tier-1
+    process_id: final-assembly
+    valid_from: '2025-01-01T00:00:00Z'
+  gates:
+  - id: release-test
+    item_id: finished-unit
+    evidence_type: release-report
+    rule_revision: release-v2
+  domain: supply_chain
+snapshot:
+  as_of: '2026-01-01T00:00:00Z'
+  inventory:
+  - id: fasteners
+    item_id: fastener
+    site_id: plant
+    quantity: 20
+    uom: piece
+    available_at: '2026-01-01T00:00:00Z'
+    quality_status: released
+  receipts:
+  - id: mineral-po
+    item_id: mineral
+    site_id: plant
+    quantity: 10
+    uom: kg
+    available_at: '2026-01-02T00:00:00Z'
+    supplier_id: tier-2
+    quality_status: released
+  allocations: []
+  documents:
+  - id: release-2026
+    evidence_type: release-report
+    subject_id: finished-unit
+    valid_from: '2026-01-01T00:00:00Z'
+    expires_at: '2026-12-31T00:00:00Z'
+  orders:
+  - id: order-1
+    item_id: finished-unit
+    site_id: plant
+    quantity: 2
+    uom: piece
+    due_at: '2026-01-10T00:00:00Z'
+    priority: 10
+  id: manufacturing-network-example
+  model_revision: '1'
+experiment:
+  id: baseline
+  replications: 10
+  seed: 42
+assumptions:
+  source: examples/supply-chain-network/manufacturing-model.json + manufacturing-snapshot.json
+  note: Supply network profile packaged as a capsule so it can be imported in the
+    workspace UI.
+provenance:
+  model: examples/supply-chain-network/manufacturing-model.json
+  snapshot: examples/supply-chain-network/manufacturing-snapshot.json
+  migration: network-json-pair-to-capsule-v0.1
+required_capabilities:
+- supply_chain.basic

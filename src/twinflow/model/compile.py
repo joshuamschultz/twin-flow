@@ -133,6 +133,7 @@ class LocationCompiler:
             dispatch=str(loc.get("dispatch", "fifo")),
             breakdown=_build_breakdown(loc),
             shift_crossing=str(loc.get("shift_crossing", "overtime")),
+            split_output=bool(loc.get("split_output", False)),
         )
 
 

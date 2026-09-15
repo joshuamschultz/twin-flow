@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+const API = process.env.TWINFLOW_API_TARGET ?? "http://127.0.0.1:8000";
 const screenshots =
   process.env.TWINFLOW_SCREENSHOT_DIR ?? "test-results/screenshots";
 
@@ -66,6 +67,11 @@ test("invalid import is actionable and mobile layout remains accessible", async 
   await page.getByLabel("Or paste scenario content").fill("{}");
   await page.getByRole("button", { name: "Validate & import" }).click();
   await expect(page.getByRole("alert")).toContainText("missing required");
+  await page
+    .getByLabel("Or paste scenario content")
+    .fill("part_types: []\nlocations: []\nrouting: []");
+  await page.getByRole("button", { name: "Validate & import" }).click();
+  await expect(page.getByRole("alert")).toContainText("legacy floor model");
   await page.getByRole("button", { name: "Close import" }).click();
   await page.screenshot({
     path: `${screenshots}/mobile.png`,
@@ -150,13 +156,12 @@ test("review exact proposal and deliver a dry run", async ({
   page,
   request,
 }) => {
-  const loaded = await request.post(
-    "http://127.0.0.1:8000/api/workspace/examples/load",
-    { data: { example_id: "capsule-office" } },
-  );
+  const loaded = await request.post(`${API}/api/workspace/examples/load`, {
+    data: { example_id: "capsule-office" },
+  });
   const scenario = await loaded.json();
   const evaluated = await request.post(
-    `http://127.0.0.1:8000/api/workspace/scenarios/${scenario.id}/evaluate`,
+    `${API}/api/workspace/scenarios/${scenario.id}/evaluate`,
     {
       data: { reps: 1, seed: 42, request_key: `browser-action-${Date.now()}` },
     },
@@ -167,9 +172,7 @@ test("review exact proposal and deliver a dry run", async ({
       async () =>
         (
           await (
-            await request.get(
-              `http://127.0.0.1:8000/api/workspace/jobs/${job.id}`,
-            )
+            await request.get(`${API}/api/workspace/jobs/${job.id}`)
           ).json()
         ).status,
     )

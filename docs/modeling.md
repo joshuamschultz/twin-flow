@@ -58,14 +58,18 @@ Add `cv: C` to any time model (or set `defaults.cycle_time_cv`) for a lognormal 
 - **`batch_size: "200 piece"`** — accumulate to a threshold in the thing's own unit
   before the operation fires (otherwise arrival order).
 - **`capacity: N`** — N identical machines in parallel at this center.
+- **`split_output: true`** — explode each output lot after the transform into quantity-one
+  bundles, preserving its thing, unit, and attributes. A fractional remainder becomes
+  one final fractional bundle. This lets whole units move through later queues and capacity
+  slots separately; the default keeps output lots intact.
 - **`setup_key: grp_x`** — parts in the same group run back to back; see changeover.
 - **`output_stocks: {thing: stock_name}`** — route an output back into a named stock
   (recycle / remelt).
 
-Locations that name the same `machine` use one physical machine pool and one setup state
-within a replication. Its declared capacity and breakdown configuration must agree at
-every reference. Recipe and route definitions remain location-specific; the shared name
-does not create extra machine capacity.
+Locations that name the same `machine` use one physical machine pool, with each physical
+instance tracking its own setup identity across those locations. The declared capacity
+and breakdown configuration must agree at every reference. Recipe and route definitions
+remain location-specific; the shared name does not create extra machine capacity.
 
 ## Tier 0 capabilities
 
@@ -164,6 +168,7 @@ evaluated.
 
 ## Worked examples
 
-`examples/` holds `cnc-shop`, `cnc-shop-3mill` (capacity investment), `foundry`,
-`spring`, `led-manufacturer`, and `tier0-foundry` (composes all four Tier 0
-capabilities). Each is a `model.yaml` + `plan.csv` + `README.md`.
+The [examples index](../examples/README.md) lists the worked manufacturing floors,
+scenario capsules, scheduling and supply-network examples, and operational data fixtures.
+It includes [`home-bakery`](../examples/home-bakery/README.md), which models dough as a
+batch through mixing and fermentation, then splits it into individually tracked loaves.

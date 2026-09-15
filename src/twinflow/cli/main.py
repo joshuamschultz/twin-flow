@@ -17,7 +17,7 @@ import sys
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 
 if TYPE_CHECKING:
     from twinflow.modules.space import Domain, IntRange
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, aggregate_kpis
 from twinflow.instrumentation.kpis import KpiSet
-from twinflow.instrumentation.sweep import SweepHarness, orders_frame
+from twinflow.instrumentation.sweep import SweepHarness, SweepResult, orders_frame
 from twinflow.model import CompiledModel, load_model, validate_model
 from twinflow.plan.driver import RunDriver
 from twinflow.plan.loader import load_plan
@@ -40,6 +40,7 @@ from twinflow.scenario import schema as capsule_schema
 _BASE_SEED = 0
 _KPI_SCHEMA_VERSION = 1
 _INTERVALS_SCHEMA_VERSION = 1
+_DELEGATED_COMMANDS = ("schedule", "admin")
 
 
 class _ArgumentParsingError(Exception):
@@ -60,6 +61,18 @@ class _NonExitingArgumentParser(argparse.ArgumentParser):
 
 def main(argv: list[str] | None = None) -> int:
     """Console-script entry point (`twinflow`). Returns a process exit code."""
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] in _DELEGATED_COMMANDS:
+        # Hand the whole tail to the delegated parser untouched. argparse's
+        # REMAINDER would otherwise reject a leading `--help` as unrecognized,
+        # so `twinflow schedule --help` died silently with exit code 2.
+        try:
+            return int(_run_delegated(raw[0], raw[1:]))
+        except SystemExit as exc:
+            return exc.code if isinstance(exc.code, int) else 2
+        except Exception as exc:  # the CLI boundary: never let a delegated failure escape
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
     parser = _build_parser()
     try:
         args = parser.parse_args(argv)
@@ -82,7 +95,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from twinflow.cli.data import add_data_subcommands
 
     add_data_subcommands(subparsers)
-    for command in ("schedule", "admin"):
+    for command in _DELEGATED_COMMANDS:
         delegated = subparsers.add_parser(command, add_help=False)
         delegated.add_argument("arguments", nargs=argparse.REMAINDER)
         delegated.set_defaults(handler=_handle_delegated)
@@ -234,6 +247,7 @@ def _handle_run(args: argparse.Namespace) -> int:
         run_dir = result.event_log_path.parent
         orders = orders_frame(work_orders, compiled, result.event_log_path)
         per_rep = [compute_kpis(result.event_log_path, orders, result.horizon)]
+        horizon = result.horizon
     else:
         # `ReplicationRunner` dispatches one worker process per replication,
         # each of which independently writes its own `runs/<run-id>/` via
@@ -261,20 +275,54 @@ def _handle_run(args: argparse.Namespace) -> int:
             )
             for r in results
         ]
+        horizon = results[0].horizon
 
     # The first replication is the representative single run for the charts and
     # tables; the whole set becomes the confidence intervals.
     kpis = per_rep[0]
     aggregated = aggregate_kpis(per_rep)
 
-    _write_run_artifacts(run_dir, compiled, kpis, aggregated, model_path, plan_path)
+    _write_run_artifacts(
+        run_dir, compiled, kpis, aggregated, model_path, plan_path, horizon=horizon
+    )
     run_id = run_dir.name
     print(f"run {run_id}")
+    for line in _run_summary_lines(kpis, args.reps):
+        print(f"  {line}")
     print(f"  dir:    {run_dir}")
     print(f"  report: {run_dir / 'report.html'}")
     print(f"  kpis:   {run_dir / 'kpis.json'}")
     print(f"  view:   twinflow report {run_id} --out html")
     return 0
+
+
+def _run_summary_lines(kpis: KpiSet, reps: int) -> list[str]:
+    """A short, human-readable KPI headline for `twinflow run`: how many orders
+    completed, the on-time figure, how many finished late, and the makespan
+    (the wall-clock hour the last order finished). Drawn straight from the
+    representative replication's `KpiSet` so it never re-computes anything.
+    """
+    total = len(kpis.lateness_by_order)
+    completed = kpis.completed_order_count
+    incomplete = kpis.censored_order_count
+    late = sum(1 for v in kpis.lateness_by_order.values() if v is not None and v > 0)
+    on_time = sum(1 for v in kpis.lateness_by_order.values() if v is not None and v <= 0)
+    finishes = [c for c in kpis.completion_by_order.values() if c is not None]
+    makespan_h = (max(finishes) / 3600.0) if finishes else 0.0
+
+    rep_note = "" if reps == 1 else f" (rep 1 of {reps})"
+    lines = [
+        f"orders:   {completed}/{total} complete  |  "
+        f"on-time {on_time} ({kpis.on_time_pct:.0f}%)  |  late {late}{rep_note}",
+        f"makespan: {makespan_h:.1f} h",
+    ]
+    if incomplete:
+        lines.append(
+            f"WARNING:  {incomplete} order(s) never completed. Causes: a horizon was "
+            f"reached, quality-gate scrap left an order short, or a resource deadlock "
+            f"(e.g. steps sharing a machine under different setup_keys starve each other)."
+        )
+    return lines
 
 
 def _handle_balance(args: argparse.Namespace) -> int:
@@ -296,14 +344,59 @@ def _handle_balance(args: argparse.Namespace) -> int:
         sweep = json.load(handle)
 
     run_dir = Path.cwd() / "runs" / _new_run_id()
-    SweepHarness(model_path).run(
+    result = SweepHarness(model_path).run(
         plan=work_orders,
         sweep=sweep,
         reps=args.reps,
         base_seed=_BASE_SEED,
         out_dir=run_dir,
     )
+    summary = _sweep_summary(result)
+    (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    for line in _sweep_summary_lines(summary):
+        print(line)
+    print(f"\nsweep {run_dir.name}")
+    print(f"  dir:     {run_dir}")
+    print(f"  summary: {run_dir / 'summary.json'}")
     return 0
+
+
+def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
+    """One row per sweep point: the lever values that define it and the mean
+    on-time % / makespan across its replications. Reduces `SweepResult`'s
+    per-replication `kpi_table` to the side-by-side comparison a decision
+    needs (SweepHarness reports KPIs, it picks no winner — D-035)."""
+    kpi = result.kpi_table
+    rows: list[dict[str, object]] = []
+    for point, point_id in zip(result.points, result.point_ids, strict=True):
+        sub = kpi.filter(kpi["sweep_point"] == point_id) if len(kpi) else kpi
+        on_time = float(cast(float, sub["on_time_pct"].mean())) if len(sub) else 0.0
+        busy_h = float(cast(float, sub["run_hours"].mean())) if len(sub) else 0.0
+        rows.append(
+            {
+                "sweep_point": point_id,
+                "levers": {str(k): v for k, v in point.items()},
+                "reps": len(sub),
+                "on_time_pct": round(on_time, 1),
+                "busy_hours": round(busy_h, 1),
+            }
+        )
+    return rows
+
+
+def _sweep_summary_lines(summary: list[dict[str, object]]) -> list[str]:
+    """A plain-text comparison table for `twinflow balance`, one row per point,
+    the swept lever values against on-time % and total machine-busy hours."""
+    lines = ["sweep comparison (mean across replications):", ""]
+    header = f"  {'point':<12} {'on_time_pct':>11} {'busy_hours':>11}  levers"
+    lines.append(header)
+    lines.append(f"  {'-' * 12} {'-' * 11:>11} {'-' * 11:>11}  {'-' * 6}")
+    for row in summary:
+        levers = ", ".join(f"{k}={v}" for k, v in cast("dict[str, object]", row["levers"]).items())
+        lines.append(
+            f"  {row['sweep_point']:<12} {row['on_time_pct']:>11} {row['busy_hours']:>11}  {levers}"
+        )
+    return lines
 
 
 def _handle_report(args: argparse.Namespace) -> int:
@@ -426,6 +519,7 @@ def _write_run_artifacts(
     aggregated: AggregatedKpis,
     model_path: str,
     plan_path: str,
+    horizon: float | None = None,
 ) -> None:
     """Write `kpis.json`, `intervals.json`, `report.html` and `run_meta.json`."""
     assumptions = AssumptionsCollector().collect(compiled)
@@ -435,7 +529,13 @@ def _write_run_artifacts(
         json.dumps(_intervals_to_dict(aggregated), indent=2), encoding="utf-8"
     )
     render_html(
-        kpis, assumptions, stamp, run_dir / "report.html", model=compiled, aggregated=aggregated
+        kpis,
+        assumptions,
+        stamp,
+        run_dir / "report.html",
+        model=compiled,
+        aggregated=aggregated,
+        horizon=horizon,
     )
     (run_dir / "run_meta.json").write_text(json.dumps(stamp.to_dict(), indent=2), encoding="utf-8")
 
@@ -470,9 +570,13 @@ def _new_run_id() -> str:
     return f"{stamp}-{uuid.uuid4().hex[:8]}"
 
 
-def _handle_delegated(args: argparse.Namespace) -> int:
-    if args.command == "schedule":
+def _run_delegated(command: str, arguments: list[str]) -> int:
+    if command == "schedule":
         from twinflow.cli.schedule import main as delegated
     else:
         from twinflow.cli.admin import main as delegated
-    return delegated(args.arguments)
+    return delegated(arguments)
+
+
+def _handle_delegated(args: argparse.Namespace) -> int:
+    return _run_delegated(args.command, args.arguments)

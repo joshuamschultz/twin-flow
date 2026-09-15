@@ -306,6 +306,22 @@ def test_utilization_by_cell_is_busy_seconds_over_horizon(main_fixture) -> None:
     assert result.utilization_by_cell["cell_b"] == pytest.approx(0.20)
 
 
+def test_busy_hours_by_location_is_location_keyed(main_fixture) -> None:
+    """cell_a busy = 25s -> 25/3600 h; cell_b busy = 20s -> 20/3600 h. Always
+    keyed by LOCATION id (the per-stage cycle-time view depends on this, even
+    when resource attribution keys machine hours by physical machine instead)."""
+    result = KpiEngine().compute(
+        event_paths=main_fixture["event_path"],
+        orders=main_fixture["orders"],
+        horizon=main_fixture["horizon"],
+        labor_pool_capacity=main_fixture["labor_pool_capacity"],
+    )
+
+    assert set(result.busy_hours_by_location) == {"cell_a", "cell_b"}
+    assert result.busy_hours_by_location["cell_a"] == pytest.approx(25 / 3600.0)
+    assert result.busy_hours_by_location["cell_b"] == pytest.approx(20 / 3600.0)
+
+
 def test_utilization_by_machine_equals_utilization_by_cell_in_v1(main_fixture) -> None:
     """V1 SIMPLIFICATION 2: no separate machine_id column exists, so per-machine
     and per-cell utilization alias the SAME location_id grouping. This

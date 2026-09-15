@@ -78,7 +78,7 @@ export function ImportDialog({
         <p>
           {parent
             ? "Edit the scenario below. Your baseline is preserved, and every change is validated before a new version is created."
-            : "Import a portable Twinflow YAML or JSON scenario. Your processes, demand, and assumptions travel together."}
+            : "Import a Twinflow scenario capsule (.twin.yaml or .twin.json). Your processes, demand, and assumptions travel together. Every example folder ships one, such as examples/spring/spring.twin.yaml. A bare model.yaml is a floor model, not a capsule; convert it with twinflow scenario import."}
         </p>
         {!parent && (
           <label
@@ -91,7 +91,9 @@ export function ImportDialog({
           >
             <Icon name="upload" size={28} />
             <strong>Drop your scenario here</strong>
-            <span>or choose a file · YAML or JSON · up to 5 MB</span>
+            <span>
+              or choose a file · .twin.yaml or .twin.json · up to 5 MB
+            </span>
             <input
               type="file"
               accept=".yaml,.yml,.json"

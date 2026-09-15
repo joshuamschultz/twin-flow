@@ -1,0 +1,504 @@
+# HOME BAKERY -- one person, two ovens, three sourdough breads, two drop dates.
+#
+# This is the twin used as a bakery production planner. It answers three questions:
+#   1. Can I hit both drop dates with the ovens and fridge I already own?
+#   2. When the answer is no, WHAT is short -- oven, fridge, or me?
+#   3. How early do I actually have to start?
+#
+# THE BATCH-THEN-SPLIT SHAPE OF REAL BAKING
+#   You do not mix one loaf. You mix a TUB of dough -- 6 loaves' worth -- and it
+#   moves through mixing and the long bulk ferment as ONE lot: the loaves travel
+#   together because they are literally one mass of dough in one tub. Only at the
+#   DIVIDE bench does that tub become 6 separate loaves, each then shaped,
+#   retarded, baked and cooled on its own. The model mirrors this exactly:
+#     - An order IS a tub of 6 loaves (see plan.csv, every qty is 6).
+#     - scale, mix and bulk each fire ONCE per tub, on a bundle of 6 loaves
+#       moving together -- material and time are charged at tub scale.
+#     - `divide` carries `split_output: true`: it takes the one bulked tub and
+#       EXPLODES it into 6 individual loaf bundles (qty 1 each). This is the
+#       inverse of a `batch_size` accumulation. Every loaf inherits its tub's
+#       order id, so per-order completion still tracks cleanly after the split.
+#     - shape, retard, bake and cool then run per LOAF, each competing for its own
+#       banneton, oven slot and rack space.
+#
+# WHY A BAKERY IS A HARD TEST FOR THE TWIN
+#   Almost all the elapsed time is WAITING, not working: a 4.5-hour bulk ferment
+#   and a 14-hour cold retard dwarf the ~25 minutes of hands-on work per loaf.
+#   Every waiting step below is `shift_crossing: finish_unattended`, so the baker
+#   is charged only for loading and unloading and the ferment runs overnight while
+#   the shift calendar says the bakery is closed. Waiting steps still hold a
+#   PHYSICAL SLOT -- a tub, a fridge shelf, a rack -- which is where the real
+#   capacity limits live, so each one declares a `machine` with a `capacity`.
+#
+# THE CLOCK
+#   Simulation second 0 is Monday 2026-09-14 04:00 America/Chicago (the calendar
+#   `origin` below). plan.csv dates are seconds from that instant; the plan's own
+#   comments give the wall-clock equivalents.
+#
+# WHY THREE PARALLEL CHAINS INSTEAD OF ONE
+#   A location's `consumes` list is an AND (an assembly), never an OR, so one
+#   shared step cannot take "plain OR pumpkin OR blueberry" dough. The three
+#   chains instead SHARE THEIR MACHINES -- `oven_m`, `fridge_m`, `bench_m` and the
+#   rest are declared once each and contended by all three breads, the same
+#   line-A / line-B pattern `examples/foundry/model.yaml` uses.
+
+defaults:
+  # Bakery timings are not machine timings. Ferments, bakes and hand work all vary
+  # by roughly +/-12%, so every replicated run reports a range, not a fake number.
+  cycle_time_cv: 0.12
+
+stocks:
+  # Flour from the mill: a real 2-day reorder lead time.
+  - {name: flour, uom: kg, initial: 120, reorder_point: 40, refill_to: 240, lead_time: 172800}
+  # THE STARTER, modelled as a stock whose `lead_time` IS the feed-and-ripen wait.
+  # Draw it below the reorder point and the next 10 hours of mixing simply stop.
+  - {name: starter, uom: g, initial: 3600, reorder_point: 1400, refill_to: 8000, lead_time: 36000}
+  # Inclusions, each on a 1-day reorder.
+  - {name: pumpkin_puree, uom: kg, initial: 6, reorder_point: 2, refill_to: 12, lead_time: 86400}
+  - {name: blueberry, uom: kg, initial: 6, reorder_point: 2, refill_to: 12, lead_time: 86400}
+
+machines:
+  - {name: scale_m}      # the scale and mixing bowls
+  - {name: mixer_m}      # one stand mixer / one pair of hands
+  - {name: tub_m}        # bulk ferment tubs
+  - {name: bench_m}      # ONE work surface: divide, laminate and shape queue behind it
+  - {name: fridge_m}     # the retard fridge -- usually the real bottleneck
+  - {name: oven_m}       # two ovens
+  - {name: rack_m}       # cooling rack
+  - {name: scrap_m}      # the flat-loaf bin
+
+labor:
+  pools:
+    # One baker. Sweep `headcount` to price a second pair of hands.
+    - name: bakers
+      headcount: 1
+      skills: [bake]
+      calendar:
+        timezone: America/Chicago
+        # Simulation second 0. Every plan date is measured from here.
+        origin: "2026-09-14T04:00:00-05:00"
+        weekly:
+          # A split shift: an early bake block and a short evening prep block,
+          # Mon-Sat. The 12-hour gap between them is when the dough ferments and
+          # the shaped loaves cold-retard, all unattended -- the baker is away.
+          - {days: [mon, tue, wed, thu, fri, sat], start: "04:00", end: "07:00"}
+          - {days: [mon, tue, wed, thu, fri, sat], start: "19:00", end: "20:00"}
+        exceptions:
+          - {date: "2026-09-20", closed: true}   # Sunday off
+
+
+part_types:
+  # Ingredients drawn from stock.
+  - {name: flour, uom: kg, attributes: {}}
+  - {name: starter, uom: g, attributes: {}}
+  - {name: pumpkin_puree, uom: kg, attributes: {}}
+  - {name: blueberry, uom: kg, attributes: {}}
+  - {name: bakery_scrap, uom: loaf, attributes: {}}
+  # plain chain (tub of 6 loaves until `divide` splits it into loaves)
+  - {name: order_plain, uom: loaf, attributes: {}}
+  - {name: scaled_plain, uom: loaf, attributes: {}}
+  - {name: dough_plain, uom: loaf, attributes: {}}
+  - {name: bulked_plain, uom: loaf, attributes: {}}
+  - {name: divided_plain, uom: loaf, attributes: {}}
+  - {name: shaped_plain, uom: loaf, attributes: {}}
+  - {name: proofed_plain, uom: loaf, attributes: {}}
+  - {name: baked_plain, uom: loaf, attributes: {}}
+  - {name: plain, uom: loaf, attributes: {}}
+  # pumpkin chain (tub of 6 loaves until `divide` splits it into loaves)
+  - {name: order_pumpkin, uom: loaf, attributes: {}}
+  - {name: scaled_pumpkin, uom: loaf, attributes: {}}
+  - {name: dough_pumpkin, uom: loaf, attributes: {}}
+  - {name: bulked_pumpkin, uom: loaf, attributes: {}}
+  - {name: folded_pumpkin, uom: loaf, attributes: {}}
+  - {name: divided_pumpkin, uom: loaf, attributes: {}}
+  - {name: shaped_pumpkin, uom: loaf, attributes: {}}
+  - {name: proofed_pumpkin, uom: loaf, attributes: {}}
+  - {name: baked_pumpkin, uom: loaf, attributes: {}}
+  - {name: pumpkin, uom: loaf, attributes: {}}
+  # blueberry chain (tub of 6 loaves until `divide` splits it into loaves)
+  - {name: order_blueberry, uom: loaf, attributes: {}}
+  - {name: scaled_blueberry, uom: loaf, attributes: {}}
+  - {name: dough_blueberry, uom: loaf, attributes: {}}
+  - {name: bulked_blueberry, uom: loaf, attributes: {}}
+  - {name: folded_blueberry, uom: loaf, attributes: {}}
+  - {name: divided_blueberry, uom: loaf, attributes: {}}
+  - {name: shaped_blueberry, uom: loaf, attributes: {}}
+  - {name: proofed_blueberry, uom: loaf, attributes: {}}
+  - {name: baked_blueberry, uom: loaf, attributes: {}}
+  - {name: blueberry, uom: loaf, attributes: {}}
+
+locations:
+  # ------------------------------------------------------- PLAIN --
+  # 1. SCALE -- weigh a whole tub of 6 loaves' flour, water and salt at once.
+  #    Pulls 3.0 kg from the finite `flour` stock (a tub, not a loaf), which
+  #    reorders from the mill on a 2-day lead time. rate_based time scales with the
+  #    tub's qty, so weighing 6 loaves takes 6x a single loaf.
+  - name: scale_plain
+    consumes: [{thing: order_plain, qty: 1, uom: loaf}]
+    emits: [{thing: scaled_plain, qty: 1, uom: loaf}]
+    material: {stock: flour, qty: 3.0, uom: kg}
+    setup_key: grp_scale
+    time_model: {kind: rate_based, rate: 0.033333}
+    machine: scale_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 2. MIX -- add the levain and salt, mix the tub into one dough. Pulls 660 g
+  #    from the `starter` stock (a tub's worth), whose 10-hour `lead_time` IS the
+  #    starter feed: draw the jar low and the next 10 hours of mixing simply stop.
+  #    ~5 min for the 6-loaf lump -- the loaves are one mass from here on.
+  - name: mix_plain
+    consumes: [{thing: scaled_plain, qty: 1, uom: loaf}]
+    emits: [{thing: dough_plain, qty: 1, uom: loaf}]
+    material: {stock: starter, qty: 660, uom: g}
+    setup_key: grp_mix
+    time_model: {kind: rate_based, rate: 0.02}
+    machine: mixer_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 3. BULK FERMENT -- 4.5 h at room temperature, the whole tub as one lot. Capacity
+  #    is counted in TUBS now (8 tubs), because a tub -- not a loaf -- is what sits
+  #    in a fermentation vessel. `finish_unattended`: the baker is charged only for
+  #    the stretch-and-folds (`load`) and turning out (`unload`); the ferment itself
+  #    runs through the night with nobody there. `batch_hold` holds for a fixed time
+  #    regardless of how many loaves the tub carries.
+  - name: bulk_plain
+    consumes: [{thing: dough_plain, qty: 1, uom: loaf}]
+    emits: [{thing: bulked_plain, qty: 1, uom: loaf}]
+    setup_key: grp_bulk
+    capacity: 8
+    time_model: {kind: batch_hold, seconds: 16200, load: 300, unload: 120}
+    machine: tub_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 4. DIVIDE -- THE SPLIT. Cut the one bulked tub into 6 individual loaves.
+  #    `split_output: true` explodes this step's output into 6 loaf bundles (qty
+  #    1 each), the inverse of a batch: the tub processed as one firing, then 6
+  #    loaves leave separately. Every loaf keeps its tub's order id, so per-order
+  #    completion still tracks after the split. From here each loaf flows on its own.
+  - name: divide_plain
+    consumes: [{thing: bulked_plain, qty: 1, uom: loaf}]
+    emits: [{thing: divided_plain, qty: 1, uom: loaf}]
+    setup_key: grp_bench
+    split_output: true
+    time_model: {kind: rate_based, rate: 0.008333}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 5. SHAPE -- pre-shape, bench rest, final shape, into the banneton, PER LOAF now.
+  #    One work surface (`bench_m`, capacity 1) shared with divide and lamination, so
+  #    all bench work is strictly serial -- the busiest hands-on stretch of the day.
+  #    Runs earliest-due-date first.
+  - name: shape_plain
+    consumes: [{thing: divided_plain, qty: 1, uom: loaf}]
+    emits: [{thing: shaped_plain, qty: 1, uom: loaf}]
+    setup_key: grp_bench
+    dispatch: edd
+    time_model: {kind: rate_based, rate: 0.002381}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 6. COLD RETARD -- 14 h in the fridge, PER LOAF. THE LEVER: `fridge_m` capacity is
+  #    counted in bannetons, and every loaf here is its own banneton. Loaf 25 on a
+  #    24-slot fridge waits for a slot to free, which is what pushes a late drop.
+  - name: retard_plain
+    consumes: [{thing: shaped_plain, qty: 1, uom: loaf}]
+    emits: [{thing: proofed_plain, qty: 1, uom: loaf}]
+    setup_key: grp_fridge
+    capacity: 24
+    time_model: {kind: batch_hold, seconds: 50400, load: 45, unload: 45}
+    machine: fridge_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 7. BAKE -- THE OTHER LEVER, PER LOAF. Two ovens x two loaves = FOUR loaves baking
+  #    at once, so `capacity: 4`. Each loaf is its own 55-minute hold; the oven groups
+  #    four INDIVIDUAL loaves by capacity rather than merging them into one lot, so
+  #    per-loaf, per-order identity is preserved. 120 s changeover is the recovery
+  #    between loads; the bake itself is unattended.
+  - name: bake_plain
+    consumes: [{thing: proofed_plain, qty: 1, uom: loaf}]
+    emits: [{thing: baked_plain, qty: 1, uom: loaf}]
+    setup_key: grp_oven
+    capacity: 4
+    changeover_seconds: 120
+    dispatch: edd
+    time_model: {kind: batch_hold, seconds: 3300, load: 300, unload: 180}
+    machine: oven_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 8. COOL + BAG -- 2 h on the rack (unattended), then bag and label as the
+  #    `unload`, PER LOAF. `rack_m` capacity is 12 loaves of rack space.
+  - name: coolpack_plain
+    consumes: [{thing: baked_plain, qty: 1, uom: loaf}]
+    emits: [{thing: plain, qty: 1, uom: loaf}]
+    setup_key: grp_rack
+    capacity: 12
+    time_model: {kind: batch_hold, seconds: 7200, load: 60, unload: 300}
+    machine: rack_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # ------------------------------------------------------- PUMPKIN --
+  # 1. SCALE -- weigh a whole tub of 6 loaves' flour, water and salt at once.
+  #    Pulls 3.0 kg from the finite `flour` stock (a tub, not a loaf), which
+  #    reorders from the mill on a 2-day lead time. rate_based time scales with the
+  #    tub's qty, so weighing 6 loaves takes 6x a single loaf.
+  - name: scale_pumpkin
+    consumes: [{thing: order_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: scaled_pumpkin, qty: 1, uom: loaf}]
+    material: {stock: flour, qty: 3.0, uom: kg}
+    setup_key: grp_scale
+    time_model: {kind: rate_based, rate: 0.033333}
+    machine: scale_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 2. MIX -- add the levain and salt, mix the tub into one dough. Pulls 660 g
+  #    from the `starter` stock (a tub's worth), whose 10-hour `lead_time` IS the
+  #    starter feed: draw the jar low and the next 10 hours of mixing simply stop.
+  #    ~5 min for the 6-loaf lump -- the loaves are one mass from here on.
+  - name: mix_pumpkin
+    consumes: [{thing: scaled_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: dough_pumpkin, qty: 1, uom: loaf}]
+    material: {stock: starter, qty: 660, uom: g}
+    setup_key: grp_mix
+    time_model: {kind: rate_based, rate: 0.02}
+    machine: mixer_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 3. BULK FERMENT -- 4.5 h at room temperature, the whole tub as one lot. Capacity
+  #    is counted in TUBS now (8 tubs), because a tub -- not a loaf -- is what sits
+  #    in a fermentation vessel. `finish_unattended`: the baker is charged only for
+  #    the stretch-and-folds (`load`) and turning out (`unload`); the ferment itself
+  #    runs through the night with nobody there. `batch_hold` holds for a fixed time
+  #    regardless of how many loaves the tub carries.
+  - name: bulk_pumpkin
+    consumes: [{thing: dough_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: bulked_pumpkin, qty: 1, uom: loaf}]
+    setup_key: grp_bulk
+    capacity: 8
+    time_model: {kind: batch_hold, seconds: 16200, load: 300, unload: 120}
+    machine: tub_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 3b. INCLUSIONS -- laminate pumpkin through the whole tub at the end of
+  #     bulk, pulled from its own finite stock (1.08 kg per tub). Still one
+  #     tub moving together; the split comes next.
+  - name: inclusion_pumpkin
+    consumes: [{thing: bulked_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: folded_pumpkin, qty: 1, uom: loaf}]
+    material: {stock: pumpkin_puree, qty: 1.08, uom: kg}
+    setup_key: grp_bench
+    time_model: {kind: rate_based, rate: 0.004167}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 4. DIVIDE -- THE SPLIT. Cut the one bulked tub into 6 individual loaves.
+  #    `split_output: true` explodes this step's output into 6 loaf bundles (qty
+  #    1 each), the inverse of a batch: the tub processed as one firing, then 6
+  #    loaves leave separately. Every loaf keeps its tub's order id, so per-order
+  #    completion still tracks after the split. From here each loaf flows on its own.
+  - name: divide_pumpkin
+    consumes: [{thing: folded_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: divided_pumpkin, qty: 1, uom: loaf}]
+    setup_key: grp_bench
+    split_output: true
+    time_model: {kind: rate_based, rate: 0.008333}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 5. SHAPE -- pre-shape, bench rest, final shape, into the banneton, PER LOAF now.
+  #    One work surface (`bench_m`, capacity 1) shared with divide and lamination, so
+  #    all bench work is strictly serial -- the busiest hands-on stretch of the day.
+  #    Runs earliest-due-date first.
+  - name: shape_pumpkin
+    consumes: [{thing: divided_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: shaped_pumpkin, qty: 1, uom: loaf}]
+    setup_key: grp_bench
+    dispatch: edd
+    time_model: {kind: rate_based, rate: 0.002381}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 6. COLD RETARD -- 14 h in the fridge, PER LOAF. THE LEVER: `fridge_m` capacity is
+  #    counted in bannetons, and every loaf here is its own banneton. Loaf 25 on a
+  #    24-slot fridge waits for a slot to free, which is what pushes a late drop.
+  - name: retard_pumpkin
+    consumes: [{thing: shaped_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: proofed_pumpkin, qty: 1, uom: loaf}]
+    setup_key: grp_fridge
+    capacity: 24
+    time_model: {kind: batch_hold, seconds: 50400, load: 45, unload: 45}
+    machine: fridge_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 7. BAKE -- THE OTHER LEVER, PER LOAF. Two ovens x two loaves = FOUR loaves baking
+  #    at once, so `capacity: 4`. Each loaf is its own 55-minute hold; the oven groups
+  #    four INDIVIDUAL loaves by capacity rather than merging them into one lot, so
+  #    per-loaf, per-order identity is preserved. 120 s changeover is the recovery
+  #    between loads; the bake itself is unattended.
+  - name: bake_pumpkin
+    consumes: [{thing: proofed_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: baked_pumpkin, qty: 1, uom: loaf}]
+    setup_key: grp_oven
+    capacity: 4
+    changeover_seconds: 120
+    dispatch: edd
+    time_model: {kind: batch_hold, seconds: 3300, load: 300, unload: 180}
+    machine: oven_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 8. COOL + BAG -- 2 h on the rack (unattended), then bag and label as the
+  #    `unload`, PER LOAF. `rack_m` capacity is 12 loaves of rack space.
+  - name: coolpack_pumpkin
+    consumes: [{thing: baked_pumpkin, qty: 1, uom: loaf}]
+    emits: [{thing: pumpkin, qty: 1, uom: loaf}]
+    setup_key: grp_rack
+    capacity: 12
+    time_model: {kind: batch_hold, seconds: 7200, load: 60, unload: 300}
+    machine: rack_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # ------------------------------------------------------- BLUEBERRY --
+  # 1. SCALE -- weigh a whole tub of 6 loaves' flour, water and salt at once.
+  #    Pulls 3.0 kg from the finite `flour` stock (a tub, not a loaf), which
+  #    reorders from the mill on a 2-day lead time. rate_based time scales with the
+  #    tub's qty, so weighing 6 loaves takes 6x a single loaf.
+  - name: scale_blueberry
+    consumes: [{thing: order_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: scaled_blueberry, qty: 1, uom: loaf}]
+    material: {stock: flour, qty: 3.0, uom: kg}
+    setup_key: grp_scale
+    time_model: {kind: rate_based, rate: 0.033333}
+    machine: scale_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 2. MIX -- add the levain and salt, mix the tub into one dough. Pulls 660 g
+  #    from the `starter` stock (a tub's worth), whose 10-hour `lead_time` IS the
+  #    starter feed: draw the jar low and the next 10 hours of mixing simply stop.
+  #    ~5 min for the 6-loaf lump -- the loaves are one mass from here on.
+  - name: mix_blueberry
+    consumes: [{thing: scaled_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: dough_blueberry, qty: 1, uom: loaf}]
+    material: {stock: starter, qty: 660, uom: g}
+    setup_key: grp_mix
+    time_model: {kind: rate_based, rate: 0.02}
+    machine: mixer_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 3. BULK FERMENT -- 4.5 h at room temperature, the whole tub as one lot. Capacity
+  #    is counted in TUBS now (8 tubs), because a tub -- not a loaf -- is what sits
+  #    in a fermentation vessel. `finish_unattended`: the baker is charged only for
+  #    the stretch-and-folds (`load`) and turning out (`unload`); the ferment itself
+  #    runs through the night with nobody there. `batch_hold` holds for a fixed time
+  #    regardless of how many loaves the tub carries.
+  - name: bulk_blueberry
+    consumes: [{thing: dough_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: bulked_blueberry, qty: 1, uom: loaf}]
+    setup_key: grp_bulk
+    capacity: 8
+    time_model: {kind: batch_hold, seconds: 16200, load: 300, unload: 120}
+    machine: tub_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 3b. INCLUSIONS -- laminate blueberry through the whole tub at the end of
+  #     bulk, pulled from its own finite stock (0.84 kg per tub). Still one
+  #     tub moving together; the split comes next.
+  - name: inclusion_blueberry
+    consumes: [{thing: bulked_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: folded_blueberry, qty: 1, uom: loaf}]
+    material: {stock: blueberry, qty: 0.84, uom: kg}
+    setup_key: grp_bench
+    time_model: {kind: rate_based, rate: 0.004167}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 4. DIVIDE -- THE SPLIT. Cut the one bulked tub into 6 individual loaves.
+  #    `split_output: true` explodes this step's output into 6 loaf bundles (qty
+  #    1 each), the inverse of a batch: the tub processed as one firing, then 6
+  #    loaves leave separately. Every loaf keeps its tub's order id, so per-order
+  #    completion still tracks after the split. From here each loaf flows on its own.
+  - name: divide_blueberry
+    consumes: [{thing: folded_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: divided_blueberry, qty: 1, uom: loaf}]
+    setup_key: grp_bench
+    split_output: true
+    time_model: {kind: rate_based, rate: 0.008333}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 5. SHAPE -- pre-shape, bench rest, final shape, into the banneton, PER LOAF now.
+  #    One work surface (`bench_m`, capacity 1) shared with divide and lamination, so
+  #    all bench work is strictly serial -- the busiest hands-on stretch of the day.
+  #    Runs earliest-due-date first.
+  - name: shape_blueberry
+    consumes: [{thing: divided_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: shaped_blueberry, qty: 1, uom: loaf}]
+    setup_key: grp_bench
+    dispatch: edd
+    time_model: {kind: rate_based, rate: 0.002381}
+    machine: bench_m
+    labor_skill: bake
+    shift_crossing: pause
+  # 6. COLD RETARD -- 14 h in the fridge, PER LOAF. THE LEVER: `fridge_m` capacity is
+  #    counted in bannetons, and every loaf here is its own banneton. Loaf 25 on a
+  #    24-slot fridge waits for a slot to free, which is what pushes a late drop.
+  - name: retard_blueberry
+    consumes: [{thing: shaped_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: proofed_blueberry, qty: 1, uom: loaf}]
+    setup_key: grp_fridge
+    capacity: 24
+    time_model: {kind: batch_hold, seconds: 50400, load: 45, unload: 45}
+    machine: fridge_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # 7. BAKE -- THE OTHER LEVER, PER LOAF. Two ovens x two loaves = FOUR loaves baking
+  #    at once, so `capacity: 4`. Each loaf is its own 55-minute hold; the oven groups
+  #    four INDIVIDUAL loaves by capacity rather than merging them into one lot, so
+  #    per-loaf, per-order identity is preserved. 120 s changeover is the recovery
+  #    between loads; the bake itself is unattended.
+  #    QUALITY GATE -- the wettest dough. 5% of loaves come out flat and go to the
+  #    bin instead of the rack, so the order finishes short. A gate sends a whole
+  #    loaf down one branch; it is not a fractional scrap rate.
+  - name: bake_blueberry
+    consumes: [{thing: proofed_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: baked_blueberry, qty: 1, uom: loaf}]
+    setup_key: grp_oven
+    capacity: 4
+    changeover_seconds: 120
+    dispatch: edd
+    time_model: {kind: batch_hold, seconds: 3300, load: 300, unload: 180}
+    machine: oven_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+    quality_gate:
+      thing: baked_blueberry
+      branches:
+        - {prob: 0.95, to: coolpack_blueberry}
+        - {prob: 0.05, to: flat_loaf_bin}
+  # 8. COOL + BAG -- 2 h on the rack (unattended), then bag and label as the
+  #    `unload`, PER LOAF. `rack_m` capacity is 12 loaves of rack space.
+  - name: coolpack_blueberry
+    consumes: [{thing: baked_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: blueberry, qty: 1, uom: loaf}]
+    setup_key: grp_rack
+    capacity: 12
+    time_model: {kind: batch_hold, seconds: 7200, load: 60, unload: 300}
+    machine: rack_m
+    labor_skill: bake
+    shift_crossing: finish_unattended
+  # Reached ONLY through the blueberry quality gate's fail branch, never from the
+  # routing. Flat loaves are logged and binned; the order simply finishes short.
+  - name: flat_loaf_bin
+    consumes: [{thing: baked_blueberry, qty: 1, uom: loaf}]
+    emits: [{thing: bakery_scrap, qty: 1, uom: loaf}]
+    setup_key: grp_flat_loaf
+    time_model: {kind: rate_based, rate: 0.016667}
+    machine: scrap_m
+    labor_skill: bake
+    shift_crossing: pause
+
+routing:
+  - {part: plain, steps: [scale_plain, mix_plain, bulk_plain, divide_plain, shape_plain, retard_plain, bake_plain, coolpack_plain]}
+  - {part: pumpkin, steps: [scale_pumpkin, mix_pumpkin, bulk_pumpkin, inclusion_pumpkin, divide_pumpkin, shape_pumpkin, retard_pumpkin, bake_pumpkin, coolpack_pumpkin]}
+  - {part: blueberry, steps: [scale_blueberry, mix_blueberry, bulk_blueberry, inclusion_blueberry, divide_blueberry, shape_blueberry, retard_blueberry, bake_blueberry, coolpack_blueberry]}
+
+processes: []
+bom: []

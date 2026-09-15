@@ -30,3 +30,37 @@ twinflow optimize examples/active-control/model.yaml --plan examples/active-cont
 Everything here is config the Layer-2 compiler turns into pure engine mechanism. The same
 four features work on any floor, and each disruption draws from its own seeded stream, so
 a run reproduces to the number (common random numbers, D-033).
+
+## Sweep the levers
+
+`examples/active-control/sweep.json` grids the press's machine count against
+floor headcount:
+
+```json
+{
+  "locations[press].capacity": [1, 2],
+  "labor.pools[0].headcount": [2, 3]
+}
+```
+
+```bash
+twinflow balance examples/active-control/model.yaml --plan examples/active-control/plan.csv \
+  --sweep examples/active-control/sweep.json --reps 10
+```
+
+This runs all four combinations (2 capacity values x 2 headcount values), each
+at 10 replications, so you can see whether a second press or more hands on
+the floor moves `on_time_pct` more — before buying either.
+
+## Import into the workspace UI
+
+`active-control.twin.yaml` in this folder is the same floor and plan packaged as a
+scenario capsule. Choose it in the workspace's **Import scenario** dialog, or
+run it directly:
+
+```bash
+twinflow scenario validate examples/active-control/active-control.twin.yaml
+twinflow scenario run examples/active-control/active-control.twin.yaml --seed 42
+```
+
+`model.yaml` on its own is not a capsule; the importer says so if you pick it.

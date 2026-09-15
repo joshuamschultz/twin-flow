@@ -54,3 +54,36 @@ placed**, and **total ordered**.
   (`stocks[resin].reorder_point`, `refill_to`), the [module surface](../../docs/modules.md)
   can **optimize inventory policy**: search reorder points against a total-cost objective
   (holding + stockout), the same way it tunes staffing.
+
+## Sweep the levers
+
+`examples/supply-chain/sweep.json` grids the single work center's machine
+count:
+
+```json
+{ "locations[mold].capacity": [1, 2, 3] }
+```
+
+```bash
+twinflow balance examples/supply-chain/model.yaml --plan examples/supply-chain/plan.csv \
+  --sweep examples/supply-chain/sweep.json --reps 10
+```
+
+This runs the floor at 1, 2, and 3 molds, 10 replications each. A second
+mold pulls `resin` twice as fast, which drains the two-echelon stock chain
+faster too — so this is also a check on whether the reorder points and lead
+times declared on `resin` / `bulk_resin` can keep up with faster demand
+before you add a real machine.
+
+## Import into the workspace UI
+
+`supply-chain.twin.yaml` in this folder is the same floor and plan packaged as a
+scenario capsule. Choose it in the workspace's **Import scenario** dialog, or
+run it directly:
+
+```bash
+twinflow scenario validate examples/supply-chain/supply-chain.twin.yaml
+twinflow scenario run examples/supply-chain/supply-chain.twin.yaml --seed 42
+```
+
+`model.yaml` on its own is not a capsule; the importer says so if you pick it.
