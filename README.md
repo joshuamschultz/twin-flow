@@ -159,34 +159,24 @@ dough as a tub, then sends each loaf through shaping, proofing, and baking indep
 
 ---
 
-## Production capability alpha
+## Scheduling
 
-The `twinflow.production` namespace contains the typed, deterministic capability
-contracts for the Western Spring assessment. The [production guide](docs/production/README.md)
-covers the public state ledgers and runtime composition; its [validation matrix](docs/production/VALIDATION.md)
-maps the ten capability specifications to source and evidence. The rich scheduler is an
-earliest-feasible baseline: `FEASIBLE` means the declared constraints were satisfied, and
-does not claim certified optimality or empirical plant validation.
-
-The production surface can be consumed after installing the package from source:
+`twinflow.scheduling` takes one versioned `SolveRequest` (`schema_version "2.0"`):
+jobs of lot operations, unary machines in work centers, calendars, operator pools,
+setup functions, planner overrides with a frozen zone, and a scheduling profile. It
+reports thirteen objectives. A deterministic baseline schedules everything except
+machine restart; the optional CP-SAT backend optimizes `makespan` and `max_lateness`.
+An independent verifier checks every `FEASIBLE` or `OPTIMAL` answer before it is
+reported. A feature a solver does not support is refused by name, never dropped.
+See the [RM-06 spec](docs/enterprise/rm-06/SPEC.md).
 
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -e .
-python - <<'PY'
-from twinflow.production import contracts, scheduling
-
-print(contracts.Resource, scheduling.solve)
-PY
+twinflow schedule examples/scheduling/problem.json --solver baseline
 ```
 
-The state ledgers preserve order and lot identity across WIP, material reservations,
-qualification gates, and outside-processing receipts. Calendars, attendance phases,
-thermal recipe batching, and per-order commitments are represented in the typed rich
-contract; unsupported or missing plant facts remain explicit in the result. The legacy
-`model.yaml` + plan DES CLI remains a separate compatible surface. Repeated legacy
-locations that name the same machine now share its capacity and setup state, while rich
-schedule verification remains specific to `twinflow.production`.
+`FEASIBLE` means the declared constraints were satisfied. It does not claim certified
+optimality or empirical plant validation. The legacy `model.yaml` + plan DES CLI
+remains a separate compatible surface.
 
 ## 🚀 Quick start
 

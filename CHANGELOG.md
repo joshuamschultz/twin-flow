@@ -21,6 +21,15 @@ All notable changes to twinflow are recorded here. The format follows
   runs from copy-paste commands in its own folder and imports in the workspace UI.
 - `TWINFLOW_API_TARGET` for the web dev server and browser tests, so the UI proxy can
   reach a twinflow API on a port other than 8000.
+- Scheduling problem model v2 in `twinflow.scheduling` (`schema_version "2.0"`, checked-in
+  `problem.schema.json`): jobs of lot operations, unary machines in work centers,
+  calendars, operator pools, typed setup functions, seven planner overrides, a frozen
+  zone, and a TOML scheduling profile. It reports 13 objectives under three objective
+  specs (weighted sum, lexicographic, epsilon constraint). Solvers declare capabilities
+  and `solve()` refuses unsupported features by name. An independent verifier checks
+  every answer, and the baseline plus CP-SAT (`makespan`, `max_lateness`) run behind
+  one `Solver` seam. Pinedo Examples 7.1.1 (makespan 28) and 14.2.1 (weighted tardiness
+  98) are known-optimum fixtures. See the [RM-06 spec](docs/enterprise/rm-06/SPEC.md).
 
 ### Removed
 
@@ -36,6 +45,15 @@ All notable changes to twinflow are recorded here. The format follows
   `RuntimeInputs`), `lots`, `materials`, `qualification`, `external`, and
   `state_validation`. `twinflow.production` keeps `contracts`, `scheduling`, and
   `validation` until TF-002.
+- `twinflow.production` (`contracts`, `scheduling`, `validation`), absorbed into
+  `twinflow.scheduling`; and the `docs/production/` pages.
+- `twinflow/scheduling/core.py` and `ortools.py`. CP-SAT is now
+  `twinflow.scheduling.cpsat`.
+- `application/linear_schedule.py`, `rank_candidates`, `pareto_frontier`,
+  `paired_deltas` and `problem_from_dict`.
+- The `linear-piece-1` solve gate, the 500-piece and 1,000-operation caps, and the
+  `max_solver_pieces` and `max_solver_operations` settings. The snapshot solve now
+  translates any scenario capsule the v2 model can express and names what it cannot.
 - All removed code is reachable at git tag `pre-cleanup`.
 
 ### Fixed
@@ -47,6 +65,11 @@ All notable changes to twinflow are recorded here. The format follows
 
 ### Changed
 
+- **Breaking:** `POST /api/workspace/schedules`, the SDK `schedule`, the MCP
+  `schedule_operations` tool and `twinflow schedule` take a v2 `SolveRequest`
+  (`schema_version "2.0"`). Version 1 `problem` bodies are rejected with a 422. Schedule
+  and plan records gain `schema_version`, `objective_spec`, `objective_values`,
+  `features`, and `held_job_ids`.
 - The HTML report includes a due-to-finish order timeline, shared-machine occupancy,
   per-location busy hours, and calendar-aware labels. Utilization denominators remain
   metric-specific; see [running results](docs/running.md).

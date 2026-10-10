@@ -19,9 +19,9 @@ requirement rather than installing a moving branch:
 twinflow @ git+ssh://git@github.com/joshuamschultz/twin-flow.git@<release-commit>
 ```
 
-The typed `twinflow.production` contracts, deterministic baseline scheduler, verifier,
-state ledgers, and runtime are included in the core install. The `scheduling` extra is
-for the separate legacy CP-SAT scheduler and is not required by the baseline.
+The `twinflow.scheduling` problem model, deterministic baseline scheduler, validator,
+and verifier are included in the core install. The `scheduling` extra adds OR-Tools for
+the optional CP-SAT solver and is not required by the baseline.
 
 ## API extra (the REST service)
 

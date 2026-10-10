@@ -5,10 +5,10 @@ per-client code — every capability below is declarative config the Layer-2 com
 turns into pure primitives. This page is the config reference; the README's "building
 blocks" section is the plain-language tour.
 
-For typed Western Spring capability work, use the separate `twinflow.production`
-contracts and [`production/README.md`](production/README.md). Those immutable resources,
-phases, lots, materials, qualifications, and external operations are not silently
-compiled from this legacy YAML surface.
+For constrained scheduling, use the separate `twinflow.scheduling` problem model v2
+and the [RM-06 spec](enterprise/rm-06/SPEC.md). Its jobs, lots, calendars, operator
+pools, and setup functions are not silently compiled from this YAML surface; the
+workspace translator reads a scenario capsule and names what it cannot express.
 
 ## Skeleton
 

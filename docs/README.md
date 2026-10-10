@@ -32,8 +32,7 @@ For the implemented enterprise branch, start with the [operator workspace guide]
 | [supply-chain.md](supply-chain.md) | Stocks, reorder points, lead time, multi-echelon, inventory KPIs |
 | [active-control.md](active-control.md) | Dispatch rules, order release, disruptions (breakdown/absence/rush) |
 | [glossary.md](glossary.md) | Every term, defined |
-| [production/README.md](production/README.md) | Typed production contracts, state ledgers, and runtime composition |
-| [production/VALIDATION.md](production/VALIDATION.md) | Ten-spec traceability and alpha evidence |
+| [enterprise/rm-06/SPEC.md](enterprise/rm-06/SPEC.md) | Scheduling problem model v2: model, overrides, objectives, solvers, verifier, contracts |
 | [../examples/README.md](../examples/README.md) | Importable floor examples, parameter sweeps, and scenario capsules |
 
 **Using it**

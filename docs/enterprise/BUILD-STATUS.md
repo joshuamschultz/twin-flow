@@ -15,7 +15,7 @@ Each epic must include SPEC.md, implementation, independent review evidence, and
 | RM-03 | Manufacturing simulation, working calendars, resource identity, shift crossing and typed capsule compilation | Broader WIP/material fidelity, customer acceptance and credible date validation |
 | RM-04 | Workspace REST, SDK, MCP, draft intake, jobs, compare, evidence and React UI | Independent clients, verified identity/RBAC and customer evidence; see [review](rm-04/REVIEW.md) |
 | RM-05 | Event ingestion, snapshots, freshness and forecast backtest | Production connectors and held-out calibration |
-| RM-06 | Strict parser, verified baseline and optional CP-SAT backend/CLI/API | Broad objectives, scale proof and operational validation |
+| RM-06 | Problem model v2: strict validator, overrides and frozen zone, 13 objectives, verified baseline, optional CP-SAT (`makespan`, `max_lateness`), REST/SDK/MCP/CLI on one `SolveRequest` | CP-SAT models for setups, batching, pause and overlap; scale proof beyond 600x8; operational validation |
 | RM-07 | Registered office adapter with cases, documents, approvals and bounded rework | Customer semantics and identity |
 | RM-08 | Registered supply-chain adapter with inventory, BOMs, qualifications and gates | Supplier data, network scale and calibrated lead times |
 | RM-09 | Settings, health, workspace lock, SQLite, backup/restore and bounded workers | SSO, RLS, secrets, distributed workers and SLO evidence |

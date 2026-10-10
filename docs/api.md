@@ -4,9 +4,9 @@ An optional local service (`twinflow.service`) the front end drives. It never le
 request read a file outside the models root: `model` in every request names a
 discovered example, never a free path.
 
-The typed `twinflow.production` scheduler and ledgers are a Python-only alpha surface in
-this release. They are not automatically exposed through these REST endpoints or the
-workspace SDK/MCP/web contracts.
+Scheduling takes a v2 `SolveRequest` (`schema_version` `2.0`) at
+`POST /api/workspace/schedules` with `{request, backend, time_limit}`. See the
+[RM-06 spec](enterprise/rm-06/SPEC.md) for the model and the issue codes.
 
 ## Start it
 

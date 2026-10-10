@@ -1,25 +1,27 @@
 # RM-06 review
 
 The scheduling package is isolated under `twinflow.scheduling` and does not
-modify the simulator, service, or engine. The baseline enforces precedence,
-resource qualification, finite windows, readiness gates, no overlap, and
-frozen assignments, then runs an independent verifier over the result.
+modify the simulator, service, or engine. Problem model v2 (`schema_version "2.0"`)
+replaces the earlier flat model. `solve` validates the request, compiles overrides,
+refuses features the solver does not declare, runs the solver, and then runs an
+independent verifier over the result. Objective values are reported only for a
+verified schedule.
 
-Focused tests cover hand-solved feasible and infeasible cases, qualification,
-calendar limits, frozen conflicts, unsupported translation, ranking, and the
-optional solver seam. Ruff, strict mypy, and pytest are the release checks.
+The verifier shares no code with the solvers. It re-derives precedence, lags, setup,
+calendar, operator, batch, pin, and override constraints from the model. Mutation
+tests change one constraint at a time and each mutation must be caught.
 
-The baseline is a deterministic feasible heuristic, not an optimizer proof.
-OR-Tools is optional and intentionally not imported unless its adapter is
-instantiated; when installed it builds CP-SAT interval, precedence, window,
-qualification, and frozen-assignment constraints and reports native status and
-objective bounds. The translator supports a narrow deterministic manufacturing
-subset; stochastic distributions, quality gates, and unsupported rework are
-reported as explicit issues.
+Known-optimum fixtures are Pinedo Example 7.1.1 (makespan 28) and Example 14.2.1
+(total weighted tardiness 98 at the order 2, 4, 3, 1). A brute-force oracle checks the
+objectives and the verifier against them. CP-SAT reaches and proves the 28.
 
-Real CP-SAT evidence (OR-Tools 9.15.6755, one worker, seed 7): the hand-solved
-precedence case returned `OPTIMAL` with objective and bound `5`; a 2-unit job
-in a 1-unit window returned `INFEASIBLE`; a 0.0015-duration frozen operation
-returned `OPTIMAL` and verified at the requested precision; a lateness objective
-returned value `1`; and a 1e-9-second limit returned `UNKNOWN` with no claimed
-candidate. The focused suite contains 11 passing tests covering these cases.
+The baseline is a deterministic feasible heuristic, not an optimizer proof. It never
+backtracks and reports `UNKNOWN`, not `INFEASIBLE`, when it cannot place an operation.
+OR-Tools is optional and is not imported unless `ORToolsSolver` is built. CP-SAT
+optimizes `makespan` and `max_lateness` and refuses problems that use setups,
+batching, pause, restart, or overlap. The translator reads a scenario capsule into
+lot operations and returns a named blocker for anything it cannot express:
+stochastic times, quality gates, rework, shared machines, and similar.
+
+A scale check covers 600 jobs of 8 operations each with setups, calendars and
+operators. Ruff, strict mypy, and pytest are the release checks.

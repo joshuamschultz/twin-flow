@@ -74,10 +74,10 @@ does not model an explicit safely parked/released machine. Breakdowns still act 
 location capacity pool rather than a named machine. Machine speed, maintenance
 calendars, tooling, expiring qualifications, multi-resource atomic acquisition,
 split/merge genealogy, route revisions, and outside processing are not modeled by this
-configuration-driven DES. The separate typed production API covers multi-resource phase
-scheduling, lot genealogy, qualifications, and outside processing; see the
-[production capability guide](../../production/README.md). Those capabilities are
-not automatically available through this legacy workspace adapter.
+configuration-driven DES. The separate scheduling problem model covers calendars,
+operator pools, sequence-dependent setups, and machine alternatives; see the
+[RM-06 spec](../rm-06/SPEC.md). Those capabilities are not automatically available
+through this legacy workspace adapter.
 
 The result is a mechanics foundation. Credible customer promise dates still require
 customer calendars, snapshot quality, calibration, and operational validation.
