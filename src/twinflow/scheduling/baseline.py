@@ -22,7 +22,9 @@ cannot place returns UNKNOWN with ``max_lag_unmet`` or ``no_feasible_slot``, and
 that ends after ``problem.horizon_end`` returns UNKNOWN with ``horizon_exceeded``, never
 INFEASIBLE. Operations of held or done jobs and operations in state ``done`` are not
 scheduled and count as finished for precedence. Restart rules are not modeled (TF-003).
-The budget is not enforced: the pass is a single linear sweep with no anytime result.
+The budget is a monotonic deadline checked before each placement: a pass that outlives it
+returns UNKNOWN with ``time_limit`` (the pass has no anytime result). One placement scans
+the machine's gaps, so a pass is O(n^2) in operations per machine (faster search: TF-003).
 """
 
 from __future__ import annotations
@@ -240,8 +242,9 @@ class _Candidate:
 class _ListScheduler:
     """Mutable state of one pass: machine and pool timelines and placed operations."""
 
-    def __init__(self, problem: Problem) -> None:
+    def __init__(self, problem: Problem, deadline: float) -> None:
         self._now = problem.now
+        self._deadline = deadline
         calendars = {c.id: c.intervals for c in problem.calendars}
         setups = SetupTable.for_problem(problem)
         self._timelines = {
@@ -290,7 +293,7 @@ class _ListScheduler:
         )
         for op in pins:
             if all(link.pred_id in self.placed for link in op.links):
-                issue = self._place(op)
+                issue = self._timed_out() or self._place(op)
                 if issue is not None:
                     return issue
         return None
@@ -309,7 +312,7 @@ class _ListScheduler:
         heapq.heapify(queue)
         while queue:
             _, op_id = heapq.heappop(queue)
-            issue = self._place(by_id[op_id])
+            issue = self._timed_out() or self._place(by_id[op_id])
             if issue is not None:
                 return issue
             for succ_id in successors[op_id]:
@@ -317,6 +320,13 @@ class _ListScheduler:
                 if waiting[succ_id] == 0:
                     heapq.heappush(queue, (self._gate(by_id[succ_id]).ready, succ_id))
         return None
+
+    def _timed_out(self) -> ScheduleIssue | None:
+        """`time_limit` once the monotonic deadline has passed, else None."""
+        if time.monotonic() < self._deadline:
+            return None
+        message = "the baseline pass did not finish within the time budget"
+        return ScheduleIssue(code="time_limit", path="budget_seconds", message=message)
 
     # --- in-progress ---------------------------------------------------------------------
 
@@ -464,9 +474,9 @@ class BaselineSolver:
     def solve(
         self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
     ) -> Schedule:
-        """One pass over `problem`; `budget_seconds` is not enforced (see the module docstring)."""
+        """One pass over `problem`, cut off with `time_limit` after `budget_seconds`."""
         started = time.perf_counter()
-        scheduler = _ListScheduler(problem)
+        scheduler = _ListScheduler(problem, time.monotonic() + budget_seconds)
         issue = scheduler.run(problem) or _horizon_issue(problem, scheduler.assignments)
         if issue is not None:
             elapsed = time.perf_counter() - started

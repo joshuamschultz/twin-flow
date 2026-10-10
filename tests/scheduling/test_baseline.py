@@ -311,6 +311,18 @@ def test_plan_ending_past_the_horizon_returns_unknown_horizon_exceeded(
     assert [issue.code for issue in result.issues] == ["horizon_exceeded"]
 
 
+def test_pass_that_outlives_its_budget_returns_unknown_time_limit() -> None:
+    jobs = [Job(id=f"J{k}", operations=(_op(f"op{k:05}"),)) for k in range(4000)]
+    problem = _problem(jobs)
+
+    schedule = BaselineSolver().solve(problem, objective=MAKESPAN, budget_seconds=0.05)
+
+    assert schedule.status == "UNKNOWN"
+    assert _codes(schedule) == ["time_limit"]
+    assert schedule.assignments == ()
+    assert schedule.elapsed_seconds < 1.0
+
+
 def test_same_input_gives_identical_output() -> None:
     request = _fixture("pinedo_7_1_1.json")
 
