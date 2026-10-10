@@ -130,3 +130,41 @@ def test_no_import_of_deleted_modules() -> None:
     files = sorted([*(ROOT / "src").rglob("*.py"), *(ROOT / "tests").rglob("*.py")])
     offenders = [o for p in files if p.resolve() != this_file for o in _offenders_in(p)]
     assert offenders == [], "imports of deleted modules:\n" + "\n".join(offenders)
+
+
+SCHEDULING = SRC / "scheduling"
+# The scheduling engine is a leaf: it knows nothing about the surfaces that call it.
+_SCHEDULING_FORBIDDEN = ("application", "service", "mcp", "plan", "primitives", "cli")
+# The verifier must stay independent of every solver it checks (TF-002 COMP-007).
+_VERIFIER_FORBIDDEN = ("baseline", "cpsat", "timeline")
+
+
+def _absolute_imports(path: pathlib.Path) -> list[tuple[int, str]]:
+    package = _package_of(path)
+    return [
+        (node.lineno, name)
+        for node in ast.walk(ast.parse(path.read_text(), filename=str(path)))
+        for name in _imported_names(node, package)
+    ]
+
+
+def _imports_under(path: pathlib.Path, prefixes: tuple[str, ...]) -> list[str]:
+    return [
+        f"{path.relative_to(ROOT)}:{line} -> {name}"
+        for line, name in _absolute_imports(path)
+        if any(name == p or name.startswith(p + ".") for p in prefixes)
+    ]
+
+
+def test_scheduling_imports_no_surface_package() -> None:
+    prefixes = tuple(f"twinflow.{name}" for name in _SCHEDULING_FORBIDDEN)
+    offenders = [o for p in sorted(SCHEDULING.rglob("*.py")) for o in _imports_under(p, prefixes)]
+    assert offenders == [], offenders
+
+
+def test_verifier_imports_no_solver() -> None:
+    verifier = SCHEDULING / "verifier.py"
+    if not verifier.exists():
+        return
+    prefixes = tuple(f"twinflow.scheduling.{name}" for name in _VERIFIER_FORBIDDEN)
+    assert _imports_under(verifier, prefixes) == []

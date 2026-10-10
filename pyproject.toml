@@ -19,6 +19,7 @@ dependencies = [
     "simpleeval>=1.0.5",
     "plotly>=5",
     "openpyxl>=3.1",
+    "pydantic>=2.7,<3",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +47,7 @@ twinflow = "twinflow.cli.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json"]
+twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json", "scheduling/problem.schema.json"]
 
 [tool.ruff]
 line-length = 100
@@ -72,6 +73,7 @@ files = ["src"]
 namespace_packages = true
 explicit_package_bases = true
 mypy_path = "src"
+plugins = ["pydantic.mypy"]
 
 # simpleeval ships no py.typed marker; the sandbox wrapper (model/expressions.py) adds the
 # types at its own boundary. Silence only the missing-stub error for this one dependency.
