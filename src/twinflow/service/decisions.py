@@ -32,7 +32,9 @@ class SnapshotRequest(StrictModel):
 
 
 class QueryRequest(StrictModel):
-    topic: Literal["metrics", "dates", "blockers", "assumptions", "process"]
+    topic: Literal[
+        "metrics", "dates", "blockers", "waits", "termination", "assumptions", "process", "schedule"
+    ]
     entity_id: str | None = Field(default=None, max_length=256)
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=1000)
@@ -42,6 +44,31 @@ class ScheduleRequest(StrictModel):
     problem: dict[str, Any]
     backend: Literal["baseline", "ortools"] = "baseline"
     time_limit: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
+
+
+class ScheduleUploadPreviewRequest(StrictModel):
+    scenario_id: str = Field(min_length=1, max_length=100)
+    filename: str = Field(min_length=1, max_length=160)
+    content_base64: str = Field(min_length=1, max_length=1_400_000)
+    mapping: dict[str, str] | None = None
+    time_unit: Literal["second"]
+    time_origin: Literal["scenario_snapshot_as_of"]
+
+
+class ScheduleUploadCommitRequest(ScheduleUploadPreviewRequest):
+    mapping: dict[str, str]
+    original_file_digest: str = Field(min_length=64, max_length=64)
+
+
+class ScheduleSolveRequest(StrictModel):
+    backend: Literal["baseline", "ortools"] = "baseline"
+    time_limit: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
+
+
+class ScheduleSimulationRequest(StrictModel):
+    reps: int = Field(default=10, ge=1, le=10)
+    seed: int = Field(default=42, ge=0, le=4_294_967_295)
+    request_key: str = Field(min_length=1, max_length=200)
 
 
 def decision_router(workspace: Workspace) -> APIRouter:
@@ -61,7 +88,35 @@ def decision_router(workspace: Workspace) -> APIRouter:
             "schema_version": "1.0",
             "event_example": events,
             "scheduling_example": problem,
-            "query_topics": ["metrics", "dates", "blockers", "assumptions", "process"],
+            "schedule_upload": {
+                "formats": ["csv", "xlsx"],
+                "required_mapping": [
+                    "order_id",
+                    "product",
+                    "quantity",
+                    "release_second",
+                    "due_second",
+                ],
+                "time_unit": "second",
+                "time_origin": "scenario_snapshot_as_of",
+                "max_bytes": 1_048_576,
+                "max_columns": 100,
+                "max_rows": 1_000,
+                "max_solver_pieces": 500,
+                "max_solver_operations": 1_000,
+                "max_schedule_replications": 10,
+                "original_file_retention": "discarded_after_parse",
+            },
+            "query_topics": [
+                "metrics",
+                "dates",
+                "blockers",
+                "waits",
+                "termination",
+                "assumptions",
+                "process",
+                "schedule",
+            ],
             "snapshot_example": {"known_at": "2026-01-10T00:00:00Z", "freshness_rules": []},
             "limits": {"event_batch": 1000, "schedule_seconds": 30},
             "notes": [
@@ -125,6 +180,85 @@ def decision_router(workspace: Workspace) -> APIRouter:
         except OptionalDependencyError as exc:
             raise HTTPException(503, str(exc)) from exc
         except (ValueError, TypeError, KeyError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.post("/schedule-uploads/preview")
+    def preview_schedule_upload(request: ScheduleUploadPreviewRequest) -> dict[str, Any]:
+        try:
+            return workspace.preview_schedule_upload(
+                request.scenario_id, request.filename, request.content_base64, request.mapping
+            )
+        except KeyError as exc:
+            raise HTTPException(404, "Scenario not found") from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.post("/schedule-uploads/commit", status_code=201)
+    def commit_schedule_upload(request: ScheduleUploadCommitRequest) -> dict[str, Any]:
+        try:
+            return workspace.commit_schedule_upload(
+                request.scenario_id,
+                request.filename,
+                request.content_base64,
+                request.original_file_digest,
+                request.mapping,
+            )
+        except KeyError as exc:
+            raise HTTPException(404, "Scenario not found") from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.get("/schedule-snapshots/{snapshot_id}")
+    def schedule_snapshot(snapshot_id: str) -> dict[str, Any]:
+        try:
+            return workspace.repository.get("schedule_snapshots", snapshot_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Schedule snapshot not found") from exc
+
+    @router.post("/schedule-snapshots/{snapshot_id}/simulate-baseline", status_code=202)
+    def simulate_schedule_baseline(
+        snapshot_id: str, request: ScheduleSimulationRequest
+    ) -> dict[str, Any]:
+        try:
+            return workspace.submit_schedule_baseline(
+                snapshot_id, request.reps, request.seed, request.request_key
+            )
+        except KeyError as exc:
+            raise HTTPException(404, "Schedule snapshot not found") from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.post("/schedule-snapshots/{snapshot_id}/solve")
+    def solve_schedule_snapshot(snapshot_id: str, request: ScheduleSolveRequest) -> dict[str, Any]:
+        from twinflow.scheduling.ortools import OptionalDependencyError
+
+        try:
+            return workspace.solve_schedule_snapshot(
+                snapshot_id, request.backend, request.time_limit
+            )
+        except KeyError as exc:
+            raise HTTPException(404, "Schedule snapshot not found") from exc
+        except OptionalDependencyError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.get("/schedule-plans/{plan_id}")
+    def schedule_plan(plan_id: str) -> dict[str, Any]:
+        try:
+            return workspace.repository.get("schedule_plans", plan_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Schedule plan not found") from exc
+
+    @router.post("/schedule-plans/{plan_id}/simulate", status_code=202)
+    def simulate_schedule_plan(plan_id: str, request: ScheduleSimulationRequest) -> dict[str, Any]:
+        try:
+            return workspace.submit_schedule_plan(
+                plan_id, request.reps, request.seed, request.request_key
+            )
+        except KeyError as exc:
+            raise HTTPException(404, "Schedule plan not found") from exc
+        except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
     @router.get("/schedules")

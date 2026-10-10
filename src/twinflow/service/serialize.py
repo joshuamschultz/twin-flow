@@ -8,6 +8,8 @@ one contract describes a KPI whether it comes from a file or the API.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import asdict
 from typing import Any
 
 from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, OutcomeDistribution
@@ -92,6 +94,84 @@ def intervals_to_dict(aggregated: AggregatedKpis) -> dict[str, Any]:
             key: distribution_to_dict(value)
             for key, value in aggregated.lateness_distributions.items()
         },
+    }
+
+
+def manufacturing_result_details(
+    per_rep: Sequence[KpiSet], aggregated: AggregatedKpis
+) -> dict[str, Any]:
+    """Additive decision evidence sourced from the KPI and aggregation contracts."""
+    waits: list[dict[str, Any]] = []
+    locations = sorted({location for kpi in per_rep for location in kpi.wait_seconds_by_location})
+    for location in locations:
+        categories = sorted(
+            {
+                category
+                for kpi in per_rep
+                for category in kpi.wait_seconds_by_location.get(location, {})
+            }
+        )
+        for category in categories:
+            samples = [
+                kpi.wait_seconds_by_location[location][category]
+                for kpi in per_rep
+                if category in kpi.wait_seconds_by_location.get(location, {})
+            ]
+            waits.append(
+                {
+                    "location_id": location,
+                    "category": category,
+                    "mean_seconds": sum(samples) / len(samples),
+                    "observed_replications": len(samples),
+                    "unit": "second",
+                    "statistic": "arithmetic_mean_of_per_replication_totals",
+                }
+            )
+    return {
+        "resource_utilization": [
+            {
+                "location_id": location,
+                "mean": interval.mean,
+                "mean_ci": [interval.lo, interval.hi],
+                "confidence_level": aggregated.level,
+                "observed_replications": interval.n,
+                "unit": "fraction_of_simulated_horizon",
+            }
+            for location, interval in sorted(aggregated.utilization_by_cell.items())
+        ],
+        "wait_breakdown": waits,
+        "order_outcomes": [
+            {"replication": index, "order_id": order_id, **asdict(outcome)}
+            for index, kpi in enumerate(per_rep)
+            for order_id, outcome in sorted(kpi.order_outcomes.items())
+        ],
+        "metric_definitions": {
+            "on_time_pct": {
+                "unit": "percent",
+                "definition": (
+                    "Mean of per-replication on-time percentages; each replication "
+                    "uses its KPI on_time_denominator."
+                ),
+                "aggregation": "arithmetic_mean_across_replications",
+                "denominators": [kpi.on_time_denominator for kpi in per_rep],
+                "censored_orders": [kpi.censored_order_count for kpi in per_rep],
+            },
+            "run_hours": {
+                "unit": "machine_hour",
+                "definition": "Mean total processing machine-hours per replication.",
+                "aggregation": "arithmetic_mean_across_replications",
+            },
+            "setup_hours": {
+                "unit": "machine_hour",
+                "definition": "Mean total setup machine-hours per replication.",
+                "aggregation": "arithmetic_mean_across_replications",
+            },
+        },
+        "interval_meaning": (
+            "lo and hi are Student-t confidence limits for a replication mean at intervals.level; "
+            "p50 is the median of observed replication values. Completion distribution quantiles "
+            "are withheld when any replication is censored."
+        ),
     }
 
 

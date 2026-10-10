@@ -114,6 +114,100 @@ class TwinflowClient:
     def validate(self, content: str) -> dict[str, Any]:
         return cast(dict[str, Any], self.request("/validate", {"content": content}))
 
+    def save_model_draft(self, name: str, draft: dict[str, Any]) -> dict[str, Any]:
+        return cast(dict[str, Any], self.request("/model-drafts", {"name": name, "draft": draft}))
+
+    def compile_model_draft(self, draft_id: str) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(f"/model-drafts/{quote(draft_id, safe='')}/compile", {}),
+        )
+
+    def import_model_draft(self, draft_id: str) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(f"/model-drafts/{quote(draft_id, safe='')}/import", {}),
+        )
+
+    def preview_schedule_upload(
+        self,
+        scenario_id: str,
+        filename: str,
+        content_base64: str,
+        mapping: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                "/schedule-uploads/preview",
+                {
+                    "scenario_id": scenario_id,
+                    "filename": filename,
+                    "content_base64": content_base64,
+                    "mapping": mapping,
+                    "time_unit": "second",
+                    "time_origin": "scenario_snapshot_as_of",
+                },
+            ),
+        )
+
+    def commit_schedule_upload(
+        self,
+        scenario_id: str,
+        filename: str,
+        content_base64: str,
+        original_file_digest: str,
+        mapping: dict[str, str],
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                "/schedule-uploads/commit",
+                {
+                    "scenario_id": scenario_id,
+                    "filename": filename,
+                    "content_base64": content_base64,
+                    "original_file_digest": original_file_digest,
+                    "mapping": mapping,
+                    "time_unit": "second",
+                    "time_origin": "scenario_snapshot_as_of",
+                },
+            ),
+        )
+
+    def solve_schedule_snapshot(
+        self, snapshot_id: str, *, backend: str = "baseline", time_limit: float = 10
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                f"/schedule-snapshots/{quote(snapshot_id, safe='')}/solve",
+                {"backend": backend, "time_limit": time_limit},
+            ),
+        )
+
+    def simulate_schedule_plan(
+        self, plan_id: str, request_key: str, *, reps: int = 10, seed: int = 42
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                f"/schedule-plans/{quote(plan_id, safe='')}/simulate",
+                {"request_key": request_key, "reps": reps, "seed": seed},
+            ),
+        )
+
+    def simulate_schedule_baseline(
+        self, snapshot_id: str, request_key: str, *, reps: int = 10, seed: int = 42
+    ) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            self.request(
+                f"/schedule-snapshots/{quote(snapshot_id, safe='')}/simulate-baseline",
+                {"request_key": request_key, "reps": reps, "seed": seed},
+            ),
+        )
+
     def query(
         self,
         job_id: str,

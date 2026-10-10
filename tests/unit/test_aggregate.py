@@ -6,11 +6,14 @@ honestly. With one replication the interval collapses to the point (lo==hi==mean
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import polars as pl
 import pytest
 
 from twinflow.instrumentation.aggregate import Interval, aggregate_kpis
 from twinflow.instrumentation.kpis import KpiSet
+from twinflow.service.serialize import manufacturing_result_details
 
 
 def _kpis(
@@ -90,6 +93,28 @@ def test_utilization_aggregates_per_cell() -> None:
     agg = aggregate_kpis(reps, level=0.90)
     assert agg.utilization_by_cell["mill"].mean == pytest.approx(0.945)
     assert agg.utilization_by_cell["saw"].mean == pytest.approx(0.325)
+
+
+def test_wait_summary_preserves_observation_count_and_replication_units() -> None:
+    first = replace(
+        _kpis(on_time_pct=50, utilization={"mill": 0.5}),
+        wait_seconds_by_location={"mill": {"starved": 4.0, "blocked": 2.0}},
+        on_time_denominator=2,
+        censored_order_count=1,
+    )
+    second = replace(
+        _kpis(on_time_pct=100, utilization={"mill": 0.7}),
+        wait_seconds_by_location={"mill": {"starved": 8.0}},
+        on_time_denominator=1,
+    )
+    details = manufacturing_result_details([first, second], aggregate_kpis([first, second]))
+    waits = {(row["location_id"], row["category"]): row for row in details["wait_breakdown"]}
+    assert waits[("mill", "starved")]["mean_seconds"] == 6.0
+    assert waits[("mill", "starved")]["observed_replications"] == 2
+    assert waits[("mill", "blocked")]["mean_seconds"] == 2.0
+    assert waits[("mill", "blocked")]["observed_replications"] == 1
+    assert details["resource_utilization"][0]["mean"] == pytest.approx(0.6)
+    assert details["metric_definitions"]["on_time_pct"]["denominators"] == [2, 1]
 
 
 def test_empty_input_is_rejected() -> None:

@@ -13,7 +13,9 @@ from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import aggregate_kpis
 from twinflow.instrumentation.sweep import orders_frame
 from twinflow.plan.driver import RunDriver
+from twinflow.primitives.location import ScheduledFiring
 from twinflow.scenario import CapsuleValidationError, ScenarioCapsule, import_legacy, schema
+from twinflow.service.serialize import intervals_to_dict, manufacturing_result_details
 
 
 def capsule_schema() -> dict[str, Any]:
@@ -81,6 +83,9 @@ def evaluate_capsule(
     reps: int,
     seed: int,
     canceled: Callable[[], bool],
+    *,
+    execution_schedule: list[ScheduledFiring] | None = None,
+    piece_release: bool = False,
 ) -> dict[str, Any]:
     """Sequential bounded replications; no thread-global paths or nested CPU pools."""
     import time
@@ -93,6 +98,7 @@ def evaluate_capsule(
     per_rep = []
     outcomes = []
     policy_traces = []
+    schedule_evidence: list[dict[str, Any]] = []
     out.mkdir(parents=True, exist_ok=True)
     (out / "scenario.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
     start = time.monotonic()
@@ -116,10 +122,32 @@ def evaluate_capsule(
             replication_index=index,
             artifact_dir=out / f"rep-{index:04}",
             decision_runtime=runtime,
+            execution_schedule=execution_schedule,
+            piece_release=piece_release,
             max_sim_time=31_536_000,
             max_events=1_000_000,
             max_wall_seconds=min(remaining, 30),
         )
+        if execution_schedule is not None:
+            planned = {firing.operation_id: firing for firing in execution_schedule}
+            trace = run.schedule_trace
+            schedule_evidence.append(
+                {
+                    "replication": index,
+                    "planned_operations": len(execution_schedule),
+                    "executed_operations": len(trace),
+                    "machine_mismatches": sum(
+                        row["machine_id"] != planned[str(row["operation_id"])].machine_id
+                        for row in trace
+                    ),
+                    "max_start_slip_seconds": max(
+                        (float(row["actual_start"]) - float(row["planned_start"]) for row in trace),
+                        default=None,
+                    ),
+                    "trace": trace,
+                    "outcome": run.outcome,
+                }
+            )
         if runtime is not None:
             policy_traces.append(
                 {"replication": index, "decisions": [asdict(row) for row in runtime.trace]}
@@ -139,13 +167,13 @@ def evaluate_capsule(
         )
     aggregate = aggregate_kpis(per_rep)
     result = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "domain": "manufacturing",
         "replications": reps,
         "seed": seed,
         "snapshot": capsule.snapshot,
         "assumptions": capsule.assumptions,
-        "intervals": asdict(aggregate),
+        "intervals": intervals_to_dict(aggregate),
         "outcomes": outcomes,
         "policy_traces": policy_traces,
         "metrics": {
@@ -154,14 +182,31 @@ def evaluate_capsule(
             "setup_hours": sum(k.setup_hours for k in per_rep) / reps,
         },
         "per_replication": [
-            {"on_time_pct": k.on_time_pct, "completion_by_order": k.completion_by_order}
+            {
+                "on_time_pct": k.on_time_pct,
+                "completion_by_order": k.completion_by_order,
+                "wait_seconds_by_location": k.wait_seconds_by_location,
+                "on_time_denominator": k.on_time_denominator,
+                "censored_order_count": k.censored_order_count,
+            }
             for k in per_rep
         ],
+        **manufacturing_result_details(per_rep, aggregate),
         "validity": "provisional",
         "interpretation": (
             "Simulation outcomes conditional on model assumptions; not customer commitments."
         ),
     }
+    if execution_schedule is not None:
+        result["schedule_execution"] = {
+            "mode": "enforced_verified_plan",
+            "replications": schedule_evidence,
+            "uncertainty": "deterministic_if_model_time_cv_is_zero",
+            "interpretation": (
+                "Physical machine assignments and planned starts are enforced as earliest starts; "
+                "late upstream work can slip later operations."
+            ),
+        }
     (out / "result.json").write_text(
         json.dumps(result, indent=2, allow_nan=False), encoding="utf-8"
     )
@@ -245,7 +290,7 @@ def evaluate_domain(
     keys = samples[0].get("metrics", {}).keys()
     metrics = {key: sum(float(sample["metrics"][key]) for sample in samples) / reps for key in keys}
     result = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "domain": domain,
         "replications": reps,
         "seed": seed,

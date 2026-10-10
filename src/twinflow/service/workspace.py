@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from twinflow.application import scenarios
+from twinflow.application.linear_draft import LinearDraft
 from twinflow.application.workspace import Workspace
 
 
@@ -42,6 +43,11 @@ class DraftRequest(StrictModel):
     answers: list[dict[str, str]] = Field(default_factory=list, max_length=100)
 
 
+class ModelDraftRequest(StrictModel):
+    name: str = Field(min_length=1, max_length=160)
+    draft: LinearDraft
+
+
 class ScenarioResponse(BaseModel):
     id: str
     name: str
@@ -51,6 +57,7 @@ class ScenarioResponse(BaseModel):
     capsule: dict[str, Any]
     summary: dict[str, Any]
     validity: str
+    draft_link: dict[str, Any] | None = None
 
 
 class JobResponse(BaseModel):
@@ -86,6 +93,7 @@ class ExampleResponse(BaseModel):
 class CompareResponse(BaseModel):
     baseline_id: str
     candidate_id: str
+    compared: dict[str, Any] | None = None
     delta: dict[str, float]
     interpretation: str
 
@@ -107,6 +115,35 @@ def workspace_router(workspace: Workspace) -> APIRouter:
     @router.get("/capabilities", response_model=CapabilitiesResponse, status_code=200)
     def capabilities() -> dict[str, Any]:
         return workspace.capabilities()
+
+    @router.post("/model-drafts", status_code=201)
+    def save_model_draft(request: ModelDraftRequest) -> dict[str, Any]:
+        return workspace.save_model_draft(request.name, request.draft)
+
+    @router.get("/model-drafts/{draft_id}")
+    def model_draft(draft_id: str) -> dict[str, Any]:
+        try:
+            return workspace.repository.get("model_drafts", draft_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Model draft not found") from exc
+
+    @router.post("/model-drafts/{draft_id}/compile")
+    def compile_model_draft(draft_id: str) -> dict[str, Any]:
+        try:
+            return workspace.compile_model_draft(draft_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Model draft not found") from exc
+
+    @router.post(
+        "/model-drafts/{draft_id}/import", response_model=ScenarioResponse, status_code=201
+    )
+    def import_model_draft(draft_id: str) -> dict[str, Any]:
+        try:
+            return workspace.import_model_draft(draft_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Model draft not found") from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @router.get("/schema", response_class=Response, status_code=200)
     def schema() -> Response:

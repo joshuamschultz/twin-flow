@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import fcntl
 import hashlib
 import json
@@ -14,7 +15,13 @@ from pathlib import Path
 from typing import IO, Any
 
 from twinflow.application import scenarios
+from twinflow.application.linear_draft import LinearDraft, compile_draft
+from twinflow.application.linear_schedule import (
+    firings_from_plan,
+    translate_schedule,
+)
 from twinflow.application.repository import WorkspaceRepository
+from twinflow.application.schedule_intake import decode_upload, preview_mapping
 
 log = logging.getLogger(__name__)
 
@@ -89,6 +96,13 @@ class Workspace:
                 "evaluate",
                 "compare",
                 "draft",
+                "model_draft_compile",
+                "model_draft_import",
+                "schedule_upload_preview",
+                "schedule_snapshot_commit",
+                "schedule_snapshot_solve",
+                "schedule_plan_simulate",
+                "schedule_snapshot_baseline",
                 "answer",
                 "ingest_events",
                 "build_snapshot",
@@ -150,7 +164,11 @@ class Workspace:
         return self.import_scenario(json.dumps(capsule.to_dict()), example["name"])
 
     def import_scenario(
-        self, content: str, name: str, parent_id: str | None = None
+        self,
+        content: str,
+        name: str,
+        parent_id: str | None = None,
+        draft_link: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if self.repository.count("scenarios") >= self.max_records_per_kind:
             raise ValueError("Scenario quota reached")
@@ -165,6 +183,8 @@ class Workspace:
             "summary": scenarios.describe(capsule),
             "validity": "provisional",
         }
+        if draft_link is not None:
+            record["draft_link"] = draft_link
         self.repository.create("scenarios", record["id"], record)
         self.repository.append_audit(_now(), "import", "scenario", record["id"], "created")
         return record
@@ -208,6 +228,134 @@ class Workspace:
                 self.repository.append_audit(_now(), "evaluate", "job", job_id, "queued")
         return self.repository.get("jobs", job_id)
 
+    def submit_schedule_plan(self, plan_id: str, reps: int, seed: int, key: str) -> dict[str, Any]:
+        if (
+            not 1 <= reps <= min(self.max_replications, 10)
+            or not 0 <= seed <= 2**32 - 1
+            or not key
+            or len(key) > 200
+        ):
+            raise ValueError("Invalid experiment settings or request key")
+        plan_record = self.repository.get("schedule_plans", plan_id)
+        if not plan_record["result"]["verified"] or plan_record["result"]["status"] not in (
+            "FEASIBLE",
+            "OPTIMAL",
+        ):
+            raise ValueError("Only a verified feasible schedule plan can be simulated")
+        scenario = self.repository.get("scenarios", plan_record["scenario_id"])
+        snapshot = self.repository.get("schedule_snapshots", plan_record["schedule_snapshot_id"])
+        translated = translate_schedule(scenario, snapshot)
+        if (
+            translated["status"] != "translated"
+            or translated["problem_digest"] != plan_record["problem_digest"]
+        ):
+            raise ValueError("Plan translation no longer matches its source snapshot")
+        firings = firings_from_plan(translated, plan_record["result"])
+        if max(firing.planned_end for firing in firings) > 31_536_000:
+            raise ValueError("Verified plan exceeds the one-year simulation horizon")
+        simulation_capsule = self._schedule_capsule(scenario, snapshot, plan_record)
+        scenarios.validate_content(json.dumps(simulation_capsule, allow_nan=False))
+        fingerprint = hashlib.sha256(
+            json.dumps([plan_id, plan_record["problem_digest"], reps, seed]).encode()
+        ).hexdigest()
+        proposed = {
+            "id": uuid.uuid4().hex,
+            "scenario_id": scenario["id"],
+            "schedule_plan_id": plan_id,
+            "status": "queued",
+            "created_at": _now(),
+            "reps": reps,
+            "seed": seed,
+            "result": None,
+            "error": None,
+        }
+        with self._lock:
+            job_id, created = self.repository.claim_job(
+                key, fingerprint, proposed, self.max_active_jobs
+            )
+            if created:
+                self._active.add(job_id)
+                self._pool.submit(self._execute, job_id, scenario["capsule"])
+                self.repository.append_audit(_now(), "simulate_schedule", "job", job_id, "queued")
+        return self.repository.get("jobs", job_id)
+
+    def submit_schedule_baseline(
+        self, snapshot_id: str, reps: int, seed: int, key: str
+    ) -> dict[str, Any]:
+        if (
+            not 1 <= reps <= min(self.max_replications, 10)
+            or not 0 <= seed <= 2**32 - 1
+            or not key
+            or len(key) > 200
+        ):
+            raise ValueError("Invalid experiment settings or request key")
+        snapshot = self.repository.get("schedule_snapshots", snapshot_id)
+        scenario = self.repository.get("scenarios", snapshot["scenario_id"])
+        if scenario["digest"] != snapshot["scenario_digest"]:
+            raise ValueError("Schedule snapshot scenario digest has changed")
+        translated = translate_schedule(scenario, snapshot)
+        if translated["status"] != "translated":
+            raise ValueError(
+                "Schedule baseline requires supported linear-piece semantics: "
+                + json.dumps(translated["issues"])
+            )
+        capsule = self._schedule_capsule(scenario, snapshot)
+        scenarios.validate_content(json.dumps(capsule, allow_nan=False))
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                ["schedule_baseline", snapshot_id, snapshot["original_file_digest"], reps, seed]
+            ).encode()
+        ).hexdigest()
+        proposed = {
+            "id": uuid.uuid4().hex,
+            "scenario_id": scenario["id"],
+            "schedule_snapshot_id": snapshot_id,
+            "status": "queued",
+            "created_at": _now(),
+            "reps": reps,
+            "seed": seed,
+            "result": None,
+            "error": None,
+        }
+        with self._lock:
+            job_id, created = self.repository.claim_job(
+                key, fingerprint, proposed, self.max_active_jobs
+            )
+            if created:
+                self._active.add(job_id)
+                self._pool.submit(self._execute, job_id, scenario["capsule"])
+                self.repository.append_audit(
+                    _now(), "simulate_schedule_baseline", "job", job_id, "queued"
+                )
+        return self.repository.get("jobs", job_id)
+
+    @staticmethod
+    def _schedule_capsule(
+        scenario: dict[str, Any],
+        snapshot: dict[str, Any],
+        plan_record: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        capsule: dict[str, Any] = copy.deepcopy(scenario["capsule"])
+        capsule["snapshot"]["id"] = snapshot["id"]
+        capsule["snapshot"]["production_plan"] = [
+            {
+                "work_order_id": order["order_id"],
+                "part": order["product"],
+                "qty": order["quantity"],
+                "start_date": str(order["release_second"]),
+                "due_date": str(order["due_second"]),
+            }
+            for order in snapshot["orders"]
+        ]
+        capsule["experiment"]["id"] = (
+            plan_record["id"] if plan_record is not None else snapshot["id"]
+        )
+        if plan_record is not None:
+            capsule["provenance"]["schedule_plan_id"] = plan_record["id"]
+        capsule["provenance"]["source_scenario_digest"] = scenario["digest"]
+        capsule["provenance"]["schedule_snapshot_digest"] = snapshot["original_file_digest"]
+        return capsule
+
     def _is_canceled(self, job_id: str) -> bool:
         with self._lock:
             return job_id in self._canceled
@@ -234,12 +382,102 @@ class Workspace:
             if running is None:
                 raise InterruptedError("Experiment canceled")
             job = running
-            result = scenarios.evaluate_capsule(
-                capsule,
-                self.repository.root / "artifacts" / job_id,
-                job["reps"],
-                job["seed"],
-                lambda: self._is_canceled(job_id),
+            plan_id = job.get("schedule_plan_id")
+            if plan_id is not None:
+                plan_record = self.repository.get("schedule_plans", plan_id)
+                scenario_record = self.repository.get("scenarios", job["scenario_id"])
+                schedule_snapshot = self.repository.get(
+                    "schedule_snapshots", plan_record["schedule_snapshot_id"]
+                )
+                translated = translate_schedule(scenario_record, schedule_snapshot)
+                if (
+                    translated["status"] != "translated"
+                    or translated["problem_digest"] != plan_record["problem_digest"]
+                ):
+                    raise ValueError("Schedule source changed before simulation")
+                firings = firings_from_plan(translated, plan_record["result"])
+                capsule = self._schedule_capsule(scenario_record, schedule_snapshot, plan_record)
+                result = scenarios.evaluate_capsule(
+                    capsule,
+                    self.repository.root / "artifacts" / job_id,
+                    job["reps"],
+                    job["seed"],
+                    lambda: self._is_canceled(job_id),
+                    execution_schedule=firings,
+                )
+                result["schedule_plan"] = {
+                    "id": plan_id,
+                    "schedule_snapshot_id": schedule_snapshot["id"],
+                    "problem_digest": plan_record["problem_digest"],
+                    "solver_status": plan_record["result"]["status"],
+                    "objective": plan_record["objective"],
+                }
+                result["simulation_input_digest"] = scenarios.validate_content(
+                    json.dumps(capsule, allow_nan=False)
+                ).digest
+            elif job.get("schedule_snapshot_id") is not None:
+                scenario_record = self.repository.get("scenarios", job["scenario_id"])
+                schedule_snapshot = self.repository.get(
+                    "schedule_snapshots", job["schedule_snapshot_id"]
+                )
+                capsule = self._schedule_capsule(scenario_record, schedule_snapshot)
+                result = scenarios.evaluate_capsule(
+                    capsule,
+                    self.repository.root / "artifacts" / job_id,
+                    job["reps"],
+                    job["seed"],
+                    lambda: self._is_canceled(job_id),
+                    piece_release=True,
+                )
+                result["schedule_baseline"] = {
+                    "schedule_snapshot_id": schedule_snapshot["id"],
+                    "mode": "piece_dispatch_without_enforced_plan",
+                }
+                result["simulation_input_digest"] = scenarios.validate_content(
+                    json.dumps(capsule, allow_nan=False)
+                ).digest
+            else:
+                result = scenarios.evaluate_capsule(
+                    capsule,
+                    self.repository.root / "artifacts" / job_id,
+                    job["reps"],
+                    job["seed"],
+                    lambda: self._is_canceled(job_id),
+                )
+            scenario = self.repository.get("scenarios", job["scenario_id"])
+            snapshot = result["snapshot"]
+            result.update(
+                {
+                    "schema_version": "1.1",
+                    "scenario": {
+                        "id": scenario["id"],
+                        "digest": scenario["digest"],
+                        "parent_id": scenario["parent_id"],
+                    },
+                    "snapshot_ref": {"id": snapshot.get("id"), "as_of": snapshot.get("as_of")},
+                    "job": {
+                        "id": job_id,
+                        "status": "completed",
+                        "seed": job["seed"],
+                        "replications": job["reps"],
+                    },
+                    "model_validity": result.get("validity", "provisional"),
+                    "replication_outcomes": result.get("outcomes", []),
+                    "termination": {
+                        "status": "completed",
+                        "outcomes": result.get("outcomes", []),
+                    },
+                    "evidence": {
+                        "routes": [
+                            f"/api/workspace/jobs/{job_id}/query",
+                            f"/api/workspace/jobs/{job_id}/evidence",
+                            f"/api/workspace/jobs/{job_id}/export",
+                        ]
+                    },
+                }
+            )
+            (self.repository.root / "artifacts" / job_id / "result.json").write_text(
+                json.dumps(result, indent=2, allow_nan=False), encoding="utf-8"
             )
             if self._is_canceled(job_id):
                 raise InterruptedError("Experiment canceled")
@@ -292,7 +530,9 @@ class Workspace:
         if a["reps"] != b["reps"] or a["seed"] != b["seed"]:
             raise ValueError("Compare requires matching replication count and seed")
         sa, sb = (self.repository.get("scenarios", j["scenario_id"]) for j in (a, b))
-        if sa["capsule"]["snapshot"] != sb["capsule"]["snapshot"]:
+        snapshot_a = a["result"].get("snapshot", sa["capsule"]["snapshot"])
+        snapshot_b = b["result"].get("snapshot", sb["capsule"]["snapshot"])
+        if snapshot_a != snapshot_b:
             raise ValueError("Compare requires the same operational snapshot")
         if a["result"].get("domain", "manufacturing") != b["result"].get("domain", "manufacturing"):
             raise ValueError("Compare requires the same domain")
@@ -301,6 +541,30 @@ class Workspace:
         return {
             "baseline_id": baseline_id,
             "candidate_id": candidate_id,
+            "compared": {
+                "baseline_scenario": {"id": sa["id"], "digest": sa["digest"]},
+                "candidate_scenario": {"id": sb["id"], "digest": sb["digest"]},
+                "snapshot_id": snapshot_a.get("id"),
+                "snapshot_as_of": snapshot_a.get("as_of"),
+                "seed": a["seed"],
+                "replications": a["reps"],
+                "domain": a["result"].get("domain", "manufacturing"),
+                "metrics": sorted(a["result"]["metrics"]),
+                "baseline_mode": (
+                    "enforced_verified_plan"
+                    if "schedule_execution" in a["result"]
+                    else "piece_dispatch"
+                    if "schedule_baseline" in a["result"]
+                    else "scenario_dispatch"
+                ),
+                "candidate_mode": (
+                    "enforced_verified_plan"
+                    if "schedule_execution" in b["result"]
+                    else "piece_dispatch"
+                    if "schedule_baseline" in b["result"]
+                    else "scenario_dispatch"
+                ),
+            },
             "delta": {k: b["result"]["metrics"][k] - v for k, v in a["result"]["metrics"].items()},
             "interpretation": (
                 "Candidate minus baseline; descriptive simulated differences, "
@@ -349,6 +613,190 @@ class Workspace:
         self.repository.create("drafts", draft["id"], draft)
         return draft
 
+    def save_model_draft(self, name: str, draft: LinearDraft) -> dict[str, Any]:
+        record: dict[str, Any] = {
+            "id": uuid.uuid4().hex,
+            "revision": 1,
+            "name": name,
+            "draft": draft.model_dump(mode="json"),
+            "created_at": _now(),
+            "status": "draft",
+        }
+        self.repository.create("model_drafts", record["id"], record)
+        return record
+
+    def compile_model_draft(self, draft_id: str) -> dict[str, Any]:
+        record = self.repository.get("model_drafts", draft_id)
+        return compile_draft(
+            LinearDraft.model_validate(record["draft"]), draft_id, record["revision"]
+        )
+
+    def import_model_draft(self, draft_id: str) -> dict[str, Any]:
+        record = self.repository.get("model_drafts", draft_id)
+        compiled = self.compile_model_draft(draft_id)
+        if compiled["status"] != "compiled":
+            raise ValueError("Draft cannot be imported: " + json.dumps(compiled["issues"]))
+        return self.import_scenario(
+            json.dumps(compiled["capsule_preview"], allow_nan=False),
+            record["name"],
+            draft_link={
+                "id": draft_id,
+                "revision": record["revision"],
+                "compiler_version": compiled["compiler_version"],
+            },
+        )
+
+    def preview_schedule_upload(
+        self,
+        scenario_id: str,
+        filename: str,
+        content_base64: str,
+        mapping: dict[str, str] | None,
+    ) -> dict[str, Any]:
+        scenario = self.repository.get("scenarios", scenario_id)
+        if scenario["summary"]["domain"] != "manufacturing":
+            raise ValueError("Schedule intake supports manufacturing scenarios only")
+        as_of = scenario["capsule"]["snapshot"].get("as_of")
+        try:
+            if not isinstance(as_of, str) or datetime.fromisoformat(as_of).tzinfo is None:
+                raise ValueError("timezone required")
+        except ValueError as exc:
+            raise ValueError("Scenario snapshot as_of requires an explicit timezone") from exc
+        headers, rows, file_digest = decode_upload(filename, content_base64)
+        products = {route["part"] for route in scenario["capsule"]["model"].get("routing", [])}
+        validation = preview_mapping(headers, rows, mapping, products)
+        return {
+            "schema_version": "1.0",
+            "scenario_id": scenario_id,
+            "scenario_digest": scenario["digest"],
+            "original_file_digest": file_digest,
+            "headers": headers,
+            "row_count": len(rows),
+            "sample_rows": rows[:10],
+            "time_unit": "second",
+            "time_origin": "scenario_snapshot_as_of",
+            "original_file_retention": "discarded_after_parse",
+            **validation,
+        }
+
+    def commit_schedule_upload(
+        self,
+        scenario_id: str,
+        filename: str,
+        content_base64: str,
+        original_file_digest: str,
+        mapping: dict[str, str],
+    ) -> dict[str, Any]:
+        preview = self.preview_schedule_upload(scenario_id, filename, content_base64, mapping)
+        if preview["original_file_digest"] != original_file_digest:
+            raise ValueError("File digest differs from reviewed preview")
+        if not preview["committable"]:
+            raise ValueError(
+                "Schedule mapping has unresolved row issues: " + json.dumps(preview["issues"])
+            )
+        scenario = self.repository.get("scenarios", scenario_id)
+        snapshot = scenario["capsule"]["snapshot"]
+        snapshot_digest = hashlib.sha256(
+            json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        record: dict[str, Any] = {
+            "id": uuid.uuid4().hex,
+            "schema_version": "1.0",
+            "scenario_id": scenario_id,
+            "scenario_digest": scenario["digest"],
+            "source_snapshot_id": snapshot.get("id"),
+            "source_snapshot_digest": snapshot_digest,
+            "original_file_digest": original_file_digest,
+            "original_file_retention": "discarded_after_parse",
+            "mapping": mapping,
+            "time_unit": "second",
+            "time_origin": "scenario_snapshot_as_of",
+            "orders": preview["orders"],
+            "created_at": _now(),
+        }
+        self.repository.create("schedule_snapshots", record["id"], record)
+        return record
+
+    def solve_schedule_snapshot(
+        self, snapshot_id: str, backend: str, time_limit: float
+    ) -> dict[str, Any]:
+        from dataclasses import asdict
+
+        from twinflow.scheduling import problem_from_dict, solve
+        from twinflow.scheduling.ortools import ORToolsSolver
+
+        if backend not in ("baseline", "ortools") or not 0 < time_limit <= 30:
+            raise ValueError("Choose baseline/ortools and a time limit from 0 to 30 seconds")
+        schedule_snapshot = self.repository.get("schedule_snapshots", snapshot_id)
+        scenario = self.repository.get("scenarios", schedule_snapshot["scenario_id"])
+        translated = translate_schedule(scenario, schedule_snapshot)
+        if translated["status"] != "translated":
+            return translated
+        problem = problem_from_dict(translated["problem"])
+        result = solve(
+            problem,
+            solver=ORToolsSolver() if backend == "ortools" else None,
+            time_limit_seconds=time_limit,
+        )
+        serialized = asdict(result)
+        serialized["verified"] = bool(result.verified and result.status in ("FEASIBLE", "OPTIMAL"))
+        if result.status in ("FEASIBLE", "OPTIMAL") and not result.verified:
+            serialized["status"] = "UNKNOWN"
+        if result.status == "INFEASIBLE" and result.issues:
+            serialized["status"] = "UNKNOWN"
+        status_explanations = {
+            "FEASIBLE": (
+                "Verified baseline schedule"
+                if backend == "baseline"
+                else "Best verified schedule found within the time limit; optimality unproved"
+            ),
+            "OPTIMAL": "CP-SAT reported and the verifier checked an optimal assignment",
+            "INFEASIBLE": "CP-SAT reported infeasibility for the translated finite problem",
+            "UNKNOWN": "No verified feasibility or infeasibility conclusion is available",
+        }
+        plan_record_id = uuid.uuid4().hex
+        within_horizon = not serialized["ends"] or max(serialized["ends"].values()) <= 31_536_000
+        simulation_available = serialized["verified"] and within_horizon
+        record: dict[str, Any] = {
+            "id": plan_record_id,
+            "schema_version": "1.0",
+            "scenario_id": scenario["id"],
+            "scenario_digest": scenario["digest"],
+            "schedule_snapshot_id": snapshot_id,
+            "source_snapshot_digest": schedule_snapshot["source_snapshot_digest"],
+            "translator_version": translated["translator_version"],
+            "problem_digest": translated["problem_digest"],
+            "objective": translated["objective"],
+            "due_date_treatment": translated["due_date_treatment"],
+            "constraint_scope": translated["constraint_scope"],
+            "backend": backend,
+            "time_limit_seconds": time_limit,
+            "time_limit_applied": backend == "ortools",
+            "result": serialized,
+            "status_explanation": status_explanations[serialized["status"]],
+            "simulation": {
+                "status": "available" if simulation_available else "blocked",
+                "submit_route": f"/api/workspace/schedule-plans/{plan_record_id}/simulate",
+                "blocker": (
+                    None if simulation_available else
+                    "A verified feasible plan within the one-year simulation horizon is required"
+                ),
+                "meaning": (
+                    "Enforces verified machine assignments and planned starts as earliest starts; "
+                    "later work may slip if upstream execution is late."
+                ),
+            },
+            "interpretation": (
+                "Verified feasible deterministic makespan schedule; per-order due dates are not "
+                "optimized and stochastic delivery confidence has not been simulated."
+                if serialized["verified"]
+                else "No independently verified feasible schedule is available."
+            ),
+            "created_at": _now(),
+        }
+        self.repository.create("schedule_plans", record["id"], record)
+        return record
+
     def answer_draft(self, draft_id: str, answers: list[dict[str, str]]) -> dict[str, Any]:
         previous = self.repository.get("drafts", draft_id)
         # Each answer creates a retained revision rather than discarding prior intake.
@@ -372,6 +820,15 @@ class Workspace:
                 for key in ("trace", "gate_results", "shortages", "order_forecasts", "cases"):
                     for row in sample.get(key, []):
                         evidence.append({"replication": index, "kind": key, "record": row})
+            for sample in result.get("schedule_execution", {}).get("replications", []):
+                for row in sample.get("trace", []):
+                    evidence.append(
+                        {
+                            "replication": sample["replication"],
+                            "kind": "schedule_operation",
+                            "record": row,
+                        }
+                    )
         return {
             "job_id": job_id,
             "offset": offset,

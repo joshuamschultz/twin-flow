@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Generator, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 import simpy
@@ -34,6 +34,18 @@ from twinflow.primitives.transform import Transform
 # imports instrumentation (structure.md boundary): Location produces plain tuples;
 # the Layer-4 EventLog owns the schema/Enum and the Polars conversion at flush time.
 RecordTuple = tuple[str, str, str, str, float, float, float | None, float, float, float, str, float]
+
+
+@dataclass(frozen=True)
+class ScheduledFiring:
+    """One verified per-piece operation assigned to a physical machine."""
+
+    operation_id: str
+    piece_id: str
+    location_id: str
+    machine_id: str
+    planned_start: float
+    planned_end: float
 
 
 def _explode(bundle: Bundle) -> list[Bundle]:
@@ -205,6 +217,8 @@ class Location:
         resource_log: ResourceSink | None = None,
         decision_runtime: PolicyRuntime | None = None,
         available_machines: list[Machine] | None = None,
+        scheduled_firings: list[ScheduledFiring] | None = None,
+        schedule_trace: list[dict[str, float | str]] | None = None,
     ) -> None:
         self.spec = spec
         self.env = env
@@ -235,6 +249,11 @@ class Location:
                 for index in range(self._capacity)
             ]
         )
+        self._scheduled_firings = scheduled_firings
+        self._scheduled_machines = {
+            machine.machine_id: machine for machine in self._available_machines
+        }
+        self._schedule_trace = schedule_trace
         self._in_flight = 0
         self._free_event: simpy.Event | None = None
         # Active-control dispatch rule (A1): which queued job this center runs next.
@@ -259,6 +278,22 @@ class Location:
         then run its firing concurrently on one of the center's `capacity`
         machines. With capacity 1 this is exactly the old one-job-at-a-time loop;
         with capacity N up to N firings run in parallel (COMP-030)."""
+        if self._scheduled_firings is not None:
+            by_machine: dict[str, list[ScheduledFiring]] = {}
+            for firing in self._scheduled_firings:
+                by_machine.setdefault(firing.machine_id, []).append(firing)
+            workers = [
+                self.env.process(
+                    self._run_scheduled_machine(
+                        machine_id,
+                        sorted(firings, key=lambda item: (item.planned_start, item.operation_id)),
+                    )
+                )
+                for machine_id, firings in by_machine.items()
+            ]
+            if workers:
+                yield self.env.all_of(workers)
+            return
         while True:
             selected = yield from self._wait_for_selection()
             self.env.process(self._fire_and_release(selected))
@@ -266,6 +301,31 @@ class Location:
             while self._in_flight >= self._capacity:
                 self._free_event = self.env.event()
                 yield self._free_event
+
+    def _run_scheduled_machine(
+        self, machine_id: str, firings: list[ScheduledFiring]
+    ) -> Generator[simpy.Event, None, None]:
+        """Keep verified order on one machine; late upstream work slips the plan."""
+        for firing in firings:
+            if self.env.now < firing.planned_start:
+                yield self.env.timeout(firing.planned_start - self.env.now)
+            while True:
+                selected = next(
+                    (
+                        bundle
+                        for bundle in self._queue
+                        if bundle.attrs.get("schedule_piece_id") == firing.piece_id
+                    ),
+                    None,
+                )
+                if selected is not None:
+                    self._queue.remove(selected)
+                    self._queue_revision += 1
+                    yield from self._fire([selected], scheduled=firing)
+                    break
+                if self._arrival_event.triggered:
+                    self._arrival_event = self.env.event()
+                yield self._arrival_event
 
     def _fire_and_release(self, selected: list[Bundle]) -> Generator[simpy.Event, None, None]:
         """Run one firing, then free the machine so the dispatcher can pull again."""
@@ -365,7 +425,9 @@ class Location:
                 self._arrival_event = self.env.event()
             yield self._arrival_event
 
-    def _fire(self, selected: list[Bundle]) -> Generator[simpy.Event, None, None]:
+    def _fire(
+        self, selected: list[Bundle], scheduled: ScheduledFiring | None = None
+    ) -> Generator[simpy.Event, None, None]:
         """Execute steps 2-8 of the fixed order for one selected job."""
         queue_arrival_time = min(self._arrival_times.pop(id(b)) for b in selected)
 
@@ -375,9 +437,13 @@ class Location:
         # ResourceAcquirer) because LaborPool's richer, shift-gated
         # request(skill, priority) signature does not compose with
         # ResourceAcquirer's raw dual-PriorityResource contract.
-        machine_request: PriorityRequest = self.machine_pool.request()
-        yield machine_request
-        machine = self._available_machines.pop(0)
+        machine_request: PriorityRequest | None = None
+        if scheduled is None:
+            machine_request = self.machine_pool.request()
+            yield machine_request
+            machine = self._available_machines.pop(0)
+        else:
+            machine = self._scheduled_machines[scheduled.machine_id]
         operator_handle: PriorityRequest | None = None
         try:
             operator_handle = yield from self.labor_pool.request(
@@ -510,11 +576,27 @@ class Location:
                         labor_seconds,
                     )
                 )
+            if scheduled is not None and self._schedule_trace is not None:
+                self._schedule_trace.append(
+                    {
+                        "operation_id": scheduled.operation_id,
+                        "piece_id": scheduled.piece_id,
+                        "location_id": self.spec.location_id,
+                        "machine_id": machine.machine_id,
+                        "planned_start": scheduled.planned_start,
+                        "planned_end": scheduled.planned_end,
+                        "queue_arrival_time": queue_arrival_time,
+                        "actual_start": actual_start,
+                        "actual_end": actual_end,
+                        "release_time": release_time,
+                    }
+                )
         finally:
             # Step 8: release operator, THEN machine — the reverse of the
             # acquisition order, and symmetric on any mid-firing failure
             # (D-053): release only whatever leg was actually acquired.
             if operator_handle is not None:
                 self.labor_pool.release(operator_handle)
-            self._available_machines.append(machine)
-            self.machine_pool.release(machine_request)
+            if machine_request is not None:
+                self._available_machines.append(machine)
+                self.machine_pool.release(machine_request)

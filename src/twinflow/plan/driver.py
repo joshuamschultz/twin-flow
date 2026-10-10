@@ -38,7 +38,12 @@ from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.calendar import AlwaysWorkingCalendar, WorkingCalendar
 from twinflow.primitives.cell import Machine
 from twinflow.primitives.labor import LaborPool
-from twinflow.primitives.location import Location, MaterialRequirementLike, RoutingPolicy
+from twinflow.primitives.location import (
+    Location,
+    MaterialRequirementLike,
+    RoutingPolicy,
+    ScheduledFiring,
+)
 from twinflow.primitives.stock import Stock
 from twinflow.run_stamp import dependency_hash
 
@@ -57,6 +62,7 @@ class RunResult:
     order_outcomes: dict[str, dict[str, object]] = field(default_factory=dict)
     artifact_dir: Path | None = None
     resource_usage_path: Path | None = None
+    schedule_trace: list[dict[str, float | str]] = field(default_factory=list)
 
 
 class _AlwaysOnShiftCalendar:
@@ -258,6 +264,83 @@ class RunDriver:
             skill: pool.name for pool in compiled.labor_pools for skill in pool.skills
         }
 
+    def _validate_execution_schedule(
+        self,
+        plan: list[WorkOrder],
+        firings: list[ScheduledFiring],
+        decision_runtime: PolicyRuntime | None,
+    ) -> None:
+        if decision_runtime is not None or self._compiled.release.policy != "plan":
+            raise ValueError("Scheduled execution requires plan release and no dispatch policy")
+        if any(
+            order.initial_wip_location is not None or order.completed_good_qty for order in plan
+        ):
+            raise ValueError("Scheduled execution does not support initial or completed WIP")
+        if any(spec.breakdown is not None for spec in self._compiled.locations):
+            raise ValueError("Scheduled execution cannot enforce assignments during breakdowns")
+        if self._compiled.stocks or any(
+            spec.material_spec is not None
+            or spec.quality_gate is not None
+            or spec.split_output
+            or not spec.pull_rule.default_applied
+            or spec.setup_policy.default_seconds != 0
+            for spec in self._compiled.locations
+        ):
+            raise ValueError("Scheduled execution supports only unbatched one-piece flow")
+        machine_owner: dict[str, str] = {}
+        capacity_by_pool: dict[str, int] = {}
+        for spec in self._compiled.locations:
+            base = spec.machine.machine_id
+            if base in machine_owner:
+                raise ValueError("Scheduled execution cannot share a machine across locations")
+            machine_owner[base] = spec.location_id
+            pool_name = self._pool_name_by_skill[spec.labor_skill]
+            capacity_by_pool[pool_name] = capacity_by_pool.get(pool_name, 0) + spec.capacity
+        for pool in self._compiled.labor_pools:
+            if (
+                pool.calendar is not None
+                or pool.absence_rate != 0
+                or pool.headcount < capacity_by_pool.get(pool.name, 0)
+            ):
+                raise ValueError("Scheduled execution cannot model binding or absent operators")
+        expected = {
+            (f"order-{order_index}:piece-{piece}", location_id)
+            for order_index, order in enumerate(plan)
+            for piece in range(order.qty)
+            for location_id in self._compiled.routing[order.part]
+        }
+        actual = {(firing.piece_id, firing.location_id) for firing in firings}
+        if len(firings) != len(expected) or actual != expected:
+            raise ValueError("Schedule must assign exactly one firing per piece and route stage")
+        if len({firing.operation_id for firing in firings}) != len(firings):
+            raise ValueError("Schedule operation IDs must be unique")
+        by_machine: dict[str, list[ScheduledFiring]] = {}
+        for firing in firings:
+            spec = self._location_specs[firing.location_id]
+            base = spec.machine.machine_id
+            machine_ids = (
+                {base}
+                if spec.capacity == 1
+                else {f"{base}-{slot + 1}" for slot in range(spec.capacity)}
+            )
+            if firing.machine_id not in machine_ids:
+                raise ValueError("Schedule assigns an unknown physical machine")
+            if (
+                not math.isfinite(firing.planned_start)
+                or not math.isfinite(firing.planned_end)
+                or firing.planned_start < 0
+                or firing.planned_end <= firing.planned_start
+            ):
+                raise ValueError("Schedule contains invalid planned times")
+            by_machine.setdefault(firing.machine_id, []).append(firing)
+        for machine_firings in by_machine.values():
+            ordered = sorted(machine_firings, key=lambda item: item.planned_start)
+            if any(
+                later.planned_start < earlier.planned_end - 1e-9
+                for earlier, later in zip(ordered, ordered[1:], strict=False)
+            ):
+                raise ValueError("Schedule assigns overlapping firings to one machine")
+
     def run(
         self,
         plan: list[WorkOrder],
@@ -269,6 +352,8 @@ class RunDriver:
         max_events: int | None = None,
         max_wall_seconds: float | None = None,
         decision_runtime: PolicyRuntime | None = None,
+        execution_schedule: list[ScheduledFiring] | None = None,
+        piece_release: bool = False,
     ) -> RunResult:
         """Run one terminating replication: seed WIP, release orders, simulate.
 
@@ -278,12 +363,15 @@ class RunDriver:
         even though they share the same `CompiledModel`.
         """
         run_id = f"run-{seed}-{replication_index}-{uuid.uuid4().hex[:8]}"
+        if execution_schedule is not None:
+            self._validate_execution_schedule(plan, execution_schedule, decision_runtime)
         ctx = RunContext(run_id=run_id, seed=seed, horizon=0.0)
         env = ctx.env
         rng = RngRegistry(seed, replication_index)
         event_log = EventLog()
         inventory_log = InventoryLog()
         resource_log = ResourceUsageLog()
+        schedule_trace: list[dict[str, float | str]] = []
         if decision_runtime is not None:
             decision_runtime.reset()
 
@@ -297,6 +385,8 @@ class RunDriver:
             labor_pools,
             stocks,
             decision_runtime,
+            execution_schedule,
+            schedule_trace,
         )
 
         # Active control (A2 order-release control, A4 breakdowns) needs a work
@@ -315,7 +405,13 @@ class RunDriver:
 
         for order in plan:
             self._seed_wip(order, locations)
-        self._release_orders(plan, env, locations, tracker)
+        self._release_orders(
+            plan,
+            env,
+            locations,
+            tracker,
+            scheduled=execution_schedule is not None or piece_release,
+        )
 
         downtime: dict[str, float] = {}
         if needs_bounded_completion and tracker is not None:
@@ -359,6 +455,13 @@ class RunDriver:
             "engine_commit": None,
             "dependency_hash": dependency_hash(),
             "seed_scheme": "base_seed + replication_index + source stream",
+            "execution_mode": (
+                "verified_schedule"
+                if execution_schedule is not None
+                else "piece_dispatch"
+                if piece_release
+                else "dispatch"
+            ),
         }
         order_outcomes = tracker.outcomes(plan, termination_reason) if tracker is not None else {}
         overall = (
@@ -387,6 +490,10 @@ class RunDriver:
                 ),
                 encoding="utf-8",
             )
+        if execution_schedule is not None:
+            (run_dir / "schedule_trace.json").write_text(
+                json.dumps(schedule_trace, indent=2, sort_keys=True), encoding="utf-8"
+            )
         return RunResult(
             event_log_path=event_log_path,
             horizon=env.now,
@@ -397,6 +504,7 @@ class RunDriver:
             order_outcomes=order_outcomes,
             artifact_dir=run_dir,
             resource_usage_path=resource_usage_path,
+            schedule_trace=schedule_trace,
         )
 
     @staticmethod
@@ -588,6 +696,8 @@ class RunDriver:
         labor_pools: dict[str, LaborPool],
         stocks: dict[str, Stock],
         decision_runtime: PolicyRuntime | None,
+        execution_schedule: list[ScheduledFiring] | None = None,
+        schedule_trace: list[dict[str, float | str]] | None = None,
     ) -> dict[str, Location]:
         """Fresh `Location`s for this run: each gets its own `Machine` (mutable
         `current_setup`) and its own `destinations` lists, so a run can never
@@ -638,6 +748,12 @@ class RunDriver:
                 resource_log,
                 decision_runtime,
                 available_machines[machine_id],
+                (
+                    [firing for firing in execution_schedule if firing.location_id == location_id]
+                    if execution_schedule is not None
+                    else None
+                ),
+                schedule_trace,
             )
 
         self._wire_routing(fresh_specs, locations)
@@ -759,6 +875,8 @@ class RunDriver:
         env: simpy.Environment,
         locations: dict[str, Location],
         tracker: _WorkTracker | None,
+        *,
+        scheduled: bool = False,
     ) -> None:
         """Release the plan under the model's release policy (A2).
 
@@ -777,8 +895,15 @@ class RunDriver:
                 )
 
         if self._compiled.release.policy == "plan":
-            for order in releasable:
-                env.process(self._delayed_release(env, order, locations, tracker))
+            for order_index, order in enumerate(plan):
+                if order.qty <= 0:
+                    continue
+                if scheduled:
+                    env.process(
+                        self._delayed_piece_release(env, order, order_index, locations, tracker)
+                    )
+                else:
+                    env.process(self._delayed_release(env, order, locations, tracker))
             return
 
         cap = self._compiled.release.wip_cap or 1
@@ -795,6 +920,33 @@ class RunDriver:
         """Plan-driven release: wait until the order's `start_date`, then release it."""
         yield env.timeout(_as_float(order.start_date))
         self._do_release(order, locations, tracker)
+
+    def _delayed_piece_release(
+        self,
+        env: simpy.Environment,
+        order: WorkOrder,
+        order_index: int,
+        locations: dict[str, Location],
+        tracker: _WorkTracker | None,
+    ) -> Generator[simpy.Event, None, None]:
+        yield env.timeout(_as_float(order.start_date))
+        if tracker is not None:
+            tracker.activate(order.work_order_id)
+        for piece in range(order.qty):
+            piece_id = f"order-{order_index}:piece-{piece}"
+            for location_id, bundle in self._demand_release_bundles(order, 1):
+                locations[location_id].enqueue(
+                    Bundle(
+                        qty=bundle.qty,
+                        thing=bundle.thing,
+                        uom=bundle.uom,
+                        attrs={
+                            **bundle.attrs,
+                            "lot_id": piece_id,
+                            "schedule_piece_id": piece_id,
+                        },
+                    )
+                )
 
     def _capped_release(
         self,

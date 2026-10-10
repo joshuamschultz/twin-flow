@@ -100,6 +100,65 @@ def create_server(client: TwinflowClient) -> Any:
         return dict(client.request("/drafts", {"name": name, "facts": facts}))
 
     @server.tool()
+    def save_model_draft(name: str, draft: dict[str, Any]) -> dict[str, Any]:
+        """Save explicit typed linear-flow facts as an immutable draft revision."""
+        return client.save_model_draft(name, draft)
+
+    @server.tool()
+    def compile_model_draft(draft_id: str) -> dict[str, Any]:
+        """Review missing or unsupported facts; preview a capsule only when valid."""
+        return client.compile_model_draft(draft_id)
+
+    @server.tool()
+    def import_model_draft(draft_id: str) -> dict[str, Any]:
+        """Import a fully compiled draft as a scenario linked to its revision."""
+        return client.import_model_draft(draft_id)
+
+    @server.tool()
+    def preview_schedule_upload(
+        scenario_id: str,
+        filename: str,
+        content_base64: str,
+        mapping: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Preview bounded CSV/XLSX orders and every mapping issue before commitment."""
+        return client.preview_schedule_upload(scenario_id, filename, content_base64, mapping)
+
+    @server.tool()
+    def commit_schedule_upload(
+        scenario_id: str,
+        filename: str,
+        content_base64: str,
+        original_file_digest: str,
+        mapping: dict[str, str],
+    ) -> dict[str, Any]:
+        """Commit reviewed orders as an immutable snapshot linked to a scenario."""
+        return client.commit_schedule_upload(
+            scenario_id, filename, content_base64, original_file_digest, mapping
+        )
+
+    @server.tool()
+    def solve_schedule_snapshot(
+        snapshot_id: str, backend: str = "baseline", time_limit: float = 10
+    ) -> dict[str, Any]:
+        """Translate a supported linear twin and verify a deterministic makespan schedule."""
+        return client.solve_schedule_snapshot(snapshot_id, backend=backend, time_limit=time_limit)
+
+    @server.tool()
+    def simulate_schedule_plan(
+        plan_id: str, request_key: str, reps: int = 10, seed: int = 42
+    ) -> dict[str, Any]:
+        """Run a verified plan with enforced starts and machines; poll get_job for evidence."""
+        return client.simulate_schedule_plan(plan_id, request_key, reps=reps, seed=seed)
+
+    @server.tool()
+    def simulate_schedule_baseline(
+        snapshot_id: str, request_key: str, reps: int = 10, seed: int = 42
+    ) -> dict[str, Any]:
+        """Run normal dispatch on the uploaded orders for a same-snapshot comparison."""
+        return client.simulate_schedule_baseline(snapshot_id, request_key, reps=reps, seed=seed)
+
+    @server.tool()
     def decision_tool_contracts() -> dict[str, Any]:
         """Discover exact operational event and scheduling examples, units, topics and limits."""
         return dict(client.request("/tool-contracts"))

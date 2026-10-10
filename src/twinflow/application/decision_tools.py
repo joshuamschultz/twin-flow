@@ -94,16 +94,31 @@ class DecisionTools:
             }
         elif topic == "process":
             evidence = scenario["summary"]
-        elif topic in ("dates", "blockers"):
+        elif topic == "schedule":
+            if domain != "manufacturing" or "schedule_execution" not in result:
+                raise ValueError("Schedule evidence requires a completed scheduled simulation")
+            evidence = [
+                {"replication": sample["replication"], "record": row}
+                for sample in result["schedule_execution"]["replications"]
+                for row in sample["trace"]
+                if entity_id is None
+                or entity_id in (row["piece_id"], row["operation_id"], row["location_id"])
+            ]
+        elif topic in ("dates", "blockers", "waits", "termination"):
             if domain == "manufacturing":
-                evidence = (
-                    result["intervals"].get("completion_distributions", {})
-                    if topic == "dates"
-                    else result["outcomes"]
-                )
+                if topic == "dates":
+                    evidence = result["intervals"].get("completion_distributions", {})
+                elif topic == "termination":
+                    evidence = result["outcomes"]
+                else:
+                    evidence = result.get("wait_breakdown", [])
                 if entity_id and isinstance(evidence, dict):
                     evidence = {entity_id: evidence[entity_id]} if entity_id in evidence else {}
+                elif entity_id and isinstance(evidence, list) and topic != "termination":
+                    evidence = [row for row in evidence if row.get("location_id") == entity_id]
             else:
+                if topic in ("waits", "termination"):
+                    raise ValueError(f"{topic} evidence is supported only for manufacturing")
                 evidence = []
                 for index, sample in enumerate(result.get("per_replication", [])):
                     key = "order_forecasts" if domain == "supply_chain" else "cases"
@@ -125,7 +140,10 @@ class DecisionTools:
                         ]
                     evidence.extend({"replication": index, "record": value} for value in values)
         else:
-            raise ValueError("Topic must be metrics, dates, blockers, assumptions, or process")
+            raise ValueError(
+                "Topic must be metrics, dates, blockers, waits, termination, "
+                "assumptions, process, or schedule"
+            )
         rows: list[Any] = []
         if isinstance(evidence, dict):
             for key, value in evidence.items():
@@ -151,7 +169,7 @@ class DecisionTools:
             "job_id": job_id,
             "scenario_id": scenario["id"],
             "scenario_digest": scenario["digest"],
-            "snapshot_id": scenario["capsule"]["snapshot"].get("id"),
+            "snapshot_id": result.get("snapshot", scenario["capsule"]["snapshot"]).get("id"),
             "topic": topic,
             "domain": domain,
             "evidence": page,
@@ -160,7 +178,19 @@ class DecisionTools:
             "next_offset": next_offset if next_offset < len(rows) else None,
             "export_route": f"/api/workspace/jobs/{job_id}/export",
             "validity": "provisional",
-            "interpretation": result["interpretation"],
+            "interpretation": (
+                "Wait categories are observed simulated time attributed by the KPI classifier; "
+                "they do not establish a causal bottleneck."
+                if domain == "manufacturing" and topic in ("blockers", "waits")
+                else result["interpretation"]
+            ),
+            "evidence_kind": (
+                "simulated_wait_attribution"
+                if domain == "manufacturing" and topic in ("blockers", "waits")
+                else "run_termination"
+                if domain == "manufacturing" and topic == "termination"
+                else "domain_evidence"
+            ),
         }
         return answer
 
