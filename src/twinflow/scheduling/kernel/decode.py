@@ -174,7 +174,7 @@ class _Decoder:
         for p, prev in enumerate(previous):
             if prev != _NONE:
                 self._next[prev] = p
-        self._timelines = {m.id: _timeline(m, index) for m in index.machines}
+        self._timelines = {m.id: machine_timeline(m, index) for m in index.machines}
         self._pools = {pid: PoolTimeline(pid, p.size, p.calendar) for pid, p in index.pools.items()}
         self._machine_calendar = {m.id: m.calendar for m in index.machines}
         self._calendars: dict[tuple[str, tuple[str, ...]], Intervals] = {}
@@ -304,7 +304,7 @@ class _Decoder:
         )
         slot = self._timelines[option.machine_id].find_slot(request, check)
         if slot is None:
-            return _unplaceable(op.id, check.missed_max_lag)
+            return unplaceable_issue(op.id, check.missed_max_lag)
         issue = self._horizon_issue(op.id, slot)
         if issue is None:
             self._commit(p, request, slot)
@@ -361,7 +361,8 @@ class _Decoder:
         self._ends[p] = slot.end
 
 
-def _timeline(machine: MachineData, index: ProblemIndex) -> MachineTimeline:
+def machine_timeline(machine: MachineData, index: ProblemIndex) -> MachineTimeline:
+    """An empty timeline for `machine` (availability, batch capacity, restart rule, `now`)."""
     restart = machine.restart
     return MachineTimeline(
         machine.id,
@@ -373,7 +374,8 @@ def _timeline(machine: MachineData, index: ProblemIndex) -> MachineTimeline:
     )
 
 
-def _unplaceable(op_id: str, missed_max_lag: bool) -> ScheduleIssue:
+def unplaceable_issue(op_id: str, missed_max_lag: bool) -> ScheduleIssue:
+    """`max_lag_unmet` when a max lag closed the window, else `no_feasible_slot`."""
     if missed_max_lag:
         message = f"{op_id}: no slot after its machine predecessor meets its max_lag"
         return _issue("max_lag_unmet", op_id, message)

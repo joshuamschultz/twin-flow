@@ -67,7 +67,7 @@ from __future__ import annotations
 import math
 from bisect import bisect_right
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal, Protocol, TypeAlias
 
 import numpy as np
@@ -273,6 +273,26 @@ class MachineTimeline:
         self._starts: list[float] = []
         self._keys: list[tuple[float, float, str]] = []
         self._batch_by_id: dict[str, _Occupation] = {}
+
+    def copy(self) -> MachineTimeline:
+        """An independent copy for search methods that branch (beam, rollouts).
+
+        Occupations are copied (batches grow in place); the setup table is shared, it is a
+        memo of fixed values.
+        """
+        twin = MachineTimeline.__new__(MachineTimeline)
+        twin.machine_id = self.machine_id
+        twin._setups = self._setups
+        twin._available_from = self._available_from
+        twin._capacity = self._capacity
+        twin._restart = self._restart
+        twin._first_idle_since = self._first_idle_since
+        twin._occupations = [replace(o, members=list(o.members)) for o in self._occupations]
+        twin._gaps = self._gaps.copy()
+        twin._starts = list(self._starts)
+        twin._keys = list(self._keys)
+        twin._batch_by_id = {o.batch_id: o for o in twin._occupations if o.batch_id is not None}
+        return twin
 
     def find_slot(self, request: SlotRequest, accept: SlotFilter | None = None) -> Slot | None:
         """Earliest slot for ``request`` that ``accept`` (if given) accepts; None if none.
@@ -521,6 +541,13 @@ class PoolTimeline:
         # Load on [_points[i], _points[i + 1]); the last segment runs to +inf.
         self._points: list[float] = [-math.inf]
         self._loads: list[int] = [0]
+
+    def copy(self) -> PoolTimeline:
+        """An independent copy of the load for search methods that branch."""
+        twin = PoolTimeline(self.pool_id, self.size, self.calendar)
+        twin._points = list(self._points)
+        twin._loads = list(self._loads)
+        return twin
 
     def blocked(self, start: float, end: float, quantity: int) -> float | None:
         """None when ``quantity`` more fits on ``[start, end)``; else when it clears.
