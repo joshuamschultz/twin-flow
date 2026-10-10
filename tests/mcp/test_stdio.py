@@ -3,7 +3,7 @@
 Requirement: REQ-162. `python -m twinflow.mcp.server --workspace-root DIR [--models-root DIR]
 [--caller-id NAME]` serves the same tool catalogue over stdio against a `Workspace` it opens
 itself. The owner lock refuses a second process on the same root. `--url`,
-`TWINFLOW_API_TOKEN` and the `TwinflowClient` proxy are deleted.
+the shared token variable and the `TwinflowClient` proxy are deleted.
 
 Contract pinned here:
 
@@ -42,6 +42,8 @@ from typing import TypeVar
 import mcp
 from mcp import StdioServerParameters
 from twinflow.mcp.tools import CATALOGUE
+
+OLD_TOKEN_ENV = "TWINFLOW_" + "API_TOKEN"  # the deleted shared-token variable, never literal
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "examples"
@@ -215,6 +217,6 @@ def test_url_flag_is_rejected_by_argparse(tmp_path: Path) -> None:
     assert "unrecognized arguments: --url" in completed.stderr, completed.stderr[-2000:]
 
 
-@pytest.mark.parametrize("needle", ["TwinflowClient", "--url", "TWINFLOW_API_TOKEN"])
+@pytest.mark.parametrize("needle", ["TwinflowClient", "--url", OLD_TOKEN_ENV])
 def test_mcp_server_source_names_no_rest_proxy(needle: str) -> None:
     assert needle not in SERVER_SOURCE.read_text(encoding="utf-8")

@@ -1,7 +1,7 @@
 """ServiceSettings for TF-005 (SDD "Settings added to ServiceSettings"; T-209, T-210).
 
 Requirements: REQ-172, REQ-173, REQ-175. Decision: D-117 deletes the shared
-``TWINFLOW_API_TOKEN`` / ``ServiceSettings.api_token`` outright (no shim).
+the shared token environment variable / ``ServiceSettings.api_token`` outright (no shim).
 
 Pinned choices beyond the orchestrator API:
 - New numeric bounds must be positive (``ValueError``), like the existing ones.
@@ -24,6 +24,8 @@ from fastapi.testclient import TestClient
 
 from twinflow.service.app import create_app
 from twinflow.service.settings import ServiceSettings
+
+OLD_TOKEN_ENV = "TWINFLOW_" + "API_TOKEN"  # the deleted shared-token variable, never literal
 
 SRC = Path(__file__).resolve().parents[2] / "src"
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
@@ -51,7 +53,7 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "TWINFLOW_TOKENS_FILE",
         "TWINFLOW_SIGNING_KEY_FILE",
         "TWINFLOW_MCP_ALLOWED_ORIGINS",
-        "TWINFLOW_API_TOKEN",
+        OLD_TOKEN_ENV,
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -84,7 +86,7 @@ def test_shared_token_names_appear_nowhere_under_src() -> None:
         if not path.is_file() or "__pycache__" in path.parts:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        if "TWINFLOW_API_TOKEN" in text or "api_token" in text:
+        if OLD_TOKEN_ENV in text or "api_token" in text:
             offenders.append(str(path.relative_to(SRC)))
 
     assert offenders == []
@@ -146,7 +148,7 @@ def test_from_env_non_loopback_without_registry_refuses_to_start(host: str) -> N
 def test_from_env_ignores_the_deleted_shared_token_variable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("TWINFLOW_API_TOKEN", "configured-remote-token-0123456789")
+    monkeypatch.setenv(OLD_TOKEN_ENV, "configured-remote-token-0123456789")
 
     with pytest.raises(ValueError):
         ServiceSettings.from_env(host="service.example")

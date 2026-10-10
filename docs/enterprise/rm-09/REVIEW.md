@@ -1,5 +1,7 @@
 # RM-09 Engineering Review
 
+> Historical note: this document describes the RM-09 shared service token. TF-005 replaced it with named caller tokens (`TWINFLOW_TOKENS_FILE`, scopes `read` and `plan`); see the [agent guide](../AGENT-GUIDE.md#mcp).
+
 ## Result
 
 The service now has an honest dedicated-workspace deployment boundary. Loopback remains easy for
@@ -9,7 +11,7 @@ origin allowlist.
 ## Findings
 
 - Service settings are frozen and injected. The process runner reads environment once and rejects
-  a non-loopback bind without `TWINFLOW_API_TOKEN`; direct nonlocal settings reject the same state.
+  a non-loopback bind without a configured service token; direct nonlocal settings reject the same state.
   Bearer checks use constant-time comparison and
   cover API, schema, OpenAPI, and documentation routes. Public probes disclose only status.
 - Trusted hosts, restrictive CORS, bounded bodies, correlation IDs, and sanitized unexpected

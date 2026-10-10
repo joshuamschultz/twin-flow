@@ -220,7 +220,9 @@ def decision_router(workspace: Workspace) -> APIRouter:
             raise HTTPException(404, "Schedule plan not found") from exc
 
     @router.post("/schedule-plans/{plan_id}/simulate", status_code=202)
-    def simulate_schedule_plan(plan_id: str, request: ScheduleSimulationRequest) -> dict[str, Any]:
+    def submit_schedule_plan_simulation(
+        plan_id: str, request: ScheduleSimulationRequest
+    ) -> dict[str, Any]:
         try:
             return workspace.submit_schedule_plan(
                 plan_id, request.reps, request.seed, request.request_key

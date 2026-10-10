@@ -7,6 +7,7 @@ local service. Requires the `api` extra (`pip install -e ".[api]"`).
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 
@@ -33,6 +34,7 @@ def main(argv: list[str] | None = None) -> int:
         local_only=settings.local_only,
     )
     _configure_audit_log()
+    _redact_access_log_queries()
     uvicorn.run(
         create_app(args.models_root, workspace_root=args.workspace_root, settings=settings),
         host=args.host,
@@ -41,10 +43,29 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+class _DropQueryString(logging.Filter):
+    """Strip the query string from every argument of an access-log record (REQ-170).
+
+    The middleware refuses ``?access_token=`` and ``?token=`` with 400, but uvicorn's access
+    log records the whole request line, query included, so the refused token would still be
+    written to the log verbatim. Any other query value is client data too: drop it all.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                arg.partition("?")[0] if isinstance(arg, str) else arg for arg in record.args
+            )
+        return True
+
+
+def _redact_access_log_queries() -> None:
+    """Install the filter; uvicorn's logging setup keeps existing logger filters."""
+    logging.getLogger("uvicorn.access").addFilter(_DropQueryString())
+
+
 def _configure_audit_log() -> None:
     """Emit ``twinflow.audit`` records as one JSON line each on stderr (COMP-122)."""
-    import logging
-
     from twinflow.service.audit import AuditJsonFormatter
 
     audit_log = logging.getLogger("twinflow.audit")

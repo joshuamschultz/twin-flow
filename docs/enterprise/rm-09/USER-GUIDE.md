@@ -13,10 +13,11 @@ This mode is for one trusted operator on the same machine. It is not tenant isol
 
 ## Dedicated network service
 
-Set a strong shared token and explicit browser/host allowlists before binding beyond loopback:
+Create a caller token registry and set explicit browser/host allowlists before binding beyond loopback:
 
 ```bash
-export TWINFLOW_API_TOKEN='replace-with-a-secret-at-least-16-characters'
+export TWINFLOW_TOKENS_FILE=/etc/twinflow/tokens.json
+twinflow admin token new --caller planner --scopes read,plan --days 90   # prints the token once
 export TWINFLOW_ALLOWED_HOSTS='twinflow.internal.example'
 export TWINFLOW_CORS_ORIGINS='https://planner.internal.example'
 python -m twinflow.service.serve --host 0.0.0.0 --port 8000 \
@@ -28,8 +29,9 @@ Clients send `Authorization: Bearer <token>` for every `/api` call and for OpenA
 infrastructure probes. Responses include `X-Correlation-ID`; a client may supply up to 128 safe
 letters, digits, dots, underscores, or hyphens in that header.
 
-The token is a single deployment credential. Use a secret manager and rotate it by restarting the
-service. This increment does not provide user identities, roles, SSO, or tenant separation. Run
+Each token belongs to one named caller with the scopes `read` and/or `plan`; the registry stores only
+SHA-256 hashes and is read at startup. Rotate a token by minting a new one, removing the old entry
+and restarting the service. Callers are services, not people. This increment does not provide user identities, roles, SSO, or tenant separation. Run
 separate service processes and workspace directories for separate trust domains.
 
 Only one process can own a workspace. A second process exits during application construction.

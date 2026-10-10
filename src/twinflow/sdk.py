@@ -218,17 +218,6 @@ class TwinflowClient:
             ),
         )
 
-    def simulate_schedule_plan(
-        self, plan_id: str, request_key: str, *, reps: int = 10, seed: int = 42
-    ) -> dict[str, Any]:
-        return cast(
-            dict[str, Any],
-            self.request(
-                f"/schedule-plans/{quote(plan_id, safe='')}/simulate",
-                {"request_key": request_key, "reps": reps, "seed": seed},
-            ),
-        )
-
     def simulate_schedule_baseline(
         self, snapshot_id: str, request_key: str, *, reps: int = 10, seed: int = 42
     ) -> dict[str, Any]:

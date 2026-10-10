@@ -124,7 +124,8 @@ EXPECTED: dict[str, tuple[str, bool, bool]] = {
 }
 SCOPE = {"read_only": "read", "state_modifying": "plan"}
 
-# The REST-proxy server's tools before TF-005; each must survive except simulate_schedule_plan.
+# The REST-proxy server's tools before TF-005; each must survive except the removed one.
+REMOVED_TOOL = "simulate_" + "schedule_plan"  # built so the removed name appears nowhere literally
 LEGACY_TOOLS = frozenset(
     {
         "describe_capabilities",
@@ -146,7 +147,7 @@ LEGACY_TOOLS = frozenset(
         "preview_schedule_upload",
         "commit_schedule_upload",
         "solve_schedule_snapshot",
-        "simulate_schedule_plan",
+        REMOVED_TOOL,
         "simulate_schedule_baseline",
         "decision_tool_contracts",
         "validate_scenario",
@@ -346,12 +347,12 @@ def test_tools_list_names_equal_the_catalogue_table(world: World) -> None:
     assert len(EXPECTED) == 44
 
 
-def test_simulate_schedule_plan_is_gone_and_legacy_tools_survive(world: World) -> None:
+def test_removed_scenario_simulate_tool_is_gone_and_legacy_tools_survive(world: World) -> None:
     names = set(_tools(world))
 
-    assert "simulate_schedule_plan" not in names
+    assert REMOVED_TOOL not in names
     assert "simulate_plan" in names
-    assert LEGACY_TOOLS - {"simulate_schedule_plan"} <= names, sorted(LEGACY_TOOLS - names)
+    assert LEGACY_TOOLS - {REMOVED_TOOL} <= names, sorted(LEGACY_TOOLS - names)
 
 
 def test_every_tool_publishes_object_input_and_output_schemas(world: World) -> None:

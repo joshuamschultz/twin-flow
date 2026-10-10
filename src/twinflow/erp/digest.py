@@ -27,7 +27,7 @@ from twinflow.scheduling.model import MAX_ID_LENGTH
 
 MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024
 V0_SCHEMA_VERSION = "canonical-erp/0"
-V0_CHANGE_LIST = "reference/canonical-v0-to-v1-changes.md"
+V0_CHANGE_LIST = "docs/enterprise/ERP-V0-TO-V1-CHANGES.md"
 ROOT_PATH = "$"
 
 

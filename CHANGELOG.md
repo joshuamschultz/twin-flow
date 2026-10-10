@@ -31,6 +31,16 @@ All notable changes to twinflow are recorded here. The format follows
   one `Solver` seam. Pinedo Examples 7.1.1 (makespan 28) and 14.2.1 (weighted tardiness
   98) are known-optimum fixtures. See the [RM-06 spec](docs/enterprise/rm-06/SPEC.md).
 
+- ERP planning (TF-005): the canonical ERP snapshot contract `twinflow.erp/1`
+  ([ERP schema](docs/enterprise/ERP-SCHEMA.md), shipped `erp.schema.json`), a snapshot
+  validator and digest, the planning profile, the ERP problem builder, and a 44-tool MCP
+  catalogue served at `/mcp` (stateless streamable HTTP) and over stdio with
+  `--workspace-root`. Callers use named tokens with `read` and `plan` scopes
+  (`twinflow admin token new`, `TWINFLOW_TOKENS_FILE`); the planning profile and K-table
+  are signed with a service key (`twinflow admin signing-key new`,
+  `TWINFLOW_SIGNING_KEY_FILE`). See the [agent guide](docs/enterprise/AGENT-GUIDE.md#mcp)
+  and the [v0 to v1 change list](docs/enterprise/ERP-V0-TO-V1-CHANGES.md).
+
 ### Removed
 
 - `twinflow.engine.acquire` (`ResourceAcquirer`).
@@ -54,6 +64,16 @@ All notable changes to twinflow are recorded here. The format follows
 - The `linear-piece-1` solve gate, the 500-piece and 1,000-operation caps, and the
   `max_solver_pieces` and `max_solver_operations` settings. The snapshot solve now
   translates any scenario capsule the v2 model can express and names what it cannot.
+- **Breaking (TF-005):** the MCP server no longer proxies the REST API. The `--url` option
+  (`python -m twinflow.mcp.server --url http://...`), the `TwinflowClient` proxy inside the
+  MCP server and the shared `TWINFLOW_API_TOKEN` setting (`ServiceSettings.api_token`) are
+  removed. Use `--workspace-root` for stdio or `/mcp` over HTTP, and named caller tokens
+  from `TWINFLOW_TOKENS_FILE`. No shim is kept.
+- **Breaking (TF-005):** the MCP tool `simulate_schedule_plan` is removed; use
+  `simulate_plan` (scenario plans) and `simulate_schedule_baseline`. ERP plans return
+  `simulation_link_pending` until the simulation link ships.
+- **Breaking (TF-005):** the MCP tools `preview_schedule_upload` and `commit_schedule_upload`
+  take `upload_name` instead of `filename`. Only its extension is read.
 - All removed code is reachable at git tag `pre-cleanup`.
 
 ### Fixed
