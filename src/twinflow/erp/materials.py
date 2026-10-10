@@ -106,7 +106,9 @@ def material_ready_times(
             timeline = timelines.get(requirement.item_id)
             when = timeline.covered_at(demand[requirement.item_id]) if timeline else None
             if when is not None:
-                ready[(order.id, requirement.op_id)] = when
+                # An op (or release) needing several items waits for the last one covered.
+                key = (order.id, requirement.op_id)
+                ready[key] = max(when, ready.get(key, when))
                 continue
             issues.append(_short_issue(order_index, material_index, requirement))
             if policy.shortage_policy == "hold":

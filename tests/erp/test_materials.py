@@ -398,6 +398,31 @@ def test_material_ready_times_requirement_with_op_id_keys_order_and_op() -> None
     assert list(plan.ready) == [("A", "10")]
 
 
+def test_material_ready_times_two_items_on_one_op_wait_for_the_later_cover() -> None:
+    """An op needing two items is ready when BOTH are covered, whatever the list order."""
+    late_first = [
+        req("i1", 1.0, order_id="A", op_id="10"),
+        req("i2", 1.0, order_id="A", op_id="10"),
+    ]
+    supply = [po("P1", "i1", 1.0, promised="2026-10-09")]
+    stock = [inv("i2", 1.0)]
+
+    plan = run(snap([order("A", late_first)], supply, stock), ["A"])
+    flipped = run(snap([order("A", late_first[::-1])], supply, stock), ["A"])
+
+    assert plan.ready == {("A", "10"): OCT_9_SECONDS}
+    assert flipped.ready == plan.ready
+
+
+def test_material_ready_times_two_release_items_wait_for_the_later_cover() -> None:
+    materials = [req("i1", 1.0, order_id="A"), req("i2", 1.0, order_id="A")]
+    supply = [po("P1", "i1", 1.0, promised="2026-10-07")]
+
+    plan = run(snap([order("A", materials)], supply, [inv("i2", 1.0)]), ["A"])
+
+    assert plan.ready == {("A", None): OCT_7_SECONDS}
+
+
 def test_material_ready_times_requirement_without_op_id_keys_order_and_none() -> None:
     orders = [order("A", [req("i2", 1.0, order_id="A")])]
 
