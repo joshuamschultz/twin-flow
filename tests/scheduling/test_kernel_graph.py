@@ -7,6 +7,10 @@ its earliest start, `completions()` job id to C_k, `critical_path(sink=None)` th
 of one longest path from the source to the makespan sink (or to job `sink`'s V_k),
 `has_path(a, b)` / `longest_path(a, b)` (None when no path) for distinct ops, and
 `apply_swap(u, v)` swaps adjacent u, v on their machine with an incremental head update.
+`tails(sink=None)` (T-140/T-141, shifting bottleneck q(o)) maps op id to the longest path
+from the op's start to the makespan sink V, its own duration included, so head + tail <=
+Cmax with equality on a critical path; `tails(job_id)` does the same to job sink V_k and
+holds only the ops with a path to V_k (the job's own ops and the ops that reach them).
 A cycle raises `GraphCycle` (a ValueError) and is never looped on; `apply_swap` that
 would close a cycle raises it and leaves the graph unchanged.
 
@@ -293,3 +297,95 @@ def test_heads_and_completions_equal_decoder_on_200_graph_exact_problems() -> No
     compared = sum(1 for seed in range(200) if _graph_vs_decoder(seed))
     print(f"\ngraph == decoder on {compared} of 200 graph-exact seeds")
     assert compared >= MIN_COMPARED
+
+
+# --- tails (shifting bottleneck q(o), SDD pseudo-code "Shifting bottleneck, makespan") --------
+
+
+def _job_of(op_id: str) -> str:
+    return op_id.split("-")[0]
+
+
+def _brute_tails(
+    arcs: Mapping[str, list[tuple[str, float]]], run: Mapping[str, float], sink: str | None
+) -> dict[str, float]:
+    """max over reachable-or-self x (in job `sink` when given) of path(o, x) + run(x)."""
+    tails: dict[str, float] = {}
+    for o in run:
+        best: float | None = None
+        for x in run:
+            if sink is not None and _job_of(x) != sink:
+                continue
+            length = 0.0 if x == o else max(_all_paths(arcs, o, x), default=None)
+            if length is not None:
+                best = length + run[x] if best is None else max(best, length + run[x])
+        if best is not None:
+            tails[o] = best
+    return tails
+
+
+def test_7_1_1_tails_with_job_arcs_only_are_the_remaining_runs() -> None:
+    graph = _graph_7_1_1({})
+
+    assert graph.tails() == {
+        "1-1": 22.0, "1-2": 12.0, "1-3": 4.0,
+        "2-1": 22.0, "2-2": 14.0, "2-3": 11.0, "2-4": 6.0,
+        "3-1": 14.0, "3-2": 10.0, "3-3": 3.0,
+    }  # fmt: skip
+    assert graph.tails("3") == {"3-1": 14.0, "3-2": 10.0, "3-3": 3.0}
+
+
+def test_7_1_1_head_plus_tail_is_cmax_exactly_on_the_critical_path() -> None:
+    graph = _graph_7_1_1(OPTIMAL_7_1_1)
+    heads, tails = graph.heads(), graph.tails()
+    critical = set(graph.critical_path())
+
+    for op_id in RUNS_7_1_1:
+        assert heads[op_id] + tails[op_id] <= 28.0, op_id
+    assert all(heads[o] + tails[o] == 28.0 for o in critical)
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_tails_match_brute_force_dfs_for_the_makespan_and_every_job_sink(seed: int) -> None:
+    request, choice, sequences = random_job_shop(seed)
+    graph, arcs, ops = _arcs(seed)
+    problem = compile_request(request).problem
+    run = {o.id: o.options[0].fixed_seconds for job in problem.jobs for o in job.operations}
+
+    assert graph.tails() == _brute_tails(arcs, run, None)
+    for job_id in sorted({_job_of(o) for o in ops}):
+        assert graph.tails(job_id) == _brute_tails(arcs, run, job_id), job_id
+
+
+def test_tails_after_incremental_swaps_equal_a_fresh_build() -> None:
+    checked = 0
+    for seed in range(40):
+        request, choice, sequences = random_job_shop(seed, setups=True)
+        index = ProblemIndex.build(compile_request(request).problem)
+        graph = DisjunctiveGraph.build(index, choice, _copy(sequences))
+        rng = np.random.default_rng((seed, 141))
+        for _ in range(5):
+            busy = sorted(m for m, seq in sequences.items() if len(seq) >= 2)
+            m = busy[int(rng.integers(len(busy)))]
+            k = int(rng.integers(len(sequences[m]) - 1))
+            u, v = sequences[m][k], sequences[m][k + 1]
+            swapped = {**sequences, m: [*sequences[m][:k], v, u, *sequences[m][k + 2 :]]}
+            try:
+                full = DisjunctiveGraph.build(index, choice, _copy(swapped))
+            except GraphCycle:
+                continue
+            graph.apply_swap(u, v)
+            sequences = swapped
+            assert graph.tails() == pytest.approx(full.tails()), f"seed {seed}: {u}<->{v}"
+            job = _job_of(u)
+            assert graph.tails(job) == pytest.approx(full.tails(job))
+            checked += 1
+    assert checked >= 100
+
+
+def test_tails_of_a_job_sink_never_include_ops_that_cannot_reach_it() -> None:
+    graph = _graph_7_1_1({})
+
+    assert set(graph.tails("1")) == {"1-1", "1-2", "1-3"}
+    with pytest.raises(ValueError):
+        graph.tails("no-such-job")

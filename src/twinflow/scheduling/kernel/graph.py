@@ -15,6 +15,10 @@ the `ProblemIndex`, and every hot loop works on those ints and flat lists.
 - Machine arc u -> v (consecutive on a machine): `dur(u)`. A machine absent from the
   sequences adds no arcs. Sink of job k: `C_k = max over job k ops (head + dur)`.
 
+`tails(sink)` is the reverse DP: q(o) = the longest path from o's start to the makespan sink
+V (or to job `sink`'s V_k), o's own duration included, so head + tail <= Cmax with equality
+on a critical path (shifting bottleneck, Pinedo p.191 and p.198).
+
 Heads come from one topological DP (Kahn order, O(n + arcs)). `apply_swap(u, v)` swaps
 adjacent ops on one machine: it refuses a swap that closes a cycle (another u -> v path)
 before touching anything, reorders only the topological window between u and v (the ops
@@ -175,6 +179,25 @@ class DisjunctiveGraph:
             tight = self._tight_predecessor(tight)
         op_ids = self._index.op_ids
         return [op_ids[p] for p in reversed(path)]
+
+    def tails(self, sink: str | None = None) -> dict[str, float]:
+        """Op id -> longest path from the op's start to the makespan sink, own dur included.
+
+        With a job id as `sink`, the path ends at that job's V_k and only the ops with a path
+        to V_k (the job's own and the ops that reach them) are keys. ValueError for a job
+        without a node in this graph.
+        """
+        own = set(self._nodes) if sink is None else set(self._job_nodes(sink))
+        tail: dict[int, float] = {}
+        for x in reversed(self._order):
+            best = self._dur[x] if x in own else -math.inf
+            for y, weight in self._out_edges(x):
+                if y in tail:
+                    best = max(best, weight + tail[y])
+            if best > -math.inf:
+                tail[x] = best
+        op_ids = self._index.op_ids
+        return {op_ids[p]: tail[p] for p in self._nodes if p in tail}
 
     def has_path(self, a: str, b: str) -> bool:
         """True when a directed path leads from op `a` to op `b`."""
@@ -391,7 +414,10 @@ class DisjunctiveGraph:
         return p
 
     def _job_nodes(self, job_id: str) -> tuple[int, ...]:
-        job = self._index.jobs[self._index.job_pos[job_id]]
+        job_pos = self._index.job_pos.get(job_id)
+        if job_pos is None:
+            raise ValueError(f"job {job_id} is not a scheduled job of the problem")
+        job = self._index.jobs[job_pos]
         nodes = tuple(p for p in job.ops if self._rank[p] != _NONE)
         if not nodes:
             raise ValueError(f"job {job_id} has no node in this graph")
