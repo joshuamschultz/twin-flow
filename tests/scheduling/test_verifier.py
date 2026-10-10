@@ -976,6 +976,55 @@ def test_verify_soft_or_honored_override_is_valid(override: Override) -> None:
     assert _check(_uncompiled_case(override)).valid
 
 
+# --- hard overrides on a split job resolve to its children (TF-002 review) --------------------
+
+
+def _split_with(override: Override) -> Case:
+    """Job J (op a, 5 s on A or B) split in halves; `override` on J or a is raw only.
+
+    The compiled problem holds the split alone, as if the compile step lost the override,
+    so only the verifier's own resolution through `split_map` can enforce it (D-066).
+    """
+    problem = _problem([_job("J", _op("a", "A", "B"))], [_machine("A"), _machine("B")])
+    split = SplitOverride(id="split", hardness="hard", job_id="J", fractions=(0.5, 0.5), **_meta())
+    return Case(_compile(problem, (split,)), _schedule(), (split, override))
+
+
+_ON_SPLIT = {
+    "lock": LockOverride(id="o", hardness="hard", operation_id="a", machine_id="A", **_meta()),
+    "exclude_job": ExcludeMachineOverride(
+        id="o", hardness="hard", job_id="J", machine_id="B", **_meta()
+    ),
+    "exclude_op": ExcludeMachineOverride(
+        id="o", hardness="hard", operation_id="a", machine_id="B", **_meta()
+    ),
+    "prefer_job": PreferMachineOverride(
+        id="o", hardness="hard", job_id="J", machine_id="A", **_meta()
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_ON_SPLIT))
+def test_verify_hard_machine_override_on_a_split_target_holds_on_every_child(name: str) -> None:
+    case = _split_with(_ON_SPLIT[name])
+    honored = _schedule(_a("a~1", "A", 0, 0, 5), _a("a~2", "A", 5, 5, 10))
+    broken = _schedule(_a("a~1", "A", 0, 0, 5), _a("a~2", "B", 0, 0, 5))
+
+    assert _check(case, honored).valid
+    issues = _only(_check(case, broken), "override")
+    assert issues[0].path == "o"
+
+
+def test_verify_hold_until_on_a_split_job_holds_on_every_child() -> None:
+    hold = HoldOverride(id="o", hardness="hard", job_id="J", until=3.0, **_meta())
+    case = _split_with(hold)
+    honored = _schedule(_a("a~1", "A", 3, 3, 8), _a("a~2", "B", 3, 3, 8))
+    broken = _schedule(_a("a~1", "A", 3, 3, 8), _a("a~2", "B", 1, 1, 6))
+
+    assert _check(case, honored).valid
+    _only(_check(case, broken), "override")
+
+
 # --- objective -------------------------------------------------------------------------------
 
 
