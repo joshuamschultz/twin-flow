@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "twinflow"
@@ -191,3 +192,45 @@ def test_no_module_outside_algorithms_imports_an_algorithm_leaf() -> None:
     outside = [p for p in sorted(SRC.rglob("*.py")) if ALGORITHMS not in p.parents]
     offenders = [o for p in outside for o in _algorithm_module_imports(p)]
     assert offenders == [], "leaf algorithm imports outside algorithms/:\n" + "\n".join(offenders)
+
+
+KERNEL = SCHEDULING / "kernel"
+# SDD import rules (+ DEV-1): the shared kernel sees only these core modules and itself.
+_KERNEL_ALLOWED = tuple(
+    f"twinflow.scheduling.{name}"
+    for name in ("model", "setups", "calendar_math", "timeline", "objectives", "seam", "kernel")
+)
+_KERNEL_THIRD_PARTY = frozenset({"numpy"})
+
+
+def _kernel_import_allowed(name: str) -> bool:
+    root = name.split(".")[0]
+    if root != "twinflow":
+        return root in sys.stdlib_module_names or root in _KERNEL_THIRD_PARTY
+    if name in ("twinflow", "twinflow.scheduling"):
+        return True  # the package parts of an allowed `from twinflow.scheduling import x`
+    return any(name == p or name.startswith(p + ".") for p in _KERNEL_ALLOWED)
+
+
+def test_kernel_package_exists() -> None:
+    assert (KERNEL / "__init__.py").is_file()
+
+
+def test_kernel_imports_only_core_modules_stdlib_and_numpy() -> None:
+    offenders = [
+        f"{path.relative_to(ROOT)}:{line} -> {name}"
+        for path in sorted(KERNEL.rglob("*.py"))
+        for line, name in _absolute_imports(path)
+        if not _kernel_import_allowed(name)
+    ]
+    assert offenders == [], "kernel imports outside its rule:\n" + "\n".join(offenders)
+
+
+def test_kernel_import_rule_rejects_solver_baseline_and_algorithms() -> None:
+    assert not _kernel_import_allowed("twinflow.scheduling.solver")
+    assert not _kernel_import_allowed("twinflow.scheduling.baseline")
+    assert not _kernel_import_allowed("twinflow.scheduling.verifier")
+    assert not _kernel_import_allowed("twinflow.scheduling.algorithms.cpsat")
+    assert not _kernel_import_allowed("ortools")
+    assert _kernel_import_allowed("twinflow.scheduling.kernel.index")
+    assert _kernel_import_allowed("numpy.typing")
