@@ -22,12 +22,7 @@ DELETED_MODULES: frozenset[str] = frozenset(
         "twinflow.adapters.rl",
         "twinflow.adapters._gym",
         "twinflow.adapters.dispatch",
-        "twinflow.production.runtime",
-        "twinflow.production.lots",
-        "twinflow.production.materials",
-        "twinflow.production.qualification",
-        "twinflow.production.external",
-        "twinflow.production.state_validation",
+        "twinflow.production",
     }
 )
 

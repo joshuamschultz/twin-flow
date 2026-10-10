@@ -1,1 +1,0 @@
-"""Production capability acceptance tests."""
