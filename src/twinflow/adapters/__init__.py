@@ -7,12 +7,10 @@ integration is a single class and one `register(...)` call, never a core change:
   `ResultSink`, `ActualSource`, with a `FieldMapping` onto the canonical plan contract.
 - **demand** — generate a plan from a product mix + arrival process (`DemandGenerator`).
 - **forecast** — feed a demand/lead-time forecast in (`Forecaster`).
-- **dispatch** — the scheduling seam: which queued job runs next (`DispatchPolicy`).
-- **rl** — the twin as a Gymnasium-style environment (`TwinEnv`) for RL.
 - **reconcile** — plan-vs-actual variance from a real event log.
 - **fulfillment** — orders & deliveries KPIs (fill rate, on-time delivery, backorders).
 
-The concrete SAP/OPC-UA/Prophet/stable-baselines integrations are deliberately out of
+The concrete SAP/OPC-UA/Prophet integrations are deliberately out of
 scope here; this package is what they attach to so they work the moment they land.
 """
 
@@ -36,12 +34,6 @@ from twinflow.adapters.demand import (
     FixedDemand,
     PoissonDemand,
 )
-from twinflow.adapters.dispatch import (
-    DISPATCH_POLICIES,
-    DispatchJob,
-    DispatchPolicy,
-    KeyedPolicy,
-)
 from twinflow.adapters.forecast import (
     FORECASTERS,
     Forecaster,
@@ -50,33 +42,27 @@ from twinflow.adapters.forecast import (
 )
 from twinflow.adapters.fulfillment import FulfillmentKpis, compute_fulfillment
 from twinflow.adapters.reconcile import Variance, reconcile
-from twinflow.adapters.rl import TwinEnv
 
 __all__ = [
     "ACTUAL_SOURCES",
     "DEMAND_GENERATORS",
-    "DISPATCH_POLICIES",
     "FORECASTERS",
     "PLAN_SOURCES",
     "RESULT_SINKS",
     "ActualSource",
     "CsvPlanSource",
     "DemandGenerator",
-    "DispatchJob",
-    "DispatchPolicy",
     "FieldMapping",
     "FixedDemand",
     "Forecaster",
     "FulfillmentKpis",
     "JsonResultSink",
-    "KeyedPolicy",
     "MovingAverageForecaster",
     "NaiveForecaster",
     "ParquetActualSource",
     "PlanSource",
     "PoissonDemand",
     "ResultSink",
-    "TwinEnv",
     "Variance",
     "compute_fulfillment",
     "reconcile",

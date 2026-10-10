@@ -22,8 +22,7 @@ Public API committed here (implementer conforms):
         stock.level               -> float, current qty; never negative
         stock.material_ready_time -> float | None, sim time of the most recent put()
 
-    # A SimPy generator, mirrors ResourceAcquirer.acquire (engine/acquire.py):
-    # drive it with `yield from`.
+    # A SimPy generator, like LaborPool.request: drive it with `yield from`.
     bundle = yield from stock.pull(thing: str, qty: float, uom: str)
         - Raises ValueError if thing/uom do not match the stock's identity.
           The check must fire on the first drive of the generator, before any

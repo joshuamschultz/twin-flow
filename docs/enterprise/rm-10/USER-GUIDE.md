@@ -50,16 +50,4 @@ connector.
 
 ## Benchmark
 
-Run:
-
-```console
-python -m twinflow.benchmark examples/active-control/model.yaml \
-  --plan examples/active-control/plan.csv \
-  --output benchmark.json --artifact-dir benchmark-artifacts \
-  --repetitions 3 --seed 42 \
-  --max-sim-time 1000000 --max-events 100000 --max-wall-seconds 30
-```
-
-The JSON reports its exact inputs, finite bounds, environment, wall time, event count,
-simulated time, retained artifact bytes, termination reasons, and simple cost proxies.
-Results describe only that invocation on that host.
+RM10-R8 is superseded by the scheduling benchmark suite (HMLV program B-7).

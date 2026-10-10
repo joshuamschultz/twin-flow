@@ -257,10 +257,10 @@ class Location:
         self._in_flight = 0
         self._free_event: simpy.Event | None = None
         # Active-control dispatch rule (A1): which queued job this center runs next.
-        # Default "fifo" reproduces arrival order exactly. The four policies mirror
-        # `twinflow.adapters.dispatch` (that is the external-facing surface of the
-        # same rules); ordering stays native here, while the optional typed policy
-        # runtime supplies only the dispatch name chosen at a real queue boundary.
+        # Default "fifo" reproduces arrival order exactly. The accepted names are
+        # `twinflow.policy.DISPATCH_NAMES`; ordering stays native here, while the
+        # optional typed policy runtime supplies only the dispatch name chosen at a
+        # real queue boundary.
         self._dispatch: str = getattr(spec, "dispatch", "fifo")
         self._queue_revision = 0
         self._decision_revision = -1
@@ -432,11 +432,10 @@ class Location:
         queue_arrival_time = min(self._arrival_times.pop(id(b)) for b in selected)
 
         # Step 2: acquire machine, THEN operator — fixed global order (D-045).
-        # D-053: Location is the sole dual-acquire site in v1 and inlines this
-        # order directly (rather than routing through engine/acquire.py's
-        # ResourceAcquirer) because LaborPool's richer, shift-gated
-        # request(skill, priority) signature does not compose with
-        # ResourceAcquirer's raw dual-PriorityResource contract.
+        # D-053: Location is the sole dual-acquire site and owns this order:
+        # machine first, then operator via LaborPool's shift-gated
+        # request(skill, priority); release runs in reverse (operator, then
+        # machine). One site, one order, so no deadlock cycle can form.
         machine_request: PriorityRequest | None = None
         if scheduled is None:
             machine_request = self.machine_pool.request()

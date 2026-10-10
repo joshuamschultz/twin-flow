@@ -17,8 +17,7 @@
   explicit uncertain/reconciliation states.
 - RM10-R7: The only included sink is deterministic and dry-run. No external operational
   system is mutated by simulation/evaluation code.
-- RM10-R8: A reproducible benchmark reports conditions, environment, wall time, events,
-  replications, horizon, artifact bytes, and cost proxies without claiming scale.
+- RM10-R8: Superseded by the scheduling benchmark suite (HMLV program B-7).
 
 ## Public contracts
 
@@ -32,9 +31,6 @@
 - `Proposal.create(...)`, `Approval`, `TransactionalOutbox.submit(...)`,
   `dispatch_pending(sink, current_operational_revision=..., now=..., entry_id=..., limit=...)`,
   and `reconcile(...)` define the controlled-action seam in `twinflow.actions`.
-- `python -m twinflow.benchmark MODEL --plan ... --repetitions 2 --artifact-dir ...
-  --max-sim-time ... --max-events ... --max-wall-seconds ... --output result.json`
-  runs the local benchmark.
 
 ## Components and tasks
 
@@ -43,7 +39,7 @@
    through `RunDriver`; retain trace evidence beside run artifacts.
 3. Add immutable controlled-action envelopes and a durable SQLite transactional outbox
    reference implementation with a dry-run sink.
-4. Add a benchmark CLI with explicit execution bounds and environment evidence.
+4. Benchmarking moved to the scheduling benchmark suite (HMLV program B-7).
 5. Test forward-only intervention, masks, stale actions, deterministic replay, proposal
    tampering, expiry/revocation/scope, duplicate dispatch, revision conflict, uncertain
    receipt, and reconciliation.
@@ -59,8 +55,6 @@
 - Expired/revoked/wrong-scope approval and intervening operational revision prevent send,
   including revocation or expiry after submission but before dispatch claim.
 - An uncertain send stays unresolved until explicit reconciliation records a receipt.
-- Benchmark output includes declared bounds and observed evidence and is presented as a
-  measurement rather than an enterprise performance promise.
 
 This milestone supplies local software foundations. It does not establish distributed
 scale, safe customer writeback, model validity, shadow-period performance, or renewal

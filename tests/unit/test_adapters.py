@@ -1,8 +1,8 @@
 """Unit tests for twinflow.adapters — the external-integration surfaces.
 
 Covers connectors (field mapping + CSV plan source), demand generation, forecasting,
-dispatch policies, plan-vs-actual reconciliation, fulfillment KPIs, and the RL
-environment (driven by a no-simulation FakeSurface).
+plan-vs-actual reconciliation, fulfillment KPIs, and the dispatch-name discovery and
+validation contract (`twinflow.policy.DISPATCH_NAMES`).
 """
 
 from __future__ import annotations
@@ -12,11 +12,10 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+import yaml
 
 from twinflow.adapters import (
-    DISPATCH_POLICIES,
     CsvPlanSource,
-    DispatchJob,
     FieldMapping,
     FixedDemand,
     JsonResultSink,
@@ -24,18 +23,14 @@ from twinflow.adapters import (
     NaiveForecaster,
     ParquetActualSource,
     PoissonDemand,
-    TwinEnv,
     compute_fulfillment,
     reconcile,
 )
 from twinflow.adapters.demand import DEMAND_GENERATORS
 from twinflow.adapters.forecast import FORECASTERS
-from twinflow.instrumentation.aggregate import AggregatedKpis, Interval
 from twinflow.instrumentation.kpis import KpiSet
-from twinflow.model import load_model
-from twinflow.modules import Choice, IntRange, LeverSpace, Scenario
-from twinflow.modules.objectives import OBJECTIVES
-from twinflow.modules.surface import Evaluation
+from twinflow.model import load_model, validate_model
+from twinflow.policy import DISPATCH_NAMES
 
 
 def _kpis(
@@ -146,38 +141,6 @@ def test_forecasters_registered() -> None:
     assert set(FORECASTERS.names()) == {"naive", "moving_average"}
 
 
-# --------------------------------------------------------------------- dispatch
-def _queue() -> list[DispatchJob]:
-    return [
-        DispatchJob("a", arrival_time=0, due_date=100, processing_time=50),
-        DispatchJob("b", arrival_time=5, due_date=40, processing_time=10),
-        DispatchJob("c", arrival_time=10, due_date=200, processing_time=5),
-    ]
-
-
-def test_dispatch_policies_pick_expected_job() -> None:
-    now = 0.0
-    assert DISPATCH_POLICIES.create("fifo").select(_queue(), now).job_id == "a"
-    assert DISPATCH_POLICIES.create("edd").select(_queue(), now).job_id == "b"
-    assert DISPATCH_POLICIES.create("spt").select(_queue(), now).job_id == "c"
-    # critical ratio (due-now)/proc: a=100/50=2.0 is the smallest -> most urgent
-    assert DISPATCH_POLICIES.create("critical_ratio").select(_queue(), now).job_id == "a"
-
-
-def test_dispatch_order_is_full_sequence() -> None:
-    ordered = DISPATCH_POLICIES.create("edd").order(_queue(), 0.0)
-    assert [job.job_id for job in ordered] == ["b", "a", "c"]
-
-
-def test_dispatch_empty_queue_raises() -> None:
-    with pytest.raises(ValueError):
-        DISPATCH_POLICIES.create("fifo").select([], 0.0)
-
-
-def test_dispatch_policies_registered() -> None:
-    assert set(DISPATCH_POLICIES.names()) == {"fifo", "edd", "spt", "critical_ratio"}
-
-
 # -------------------------------------------------------------------- reconcile
 def test_reconcile_diffs_plan_and_actual() -> None:
     planned = _kpis(80.0, run_hours=10.0, lateness={"a": -100.0}, utilization={"cut": 0.5})
@@ -204,40 +167,38 @@ def test_fulfillment_counts_deliveries_and_backorders() -> None:
     assert f.avg_delivery_lateness == pytest.approx(125.0)
 
 
-# ---------------------------------------------------------------------------- rl
-class _FakeSurface:
-    """Deterministic surface: on-time % peaks at headcount 4 (no simulation)."""
-
-    def evaluate(self, scenario: Scenario) -> Evaluation:
-        headcount = int(next(iter(scenario.levers.values())))
-        on_time = 100.0 - (headcount - 4) ** 2 * 8.0
-        interval = Interval(on_time, on_time - 2, on_time + 2, on_time, 3)
-        aggregated = AggregatedKpis(interval, {}, {}, {}, reps=3, level=0.9)
-        return Evaluation(scenario, _kpis(on_time), aggregated, None)  # type: ignore[arg-type]
+# ------------------------------------------------------------ dispatch names
+def _model_with_dispatch(tmp_path: Path, dispatch: str) -> str:
+    raw = yaml.safe_load(Path("examples/cnc-shop/model.yaml").read_text(encoding="utf-8"))
+    raw["locations"][0]["dispatch"] = dispatch
+    path = tmp_path / "model.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    return str(path)
 
 
-def _env(max_steps: int = 10) -> TwinEnv:
-    space = LeverSpace({"labor.pools[0].headcount": IntRange(1, 8)})
-    return TwinEnv(_FakeSurface(), space, OBJECTIVES.create("on_time_pct"), max_steps=max_steps)  # type: ignore[arg-type]
+def test_dispatch_names_is_the_single_public_source() -> None:
+    assert list(DISPATCH_NAMES) == ["fifo", "edd", "spt", "critical_ratio"]
 
 
-def test_twin_env_reset_returns_obs_and_info() -> None:
-    obs, info = _env().reset()
-    assert obs.shape == (1,)
-    assert info["levers"]["labor.pools[0].headcount"] == 4  # midpoint of [1,8]
+def test_api_adapters_lists_dispatch_names(tmp_path: Path) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from twinflow.service.app import create_app
+
+    payload = (
+        TestClient(create_app("examples", workspace_root=tmp_path)).get("/api/adapters").json()
+    )
+    assert payload["dispatch_policies"] == list(DISPATCH_NAMES)
 
 
-def test_twin_env_step_nudges_lever_and_truncates() -> None:
-    env = _env(max_steps=2)
-    env.reset()
-    obs, reward, terminated, truncated, info = env.step((2,))  # +1 -> 5
-    assert obs[0] == 5.0
-    assert not terminated and not truncated
-    _obs, _r, _t, truncated2, _i = env.step((0,))  # -1 -> 4, step 2 -> truncate
-    assert truncated2
+@pytest.mark.parametrize("name", DISPATCH_NAMES)
+def test_validate_accepts_every_dispatch_name(tmp_path: Path, name: str) -> None:
+    errors = validate_model(_model_with_dispatch(tmp_path, name))
+    assert not [e for e in errors if e.path.endswith(".dispatch")]
 
 
-def test_twin_env_rejects_non_int_levers() -> None:
-    space = LeverSpace({"policy": Choice(("fifo", "edd"))})
-    with pytest.raises(ValueError, match="IntRange"):
-        TwinEnv(_FakeSurface(), space, OBJECTIVES.create("on_time_pct"))  # type: ignore[arg-type]
+def test_validate_rejects_dispatch_name_outside_dispatch_names(tmp_path: Path) -> None:
+    assert "sooner" not in DISPATCH_NAMES
+    errors = validate_model(_model_with_dispatch(tmp_path, "sooner"))
+    assert [e for e in errors if e.path == "locations[0].dispatch"]

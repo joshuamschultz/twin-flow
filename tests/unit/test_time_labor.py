@@ -48,14 +48,15 @@ conforms):
     )
     pool.available -> int   # operators free right now (0 if off-shift or fully held)
 
-    # A SimPy generator function — drive with `yield from` (matches the
-    # ResourceAcquirer.acquire() convention in engine/acquire.py). Blocks
+    # A SimPy generator function — drive with `yield from`. Location calls
+    # it only after it holds a machine (fixed machine-then-operator order,
+    # D-045). Blocks
     # until the shift calendar says on-shift AND a slot is free, then
     # returns an opaque request handle.
     handle = yield from pool.request(skill: str, priority: int)
     pool.release(handle) -> None
 
-Priority convention (matches engine/acquire.py, simpy.PriorityResource: a
+Priority convention (simpy.PriorityResource: a
 SMALLER int is served first):
 
     PRIORITY_UNLOAD = 0    # unload-phase re-request — served first

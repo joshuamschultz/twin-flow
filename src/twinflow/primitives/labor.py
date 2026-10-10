@@ -53,9 +53,9 @@ class LaborPool:
     def request(self, skill: str, priority: int) -> Generator[simpy.Event, None, PriorityRequest]:
         """Block until on-shift and a slot is free, then return a request handle.
 
-        Drive with `yield from` (matches `ResourceAcquirer.acquire()`,
-        `engine/acquire.py`). Raises ValueError for a skill this pool does not carry
-        (fail-closed) before waiting on anything.
+        Drive with `yield from`. Location calls this only after it holds a machine
+        (fixed machine-then-operator order, D-045). Raises ValueError for a skill
+        this pool does not carry (fail-closed) before waiting on anything.
         """
         if skill not in self.skills:
             raise ValueError(f"{self.name!r} labor pool has no {skill!r} skill")

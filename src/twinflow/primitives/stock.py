@@ -67,7 +67,7 @@ class Stock:
         return self._container.level
 
     def pull(self, thing: str, qty: float, uom: str) -> Generator[simpy.Event, None, Bundle]:
-        """Blocking generator; drive with `yield from` (mirrors ResourceAcquirer.acquire).
+        """Blocking generator; drive with `yield from`, like `LaborPool.request`.
 
         Raises ValueError on the first drive, before any blocking wait is created, if
         thing/uom do not match this stock's identity. Otherwise blocks until qty is

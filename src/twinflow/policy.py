@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass
 from typing import Literal, Protocol
 
 DispatchName = Literal["fifo", "edd", "spt", "critical_ratio"]
-_DISPATCH_NAMES: tuple[DispatchName, ...] = ("fifo", "edd", "spt", "critical_ratio")
+DISPATCH_NAMES: tuple[DispatchName, ...] = ("fifo", "edd", "spt", "critical_ratio")
 
 
 class PolicyError(ValueError):
@@ -146,7 +146,7 @@ class PolicyRuntime:
         observation = PolicyObservation(
             self._version, location_id, simulation_time, typed_current, queue
         )
-        allowed = tuple(DispatchAction(location_id, name) for name in _DISPATCH_NAMES)
+        allowed = tuple(DispatchAction(location_id, name) for name in DISPATCH_NAMES)
         self._observation = observation
         self._allowed = allowed
         fallback_reason: str | None = None
@@ -246,6 +246,6 @@ def configured_runtime(config: object, location_ids: set[str]) -> PolicyRuntime:
 
 
 def _as_dispatch(value: str) -> DispatchName:
-    if value not in _DISPATCH_NAMES:
+    if value not in DISPATCH_NAMES:
         raise MaskedActionError(f"unsupported dispatch policy {value!r}")
     return value

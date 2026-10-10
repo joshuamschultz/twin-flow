@@ -780,7 +780,10 @@ class Workspace:
                 "blocker": (
                     None
                     if simulation_available
-                    else "A verified feasible plan within the one-year simulation horizon is required"
+                    else (
+                        "A verified feasible plan within the one-year simulation horizon "
+                        "is required"
+                    )
                 ),
                 "meaning": (
                     "Enforces verified machine assignments and planned starts as earliest starts; "

@@ -79,13 +79,6 @@ mypy_path = "src"
 module = ["simpleeval"]
 ignore_missing_imports = true
 
-# gymnasium is an optional integration dependency: `twinflow.adapters.rl` exposes a
-# Gymnasium-style env and only imports gymnasium inside `to_gymnasium()`, so a plain
-# install never needs it. Silence the missing-stub error for the optional import.
-[[tool.mypy.overrides]]
-module = ["gymnasium", "gymnasium.*"]
-ignore_missing_imports = true
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"

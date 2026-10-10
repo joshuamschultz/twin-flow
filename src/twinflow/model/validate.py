@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from twinflow.model.distributions import build_draw, build_noise
 from twinflow.model.expressions import ExpressionError, ExpressionSandbox
 from twinflow.model.loader import RawModel
+from twinflow.policy import DISPATCH_NAMES
 from twinflow.primitives.calendar import parse_clock, parse_day
 from twinflow.primitives.part import PartTypeRegistry
 
@@ -238,7 +239,7 @@ def _location_reference_checks(
     return errors
 
 
-_VALID_DISPATCH = frozenset({"fifo", "edd", "spt", "critical_ratio"})
+_VALID_DISPATCH = frozenset(DISPATCH_NAMES)
 _VALID_RELEASE = frozenset({"plan", "conwip", "wip_cap"})
 _VALID_SHIFT_CROSSING = frozenset({"pause", "finish_unattended", "overtime"})
 

@@ -16,7 +16,6 @@ from twinflow.scheduling.core import (
     validate,
     verify_schedule,
 )
-from twinflow.scheduling.translate import TranslationError, translate_legacy
 
 __all__ = [
     "Operation",
@@ -25,14 +24,12 @@ __all__ = [
     "ScheduleResult",
     "SchedulingProblem",
     "Solver",
-    "TranslationError",
     "VerificationResult",
     "pareto_frontier",
     "paired_deltas",
     "problem_from_dict",
     "rank_candidates",
     "solve",
-    "translate_legacy",
     "validate",
     "verify_schedule",
 ]

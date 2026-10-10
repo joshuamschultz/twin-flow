@@ -10,7 +10,6 @@ from twinflow.scheduling import (
     problem_from_dict,
     rank_candidates,
     solve,
-    translate_legacy,
     verify_schedule,
 )
 from twinflow.scheduling.core import ScheduleResult
@@ -52,28 +51,6 @@ def test_infeasible_qualification_calendar_and_frozen_conflict() -> None:
         (ResourceWindow("r", 0, 10),),
     )
     assert solve(frozen).status == "UNKNOWN"
-
-
-def test_translation_refuses_distribution_and_supports_rate_based() -> None:
-    model = {
-        "locations": [
-            {
-                "name": "cut",
-                "machine": "m",
-                "labor_skill": "machinist",
-                "time_model": {"kind": "rate_based", "rate": 0.5},
-            }
-        ],
-        "machines": [{"name": "m"}],
-        "routing": [{"part": "finished", "steps": ["cut"]}],
-    }
-    problem = translate_legacy(
-        model, [{"work_order_id": "wo", "part": "finished", "start_date": 0}]
-    )
-    assert solve(problem).verified
-    model["locations"][0]["time_model"] = {"kind": "distribution", "name": "normal"}
-    with pytest.raises(ValueError, match="unsupported"):
-        translate_legacy(model, [{"work_order_id": "wo", "part": "finished"}])
 
 
 def test_ranking_and_optional_solver_status() -> None:

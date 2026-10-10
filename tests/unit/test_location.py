@@ -95,18 +95,11 @@ the real `primitives/location.py` should grow to match. `Location` itself, and
         # fixed eight-step order once per firing. Caller starts it explicitly via
         # env.process(...) — construction alone does not start it.
 
-ARCHITECTURE NOTE flagged for review (not resolved here): `engine/acquire.py`'s
-`ResourceAcquirer` accepts two raw `simpy.PriorityResource` objects and cannot
-compose with `LaborPool.request(skill, priority)` (a different signature, gated by
-a shift calendar) without reaching into `LaborPool`'s private `_resource`. Since
-COMP-012 (LaborPool) is a declared COMP-007 dependency and the task instructions
-name `LaborPool.request+release` as an explicit spy target, this test's contract
-has Location perform the machine leg directly against `machine_pool` and the
-operator leg via `LaborPool`, preserving the SAME fixed global order (machine,
-then operator; released operator, then machine) that `ResourceAcquirer` guarantees,
-without literally routing through it. This is a real gap between COMP-002's
-generic-resource signature and COMP-012's richer one; it should get a decision-log
-entry rather than being silently resolved by either component.
+ACQUISITION ORDER. Location is the sole dual-acquire site (D-053). It performs the
+machine leg directly against `machine_pool` and the operator leg via
+`LaborPool.request(skill, priority)` (shift-gated), in one fixed global order:
+acquire machine, then operator; release operator, then machine (D-045). One site
+and one order mean no opposite-order deadlock cycle can form.
 
 --------------------------------------------------------------------------------
 SPYING MECHANISM. Each collaborator is wrapped via a thin subclass that appends
@@ -115,9 +108,8 @@ public method is CALLED (synchronous, before any blocking `yield`/`yield from`
 completes) and then delegates to the real implementation via `super()`. Location
 must call through these injected objects' public methods — never reimplement their
 logic inline — for the probe to observe anything, which is exactly what dependency
-injection is for. This works identically whether Location composes the dual
-acquire via `ResourceAcquirer` internally or directly against the pools, as long as
-it calls `.request()`/`.release()` on the OBJECTS this test hands it.
+injection is for. It works as long as Location calls `.request()`/`.release()` on
+the OBJECTS this test hands it.
 """
 
 from __future__ import annotations

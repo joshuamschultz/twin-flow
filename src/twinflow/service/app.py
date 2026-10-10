@@ -156,12 +156,12 @@ def create_app(
     @app.get("/api/adapters")
     def adapters() -> dict[str, list[str]]:
         """Discovery: every registered integration surface (connectors, demand
-        generators, forecasters, dispatch policies). Concrete ERP/RL/forecaster
-        integrations register into these same lists."""
+        generators, forecasters) plus the dispatch rule names the engine accepts.
+        Concrete ERP/forecaster integrations register into these same lists."""
         from twinflow.adapters.connectors import ACTUAL_SOURCES, PLAN_SOURCES, RESULT_SINKS
         from twinflow.adapters.demand import DEMAND_GENERATORS
-        from twinflow.adapters.dispatch import DISPATCH_POLICIES
         from twinflow.adapters.forecast import FORECASTERS
+        from twinflow.policy import DISPATCH_NAMES
 
         return {
             "plan_sources": PLAN_SOURCES.names(),
@@ -169,7 +169,7 @@ def create_app(
             "actual_sources": ACTUAL_SOURCES.names(),
             "demand_generators": DEMAND_GENERATORS.names(),
             "forecasters": FORECASTERS.names(),
-            "dispatch_policies": DISPATCH_POLICIES.names(),
+            "dispatch_policies": list(DISPATCH_NAMES),
         }
 
     @app.get("/api/models")
