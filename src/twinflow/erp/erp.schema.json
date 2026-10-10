@@ -1,0 +1,1910 @@
+{
+  "$defs": {
+    "BatchSpec": {
+      "additionalProperties": false,
+      "description": "Batch capacity of an operation in `unit`.",
+      "properties": {
+        "capacity": {
+          "exclusiveMinimum": 0,
+          "title": "Capacity",
+          "type": "number"
+        },
+        "unit": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capacity",
+        "unit"
+      ],
+      "title": "BatchSpec",
+      "type": "object"
+    },
+    "Bom": {
+      "additionalProperties": false,
+      "description": "A bill of material revision for one item.",
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/BomLine"
+          },
+          "maxItems": 100000,
+          "title": "Lines",
+          "type": "array"
+        },
+        "revision": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "item_id",
+        "revision",
+        "lines",
+        "lineage"
+      ],
+      "title": "Bom",
+      "type": "object"
+    },
+    "BomLine": {
+      "additionalProperties": false,
+      "description": "One component of a bill of material, optionally consumed at a named operation.",
+      "properties": {
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "op_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Op Id"
+        },
+        "qty_per": {
+          "exclusiveMinimum": 0,
+          "title": "Qty Per",
+          "type": "number"
+        },
+        "uom": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Uom",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "qty_per",
+        "uom"
+      ],
+      "title": "BomLine",
+      "type": "object"
+    },
+    "Calendar": {
+      "additionalProperties": false,
+      "description": "A weekly working pattern plus date exceptions (unique dates); absent weekday = closed.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "exceptions": {
+          "items": {
+            "$ref": "#/$defs/CalendarException"
+          },
+          "maxItems": 100000,
+          "title": "Exceptions",
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "week": {
+          "items": {
+            "$ref": "#/$defs/WeekdayWindows"
+          },
+          "maxItems": 100000,
+          "title": "Week",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "week",
+        "exceptions",
+        "lineage"
+      ],
+      "title": "Calendar",
+      "type": "object"
+    },
+    "CalendarException": {
+      "additionalProperties": false,
+      "description": "The windows of one date, replacing its weekday; empty windows mean closed.",
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/TimeWindow"
+          },
+          "maxItems": 100000,
+          "title": "Windows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "windows"
+      ],
+      "title": "CalendarException",
+      "type": "object"
+    },
+    "CrewNeed": {
+      "additionalProperties": false,
+      "description": "Operators from one labor pool an operation needs while it runs.",
+      "properties": {
+        "labor_pool_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Labor Pool Id",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "labor_pool_id",
+        "size"
+      ],
+      "title": "CrewNeed",
+      "type": "object"
+    },
+    "Customer": {
+      "additionalProperties": false,
+      "description": "A customer and its priority class code.",
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "priority_class": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Priority Class"
+        }
+      },
+      "required": [
+        "id",
+        "lineage"
+      ],
+      "title": "Customer",
+      "type": "object"
+    },
+    "InventoryBalance": {
+      "additionalProperties": false,
+      "description": "On-hand quantity of an item, optionally per site.",
+      "properties": {
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "qty_available": {
+          "minimum": 0,
+          "title": "Qty Available",
+          "type": "number"
+        },
+        "site_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Site Id"
+        }
+      },
+      "required": [
+        "item_id",
+        "qty_available",
+        "lineage"
+      ],
+      "title": "InventoryBalance",
+      "type": "object"
+    },
+    "Item": {
+      "additionalProperties": false,
+      "description": "A part number with its unit of measure and setup or family attributes.",
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              }
+            ]
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Attributes",
+          "type": "object"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "item_class": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Class"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "uom": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Uom",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "uom",
+        "attributes",
+        "lineage"
+      ],
+      "title": "Item",
+      "type": "object"
+    },
+    "LaborPool": {
+      "additionalProperties": false,
+      "description": "A pool of interchangeable operators.",
+      "properties": {
+        "calendar_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Id"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "size": {
+          "minimum": 1,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "size",
+        "lineage"
+      ],
+      "title": "LaborPool",
+      "type": "object"
+    },
+    "Lineage": {
+      "additionalProperties": false,
+      "description": "The ERP source row of a record: its table and its 1 to 8 key parts.",
+      "properties": {
+        "key": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Key",
+          "type": "array"
+        },
+        "table": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Table",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table",
+        "key"
+      ],
+      "title": "Lineage",
+      "type": "object"
+    },
+    "Machine": {
+      "additionalProperties": false,
+      "description": "A machine inside a work center; `efficiency` 0.9 means it runs at 90% of standard.",
+      "properties": {
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "calendar_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Id"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "efficiency": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Efficiency",
+          "type": "number"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "overtime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Overtime"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "work_center_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Work Center Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "work_center_id",
+        "active",
+        "lineage"
+      ],
+      "title": "Machine",
+      "type": "object"
+    },
+    "MaterialRequirement": {
+      "additionalProperties": false,
+      "description": "Material an order consumes, optionally at a named operation.",
+      "properties": {
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "op_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Op Id"
+        },
+        "qty_issued": {
+          "minimum": 0,
+          "title": "Qty Issued",
+          "type": "number"
+        },
+        "qty_required": {
+          "minimum": 0,
+          "title": "Qty Required",
+          "type": "number"
+        }
+      },
+      "required": [
+        "item_id",
+        "qty_required",
+        "qty_issued",
+        "lineage"
+      ],
+      "title": "MaterialRequirement",
+      "type": "object"
+    },
+    "OperationOption": {
+      "additionalProperties": false,
+      "description": "One way to run an operation; `machine_id` None means any active machine of the center.",
+      "properties": {
+        "fixed_run_seconds": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Fixed Run Seconds",
+          "type": "number"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "machine_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Machine Id"
+        },
+        "preference": {
+          "minimum": 0,
+          "title": "Preference",
+          "type": "integer"
+        },
+        "run_seconds_per_unit": {
+          "minimum": 0,
+          "title": "Run Seconds Per Unit",
+          "type": "number"
+        },
+        "setup_seconds": {
+          "minimum": 0,
+          "title": "Setup Seconds",
+          "type": "number"
+        },
+        "work_center_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Work Center Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "work_center_id",
+        "setup_seconds",
+        "run_seconds_per_unit",
+        "preference",
+        "lineage"
+      ],
+      "title": "OperationOption",
+      "type": "object"
+    },
+    "OrderOperation": {
+      "additionalProperties": false,
+      "description": "A routing step on a released order, with its progress on the floor.",
+      "properties": {
+        "actual_start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Start"
+        },
+        "batch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BatchSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "crew": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CrewNeed"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "current_machine_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Machine Id"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "move_seconds": {
+          "minimum": 0,
+          "title": "Move Seconds",
+          "type": "number"
+        },
+        "op_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Op Id",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/OperationOption"
+          },
+          "maxItems": 100000,
+          "title": "Options",
+          "type": "array"
+        },
+        "outside": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutsideProcess"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "qty_complete": {
+          "minimum": 0,
+          "title": "Qty Complete",
+          "type": "number"
+        },
+        "qty_remaining": {
+          "minimum": 0,
+          "title": "Qty Remaining",
+          "type": "number"
+        },
+        "qty_scrapped": {
+          "minimum": 0,
+          "title": "Qty Scrapped",
+          "type": "number"
+        },
+        "qty_to_produce": {
+          "minimum": 0,
+          "title": "Qty To Produce",
+          "type": "number"
+        },
+        "queue_seconds": {
+          "minimum": 0,
+          "title": "Queue Seconds",
+          "type": "number"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "setup_params": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              }
+            ]
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Setup Params",
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "in_process",
+            "on_hold",
+            "complete",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "work_center_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Work Center Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op_id",
+        "sequence",
+        "work_center_id",
+        "options",
+        "setup_params",
+        "queue_seconds",
+        "move_seconds",
+        "lineage",
+        "status",
+        "qty_to_produce",
+        "qty_complete",
+        "qty_scrapped",
+        "qty_remaining"
+      ],
+      "title": "OrderOperation",
+      "type": "object"
+    },
+    "OutsideProcess": {
+      "additionalProperties": false,
+      "description": "Work sent to a vendor; it occupies no plant machine for `lead_seconds`.",
+      "properties": {
+        "lead_seconds": {
+          "minimum": 0,
+          "title": "Lead Seconds",
+          "type": "number"
+        },
+        "vendor_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Vendor Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "vendor_id",
+        "lead_seconds"
+      ],
+      "title": "OutsideProcess",
+      "type": "object"
+    },
+    "Overtime": {
+      "additionalProperties": false,
+      "description": "Overtime available on a work center or machine (a machine's replaces its center's).",
+      "properties": {
+        "exceptions": {
+          "items": {
+            "$ref": "#/$defs/OvertimeException"
+          },
+          "maxItems": 100000,
+          "title": "Exceptions",
+          "type": "array"
+        },
+        "week": {
+          "items": {
+            "$ref": "#/$defs/WeekdayOvertime"
+          },
+          "maxItems": 100000,
+          "title": "Week",
+          "type": "array"
+        }
+      },
+      "required": [
+        "week",
+        "exceptions"
+      ],
+      "title": "Overtime",
+      "type": "object"
+    },
+    "OvertimeException": {
+      "additionalProperties": false,
+      "description": "The overtime windows of one date, replacing that weekday's overtime.",
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/OvertimeWindow"
+          },
+          "maxItems": 100000,
+          "title": "Windows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "windows"
+      ],
+      "title": "OvertimeException",
+      "type": "object"
+    },
+    "OvertimeWindow": {
+      "additionalProperties": false,
+      "description": "Plant-local overtime minutes of one day, priced at `cost_multiplier` (at least 1).",
+      "properties": {
+        "cost_multiplier": {
+          "minimum": 1,
+          "title": "Cost Multiplier",
+          "type": "number"
+        },
+        "end_minute": {
+          "maximum": 1440,
+          "minimum": 0,
+          "title": "End Minute",
+          "type": "integer"
+        },
+        "start_minute": {
+          "maximum": 1439,
+          "minimum": 0,
+          "title": "Start Minute",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_minute",
+        "end_minute",
+        "cost_multiplier"
+      ],
+      "title": "OvertimeWindow",
+      "type": "object"
+    },
+    "ProductionOrder": {
+      "additionalProperties": false,
+      "description": "A production order with its operations (at least one, unique `op_id`) and materials.",
+      "properties": {
+        "due_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Due Date"
+        },
+        "erp_priority": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Erp Priority"
+        },
+        "hold": {
+          "title": "Hold",
+          "type": "boolean"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "materials": {
+          "items": {
+            "$ref": "#/$defs/MaterialRequirement"
+          },
+          "maxItems": 100000,
+          "title": "Materials",
+          "type": "array"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/OrderOperation"
+          },
+          "maxItems": 100000,
+          "minItems": 1,
+          "title": "Operations",
+          "type": "array"
+        },
+        "order_type": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Order Type",
+          "type": "string"
+        },
+        "quantity": {
+          "exclusiveMinimum": 0,
+          "title": "Quantity",
+          "type": "number"
+        },
+        "release_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Release Date"
+        },
+        "rush": {
+          "title": "Rush",
+          "type": "boolean"
+        },
+        "sales_links": {
+          "items": {
+            "$ref": "#/$defs/SalesLink"
+          },
+          "maxItems": 100000,
+          "title": "Sales Links",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "released",
+            "in_process",
+            "on_hold",
+            "complete",
+            "closed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order_type",
+        "item_id",
+        "quantity",
+        "status",
+        "rush",
+        "hold",
+        "sales_links",
+        "operations",
+        "materials",
+        "lineage"
+      ],
+      "title": "ProductionOrder",
+      "type": "object"
+    },
+    "PurchaseLine": {
+      "additionalProperties": false,
+      "description": "A purchase order line with its receipts so far.",
+      "properties": {
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "line_nbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Line Nbr",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "order_nbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Order Nbr",
+          "type": "string"
+        },
+        "order_type": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Order Type",
+          "type": "string"
+        },
+        "promised_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Promised Date"
+        },
+        "qty_ordered": {
+          "minimum": 0,
+          "title": "Qty Ordered",
+          "type": "number"
+        },
+        "qty_received": {
+          "minimum": 0,
+          "title": "Qty Received",
+          "type": "number"
+        },
+        "receipts": {
+          "items": {
+            "$ref": "#/$defs/Receipt"
+          },
+          "maxItems": 100000,
+          "title": "Receipts",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "closed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "vendor_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Vendor Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "order_type",
+        "order_nbr",
+        "line_nbr",
+        "vendor_id",
+        "item_id",
+        "qty_ordered",
+        "qty_received",
+        "status",
+        "receipts",
+        "lineage"
+      ],
+      "title": "PurchaseLine",
+      "type": "object"
+    },
+    "Receipt": {
+      "additionalProperties": false,
+      "description": "One receipt against a purchase line.",
+      "properties": {
+        "qty": {
+          "exclusiveMinimum": 0,
+          "title": "Qty",
+          "type": "number"
+        },
+        "receipt_nbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Receipt Nbr",
+          "type": "string"
+        },
+        "received_at": {
+          "format": "date-time",
+          "title": "Received At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "receipt_nbr",
+        "qty",
+        "received_at"
+      ],
+      "title": "Receipt",
+      "type": "object"
+    },
+    "Routing": {
+      "additionalProperties": false,
+      "description": "The standard routing template for an item (used for new orders).",
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/RoutingOperation"
+          },
+          "maxItems": 100000,
+          "title": "Operations",
+          "type": "array"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision"
+        }
+      },
+      "required": [
+        "id",
+        "item_id",
+        "operations",
+        "lineage"
+      ],
+      "title": "Routing",
+      "type": "object"
+    },
+    "RoutingOperation": {
+      "additionalProperties": false,
+      "description": "A standard routing step; at least one option unless it is an outside process.",
+      "properties": {
+        "batch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BatchSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "crew": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CrewNeed"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "move_seconds": {
+          "minimum": 0,
+          "title": "Move Seconds",
+          "type": "number"
+        },
+        "op_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Op Id",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/OperationOption"
+          },
+          "maxItems": 100000,
+          "title": "Options",
+          "type": "array"
+        },
+        "outside": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutsideProcess"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "queue_seconds": {
+          "minimum": 0,
+          "title": "Queue Seconds",
+          "type": "number"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "setup_params": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              }
+            ]
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Setup Params",
+          "type": "object"
+        },
+        "work_center_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Work Center Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op_id",
+        "sequence",
+        "work_center_id",
+        "options",
+        "setup_params",
+        "queue_seconds",
+        "move_seconds",
+        "lineage"
+      ],
+      "title": "RoutingOperation",
+      "type": "object"
+    },
+    "SalesLink": {
+      "additionalProperties": false,
+      "description": "A pointer from a production order to the sales order line it serves.",
+      "properties": {
+        "line_nbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Line Nbr",
+          "type": "string"
+        },
+        "order_nbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Order Nbr",
+          "type": "string"
+        },
+        "order_type": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Order Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "order_type",
+        "order_nbr",
+        "line_nbr"
+      ],
+      "title": "SalesLink",
+      "type": "object"
+    },
+    "SalesOrderLine": {
+      "additionalProperties": false,
+      "description": "An open sales order line: the demand an order is due for.",
+      "properties": {
+        "customer_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Customer Id",
+          "type": "string"
+        },
+        "item_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "line_nbr": {
+          "minimum": 0,
+          "title": "Line Nbr",
+          "type": "integer"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "order_nbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Order Nbr",
+          "type": "string"
+        },
+        "order_type": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Order Type",
+          "type": "string"
+        },
+        "promised_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Promised Date"
+        },
+        "qty_open": {
+          "minimum": 0,
+          "title": "Qty Open",
+          "type": "number"
+        },
+        "requested_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requested Date"
+        }
+      },
+      "required": [
+        "order_type",
+        "order_nbr",
+        "line_nbr",
+        "customer_id",
+        "item_id",
+        "qty_open",
+        "lineage"
+      ],
+      "title": "SalesOrderLine",
+      "type": "object"
+    },
+    "SourceInfo": {
+      "additionalProperties": false,
+      "description": "Which ERP instance and which extractor version produced the snapshot.",
+      "properties": {
+        "extractor": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Extractor",
+          "type": "string"
+        },
+        "extractor_version": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Extractor Version",
+          "type": "string"
+        },
+        "generation": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Generation"
+        },
+        "instance": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Instance",
+          "type": "string"
+        },
+        "system": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "instance",
+        "extractor",
+        "extractor_version",
+        "generation"
+      ],
+      "title": "SourceInfo",
+      "type": "object"
+    },
+    "SourceIssue": {
+      "additionalProperties": false,
+      "description": "A problem the mapper found while extracting; copied into validation with its severity.",
+      "properties": {
+        "code": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "lineage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Lineage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "hard",
+            "soft"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "lineage",
+        "message"
+      ],
+      "title": "SourceIssue",
+      "type": "object"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "description": "Plant-local working minutes of one day; `end_minute < start_minute` crosses midnight.",
+      "properties": {
+        "end_minute": {
+          "maximum": 1440,
+          "minimum": 0,
+          "title": "End Minute",
+          "type": "integer"
+        },
+        "start_minute": {
+          "maximum": 1439,
+          "minimum": 0,
+          "title": "Start Minute",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_minute",
+        "end_minute"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    },
+    "Vendor": {
+      "additionalProperties": false,
+      "description": "A supplier of material or outside processing.",
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        }
+      },
+      "required": [
+        "id",
+        "lineage"
+      ],
+      "title": "Vendor",
+      "type": "object"
+    },
+    "WeekdayOvertime": {
+      "additionalProperties": false,
+      "description": "The overtime windows of one weekday (Monday = 0).",
+      "properties": {
+        "weekday": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Weekday",
+          "type": "integer"
+        },
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/OvertimeWindow"
+          },
+          "maxItems": 100000,
+          "title": "Windows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "weekday",
+        "windows"
+      ],
+      "title": "WeekdayOvertime",
+      "type": "object"
+    },
+    "WeekdayWindows": {
+      "additionalProperties": false,
+      "description": "The working windows of one weekday (Monday = 0).",
+      "properties": {
+        "weekday": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Weekday",
+          "type": "integer"
+        },
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/TimeWindow"
+          },
+          "maxItems": 100000,
+          "title": "Windows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "weekday",
+        "windows"
+      ],
+      "title": "WeekdayWindows",
+      "type": "object"
+    },
+    "WorkCenter": {
+      "additionalProperties": false,
+      "description": "A work center; its machines are listed separately and point back to it.",
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              }
+            ]
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Attributes",
+          "type": "object"
+        },
+        "calendar_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Id"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "overtime": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Overtime"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "attributes",
+        "lineage"
+      ],
+      "title": "WorkCenter",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One extraction of the plant's ERP state as of an instant, in `twinflow.erp/1`.",
+  "properties": {
+    "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+    },
+    "boms": {
+      "items": {
+        "$ref": "#/$defs/Bom"
+      },
+      "maxItems": 100000,
+      "title": "Boms",
+      "type": "array"
+    },
+    "calendars": {
+      "items": {
+        "$ref": "#/$defs/Calendar"
+      },
+      "maxItems": 100000,
+      "title": "Calendars",
+      "type": "array"
+    },
+    "customers": {
+      "items": {
+        "$ref": "#/$defs/Customer"
+      },
+      "maxItems": 100000,
+      "title": "Customers",
+      "type": "array"
+    },
+    "digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Digest"
+    },
+    "inventory": {
+      "items": {
+        "$ref": "#/$defs/InventoryBalance"
+      },
+      "maxItems": 100000,
+      "title": "Inventory",
+      "type": "array"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/Item"
+      },
+      "maxItems": 100000,
+      "title": "Items",
+      "type": "array"
+    },
+    "labor_pools": {
+      "items": {
+        "$ref": "#/$defs/LaborPool"
+      },
+      "maxItems": 100000,
+      "title": "Labor Pools",
+      "type": "array"
+    },
+    "machines": {
+      "items": {
+        "$ref": "#/$defs/Machine"
+      },
+      "maxItems": 100000,
+      "title": "Machines",
+      "type": "array"
+    },
+    "plant_timezone": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Plant Timezone",
+      "type": "string"
+    },
+    "production_orders": {
+      "items": {
+        "$ref": "#/$defs/ProductionOrder"
+      },
+      "maxItems": 100000,
+      "title": "Production Orders",
+      "type": "array"
+    },
+    "purchase_lines": {
+      "items": {
+        "$ref": "#/$defs/PurchaseLine"
+      },
+      "maxItems": 100000,
+      "title": "Purchase Lines",
+      "type": "array"
+    },
+    "routings": {
+      "items": {
+        "$ref": "#/$defs/Routing"
+      },
+      "maxItems": 100000,
+      "title": "Routings",
+      "type": "array"
+    },
+    "sales_order_lines": {
+      "items": {
+        "$ref": "#/$defs/SalesOrderLine"
+      },
+      "maxItems": 100000,
+      "title": "Sales Order Lines",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "twinflow.erp/1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceInfo"
+    },
+    "source_issues": {
+      "items": {
+        "$ref": "#/$defs/SourceIssue"
+      },
+      "maxItems": 100000,
+      "title": "Source Issues",
+      "type": "array"
+    },
+    "vendors": {
+      "items": {
+        "$ref": "#/$defs/Vendor"
+      },
+      "maxItems": 100000,
+      "title": "Vendors",
+      "type": "array"
+    },
+    "work_centers": {
+      "items": {
+        "$ref": "#/$defs/WorkCenter"
+      },
+      "maxItems": 100000,
+      "title": "Work Centers",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "as_of",
+    "plant_timezone",
+    "source",
+    "source_issues",
+    "items",
+    "boms",
+    "routings",
+    "work_centers",
+    "machines",
+    "calendars",
+    "labor_pools",
+    "production_orders",
+    "sales_order_lines",
+    "customers",
+    "vendors",
+    "purchase_lines",
+    "inventory"
+  ],
+  "title": "ErpSnapshot",
+  "type": "object"
+}

@@ -9,6 +9,10 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
+import subprocess
+import sys
+
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "twinflow"
@@ -156,3 +160,146 @@ def test_scheduling_imports_no_surface_package() -> None:
     prefixes = tuple(f"twinflow.{name}" for name in _SCHEDULING_FORBIDDEN)
     offenders = [o for p in sorted(SCHEDULING.rglob("*.py")) for o in _imports_under(p, prefixes)]
     assert offenders == [], offenders
+
+
+# --- TF-005: ERP contract, planning service and MCP boundaries (T-192, REQ-174) ----------------
+
+ERP = SRC / "erp"
+MCP = SRC / "mcp"
+PLANNING = SRC / "application" / "planning.py"
+
+# `twinflow.erp` is a pure contract package: stdlib, pydantic and the scheduling model only.
+_ERP_ALLOWED_PREFIXES = ("pydantic", "twinflow.scheduling", "twinflow.erp")
+# No outbound calls from the ERP, planning or MCP code (REQ-174); MCP never goes via the SDK.
+_NETWORK_PREFIXES = (
+    "httpx",
+    "requests",
+    "urllib.request",
+    "urllib3",
+    "aiohttp",
+    "socket",
+    "http.client",
+    "twinflow.sdk",
+)
+
+
+def _existing_py(*paths: pathlib.Path) -> list[pathlib.Path]:
+    """Python files at or under `paths`; a path that does not exist yet contributes none."""
+    files: list[pathlib.Path] = []
+    for path in paths:
+        if path.is_file():
+            files.append(path)
+        elif path.is_dir():
+            files.extend(sorted(path.rglob("*.py")))
+    return files
+
+
+def _all_imports(path: pathlib.Path) -> list[tuple[int, str]]:
+    """Static and `import_module("...")` imports of a file, as absolute dotted names."""
+    package = _package_of(path)
+    return [
+        (node.lineno, name)
+        for node in ast.walk(ast.parse(path.read_text(), filename=str(path)))
+        for name in [*_imported_names(node, package), *_dynamic_import_name(node)]
+    ]
+
+
+def _under(name: str, prefixes: tuple[str, ...]) -> bool:
+    return any(name == p or name.startswith(p + ".") for p in prefixes)
+
+
+def _erp_allows(name: str) -> bool:
+    top = name.split(".", 1)[0]
+    return top in sys.stdlib_module_names or _under(name, _ERP_ALLOWED_PREFIXES)
+
+
+def _network_offenders(files: list[pathlib.Path]) -> list[str]:
+    return [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in files
+        for line, name in _all_imports(p)
+        if _under(name, _NETWORK_PREFIXES)
+    ]
+
+
+def test_erp_imports_only_stdlib_pydantic_and_scheduling() -> None:
+    offenders = [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in _existing_py(ERP)
+        for line, name in _all_imports(p)
+        if not _erp_allows(name)
+    ]
+    assert offenders == [], offenders
+
+
+def test_scheduling_does_not_import_erp() -> None:
+    offenders = [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in _existing_py(SCHEDULING)
+        for line, name in _all_imports(p)
+        if _under(name, ("twinflow.erp",))
+    ]
+    assert offenders == [], offenders
+
+
+def test_erp_and_planning_make_no_outbound_calls() -> None:
+    offenders = _network_offenders(_existing_py(ERP, PLANNING))
+    assert offenders == [], offenders
+
+
+@pytest.mark.xfail(strict=True, reason="REST proxy deleted in T-212")
+def test_mcp_makes_no_outbound_calls_and_never_uses_the_sdk() -> None:
+    offenders = _network_offenders(_existing_py(MCP))
+    assert offenders == [], offenders
+
+
+def test_boundary_import_scanner_sees_network_and_sdk_imports(tmp_path: pathlib.Path) -> None:
+    """Guard the guard: the scanner must flag every forbidden form, or the tests above lie."""
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        "import socket\n"
+        "import httpx as h\n"
+        "from urllib import request\n"
+        "from http import client\n"
+        "from twinflow import sdk\n"
+        "from importlib import import_module\n"
+        "import_module('requests')\n"
+        "from urllib.parse import quote\n"
+    )
+    names = [name for _, name in _all_imports(probe) if _under(name, _NETWORK_PREFIXES)]
+    assert set(names) >= {
+        "socket",
+        "httpx",
+        "urllib.request",
+        "http.client",
+        "twinflow.sdk",
+        "requests",
+    }
+    assert not any(name.startswith("urllib.parse") for name in names)
+    assert not _erp_allows("fastapi")
+    assert not _erp_allows("twinflow.application.workspace")
+    assert _erp_allows("zoneinfo")
+    assert _erp_allows("twinflow.scheduling.model")
+
+
+def test_service_app_starts_without_the_mcp_package(tmp_path: pathlib.Path) -> None:
+    """`mcp` is the optional `agent` extra: the app imports and builds without it (SDD COMP-119).
+
+    Runs in a subprocess so the `sys.modules` patch cannot leak into this test session.
+    """
+    script = (
+        "import sys\n"
+        "sys.modules['mcp'] = None\n"
+        "import twinflow.service.app as app\n"
+        "app.create_app(sys.argv[1], workspace_root=sys.argv[2])\n"
+        "assert sys.modules['mcp'] is None\n"
+    )
+    completed = subprocess.run(  # noqa: S603 - fixed interpreter and script, no shell
+        [sys.executable, "-c", script, str(ROOT / "examples"), str(tmp_path / "ws")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
