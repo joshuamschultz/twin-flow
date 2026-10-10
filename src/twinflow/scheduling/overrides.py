@@ -220,7 +220,9 @@ def _split_job(job: Job, fractions: tuple[float, ...]) -> tuple[Job, ...]:
 def _split_operation(
     op: Operation, k: int, fraction: float, local_ids: frozenset[str]
 ) -> Operation:
-    predecessors = tuple(_remap_precedence(link, k, local_ids) for link in op.predecessors)
+    predecessors = tuple(
+        _remap_precedence(link, k, fraction, local_ids) for link in op.predecessors
+    )
     return op.model_copy(
         update={
             "id": f"{op.id}~{k}",
@@ -230,11 +232,17 @@ def _split_operation(
     )
 
 
-def _remap_precedence(link: Precedence, k: int, local_ids: frozenset[str]) -> Precedence:
-    """A link inside the split job points at the same child; links to other jobs stay."""
+def _remap_precedence(
+    link: Precedence, k: int, fraction: float, local_ids: frozenset[str]
+) -> Precedence:
+    """A link inside the split job points at the same child, and its transfer lot scales
+    with the child's lot; links to other jobs stay."""
     if link.operation_id not in local_ids:
         return link
-    return link.model_copy(update={"operation_id": f"{link.operation_id}~{k}"})
+    overlap = None if link.overlap_quantity is None else link.overlap_quantity * fraction
+    return link.model_copy(
+        update={"operation_id": f"{link.operation_id}~{k}", "overlap_quantity": overlap}
+    )
 
 
 # --- priority and expedite ------------------------------------------------------------------

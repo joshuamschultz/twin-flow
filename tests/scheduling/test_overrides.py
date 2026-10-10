@@ -322,6 +322,23 @@ def test_split_uneven_fractions_scale_quantities() -> None:
     assert _op_of(compiled, "B1~2").quantity == pytest.approx(7.5)
 
 
+def test_split_scales_the_transfer_lot_with_the_fraction() -> None:
+    """A transfer lot is a quantity of the split job, so it scales like the lot itself."""
+    a1 = _op("A1")
+    a2 = _op("A2").model_copy(
+        update={"predecessors": (Precedence(operation_id="A1", overlap_quantity=10.0),)}
+    )
+    problem = _problem().model_copy(
+        update={"jobs": (Job(id="J1", operations=(a1, a2)), _problem().jobs[1])}
+    )
+    split = SplitOverride(id="o1", hardness="hard", job_id="J1", fractions=(0.25, 0.75), **FACT)
+
+    compiled = apply_overrides(_request(split, problem=problem))
+
+    assert _op_of(compiled, "A2~1").predecessors[0].overlap_quantity == pytest.approx(2.5)
+    assert _op_of(compiled, "A2~2").predecessors[0].overlap_quantity == pytest.approx(7.5)
+
+
 # --- hold ----------------------------------------------------------------------------------
 
 

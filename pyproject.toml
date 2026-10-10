@@ -84,3 +84,5 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# `slow` tests still run by default (CI runs bare `pytest`); deselect locally with -m "not slow".
+markers = ["slow: long-running scale checks, included in the default run"]
