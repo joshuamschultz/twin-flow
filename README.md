@@ -367,8 +367,8 @@ Deep docs: **operating guides for every feature and build live in [`docs/`](docs
 
 ## Release scope and roadmap
 
-Release `0.4.0-alpha.1` is an integrated local workspace plus the typed production
-capability alpha. Delivered slices and
+Release `0.4.0-alpha.1` is an integrated local workspace plus the scheduling problem model v2
+(`twinflow.scheduling`). Delivered slices and
 their remaining acceptance gates are maintained in [enterprise build status](docs/enterprise/BUILD-STATUS.md)
 and the [validation record](docs/enterprise/VALIDATION.md). The [enterprise
 roadmap](docs/enterprise-roadmap.md) describes proposed product direction; it
