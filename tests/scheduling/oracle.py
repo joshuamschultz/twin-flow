@@ -2,11 +2,13 @@
 
 `semi_active` places every operation as early as possible for fixed per-machine
 sequences; `brute_force` enumerates every option choice and every per-machine sequence
-and keeps the best schedule by `objectives.evaluate`. The oracle is deliberately small:
+and keeps the best schedule by `oracle_math.objective_values`. The oracle is deliberately small:
 it supports releases, ready times, machine state, sequence-dependent setups (attached
 and detached, D-063) and end-to-gate precedence with `min_lag`. Problems using calendars,
 operators, batching, restarts, pins, shop-floor status, held jobs, transfer-lot overlap or
 `max_lag` raise ValueError, so a test can never trust an oracle that ignored a constraint.
+Setup seconds and objective values come from `oracle_math`, an independent re-implementation
+of the SDD text: the oracle never imports `setups`, `objectives` or `verifier`.
 
 Import it as `from oracle import ...`: pytest's default `prepend` import mode puts
 `tests/scheduling/` on `sys.path` for the test modules in that directory.
@@ -18,6 +20,8 @@ import itertools
 import math
 from collections.abc import Iterator, Mapping, Sequence
 
+from oracle_math import MAXIMIZED, SetupCalculator, objective_values
+
 from twinflow.scheduling.model import (
     Assignment,
     CompiledProblem,
@@ -27,8 +31,6 @@ from twinflow.scheduling.model import (
     Schedule,
     SchedulingProfile,
 )
-from twinflow.scheduling.objectives import SENSE, evaluate
-from twinflow.scheduling.setups import SetupTable
 
 MAX_COMBINATIONS = 1_000_000
 """Largest number of (option choice, machine sequences) combinations `brute_force` tries."""
@@ -100,7 +102,7 @@ class _Placer:
 
     def __init__(self, problem: Problem) -> None:
         self._problem = problem
-        self._setups = SetupTable.for_problem(problem)
+        self._setups = SetupCalculator(problem)
         self._ops = {op.id: op for op in _operations(problem)}
         self._release = {op.id: job.release for job in problem.jobs for op in job.operations}
         self._available = {m.id: m.state.available_from for m in problem.machines}
@@ -212,7 +214,7 @@ def brute_force(
     Enumeration order is deterministic (options in problem order, then permutations in
     `itertools` order); among equal values the first found wins. Maximize-sense objectives
     (robustness) are maximized. Deadlocked sequences are skipped. Job weights come from
-    `weight_override`, else the profile's class weights (via `evaluate`). The returned
+    `weight_override`, else the profile's class weights (via `objective_values`). The returned
     schedule has status OPTIMAL and `primary_value` set.
 
     Raises ValueError above MAX_COMBINATIONS combinations, for unsupported features, or
@@ -222,14 +224,14 @@ def brute_force(
     if combination_count(problem) > MAX_COMBINATIONS:
         raise ValueError(f"more than {MAX_COMBINATIONS} combinations to enumerate")
     compiled = CompiledProblem(problem=problem, profile=profile or SchedulingProfile())
-    sign = -1.0 if SENSE[objective] == "max" else 1.0
+    sign = -1.0 if objective in MAXIMIZED else 1.0
     best: tuple[float, Schedule] | None = None
     for sequences in _all_sequences(problem):
         try:
             schedule = semi_active(problem, sequences)
         except SequenceDeadlock:
             continue
-        value = evaluate(compiled, schedule)[objective]
+        value = objective_values(compiled, schedule)[objective]
         if best is None or sign * value < sign * best[0]:
             best = (value, schedule)
     if best is None:

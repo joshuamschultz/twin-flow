@@ -7,10 +7,15 @@ Requirements: REQ-078, REQ-079.
 
 from __future__ import annotations
 
+import ast
 import itertools
+import math
+from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
 import pytest
+from generators import random_request
 from oracle import (
     MAX_COMBINATIONS,
     SequenceDeadlock,
@@ -18,26 +23,46 @@ from oracle import (
     combination_count,
     semi_active,
 )
+from oracle_math import SetupCalculator, objective_values
 
+from twinflow.scheduling import solve
 from twinflow.scheduling.model import (
+    AbsDiffTerm,
     Assignment,
     Calendar,
     CompiledProblem,
+    FamilyMatrixEntry,
+    FrozenZone,
     Job,
     Machine,
+    MachineState,
+    MismatchTerm,
     ObjectiveKind,
     Operation,
     Precedence,
+    PreviousAssignment,
+    PreviousPlan,
     Problem,
     ProcessingOption,
     Schedule,
     SchedulingProfile,
+    SetupFunction,
     SolveRequest,
+    SolveResult,
     WorkCenter,
 )
 from twinflow.scheduling.objectives import evaluate
+from twinflow.scheduling.overrides import apply_overrides
+from twinflow.scheduling.setups import SetupTable
 
-FIXTURES = Path(__file__).parent / "fixtures"
+HERE = Path(__file__).parent
+FIXTURES = HERE / "fixtures"
+ORACLE_MODULES = ("oracle.py", "oracle_math.py")
+FORBIDDEN_IMPORTS = (
+    "twinflow.scheduling.setups",
+    "twinflow.scheduling.objectives",
+    "twinflow.scheduling.verifier",
+)
 K = ObjectiveKind
 
 
@@ -367,3 +392,387 @@ def test_brute_force_skips_deadlocked_sequences() -> None:
 
     assert value == 10.0
     assert [a.operation_id for a in schedule.assignments] == ["a", "b"]
+
+
+# --- independence from the code under test (TF-002 review item 4) ------------------------------
+
+
+def _imported_modules(path: Path) -> set[str]:
+    """Every module a file imports, including `from x import y` as both `x` and `x.y`."""
+    names: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text())):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names.add(node.module)
+            names.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return names
+
+
+@pytest.mark.parametrize("name", ORACLE_MODULES)
+def test_oracle_module_imports_no_setups_objectives_or_verifier(name: str) -> None:
+    imported = _imported_modules(HERE / name)
+
+    leaks = sorted(
+        module
+        for module in imported
+        for forbidden in FORBIDDEN_IMPORTS
+        if module == forbidden or module.startswith(f"{forbidden}.")
+    )
+    assert leaks == []
+
+
+# --- the oracle's own setup arithmetic, hand-computed from D-064 and DEV-4 --------------------
+
+_MATRIX = (
+    FamilyMatrixEntry(from_family="F", to_family="G", seconds=11.0),
+    FamilyMatrixEntry(from_family="G", to_family="F", seconds=13.0),
+)
+_SUM = SetupFunction(
+    id="SUM",
+    terms=(
+        AbsDiffTerm(param="w", seconds_per_unit=2.0),
+        MismatchTerm(param="c", seconds=3.0),
+    ),
+    family_matrix=_MATRIX,
+    default_seconds=17.0,
+)
+_MAX = _SUM.model_copy(update={"id": "MAX", "combine": "max"})
+_MATRIX_ONLY = SetupFunction(id="MATRIX", terms=(), family_matrix=_MATRIX, default_seconds=19.0)
+
+
+def _setup_problem(
+    *ops: Operation, machine_function: str | None = "SUM", state: MachineState | None = None
+) -> Problem:
+    machines = (
+        Machine(
+            id="A",
+            work_center_id="WC",
+            setup_function_id=machine_function,
+            state=state or MachineState(),
+        ),
+        Machine(id="B", work_center_id="WC"),
+    )
+    return _problem(
+        Job(id="j", operations=ops),
+        machines=machines,
+        work_centers=(WorkCenter(id="WC", setup_function_id="MAX"),),
+        setup_functions=(_SUM, _MAX, _MATRIX_ONLY),
+    )
+
+
+def _setup_op(op_id: str, params: dict[str, float | str], family: str | None = None) -> Operation:
+    return _op(op_id, "A", "B", setup_params=params, setup_family=family)
+
+
+@pytest.mark.parametrize(
+    ("prev", "nxt", "expected"),
+    [
+        ({"w": 3.0, "c": "x"}, {"w": 7.0, "c": "y"}, 2.0 * 4.0 + 3.0),  # terms summed
+        ({"w": 7.0, "c": "x"}, {"w": 3.0, "c": "x"}, 8.0),  # |b - a|, mismatch 0
+        ({"w": 3.0}, {"w": 7.0, "c": "y"}, 11.0),  # prev lacks c: family matrix F -> G
+        ({"w": "wide", "c": "x"}, {"w": 7.0, "c": "x"}, 11.0),  # DEV-4: text on abs_diff
+        ({"w": 3.0, "c": "1"}, {"w": 3.0, "c": 1.0}, 3.0),  # text vs number differ
+    ],
+)
+def test_oracle_setup_resolves_terms_then_family_matrix(
+    prev: dict[str, float | str], nxt: dict[str, float | str], expected: float
+) -> None:
+    problem = _setup_problem(_setup_op("p", prev, "F"), _setup_op("n", nxt, "G"))
+
+    assert SetupCalculator(problem).seconds("A", "p", "n") == expected
+
+
+def test_oracle_setup_combine_max_takes_the_largest_term() -> None:
+    ops = (_setup_op("p", {"w": 3.0, "c": "x"}), _setup_op("n", {"w": 4.5, "c": "y"}))
+    problem = _setup_problem(*ops, machine_function="MAX")
+
+    assert SetupCalculator(problem).seconds("A", "p", "n") == 3.0  # max(2 * 1.5, 3)
+
+
+def test_oracle_setup_same_family_without_entry_gives_default_not_zero() -> None:
+    ops = (_setup_op("p", {}, "F"), _setup_op("n", {}, "F"))
+
+    assert SetupCalculator(_setup_problem(*ops)).seconds("A", "p", "n") == 17.0
+
+
+def test_oracle_setup_no_family_and_missing_param_gives_default() -> None:
+    ops = (_setup_op("p", {"w": 1.0}), _setup_op("n", {"c": "x"}, "G"))
+
+    assert SetupCalculator(_setup_problem(*ops)).seconds("A", "p", "n") == 17.0
+
+
+def test_oracle_setup_function_without_terms_is_a_family_matrix() -> None:
+    same_params = {"w": 1.0, "c": "x"}
+    ops = (_setup_op("p", same_params, "G"), _setup_op("n", same_params, "F"))
+    calculator = SetupCalculator(_setup_problem(*ops, machine_function="MATRIX"))
+
+    assert calculator.seconds("A", "p", "n") == 13.0
+    assert calculator.seconds("A", "n", "p") == 11.0
+
+
+def test_oracle_setup_falls_back_to_work_center_function_then_to_zero() -> None:
+    ops = (_setup_op("p", {"w": 3.0, "c": "x"}), _setup_op("n", {"w": 4.5, "c": "y"}))
+    calculator = SetupCalculator(_setup_problem(*ops, machine_function=None))
+
+    assert calculator.seconds("A", "p", "n") == 3.0  # work center WC uses MAX
+    no_center_function = _setup_problem(*ops).model_copy(
+        update={"work_centers": (WorkCenter(id="WC"),)}
+    )
+    assert SetupCalculator(no_center_function).seconds("B", "p", "n") == 0.0
+
+
+def test_oracle_setup_first_operation_reads_the_machine_state() -> None:
+    state = MachineState(last_setup_params={"w": 10.0}, last_setup_family="G")
+    calculator = SetupCalculator(
+        _setup_problem(_setup_op("n", {"w": 4.0, "c": "x"}, "F"), state=state)
+    )
+
+    assert calculator.seconds("A", None, "n") == 13.0  # state lacks c: matrix G -> F
+
+
+def test_oracle_setup_first_operation_uses_state_params_when_complete() -> None:
+    state = MachineState(last_setup_params={"w": 10.0, "c": "x"})
+    calculator = SetupCalculator(_setup_problem(_setup_op("n", {"w": 4.0, "c": "y"}), state=state))
+
+    assert calculator.seconds("A", None, "n") == 2.0 * 6.0 + 3.0
+
+
+# --- the oracle's own objective arithmetic, hand-computed from the SDD formulas ----------------
+
+
+def _priced_option(machine_id: str, preference_cost: float) -> ProcessingOption:
+    return ProcessingOption(
+        machine_id=machine_id, fixed_seconds=1.0, unit_seconds=0.0, preference_cost=preference_cost
+    )
+
+
+def _objective_case(tolerance: float | None) -> CompiledProblem:
+    """J1 (class 2, due 30), J2 (override 3, due 100), J3 (no due), J4 held; now = 10."""
+    a = _op("a", "A").model_copy(
+        update={"options": (_priced_option("A", 1.5), _priced_option("B", 0.0))}
+    )
+    jobs = (
+        Job(id="J1", weight_class=2, due=30.0, operations=(a, _op("b", "B"))),
+        Job(id="J2", weight_override=3.0, due=100.0, operations=(_op("c", "A", "B"),)),
+        Job(id="J3", operations=(_op("d", "B"),)),
+        Job(id="J4", due=0.0, operations=(_op("e", "B"),)),
+    )
+    machines = (
+        Machine(id="A", work_center_id="WC", hour_cost=36.0, setup_hour_cost=72.0),
+        Machine(id="B", work_center_id="WC"),
+    )
+    frozen = FrozenZone(until=1000.0, tolerance=tolerance) if tolerance is not None else None
+    return CompiledProblem(
+        problem=_problem(*jobs, machines=machines, now=10.0),
+        profile=SchedulingProfile(frozen_zone=frozen),
+        held_job_ids=("J4",),
+    )
+
+
+def _assign(op_id: str, machine_id: str, start: float, setup_end: float, end: float) -> Assignment:
+    return Assignment(
+        operation_id=op_id, machine_id=machine_id, start=start, setup_end=setup_end, end=end
+    )
+
+
+_CASE_SCHEDULE = Schedule(
+    status="FEASIBLE",
+    assignments=(
+        _assign("a", "A", 10.0, 14.0, 20.0),
+        _assign("c", "A", 20.0, 20.0, 50.0),
+        _assign("b", "B", 20.0, 22.0, 40.0),
+        _assign("d", "B", 40.0, 40.0, 45.0),
+        _assign("e", "B", 45.0, 45.0, 60.0),  # held job: ignored everywhere
+        _assign("zz", "B", 60.0, 61.0, 99.0),  # not in the problem: ignored everywhere
+    ),
+    solver="hand",
+    elapsed_seconds=0.0,
+)
+_CASE_PREVIOUS = PreviousPlan(
+    plan_id="prev",
+    problem_digest="d",
+    assignments=(
+        PreviousAssignment(operation_id="a", machine_id="A", start=10.0),  # same
+        PreviousAssignment(operation_id="c", machine_id="B", start=20.0),  # machine changed
+        PreviousAssignment(operation_id="b", machine_id="B", start=25.0),  # moved 5
+        PreviousAssignment(operation_id="d", machine_id="B", start=30.0),  # moved 10
+        PreviousAssignment(operation_id="e", machine_id="A", start=0.0),  # held
+        PreviousAssignment(operation_id="gone", machine_id="A", start=0.0),  # not scheduled
+    ),
+)
+
+
+def test_oracle_objectives_match_hand_computed_sdd_formulas() -> None:
+    # C1 = 40, C2 = 50, C3 = 45; w1 = 2 (class 2), w2 = 3 (override), w3 = 1.
+    values = objective_values(_objective_case(5.0), _CASE_SCHEDULE, _CASE_PREVIOUS)
+
+    assert values == {
+        K.MAKESPAN: 40.0,
+        K.WEIGHTED_COMPLETION: 2 * 40.0 + 3 * 50.0 + 1 * 45.0,
+        K.MAX_LATENESS: 10.0,
+        K.TARDY_COUNT: 1.0,
+        K.WEIGHTED_TARDY_COUNT: 2.0,
+        K.TOTAL_TARDINESS: 10.0,
+        K.WEIGHTED_TARDINESS: 20.0,
+        K.EARLINESS_TARDINESS: 10.0 + 50.0,
+        K.TOTAL_SETUP: 4.0 + 2.0,
+        K.COST: (6.0 * 36.0 + 4.0 * 72.0 + 30.0 * 36.0) / 3600.0,
+        K.CHURN: 2.0,  # c changed machine, d moved 10 > 5; b moved exactly 5
+        K.ROBUSTNESS: (2 * (30.0 - 40.0) + 3 * (100.0 - 50.0)) / (2 * 20.0 + 3 * 90.0),
+        K.SOFT_PENALTY: 1.5,
+    }
+
+
+def test_oracle_churn_tolerance_is_zero_without_frozen_zone_and_zero_without_plan() -> None:
+    compiled = _objective_case(None)
+
+    assert objective_values(compiled, _CASE_SCHEDULE, _CASE_PREVIOUS)[K.CHURN] == 3.0
+    assert objective_values(compiled, _CASE_SCHEDULE)[K.CHURN] == 0.0
+
+
+def test_oracle_robustness_is_zero_when_the_denominator_is_not_positive() -> None:
+    job = Job(id="j", due=10.0, operations=(_op("a", "A"),))
+    compiled = CompiledProblem(problem=_problem(job, now=10.0), profile=SchedulingProfile())
+    schedule = semi_active(compiled.problem, {"A": ["a"], "B": []})
+
+    assert objective_values(compiled, schedule)[K.ROBUSTNESS] == 0.0
+
+
+def test_oracle_objectives_of_an_empty_schedule_are_zero() -> None:
+    empty = Schedule(status="FEASIBLE", assignments=(), solver="hand", elapsed_seconds=0.0)
+
+    assert set(objective_values(_objective_case(5.0), empty).values()) == {0.0}
+
+
+# --- cross-check against the production modules over generated problems -----------------------
+
+CROSS_CHECK_SEEDS = range(200)
+TOLERANCE = 1e-9
+
+
+@dataclass(frozen=True, slots=True)
+class _Solved:
+    seed: int
+    request: SolveRequest
+    compiled: CompiledProblem
+    result: SolveResult
+
+
+def _varied_params(op: Operation, k: int) -> Operation:
+    """Every 4th op lacks `c` and every 4th has text `w`, so the matrix and default decide."""
+    params = dict(op.setup_params)
+    if k % 4 == 1:
+        params.pop("c", None)
+    elif k % 4 == 2 and "w" in params:
+        params["w"] = "wide"
+    return op.model_copy(update={"setup_params": params})
+
+
+def _two_terms(function: SetupFunction) -> SetupFunction:
+    """With one term, sum and max agree; a second term makes `combine` observable."""
+    extra = AbsDiffTerm(param="w", seconds_per_unit=0.5)
+    return function.model_copy(update={"terms": (*function.terms, extra)})
+
+
+def _cross_check_request(seed: int) -> SolveRequest:
+    """`random_request(seed)` with priced machines and every D-064 resolution branch in use.
+
+    The generator leaves hour costs at 0, gives every op both setup parameters as numbers
+    and a one-term max function, which would leave cost, the family matrix, the text rule
+    and `combine` unchecked.
+    """
+    problem = random_request(seed).problem
+    machines = tuple(
+        m.model_copy(update={"hour_cost": 7.0 + seed % 5 + i, "setup_hour_cost": 13.0 + i})
+        for i, m in enumerate(problem.machines)
+    )
+    counter = itertools.count()
+    jobs = tuple(
+        job.model_copy(
+            update={"operations": tuple(_varied_params(op, next(counter)) for op in job.operations)}
+        )
+        for job in problem.jobs
+    )
+    functions = tuple(_two_terms(f) for f in problem.setup_functions)
+    update = {"machines": machines, "jobs": jobs, "setup_functions": functions}
+    request = random_request(seed)
+    return request.model_copy(update={"problem": problem.model_copy(update=update)})
+
+
+@cache
+def _verified_baseline_solves() -> tuple[_Solved, ...]:
+    """Baseline solves of the cross-check requests whose schedules verified."""
+    solved = []
+    for seed in CROSS_CHECK_SEEDS:
+        request = _cross_check_request(seed)
+        result = solve(request)
+        if result.verified:
+            solved.append(_Solved(seed, request, apply_overrides(request), result))
+    return tuple(solved)
+
+
+def _close(a: float, b: float) -> bool:
+    return math.isclose(a, b, rel_tol=TOLERANCE, abs_tol=TOLERANCE)
+
+
+def test_cross_check_covers_enough_verified_problems_and_features() -> None:
+    solved = _verified_baseline_solves()
+    values = [s.result.objective_values for s in solved]
+
+    assert len(solved) >= 100
+    assert sum(v[K.TOTAL_SETUP] > 0 for v in values) >= 20
+    assert sum(v[K.CHURN] > 0 for v in values) >= 5
+    assert sum(v[K.SOFT_PENALTY] > 0 for v in values) >= 5
+    assert sum(v[K.COST] > 0 for v in values) >= 20
+    assert sum(v[K.ROBUSTNESS] != 0 for v in values) >= 20
+    assert sum(v[K.WEIGHTED_TARDINESS] > 0 for v in values) >= 20
+    assert sum(bool(s.compiled.held_job_ids) for s in solved) >= 10
+
+
+def test_oracle_objectives_equal_production_evaluate_on_200_generated_problems() -> None:
+    disagreements = []
+    for s in _verified_baseline_solves():
+        ours = objective_values(s.compiled, s.result.schedule, s.request.previous_plan)
+        theirs = s.result.objective_values
+        assert set(ours) == set(theirs) == set(ObjectiveKind)
+        disagreements += [
+            (s.seed, kind.value, ours[kind], theirs[kind])
+            for kind in ObjectiveKind
+            if not _close(ours[kind], theirs[kind])
+        ]
+
+    assert disagreements == []
+
+
+def _used_setup_triples(schedule: Schedule) -> list[tuple[str, str | None, str]]:
+    """(machine, previous op or None, next op) in machine order (start, end, id; DEV-11)."""
+    by_machine: dict[str, list[Assignment]] = {}
+    for a in schedule.assignments:
+        by_machine.setdefault(a.machine_id, []).append(a)
+    triples: list[tuple[str, str | None, str]] = []
+    for machine_id, assignments in by_machine.items():
+        ordered = sorted(assignments, key=lambda a: (a.start, a.end, a.operation_id))
+        previous: list[str | None] = [None, *(a.operation_id for a in ordered[:-1])]
+        triples += [
+            (machine_id, prev, a.operation_id) for prev, a in zip(previous, ordered, strict=True)
+        ]
+    return triples
+
+
+def test_oracle_setups_equal_production_setup_table_for_every_used_pair() -> None:
+    disagreements = []
+    nonzero = 0
+    for s in _verified_baseline_solves():
+        ours, theirs = (
+            SetupCalculator(s.compiled.problem),
+            SetupTable.for_problem(s.compiled.problem),
+        )
+        for triple in _used_setup_triples(s.result.schedule):
+            mine, production = ours.seconds(*triple), theirs.seconds(*triple)
+            nonzero += mine > 0
+            if not _close(mine, production):
+                disagreements.append((s.seed, triple, mine, production))
+
+    assert disagreements == []
+    assert nonzero >= 50
