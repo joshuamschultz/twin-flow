@@ -16,9 +16,11 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.responses import JSONResponse
 
 from twinflow import __version__
 from twinflow.model import load_model
@@ -76,6 +78,16 @@ class ModelCatalog:
         return str(model_path.resolve()), str(plan_path.resolve())
 
 
+def _validation_refusal(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 listing where and why, never the rejected values (NaN or a 5,000-deep list in
+    `input` breaks JSON encoding, and echoing client data back is a leak)."""
+    detail = [
+        {"type": item["type"], "loc": list(item["loc"]), "msg": item["msg"]}
+        for item in exc.errors()
+    ]
+    return JSONResponse({"detail": detail}, status_code=422)
+
+
 def create_app(
     models_root: str | Path = "examples",
     *,
@@ -108,6 +120,7 @@ def create_app(
         workspace.close()
 
     app = FastAPI(title="twinflow", version=__version__, lifespan=lifespan)
+    app.add_exception_handler(RequestValidationError, _validation_refusal)  # type: ignore[arg-type]  # Starlette types handlers on bare Exception
     app.include_router(workspace_router(workspace))
     from twinflow.service.decisions import decision_router
 
