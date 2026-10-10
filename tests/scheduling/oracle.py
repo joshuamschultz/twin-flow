@@ -212,7 +212,11 @@ def combination_count(problem: Problem, limit: int = MAX_COMBINATIONS) -> int:
     return total
 
 
-def _all_sequences(problem: Problem) -> Iterator[dict[str, tuple[str, ...]]]:
+def all_sequences(problem: Problem) -> Iterator[dict[str, tuple[str, ...]]]:
+    """Every option choice with every per-machine order, in a deterministic order.
+
+    Sequences may contradict precedence; `semi_active` raises `SequenceDeadlock` for those.
+    """
     for grouped in _option_choices(problem):
         machine_ids = list(grouped)
         orders = (itertools.permutations(grouped[m]) for m in machine_ids)
@@ -240,7 +244,7 @@ def brute_force(
     compiled = CompiledProblem(problem=problem, profile=profile or SchedulingProfile())
     sign = -1.0 if objective in MAXIMIZED else 1.0
     best: tuple[float, Schedule] | None = None
-    for sequences in _all_sequences(problem):
+    for sequences in all_sequences(problem):
         try:
             schedule = semi_active(problem, sequences)
         except SequenceDeadlock:
