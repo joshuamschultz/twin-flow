@@ -198,18 +198,22 @@ def _missing_issues(index: _Index, by_op: Mapping[str, Assignment]) -> Iterator[
 
 
 def _machine_sequences(index: _Index, scoped: Iterable[Assignment]) -> dict[str, list[Assignment]]:
-    """Assignments on known machines, per machine, sorted by (start, operation id)."""
+    """Assignments on known machines, per machine, sorted by (start, end, operation id).
+
+    `end` breaks start ties so an empty span [t, t) comes before an operation starting at
+    t: the order, and with it every overlap and setup verdict, never depends on ids.
+    """
     sequences: dict[str, list[Assignment]] = defaultdict(list)
     for a in scoped:
         if a.machine_id in index.machine:
             sequences[a.machine_id].append(a)
     for sequence in sequences.values():
-        sequence.sort(key=lambda a: (a.start, a.operation_id))
+        sequence.sort(key=lambda a: (a.start, a.end, a.operation_id))
     return sequences
 
 
 def _setup_predecessors(sequences: Mapping[str, Sequence[Assignment]]) -> dict[str, str | None]:
-    """The operation each setup is measured from: the previous one by start order.
+    """The operation each setup is measured from: the previous one in sequence order.
 
     None means the machine's state at `now`. Members of one batch share the predecessor of
     the batch (the setup is done once for the whole load).
@@ -235,7 +239,8 @@ def _machine_overlap_issues(
     """`machine_overlap`: a unary machine is busy on [start, end); members of one batch share it.
 
     Each assignment is compared with the latest-ending assignment before it, so an
-    assignment nested inside a long one is caught as well as a neighbor.
+    assignment nested inside a long one is caught as well as a neighbor. An empty span
+    [t, t) overlaps an operation on [s, e) only when s < t < e.
     """
     for sequence in sequences.values():
         frontier: Assignment | None = None

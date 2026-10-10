@@ -552,6 +552,45 @@ def test_verify_is_deterministic() -> None:
     assert _check(case, mutated) == _check(case, mutated)
 
 
+# --- zero-length operations on a machine (TF-002 review) -------------------------------------
+
+
+def _empty_beside(long_id: str, empty_id: str) -> Case:
+    """`long_id` runs 10 s on A from 0; `empty_id` has a 0 s run on A."""
+    problem = _problem(
+        [_job("J1", _op(long_id, "A", seconds=10)), _job("J2", _op(empty_id, "A", seconds=0))],
+        [_machine("A")],
+    )
+    return Case(_compile(problem), _schedule())
+
+
+@pytest.mark.parametrize(("long_id", "empty_id"), [("a", "z"), ("z", "a")])
+def test_verify_empty_span_at_an_ops_start_is_valid_whatever_the_ids(
+    long_id: str, empty_id: str
+) -> None:
+    case = _empty_beside(long_id, empty_id)
+    schedule = _schedule(_a(long_id, "A", 0, 0, 10), _a(empty_id, "A", 0, 0, 0))
+
+    assert _check(case, schedule).valid
+
+
+@pytest.mark.parametrize(("long_id", "empty_id"), [("a", "z"), ("z", "a")])
+def test_verify_empty_span_at_an_ops_end_is_valid_whatever_the_ids(
+    long_id: str, empty_id: str
+) -> None:
+    case = _empty_beside(long_id, empty_id)
+    schedule = _schedule(_a(long_id, "A", 0, 0, 10), _a(empty_id, "A", 10, 10, 10))
+
+    assert _check(case, schedule).valid
+
+
+def test_verify_empty_span_strictly_inside_an_op_is_machine_overlap() -> None:
+    case = _empty_beside("a", "z")
+    schedule = _schedule(_a("a", "A", 0, 0, 10), _a("z", "A", 5, 5, 5))
+
+    _only(_check(case, schedule), "machine_overlap")
+
+
 # --- one mutation, exactly one family ---------------------------------------------------------
 
 MUTATIONS = [

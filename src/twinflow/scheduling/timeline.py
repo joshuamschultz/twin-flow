@@ -3,8 +3,10 @@
 Plain mutable state the baseline builds once from the compiled problem; no Pydantic model
 is created or validated here (SDD risk note). Times are float seconds.
 
-``MachineTimeline`` (one per machine) holds placed occupations sorted by start; a machine
-is busy on ``[start, end)`` and runs one operation or one batch at a time (D-062).
+``MachineTimeline`` (one per machine) holds placed occupations sorted by (start, end,
+first member id), the verifier's sequence order, so an empty occupation ``[t, t)`` sits
+before one that starts at ``t``; a machine is busy on ``[start, end)`` and runs one
+operation or one batch at a time (D-062).
 ``find_slot`` returns the earliest slot that satisfies, per the SDD Data Model:
 
 - ``start >= max(available_from, earliest_start)`` (callers fold ``now``, pins and the
@@ -185,6 +187,7 @@ class MachineTimeline:
         "_available_from",
         "_batch_by_id",
         "_capacity",
+        "_keys",
         "_occupations",
         "_setups",
         "_starts",
@@ -205,6 +208,7 @@ class MachineTimeline:
         self._capacity = batch_capacity
         self._occupations: list[_Occupation] = []
         self._starts: list[float] = []
+        self._keys: list[tuple[float, float, str]] = []
         self._batch_by_id: dict[str, _Occupation] = {}
 
     def find_slot(self, request: SlotRequest, accept: SlotFilter | None = None) -> Slot | None:
@@ -227,7 +231,8 @@ class MachineTimeline:
         """
         if slot.batch_id is not None:
             return self._join(request, slot)
-        index = self._free_index(slot)
+        key = (slot.start, slot.end, request.op_id)
+        index = self._free_index(slot, key)
         batch_id = None
         if self._batches(request):
             batch_id = f"{self.machine_id}#b{len(self._batch_by_id) + 1}"
@@ -243,6 +248,7 @@ class MachineTimeline:
         )
         self._occupations.insert(index, occupation)
         self._starts.insert(index, slot.start)
+        self._keys.insert(index, key)
         if batch_id is not None:
             self._batch_by_id[batch_id] = occupation
         return batch_id
@@ -298,9 +304,9 @@ class MachineTimeline:
             for member in follower.members
         )
 
-    def _free_index(self, slot: Slot) -> int:
-        """Insert position of ``slot``; raises ValueError when it overlaps a neighbour."""
-        index = bisect_right(self._starts, slot.start)
+    def _free_index(self, slot: Slot, key: tuple[float, float, str]) -> int:
+        """Insert position of ``slot`` by sequence key; ValueError when it overlaps a neighbour."""
+        index = bisect_right(self._keys, key)
         previous = self._occupations[index - 1] if index > 0 else None
         follower = self._occupations[index] if index < len(self._occupations) else None
         if (previous and previous.end > slot.start) or (follower and slot.end > follower.start):

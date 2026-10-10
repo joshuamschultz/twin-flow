@@ -331,6 +331,35 @@ def test_faster_successor_waits_to_end_after_the_last_lot() -> None:
     assert (placed["B"].start, placed["B"].end) == (6.0, 11.0)
 
 
+# --- zero-length operations (TF-002 review) -------------------------------------------------
+
+
+def test_zero_length_op_between_two_ops_at_the_same_instant_verifies() -> None:
+    jobs = [
+        Job(id="J1", operations=(_op("op1", ("M1", 10.0)),)),
+        Job(id="J3", operations=(_op("op3", ("M1", 0.0)),)),
+        Job(id="J2", operations=(_op("op2", ("M1", 10.0)),), release=5.0),
+    ]
+
+    result = _verified(_problem(jobs))
+
+    placed = _by_op(result.schedule)
+    assert (placed["op3"].start, placed["op3"].end) == (10.0, 10.0)
+
+
+def test_zero_length_op_released_into_a_closed_gap_is_placed_and_verifies() -> None:
+    jobs = [
+        Job(id="J1", operations=(_op("op1", ("M1", 10.0)),)),
+        Job(id="J2", operations=(_op("op2", ("M1", 10.0)),), release=5.0),
+        Job(id="J3", operations=(_op("op3", ("M1", 0.0)),), release=7.0),
+    ]
+
+    result = _verified(_problem(jobs))
+
+    placed = _by_op(result.schedule)
+    assert placed["op3"].start == placed["op3"].end == 10.0
+
+
 # --- operators and batches -------------------------------------------------------------------
 
 
