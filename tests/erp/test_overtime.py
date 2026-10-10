@@ -296,6 +296,30 @@ def test_expand_overtime_touching_windows_with_different_multipliers_stay_separa
     assert result == ((57_600.0, 64_800.0, 1.5), (64_800.0, 72_000.0, 2.0))
 
 
+def test_expand_overtime_overlapping_windows_price_the_overlap_at_the_higher_multiplier() -> None:
+    """Overlapping offers stay disjoint (TF-002 requires it); the overlap is never underpriced."""
+    overtime = make_overtime({0: [(960, 1140, 1.5), (1080, 1200, 2.0), (1170, 1185, 1.25)]})
+    horizon_end = MONDAY + dt.timedelta(days=1)
+
+    result = expand_overtime(overtime, CHICAGO, MONDAY, horizon_end)
+
+    assert result == ((57_600.0, 64_800.0, 1.5), (64_800.0, 72_000.0, 2.0))
+    assert_well_formed(result, SECONDS_PER_DAY)
+
+
+def test_expand_overtime_overnight_carry_in_overlapping_next_day_window_stays_disjoint() -> None:
+    overtime = make_overtime({0: [(1320, 120, 1.5)], 1: [(60, 180, 2.0)]})
+    horizon_end = MONDAY + dt.timedelta(days=2)
+
+    result = expand_overtime(overtime, CHICAGO, MONDAY, horizon_end)
+
+    tuesday = SECONDS_PER_DAY
+    assert result == (
+        (79_200.0, tuesday + 3_600.0, 1.5),
+        (tuesday + 3_600.0, tuesday + 10_800.0, 2.0),
+    )
+
+
 def test_expand_overtime_touching_windows_with_equal_multipliers_merge() -> None:
     overtime = make_overtime({0: [(960, 1080, 1.5), (1080, 1200, 1.5)]})
     horizon_end = MONDAY + dt.timedelta(days=1)

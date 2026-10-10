@@ -22,6 +22,7 @@ The day walk (`_dated_windows`) is generic over any window with `start_minute` a
 from __future__ import annotations
 
 import datetime as dt
+import heapq
 from collections.abc import Callable, Iterator, Sequence
 from typing import Protocol, TypeVar
 from zoneinfo import ZoneInfo
@@ -192,14 +193,41 @@ def _clip_and_merge(pieces: list[Interval], horizon: float) -> tuple[Interval, .
 def _clip_and_merge_priced(
     pieces: list[OvertimePiece], horizon: float
 ) -> tuple[OvertimePiece, ...]:
-    """Clip to `[0, horizon]`, sort, merge touching or overlapping pieces of equal price."""
+    """Clip to `[0, horizon]`, sort, make disjoint, merge touching pieces of equal price.
+
+    Where offered windows overlap, the overlap takes the highest multiplier on offer, so
+    the result stays disjoint (TF-002 `Calendar.overtime`) and is never underpriced.
+    """
     merged: list[OvertimePiece] = []
-    for start, end, multiplier in sorted(pieces):
-        lo, hi = max(start, 0.0), min(end, horizon)
-        if lo >= hi:
-            continue
-        if merged and lo <= merged[-1][1] and merged[-1][2] == multiplier:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], hi), multiplier)
+    for lo, hi, multiplier in _highest_priced_segments(pieces, horizon):
+        if merged and lo == merged[-1][1] and merged[-1][2] == multiplier:
+            merged[-1] = (merged[-1][0], hi, multiplier)
         else:
             merged.append((lo, hi, multiplier))
     return tuple(merged)
+
+
+def _highest_priced_segments(
+    pieces: list[OvertimePiece], horizon: float
+) -> Iterator[OvertimePiece]:
+    """Elementary segments between piece boundaries, each at its highest covering price.
+
+    A sweep over the boundaries with a max-heap of the open pieces: O(n log n).
+    """
+    clipped = sorted(
+        (max(start, 0.0), min(end, horizon), multiplier)
+        for start, end, multiplier in pieces
+        if max(start, 0.0) < min(end, horizon)
+    )
+    bounds = sorted({point for start, end, _ in clipped for point in (start, end)})
+    open_pieces: list[tuple[float, float]] = []  # (-multiplier, end)
+    next_piece = 0
+    for lo, hi in zip(bounds, bounds[1:], strict=False):
+        while next_piece < len(clipped) and clipped[next_piece][0] <= lo:
+            _, end, multiplier = clipped[next_piece]
+            heapq.heappush(open_pieces, (-multiplier, end))
+            next_piece += 1
+        while open_pieces and open_pieces[0][1] <= lo:
+            heapq.heappop(open_pieces)
+        if open_pieces:
+            yield (lo, hi, -open_pieces[0][0])
