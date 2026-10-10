@@ -16,7 +16,9 @@
 
 Setups are refused by `solve()` (D-067), so `setup_end == start` and the material gate
 equals `start`. Times are integers at `SCALE` ticks per second; inputs with more than six
-decimals are refused (`unsupported_precision`) instead of silently rounded. A run of
+decimals are refused (`unsupported_precision`) instead of silently rounded, and inputs
+whose ticks (a time, a run, the horizon) pass `MAX_TICKS` are refused
+(`unsupported_magnitude`) before a model is built. A run of
 `fixed + quantity * unit` is rounded to the nearest tick (error <= 0.5 microseconds,
 inside the verifier's 1e-6 tolerance). A zero-length run occupies one tick on its machine
 and pool so CP-SAT cannot place it inside another interval or a break, which the verifier
@@ -55,6 +57,10 @@ SCALE = 1_000_000
 """Ticks per second: CP-SAT works on integers, times are float seconds."""
 
 MAX_DECIMALS = 6
+MAX_TICKS = 2**52
+"""Largest tick magnitude a model value may have (about 142 years of seconds). CP-SAT
+domains must stay inside +-int64max / 2, and expressions add a few such values (an end
+plus a lag, the objective's +-2 * reach), so 2**52 leaves ample headroom."""
 SOLVER_NAME = "ortools"
 CAPABILITIES = frozenset(
     {
@@ -100,6 +106,29 @@ def _refusals(problem: Problem, kind: ObjectiveKind) -> list[ScheduleIssue]:
             message = f"{value!r} has more than {MAX_DECIMALS} decimal places"
             return [ScheduleIssue(code="unsupported_precision", path=path, message=message)]
     return []
+
+
+def _magnitude_refusals(problem: Problem, horizon: int) -> list[ScheduleIssue]:
+    """`unsupported_magnitude` for the first value whose ticks pass `MAX_TICKS`.
+
+    Checked: every time input, every operation's summed option runs (an end expression
+    adds them) and the horizon. Every term of the objective and of a lag constraint is a
+    sum of a few of these, so all stay far inside int64.
+    """
+    values = [*_time_values(problem), *_run_values(problem)]
+    for path, value in [("problem.horizon_end", _seconds(horizon)), *values]:
+        if abs(_ticks(value)) > MAX_TICKS:
+            message = f"{value:g} s is too large for CP-SAT ticks (limit {MAX_TICKS / SCALE:g} s)"
+            return [ScheduleIssue(code="unsupported_magnitude", path=path, message=message)]
+    return []
+
+
+def _run_values(problem: Problem) -> Iterator[tuple[str, float]]:
+    """Per operation, the sum of its option runs `fixed + quantity * unit`."""
+    for j, job in enumerate(problem.jobs):
+        for k, op in enumerate(job.operations):
+            runs = (o.fixed_seconds + op.quantity * o.unit_seconds for o in op.options)
+            yield f"problem.jobs[{j}].operations[{k}].options", sum(runs)
 
 
 def _time_values(problem: Problem) -> Iterator[tuple[str, float]]:
@@ -431,9 +460,10 @@ class ORToolsSolver:
     ) -> Schedule:
         """Optimize the primary objective of `objective` within `budget_seconds`.
 
-        UNKNOWN with `unsupported_objective` or `unsupported_precision` when refused (the
-        model is not built); INFEASIBLE with `infeasible`; UNKNOWN with `time_limit` when
-        the budget ran out before any plan. A model CP-SAT finds invalid is a bug and raises.
+        UNKNOWN with `unsupported_objective`, `unsupported_precision` or
+        `unsupported_magnitude` when refused (the model is not built); INFEASIBLE with
+        `infeasible`; UNKNOWN with `time_limit` when the budget ran out before any plan. A
+        model CP-SAT finds invalid is a bug and raises.
         """
         started = time.perf_counter()
         kind = primary_kind(objective)
@@ -441,7 +471,11 @@ class ORToolsSolver:
         if refusals:
             return _schedule("UNKNOWN", started, issues=refusals)
         scheduled = _scheduled(problem)
-        builder = _Builder(self._cp_model, problem, _horizon(problem, scheduled))
+        horizon = _horizon(problem, scheduled)
+        refusals = _magnitude_refusals(problem, horizon)
+        if refusals:
+            return _schedule("UNKNOWN", started, issues=refusals)
+        builder = _Builder(self._cp_model, problem, horizon)
         builder.build(scheduled, kind)
         cp_solver = self._cp_model.CpSolver()
         cp_solver.parameters.max_time_in_seconds = budget_seconds

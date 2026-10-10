@@ -444,3 +444,47 @@ def test_zero_length_op_never_sits_inside_another_op_or_a_break() -> None:
     result = _solve(problem)
 
     _assert_optimal_and_verified(result)
+
+
+# --- magnitudes CP-SAT cannot hold in int64 ticks (TF-002 review) ----------------------------
+
+
+def _huge_unit_op() -> Operation:
+    op = _op("A")
+    option = op.options[0].model_copy(update={"unit_seconds": 1.0})
+    return op.model_copy(update={"quantity": 1e15, "options": (option,)})
+
+
+_HUGE: dict[str, Problem] = {
+    "release": _problem([Job(id="J", release=1e13, operations=(_op("A"),))]),
+    "max_lag": _problem(
+        [[_op("A"), _op("B", predecessors=[{"operation_id": "A", "max_lag": 1e14}])]]
+    ),
+    "due": _problem([Job(id="J", due=4e12, operations=(_op("A"),))]),
+    "durations": _problem([[_op("A", {"M1": 3e12})], [_op("B", {"M1": 3e12})]]),
+    "calendar": _problem(
+        [[_op("A")]],
+        (_machine("M1", calendar_id="c"),),
+        calendars=({"id": "c", "intervals": [(1e13, 1e13 + 10.0)]},),
+    ),
+    "pin": _problem([[_op("A", pin={"latest_start": 1e14})]]),
+    "quantity": _problem([[_huge_unit_op()]]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_HUGE))
+def test_values_too_large_for_int64_ticks_are_refused_as_unsupported_magnitude(
+    name: str,
+) -> None:
+    for kind in (ObjectiveKind.MAKESPAN, ObjectiveKind.MAX_LATENESS):
+        result = _solve(_HUGE[name], kind)
+
+        assert result.schedule.status == "UNKNOWN"
+        assert _codes(result) == ["unsupported_magnitude"]
+
+
+def test_epoch_scale_times_are_still_solved() -> None:
+    now = 1.8e9  # seconds since 1970, around 2027
+    problem = _problem([Job(id="J", release=now, due=now + 100.0, operations=(_op("A"),))], now=now)
+
+    _assert_optimal_and_verified(_solve(problem))

@@ -40,6 +40,7 @@ from twinflow.scheduling.verifier import verify
 SOLUTION_STATUSES = frozenset({"FEASIBLE", "OPTIMAL"})
 PROBLEM_PATH = "problem"
 BUDGET_PATH = "budget_seconds"
+SOLVER_PATH = "solver"
 
 
 class Feature(StrEnum):
@@ -177,7 +178,8 @@ def solve(
     UNKNOWN schedule with the issues and never calls the solver. `verified` is true only
     when the solver answered FEASIBLE or OPTIMAL and the verifier found no issue
     (REQ-073); only then are all thirteen objective values reported. An exception raised
-    by the solver is a solver bug and propagates.
+    by the solver is a solver bug: it becomes an UNKNOWN schedule with a `solver_error`
+    issue whose message is the exception class name only, so no internals leak.
     """
     chosen = solver if solver is not None else _default_solver()
     budget = request.profile.time_budget_seconds if budget_seconds is None else budget_seconds
@@ -195,10 +197,25 @@ def solve(
     missing = sorted(features - chosen.capabilities)
     if missing:
         return _refused(chosen, [_unsupported(chosen, f) for f in missing], compiled, features)
-    schedule = chosen.solve(
-        compiled.problem, objective=compiled.profile.objective, budget_seconds=budget
-    )
+    schedule = _run(chosen, compiled, budget)
     return _checked(request, compiled, features, schedule)
+
+
+def _run(solver: Solver, compiled: CompiledProblem, budget: float) -> Schedule:
+    """The solver's answer; an exception becomes UNKNOWN with `solver_error`."""
+    try:
+        return solver.solve(
+            compiled.problem, objective=compiled.profile.objective, budget_seconds=budget
+        )
+    except Exception as error:  # any solver bug must not escape solve() as a traceback
+        issue = ScheduleIssue(code="solver_error", path=SOLVER_PATH, message=type(error).__name__)
+        return Schedule(
+            status="UNKNOWN",
+            assignments=(),
+            solver=solver.name,
+            elapsed_seconds=0.0,
+            issues=(issue,),
+        )
 
 
 def _default_solver() -> Solver:

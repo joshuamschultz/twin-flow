@@ -398,12 +398,16 @@ def test_non_solution_status_is_not_verified_and_keeps_solver_issues(status: str
     assert result.objective_values == {}
 
 
-def test_solver_exception_propagates() -> None:
+def test_solve_turns_a_solver_exception_into_unknown_solver_error() -> None:
     def answer(_: Problem) -> Schedule:
-        raise RuntimeError("solver bug")
+        raise RuntimeError("secret internal state /etc/passwd")
 
-    with pytest.raises(RuntimeError, match="solver bug"):
-        solve(_request(_problem()), solver=FakeSolver(answer=answer))
+    result = solve(_request(_problem()), solver=FakeSolver(answer=answer))
+
+    assert result.schedule.status == "UNKNOWN"
+    assert not result.verified
+    (issue,) = result.issues
+    assert (issue.code, issue.path, issue.message) == ("solver_error", "solver", "RuntimeError")
 
 
 # --- request and budget validation ------------------------------------------------------------
