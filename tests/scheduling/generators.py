@@ -8,6 +8,11 @@ machines) from `np.random.default_rng(seed)`. Seeds rotate through three shapes:
 - otherwise: every feature the baseline supports, including the three setup term kinds
   (abs_diff, mismatch, family matrix), batching, pause and transfer-lot overlap.
 
+Some rich seeds (seed % 10 == 7) add a cross-job link plus split case (T-115, D-084): one
+untouched job's first operation waits on another untouched job's last operation (sometimes
+through a transfer lot), and the predecessor job is split. Its draws come from a separate
+stream, `np.random.default_rng((seed, 115))`, so every other seed's request is unchanged.
+
 A few seeds (seed % 20 == 13) add a restart rule, which no solver declares (expect
 `unsupported_feature`). Overrides of every kind and a frozen zone with a previous plan
 appear on some seeds. Override targets are distinct jobs without in-progress operations so
@@ -64,12 +69,18 @@ def _chance(rng: np.random.Generator, p: float) -> bool:
 class Shape:
     """Which feature families a seed may use."""
 
+    seed: int
     cpsat_friendly: bool
     restart: bool
 
     @classmethod
     def for_seed(cls, seed: int) -> Shape:
-        return cls(cpsat_friendly=seed % 3 == 0, restart=seed % 20 == 13)
+        return cls(seed=seed, cpsat_friendly=seed % 3 == 0, restart=seed % 20 == 13)
+
+    @property
+    def cross_job_split(self) -> bool:
+        """A cross-job link into a split predecessor job is added (T-115)."""
+        return self.rich and self.seed % 10 == 7
 
     @property
     def rich(self) -> bool:
@@ -109,6 +120,8 @@ class _RequestBuilder:
                 "until": 100.0,
                 "tolerance": _pick(self.rng, (30.0, 1000.0)),
             }
+        if self.shape.cross_job_split:
+            self._add_cross_job_split(data)
         return SolveRequest.model_validate(data)
 
     # --- jobs and operations --------------------------------------------------------------
@@ -305,6 +318,37 @@ class _RequestBuilder:
                 override |= {"id": f"o{index}", "fact_ref": "fact", "reason": "test"}
                 overrides.append(override)
         return overrides
+
+    def _add_cross_job_split(self, data: dict[str, Any]) -> None:
+        """Link two plain jobs no override touches, then split the predecessor job (T-115).
+
+        Plain: no status, pin or batch family, so the link cannot meet a done, running or
+        pinned operation. No max_lag: the successor waits on every child, and a max_lag
+        window across children on shared machines can be infeasible by construction.
+        """
+        rng = np.random.default_rng((self.seed, 115))
+        overrides: list[dict[str, Any]] = data.setdefault("overrides", [])
+        candidates = [job for job in self.jobs if self._plain_untargeted(job, overrides)]
+        if len(candidates) < 2:
+            return
+        first, second = (candidates[int(i)] for i in rng.permutation(len(candidates))[:2])
+        pred, succ = first["operations"][-1], second["operations"][0]
+        link: dict[str, Any] = {"operation_id": pred["id"], "min_lag": float(_int(rng, 0, 10))}
+        if "pause" not in (pred["shift_crossing"], succ["shift_crossing"]) and _chance(rng, 0.7):
+            link["overlap_quantity"] = float(_int(rng, 1, int(pred["quantity"])))
+        succ.setdefault("predecessors", []).append(link)
+        fractions = _pick(rng, ((0.5, 0.5), (0.25, 0.75), (0.25, 0.25, 0.5)))
+        split = {"kind": "split", "hardness": "hard", "job_id": first["id"], "fractions": fractions}
+        overrides.append(split | {"id": "o115", "fact_ref": "fact", "reason": "test"})
+
+    def _plain_untargeted(self, job: dict[str, Any], overrides: list[dict[str, Any]]) -> bool:
+        op_ids = {op["id"] for op in job["operations"]}
+        targeted = any(
+            override.get("job_id") == job["id"] or override.get("operation_id") in op_ids
+            for override in overrides
+        )
+        plain = all(not {"status", "pin", "batch_family"} & op.keys() for op in job["operations"])
+        return plain and not targeted
 
     def _previous_plan(self) -> dict[str, Any]:
         assignments = [
