@@ -47,6 +47,8 @@ from twinflow.scheduling.model import (
     FrozenZone,
     HoldOverride,
     Job,
+    Lexicographic,
+    LexicographicLevel,
     LockOverride,
     Machine,
     MachineState,
@@ -68,6 +70,7 @@ from twinflow.scheduling.model import (
     VerificationResult,
     WorkCenter,
 )
+from twinflow.scheduling.objectives import evaluate
 from twinflow.scheduling.overrides import apply_overrides
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -1289,6 +1292,33 @@ def test_verify_primary_value_is_read_from_the_compiled_profile_objective() -> N
     result = verifier.verify(default_profile, (), weighted.schedule)  # 98 is not the makespan (48)
 
     assert _codes(result) == {"objective_mismatch"}
+
+
+def test_verify_churn_primary_value_is_evaluated_against_the_previous_plan() -> None:
+    case = _pinedo_7_1_1()
+    moved = case.schedule.assignments[0]
+    previous = PreviousPlan(
+        plan_id="p0",
+        problem_digest="d0",
+        assignments=tuple(
+            PreviousAssignment(
+                operation_id=a.operation_id,
+                machine_id=a.machine_id,
+                start=a.start + (100.0 if a is moved else 0.0),
+            )
+            for a in case.schedule.assignments
+        ),
+    )
+    churn = Lexicographic(levels=(LexicographicLevel(kind=ObjectiveKind.CHURN),))
+    compiled = case.compiled.model_copy(
+        update={"profile": case.compiled.profile.model_copy(update={"objective": churn})}
+    )
+    value = evaluate(compiled, case.schedule, previous)[ObjectiveKind.CHURN]
+    assert value > 0
+
+    result = verifier.verify(compiled, (), with_primary(case.schedule, value), previous)
+
+    assert result.valid, result.issues
 
 
 def test_verify_without_primary_value_skips_the_objective_check() -> None:

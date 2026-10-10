@@ -161,7 +161,7 @@ def verify(
     issues.extend(_override_issues(index, by_op, raw_overrides))
     issues.extend(_frozen_issues(index, by_op, raw_overrides, previous_plan))
     if not issues:
-        issues.extend(_objective_issues(compiled, schedule))
+        issues.extend(_objective_issues(compiled, schedule, previous_plan))
     return VerificationResult(valid=not issues, issues=tuple(issues))
 
 
@@ -776,13 +776,18 @@ def _releases(override: Override, op_id: str, job_id: str, machine_id: str) -> b
 # --- objective ----------------------------------------------------------------------------------
 
 
-def _objective_issues(compiled: CompiledProblem, schedule: Schedule) -> Iterator[ScheduleIssue]:
-    """`objective_mismatch`: the reported primary value equals the evaluated one (1e-6 abs/rel)."""
+def _objective_issues(
+    compiled: CompiledProblem, schedule: Schedule, previous_plan: PreviousPlan | None
+) -> Iterator[ScheduleIssue]:
+    """`objective_mismatch`: the reported primary value equals the evaluated one (1e-6 abs/rel).
+
+    The evaluation sees the previous plan, so a churn primary is checked against it.
+    """
     reported = schedule.primary_value
     if reported is None:
         return
     kind = primary_kind(compiled.profile.objective)
-    actual = evaluate(compiled, schedule)[kind]
+    actual = evaluate(compiled, schedule, previous_plan)[kind]
     if not math.isclose(actual, reported, rel_tol=TOLERANCE, abs_tol=TOLERANCE):
         message = f"reported {kind} {reported:g}, evaluated {actual:g}"
         yield _issue("objective_mismatch", PRIMARY_PATH, message)
