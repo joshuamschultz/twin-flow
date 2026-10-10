@@ -3,7 +3,7 @@
 Every term twinflow uses, in one place. Links point to the doc that covers it in depth.
 
 **Adapter** — a plug-in surface where an external system attaches (ERP connector,
-forecaster, dispatch policy, RL environment). See [adapters.md](adapters.md).
+forecaster). See [adapters.md](adapters.md).
 
 **Batch / batch_size** — accumulate jobs to a threshold in the thing's own unit before an
 operation fires. See [modeling.md](modeling.md).

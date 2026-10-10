@@ -22,6 +22,22 @@ All notable changes to twinflow are recorded here. The format follows
 - `TWINFLOW_API_TARGET` for the web dev server and browser tests, so the UI proxy can
   reach a twinflow API on a port other than 8000.
 
+### Removed
+
+- `twinflow.engine.acquire` (`ResourceAcquirer`).
+- `twinflow.scheduling.translate` (`translate_legacy`, `TranslationError`).
+- `twinflow.benchmark` and the `python -m twinflow.benchmark` command.
+- `twinflow.adapters.rl` (`TwinEnv`) and `twinflow.adapters._gym`.
+- `twinflow.adapters.dispatch` (`DISPATCH_POLICIES`, `DispatchJob`, `DispatchPolicy`,
+  `KeyedPolicy`). DES dispatch rule names (`fifo`, `edd`, `spt`, `critical_ratio`) now
+  come from `twinflow.policy.DISPATCH_NAMES` and are still listed by `GET /api/adapters`
+  as `dispatch_policies`.
+- Production execution ledgers `twinflow.production.runtime` (`run`, `ProductionRun`,
+  `RuntimeInputs`), `lots`, `materials`, `qualification`, `external`, and
+  `state_validation`. `twinflow.production` keeps `contracts`, `scheduling`, and
+  `validation` until TF-002.
+- All removed code is reachable at git tag `pre-cleanup`.
+
 ### Fixed
 
 - Importing a bare `model.yaml` as a scenario now says it is a legacy floor model

@@ -6,6 +6,11 @@ declared typed input is scheduled or accounted for and independently checked by 
 library. It does not mean that Western Spring's calendars, recipes, capacities, or
 commitments have been calibrated or accepted on the plant floor.
 
+> **TF-001:** the lot, material, qualification, external, and runtime ledgers named in
+> this matrix were removed. Rows that depend on them describe `0.4.0a1` and are no longer
+> delivered. The code and its tests are reachable at git tag `pre-cleanup`. Only the
+> contracts and scheduling surface remain.
+
 | Spec | Source contract | Focused evidence | Status in 0.4.0a1 |
 |---|---|---|---|
 | TF-WS-001 coupled resources/conveyor | `Phase`, `ResourceUse`, phase segments and resource occupations | `test_scheduling.py`, `test_schedule_integrity.py` auxiliary-use and occupation-forgery cases | Implemented for declared simultaneous resources and phase spans; the caller must model its actual pipeline and dwell rule |

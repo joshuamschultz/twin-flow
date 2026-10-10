@@ -42,8 +42,8 @@ locations:
 
 - `fifo` is the default, so a model with no `dispatch` field behaves exactly as before.
 - The rule matters most at the **bottleneck** — the slow center where the queue builds.
-- These four mirror the `DispatchPolicy` names in [adapters](adapters.md); here they are
-  wired into the engine itself.
+- These four names come from `twinflow.policy.DISPATCH_NAMES` and are listed by
+  `GET /api/adapters` as `dispatch_policies`. Set one per location with `dispatch:`.
 
 ### Compare policies (dispatch is a lever)
 
@@ -170,8 +170,8 @@ Because `--reps` is greater than 1, every KPI comes back as a mean with a low-to
 - **Resource/labor assignment policy** (choosing *which* machine or operator, by skill or
   load) — deferred; today acquisition is machine-then-operator in a fixed order.
 - **Mid-run decide-act loop** (a policy or agent choosing the next action *during* a run) —
-  deferred; control is set at config time for now. The [RL environment](adapters.md) is the
-  seam this will plug into.
+  deferred; control is set at config time for now. The Gymnasium wrapper was removed in
+  TF-001 (reachable at git tag `pre-cleanup`).
 - **Downtime as a confidence band** — breakdown downtime is in `run_meta` today, not yet a
   rendered KPI with a low-to-high range like the others.
 

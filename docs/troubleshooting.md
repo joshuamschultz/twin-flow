@@ -56,7 +56,7 @@ first.
   re-checks cached points until it stops. Every optimizer is guaranteed to terminate.
 - **Reps drive the cost.** Each evaluation runs `reps` replications. Lower `reps` while
   exploring, then confirm the winner at higher `reps`.
-- **Levers must be integers for `IntRange`.** The RL env and `--lever` ranges are integer
+- **Levers must be integers for `IntRange`.** `--lever` ranges are integer
   knobs (staffing, capacity, reorder points). A continuous knob is not yet a lever.
 
 ## Runs are slow or leave many folders

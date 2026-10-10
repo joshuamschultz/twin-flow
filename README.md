@@ -337,7 +337,6 @@ and [`docs/frontend.md`](docs/frontend.md).
 - **Supply networks** - stock, receipts, BOMs, qualifications, gates, and bounded lead-time decisions through the `supply_chain` adapter.
 - **Active control** - dispatch policies, order release (CONWIP / WIP-cap), and seeded disruptions turn the twin from a viewer into a decision tool. See [`docs/active-control.md`](docs/active-control.md).
 - **Optimizers** - *search* the scoring surface for the best staffing / capacity / reorder settings, not just enumerate a grid. See [`docs/optimizing.md`](docs/optimizing.md).
-- **Reinforcement-learning surface** - the twin as a Gymnasium-style environment (`TwinEnv`) an RL agent plugs straight into.
 - **Integration surfaces** - ERP/MES connectors (a column mapping onto the plan contract), demand generation, and forecaster seams, so concrete SAP / OPC-UA / Prophet integrations plug in. See [`docs/adapters.md`](docs/adapters.md).
 - **Calibration** - tune a model until its KPIs match a real run. See [`docs/tuning.md`](docs/tuning.md).
 

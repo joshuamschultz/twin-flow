@@ -51,7 +51,7 @@ For the implemented enterprise branch, start with the [operator workspace guide]
 | Doc | Covers |
 |---|---|
 | [modules.md](modules.md) | The module surface: objectives, costs, optimizers, models — and how to add your own |
-| [adapters.md](adapters.md) | Integration surfaces: ERP/MES connectors, demand, forecasting, dispatch, RL, plan-vs-actual |
+| [adapters.md](adapters.md) | Integration surfaces: ERP/MES connectors, demand, forecasting, plan-vs-actual |
 | [api.md](api.md) | The local REST API — endpoints and job polling |
 | [architecture.md](architecture.md) | The five-layer design, for developers |
 
