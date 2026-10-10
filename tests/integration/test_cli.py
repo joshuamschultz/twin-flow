@@ -156,6 +156,7 @@ from pathlib import Path
 import pytest
 
 from twinflow.cli.main import main
+from twinflow.scheduling.model import SolveResult
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "twinflow"
 
@@ -703,3 +704,57 @@ class TestDelegatedHelp:
         out = capsys.readouterr().out
         assert code == 0
         assert "usage:" in out.lower()
+
+
+def _v2_schedule_request() -> dict[str, object]:
+    """One lot of 2 on m1: 1 s fixed + 2 s per unit, so makespan 5 s."""
+    option = {"machine_id": "m1", "fixed_seconds": 1.0, "unit_seconds": 2.0, "preference_cost": 0.0}
+    operation = {"id": "cut", "work_center_id": "wc", "quantity": 2, "options": [option]}
+    return {
+        "schema_version": "2.0",
+        "problem": {
+            "id": "cli",
+            "jobs": [{"id": "J", "operations": [operation]}],
+            "machines": [{"id": "m1", "work_center_id": "wc"}],
+            "work_centers": [{"id": "wc"}],
+        },
+    }
+
+
+class TestScheduleCommand:
+    """`twinflow schedule request.json --solver baseline|ortools --time-limit S` reads a v2
+    `SolveRequest` and prints the `SolveResult` JSON (T-106, COMP-014, REQ-083)."""
+
+    @pytest.mark.parametrize(
+        ("solver", "status"), [("baseline", "FEASIBLE"), ("ortools", "OPTIMAL")]
+    )
+    def test_v2_request_prints_a_verified_solve_result(
+        self, solver: str, status: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        request = tmp_path / "request.json"
+        request.write_text(json.dumps(_v2_schedule_request()), encoding="utf-8")
+
+        code = main(["schedule", str(request), "--solver", solver, "--time-limit", "5"])
+
+        captured = capsys.readouterr()
+        assert code == 0, captured.err
+        result = SolveResult.model_validate_json(captured.out)
+        assert result.verified
+        assert result.schedule.status == status
+        assert result.objective_values["makespan"] == 5.0
+
+    def test_v1_problem_file_is_refused_naming_schema_version(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        problem = tmp_path / "problem.json"
+        v1 = {
+            "operations": [{"id": "x", "duration": 1}],
+            "resources": [{"resource_id": "r", "start": 0, "end": 2}],
+        }
+        problem.write_text(json.dumps(v1), encoding="utf-8")
+
+        code = main(["schedule", str(problem)])
+
+        captured = capsys.readouterr()
+        assert code != 0
+        assert "schema_version" in captured.out + captured.err

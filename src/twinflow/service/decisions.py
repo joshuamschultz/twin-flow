@@ -6,11 +6,12 @@ import json
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from twinflow.application.decision_tools import DecisionTools
+from twinflow.application.decision_tools import DecisionTools, ScheduleRequestError
 from twinflow.application.workspace import Workspace
 from twinflow.data.errors import DataError, EventConflictError
+from twinflow.scheduling import SCHEMA_VERSION, Feature, ObjectiveKind, OptionalDependencyError
 from twinflow.service.workspace import StrictModel
 
 
@@ -41,9 +42,22 @@ class QueryRequest(StrictModel):
 
 
 class ScheduleRequest(StrictModel):
-    problem: dict[str, Any]
+    """`request` is a v2 `SolveRequest`, parsed by the scheduling validator (REQ-083)."""
+
+    request: dict[str, Any]
     backend: Literal["baseline", "ortools"] = "baseline"
     time_limit: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_v1_body(cls, data: Any) -> Any:
+        """A v1 body carried `problem`; name the version it lacks instead of a bare extra key."""
+        if isinstance(data, dict) and "problem" in data:
+            raise ValueError(
+                "v1 'problem' bodies are not accepted: send 'request', a SolveRequest with "
+                f"schema_version {SCHEMA_VERSION!r}"
+            )
+        return data
 
 
 class ScheduleUploadPreviewRequest(StrictModel):
@@ -83,11 +97,17 @@ def decision_router(workspace: Workspace) -> APIRouter:
             for line in (root / "data" / "operational-events.jsonl").read_text().splitlines()
             if line.strip()
         ]
-        problem = json.loads((root / "scheduling" / "problem.json").read_text())
+        scheduling_example = json.loads((root / "scheduling" / "problem.json").read_text())
         return {
             "schema_version": "1.0",
             "event_example": events,
-            "scheduling_example": problem,
+            "scheduling_example": scheduling_example,
+            "scheduling": {
+                "schema_version": SCHEMA_VERSION,
+                "backends": ["baseline", "ortools"],
+                "features": [feature.value for feature in Feature],
+                "objectives": [kind.value for kind in ObjectiveKind],
+            },
             "schedule_upload": {
                 "formats": ["csv", "xlsx"],
                 "required_mapping": [
@@ -102,8 +122,6 @@ def decision_router(workspace: Workspace) -> APIRouter:
                 "max_bytes": 1_048_576,
                 "max_columns": 100,
                 "max_rows": 1_000,
-                "max_solver_pieces": 500,
-                "max_solver_operations": 1_000,
                 "max_schedule_replications": 10,
                 "original_file_retention": "discarded_after_parse",
             },
@@ -173,10 +191,11 @@ def decision_router(workspace: Workspace) -> APIRouter:
 
     @router.post("/schedules", status_code=201)
     def schedule(request: ScheduleRequest) -> dict[str, Any]:
-        from twinflow.scheduling.ortools import OptionalDependencyError
-
         try:
-            return tools.schedule(request.problem, request.backend, request.time_limit)
+            return tools.schedule(request.request, request.backend, request.time_limit)
+        except ScheduleRequestError as exc:
+            detail = [issue.model_dump(mode="json") for issue in exc.issues]
+            raise HTTPException(422, detail) from exc
         except OptionalDependencyError as exc:
             raise HTTPException(503, str(exc)) from exc
         except (ValueError, TypeError, KeyError) as exc:
@@ -230,8 +249,6 @@ def decision_router(workspace: Workspace) -> APIRouter:
 
     @router.post("/schedule-snapshots/{snapshot_id}/solve")
     def solve_schedule_snapshot(snapshot_id: str, request: ScheduleSolveRequest) -> dict[str, Any]:
-        from twinflow.scheduling.ortools import OptionalDependencyError
-
         try:
             return workspace.solve_schedule_snapshot(
                 snapshot_id, request.backend, request.time_limit

@@ -158,6 +158,23 @@ def _piece_firings(job_id: str, op: Operation, assignment: Assignment) -> list[S
     return firings
 
 
+def record_fields(request: SolveRequest, result: SolveResult) -> dict[str, Any]:
+    """The v2 fields every schedule and plan record carries beside its `SolveResult` (REQ-083).
+
+    `objective_spec` is the objective as the caller wrote it (unset fields left out), or the
+    profile's default objective in full when the caller gave none.
+    """
+    explicit = "objective" in request.profile.model_fields_set
+    return {
+        "schema_version": request.schema_version,
+        "objective_spec": request.profile.objective.model_dump(mode="json", exclude_unset=explicit),
+        "objective_values": {kind.value: value for kind, value in result.objective_values.items()},
+        "features": list(result.features),
+        "held_job_ids": list(result.held_job_ids),
+        "verified": result.verified,
+    }
+
+
 # --- issues ---------------------------------------------------------------------------------
 
 

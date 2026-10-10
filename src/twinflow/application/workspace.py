@@ -16,18 +16,41 @@ from typing import IO, Any
 
 from twinflow.application import scenarios
 from twinflow.application.linear_draft import LinearDraft, compile_draft
-from twinflow.application.linear_schedule import (
-    firings_from_plan,
-    translate_schedule,
-)
 from twinflow.application.repository import WorkspaceRepository
 from twinflow.application.schedule_intake import decode_upload, preview_mapping
+from twinflow.application.schedule_problem import (
+    Translation,
+    build_request,
+    firings_from_plan,
+    record_fields,
+)
+from twinflow.plan.driver import RunDriver
+from twinflow.policy import configured_runtime
+from twinflow.primitives.location import ScheduledFiring
+from twinflow.scenario import ScenarioCapsule
+from twinflow.scheduling import ORToolsSolver, SolveResult, solve
 
 log = logging.getLogger(__name__)
+
+SIMULATION_HORIZON_SECONDS = 31_536_000.0
+"""The DES runs at most one year of simulated time (`evaluate_capsule` max_sim_time)."""
 
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _status_explanation(result: SolveResult, backend: str) -> str:
+    status = result.schedule.status
+    if result.verified and status == "OPTIMAL":
+        return "CP-SAT reported and the verifier checked an optimal assignment"
+    if result.verified:
+        if backend == "baseline":
+            return "Verified baseline schedule"
+        return "Best verified schedule found within the time limit; optimality unproved"
+    if status == "INFEASIBLE":
+        return "CP-SAT reported infeasibility for the translated finite problem"
+    return "No verified feasibility or infeasibility conclusion is available"
 
 
 class Workspace:
@@ -237,22 +260,12 @@ class Workspace:
         ):
             raise ValueError("Invalid experiment settings or request key")
         plan_record = self.repository.get("schedule_plans", plan_id)
-        if not plan_record["result"]["verified"] or plan_record["result"]["status"] not in (
-            "FEASIBLE",
-            "OPTIMAL",
-        ):
-            raise ValueError("Only a verified feasible schedule plan can be simulated")
+        simulation = plan_record["simulation"]
+        if simulation["status"] != "available":
+            raise ValueError(simulation["blocker"])
         scenario = self.repository.get("scenarios", plan_record["scenario_id"])
         snapshot = self.repository.get("schedule_snapshots", plan_record["schedule_snapshot_id"])
-        translated = translate_schedule(scenario, snapshot)
-        if (
-            translated["status"] != "translated"
-            or translated["problem_digest"] != plan_record["problem_digest"]
-        ):
-            raise ValueError("Plan translation no longer matches its source snapshot")
-        firings = firings_from_plan(translated, plan_record["result"])
-        if max(firing.planned_end for firing in firings) > 31_536_000:
-            raise ValueError("Verified plan exceeds the one-year simulation horizon")
+        self._plan_firings(plan_record, scenario, snapshot)
         simulation_capsule = self._schedule_capsule(scenario, snapshot, plan_record)
         scenarios.validate_content(json.dumps(simulation_capsule, allow_nan=False))
         fingerprint = hashlib.sha256(
@@ -293,11 +306,12 @@ class Workspace:
         scenario = self.repository.get("scenarios", snapshot["scenario_id"])
         if scenario["digest"] != snapshot["scenario_digest"]:
             raise ValueError("Schedule snapshot scenario digest has changed")
-        translated = translate_schedule(scenario, snapshot)
-        if translated["status"] != "translated":
+        translation = build_request(scenario, snapshot)
+        if translation.status != "ready":
+            issues = [issue.model_dump(mode="json") for issue in translation.issues]
             raise ValueError(
-                "Schedule baseline requires supported linear-piece semantics: "
-                + json.dumps(translated["issues"])
+                "Schedule baseline requires a scenario the scheduler can translate: "
+                + json.dumps(issues)
             )
         capsule = self._schedule_capsule(scenario, snapshot)
         scenarios.validate_content(json.dumps(capsule, allow_nan=False))
@@ -389,13 +403,7 @@ class Workspace:
                 schedule_snapshot = self.repository.get(
                     "schedule_snapshots", plan_record["schedule_snapshot_id"]
                 )
-                translated = translate_schedule(scenario_record, schedule_snapshot)
-                if (
-                    translated["status"] != "translated"
-                    or translated["problem_digest"] != plan_record["problem_digest"]
-                ):
-                    raise ValueError("Schedule source changed before simulation")
-                firings = firings_from_plan(translated, plan_record["result"])
+                firings = self._plan_firings(plan_record, scenario_record, schedule_snapshot)
                 capsule = self._schedule_capsule(scenario_record, schedule_snapshot, plan_record)
                 result = scenarios.evaluate_capsule(
                     capsule,
@@ -409,8 +417,8 @@ class Workspace:
                     "id": plan_id,
                     "schedule_snapshot_id": schedule_snapshot["id"],
                     "problem_digest": plan_record["problem_digest"],
-                    "solver_status": plan_record["result"]["status"],
-                    "objective": plan_record["objective"],
+                    "solver_status": plan_record["result"]["schedule"]["status"],
+                    "objective_spec": plan_record["objective_spec"],
                 }
                 result["simulation_input_digest"] = scenarios.validate_content(
                     json.dumps(capsule, allow_nan=False)
@@ -720,86 +728,102 @@ class Workspace:
     def solve_schedule_snapshot(
         self, snapshot_id: str, backend: str, time_limit: float
     ) -> dict[str, Any]:
-        from dataclasses import asdict
+        """Translate the snapshot to a v2 request, solve, verify and keep the plan record.
 
-        from twinflow.scheduling import problem_from_dict, solve
-        from twinflow.scheduling.ortools import ORToolsSolver
-
+        A scenario the translator refuses returns `status: blocked` with its named issues
+        and keeps no record (COMP-013, COMP-014, REQ-083).
+        """
         if backend not in ("baseline", "ortools") or not 0 < time_limit <= 30:
             raise ValueError("Choose baseline/ortools and a time limit from 0 to 30 seconds")
         schedule_snapshot = self.repository.get("schedule_snapshots", snapshot_id)
         scenario = self.repository.get("scenarios", schedule_snapshot["scenario_id"])
-        translated = translate_schedule(scenario, schedule_snapshot)
-        if translated["status"] != "translated":
-            return translated
-        problem = problem_from_dict(translated["problem"])
+        translation = build_request(scenario, schedule_snapshot)
+        if translation.request is None:
+            return {
+                "status": translation.status,
+                "translator_version": translation.translator_version,
+                "issues": [issue.model_dump(mode="json") for issue in translation.issues],
+            }
         result = solve(
-            problem,
+            translation.request,
             solver=ORToolsSolver() if backend == "ortools" else None,
-            time_limit_seconds=time_limit,
+            budget_seconds=time_limit,
         )
-        serialized = asdict(result)
-        serialized["verified"] = bool(result.verified and result.status in ("FEASIBLE", "OPTIMAL"))
-        if result.status in ("FEASIBLE", "OPTIMAL") and not result.verified:
-            serialized["status"] = "UNKNOWN"
-        if result.status == "INFEASIBLE" and result.issues:
-            serialized["status"] = "UNKNOWN"
-        status_explanations = {
-            "FEASIBLE": (
-                "Verified baseline schedule"
-                if backend == "baseline"
-                else "Best verified schedule found within the time limit; optimality unproved"
-            ),
-            "OPTIMAL": "CP-SAT reported and the verifier checked an optimal assignment",
-            "INFEASIBLE": "CP-SAT reported infeasibility for the translated finite problem",
-            "UNKNOWN": "No verified feasibility or infeasibility conclusion is available",
-        }
         plan_record_id = uuid.uuid4().hex
-        within_horizon = not serialized["ends"] or max(serialized["ends"].values()) <= 31_536_000
-        simulation_available = serialized["verified"] and within_horizon
+        blocker = self._simulation_blocker(scenario, schedule_snapshot, translation, result)
         record: dict[str, Any] = {
             "id": plan_record_id,
-            "schema_version": "1.0",
+            **record_fields(translation.request, result),
             "scenario_id": scenario["id"],
             "scenario_digest": scenario["digest"],
             "schedule_snapshot_id": snapshot_id,
             "source_snapshot_digest": schedule_snapshot["source_snapshot_digest"],
-            "translator_version": translated["translator_version"],
-            "problem_digest": translated["problem_digest"],
-            "objective": translated["objective"],
-            "due_date_treatment": translated["due_date_treatment"],
-            "constraint_scope": translated["constraint_scope"],
+            "translator_version": translation.translator_version,
+            "problem_digest": translation.problem_digest,
             "backend": backend,
             "time_limit_seconds": time_limit,
             "time_limit_applied": backend == "ortools",
-            "result": serialized,
-            "status_explanation": status_explanations[serialized["status"]],
+            "result": result.model_dump(mode="json"),
+            "status_explanation": _status_explanation(result, backend),
             "simulation": {
-                "status": "available" if simulation_available else "blocked",
+                "status": "available" if blocker is None else "blocked",
                 "submit_route": f"/api/workspace/schedule-plans/{plan_record_id}/simulate",
-                "blocker": (
-                    None
-                    if simulation_available
-                    else (
-                        "A verified feasible plan within the one-year simulation horizon "
-                        "is required"
-                    )
-                ),
+                "blocker": blocker,
                 "meaning": (
                     "Enforces verified machine assignments and planned starts as earliest starts; "
                     "later work may slip if upstream execution is late."
                 ),
             },
             "interpretation": (
-                "Verified feasible deterministic makespan schedule; per-order due dates are not "
-                "optimized and stochastic delivery confidence has not been simulated."
-                if serialized["verified"]
+                "Verified feasible deterministic schedule for the profile's objective; "
+                "stochastic delivery confidence has not been simulated."
+                if result.verified
                 else "No independently verified feasible schedule is available."
             ),
             "created_at": _now(),
         }
         self.repository.create("schedule_plans", record["id"], record)
         return record
+
+    def _simulation_blocker(
+        self,
+        scenario: dict[str, Any],
+        snapshot: dict[str, Any],
+        translation: Translation,
+        result: SolveResult,
+    ) -> str | None:
+        """Why the DES cannot replay this plan, or None when it can (REQ-082).
+
+        Runs the runner's own replay guards on the capsule the simulation would use, so
+        the record carries the guard's message instead of a later failed job.
+        """
+        if not result.verified:
+            return "A verified feasible plan is required"
+        firings = firings_from_plan(translation, result)
+        if max((f.planned_end for f in firings), default=0.0) > SIMULATION_HORIZON_SECONDS:
+            return "Verified plan exceeds the one-year simulation horizon"
+        capsule = ScenarioCapsule.from_dict(self._schedule_capsule(scenario, snapshot))
+        compiled = capsule.compile()
+        policy = capsule.experiment.get("dispatch_policy")
+        runtime = (
+            configured_runtime(policy, {spec.location_id for spec in compiled.model.locations})
+            if policy is not None
+            else None
+        )
+        try:
+            RunDriver(compiled.model).check_execution_schedule(compiled.plan, firings, runtime)
+        except ValueError as exc:
+            return str(exc)
+        return None
+
+    def _plan_firings(
+        self, plan_record: dict[str, Any], scenario: dict[str, Any], snapshot: dict[str, Any]
+    ) -> list[ScheduledFiring]:
+        """The plan's DES firings, refused when its source no longer translates the same."""
+        translation = build_request(scenario, snapshot)
+        if translation.problem_digest != plan_record["problem_digest"]:
+            raise ValueError("Schedule source changed since the plan was solved")
+        return firings_from_plan(translation, SolveResult.model_validate(plan_record["result"]))
 
     def answer_draft(self, draft_id: str, answers: list[dict[str, str]]) -> dict[str, Any]:
         previous = self.repository.get("drafts", draft_id)

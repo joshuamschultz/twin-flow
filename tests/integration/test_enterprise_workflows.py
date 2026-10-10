@@ -97,9 +97,10 @@ def test_agent_data_answers_and_schedule_share_transport_contract(tmp_path: Path
             client.post("/api/workspace/validate", json={"content": "{}"}).json()["valid"] is False
         )
         scheduled = client.post(
-            "/api/workspace/schedules", json={"problem": contracts["scheduling_example"]}
+            "/api/workspace/schedules", json={"request": contracts["scheduling_example"]}
         )
         assert scheduled.status_code == 201, scheduled.text
+        assert scheduled.json()["schema_version"] == "2.0"
         assert scheduled.json()["result"]["verified"] is True
 
 

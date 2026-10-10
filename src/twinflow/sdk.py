@@ -247,12 +247,13 @@ class TwinflowClient:
         )
 
     def schedule(
-        self, problem: dict[str, Any], *, backend: str = "baseline", time_limit: float = 10
+        self, request: dict[str, Any], *, backend: str = "baseline", time_limit: float = 10
     ) -> dict[str, Any]:
+        """Solve and verify a v2 `SolveRequest` (schema_version 2.0); returns the record."""
         return cast(
             dict[str, Any],
             self.request(
-                "/schedules", {"problem": problem, "backend": backend, "time_limit": time_limit}
+                "/schedules", {"request": request, "backend": backend, "time_limit": time_limit}
             ),
         )
 

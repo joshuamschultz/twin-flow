@@ -1,23 +1,35 @@
-"""Verified per-piece assignments are actually executed by the DES runner."""
+"""Verified v2 lot plans are actually executed piece by piece by the DES runner."""
 
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from twinflow.application.linear_draft import LinearDraft, compile_draft
-from twinflow.application.linear_schedule import (
-    firings_from_plan,
-    translate_schedule,
-    work_orders_from_snapshot,
-)
+from twinflow.application.schedule_problem import build_request, firings_from_plan
 from twinflow.plan.driver import RunDriver
+from twinflow.plan.loader import WorkOrder
 from twinflow.scenario import ScenarioCapsule
-from twinflow.scheduling import problem_from_dict, solve
+from twinflow.scheduling.solver import solve
 
 
 def _fact(value, unit=None):
     return {"status": "confirmed", "value": value, "unit": unit, "source": "test fixture"}
+
+
+def _work_orders(snapshot: dict[str, Any]) -> list[WorkOrder]:
+    """The committed uploaded orders, not the scenario's earlier demand."""
+    return [
+        WorkOrder(
+            work_order_id=order["order_id"],
+            part=order["product"],
+            qty=order["quantity"],
+            start_date=str(order["release_second"]),
+            due_date=str(order["due_second"]),
+        )
+        for order in snapshot["orders"]
+    ]
 
 
 def test_runner_replays_verified_machine_assignments(tmp_path: Path) -> None:
@@ -56,7 +68,6 @@ def test_runner_replays_verified_machine_assignments(tmp_path: Path) -> None:
     scenario = {
         "id": "scenario",
         "digest": capsule.digest,
-        "draft_link": {"compiler_version": "linear-piece-1"},
         "capsule": capsule.to_dict(),
     }
     snapshot = {
@@ -72,44 +83,48 @@ def test_runner_replays_verified_machine_assignments(tmp_path: Path) -> None:
             },
         ],
     }
-    translated = translate_schedule(scenario, snapshot)
-    assert translated["status"] == "translated", translated["issues"]
-    solved = solve(problem_from_dict(translated["problem"]))
-    assert solved.status == "FEASIBLE" and solved.verified
-    firings = firings_from_plan(translated, asdict(solved))
+    translation = build_request(scenario, snapshot)
+    assert translation.status == "ready", translation.issues
+    assert translation.request is not None
+    solved = solve(translation.request)
+    assert solved.schedule.status == "FEASIBLE" and solved.verified
+    firings = firings_from_plan(translation, solved)
+    orders = _work_orders(snapshot)
     with pytest.raises(ValueError, match="exactly one firing"):
         RunDriver(capsule.compile().model).run(
-            work_orders_from_snapshot(snapshot),
+            orders,
             seed=42,
             replication_index=0,
             artifact_dir=tmp_path,
             execution_schedule=firings[:-1],
         )
-    simultaneous_cut = [firing for firing in firings if firing.location_id == "cut"]
-    if simultaneous_cut[0].planned_start == simultaneous_cut[1].planned_start:
-        overlap = [
-            replace(firing, machine_id=simultaneous_cut[0].machine_id)
-            if firing.operation_id == simultaneous_cut[1].operation_id
-            else firing
-            for firing in firings
-        ]
-        with pytest.raises(ValueError, match="overlapping"):
-            RunDriver(capsule.compile().model).run(
-                work_orders_from_snapshot(snapshot),
-                seed=42,
-                replication_index=0,
-                artifact_dir=tmp_path,
-                execution_schedule=overlap,
-            )
+    # A lot runs its pieces back to back on one machine; pulling the second piece's start
+    # onto the first's makes the two firings overlap on that machine.
+    first_cut, second_cut = (firing for firing in firings if firing.location_id == "cut")
+    assert first_cut.machine_id == second_cut.machine_id
+    overlap = [
+        replace(firing, planned_start=first_cut.planned_start)
+        if firing.operation_id == second_cut.operation_id
+        else firing
+        for firing in firings
+    ]
+    with pytest.raises(ValueError, match="overlapping"):
+        RunDriver(capsule.compile().model).run(
+            orders,
+            seed=42,
+            replication_index=0,
+            artifact_dir=tmp_path,
+            execution_schedule=overlap,
+        )
     run = RunDriver(capsule.compile().model).run(
-        work_orders_from_snapshot(snapshot),
+        orders,
         seed=42,
         replication_index=0,
         artifact_dir=tmp_path,
         execution_schedule=firings,
     )
     assert run.outcome == "completed"
-    assert len(run.schedule_trace) == len(firings)
+    assert len(run.schedule_trace) == len(firings) == 2 * 2
     by_id = {row["operation_id"]: row for row in run.schedule_trace}
     for firing in firings:
         row = by_id[firing.operation_id]
@@ -118,7 +133,7 @@ def test_runner_replays_verified_machine_assignments(tmp_path: Path) -> None:
         assert row["actual_start"] == firing.planned_start
     assert run.run_meta["execution_mode"] == "verified_schedule"
     repeated = RunDriver(capsule.compile().model).run(
-        work_orders_from_snapshot(snapshot),
+        orders,
         seed=42,
         replication_index=0,
         artifact_dir=tmp_path,

@@ -33,14 +33,19 @@ export function DecisionLab({ mode }: { mode: "data" | "schedule" }) {
   const schedule = run.data?.result as
     | {
         verified: boolean;
-        status: string;
-        starts: Record<string, number>;
-        ends: Record<string, number>;
-        resources: Record<string, string>;
+        schedule: {
+          status: string;
+          assignments: {
+            operation_id: string;
+            machine_id: string;
+            start: number;
+            end: number;
+          }[];
+        };
       }
     | undefined;
-  const operations = Object.keys(schedule?.starts ?? {});
-  const horizon = Math.max(1, ...Object.values(schedule?.ends ?? {}));
+  const assignments = schedule?.schedule.assignments ?? [];
+  const horizon = Math.max(1, ...assignments.map((item) => item.end));
   return (
     <>
       <div className="ws-page-heading">
@@ -197,26 +202,26 @@ export function DecisionLab({ mode }: { mode: "data" | "schedule" }) {
                 <span
                   className={`ws-badge ${schedule.verified ? "" : "amber"}`}
                 >
-                  {schedule.status} ·{" "}
+                  {schedule.schedule.status} ·{" "}
                   {schedule.verified ? "Verified" : "No verified plan"}
                 </span>
               </div>
               <div className="ws-schedule-bars">
-                {operations.map((id) => (
-                  <div key={id}>
+                {assignments.map((item) => (
+                  <div key={item.operation_id}>
                     <strong>
-                      {id} <small>{schedule.resources[id]}</small>
+                      {item.operation_id} <small>{item.machine_id}</small>
                     </strong>
                     <div className="ws-schedule-track">
                       <span
                         style={{
-                          marginLeft: `${(100 * schedule.starts[id]) / horizon}%`,
-                          width: `${(100 * (schedule.ends[id] - schedule.starts[id])) / horizon}%`,
+                          marginLeft: `${(100 * item.start) / horizon}%`,
+                          width: `${(100 * (item.end - item.start)) / horizon}%`,
                         }}
                       />
                     </div>
                     <small>
-                      {schedule.starts[id]} → {schedule.ends[id]}
+                      {item.start} → {item.end}
                     </small>
                   </div>
                 ))}
@@ -228,13 +233,13 @@ export function DecisionLab({ mode }: { mode: "data" | "schedule" }) {
                     download(
                       "schedule.csv",
                       "operation,resource,start,end\n" +
-                        operations
-                          .map((id) =>
+                        assignments
+                          .map((item) =>
                             [
-                              id,
-                              schedule.resources[id],
-                              schedule.starts[id],
-                              schedule.ends[id],
+                              item.operation_id,
+                              item.machine_id,
+                              item.start,
+                              item.end,
                             ]
                               .map(
                                 (value) =>

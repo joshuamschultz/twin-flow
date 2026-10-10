@@ -264,12 +264,17 @@ class RunDriver:
             skill: pool.name for pool in compiled.labor_pools for skill in pool.skills
         }
 
-    def _validate_execution_schedule(
+    def check_execution_schedule(
         self,
         plan: list[WorkOrder],
         firings: list[ScheduledFiring],
         decision_runtime: PolicyRuntime | None,
     ) -> None:
+        """Raise ValueError naming why this model cannot replay `firings`; None when it can.
+
+        The replay guards `run(execution_schedule=...)` applies; public so a plan record can
+        report the blocker before any simulation is submitted (REQ-082).
+        """
         if decision_runtime is not None or self._compiled.release.policy != "plan":
             raise ValueError("Scheduled execution requires plan release and no dispatch policy")
         if any(
@@ -364,7 +369,7 @@ class RunDriver:
         """
         run_id = f"run-{seed}-{replication_index}-{uuid.uuid4().hex[:8]}"
         if execution_schedule is not None:
-            self._validate_execution_schedule(plan, execution_schedule, decision_runtime)
+            self.check_execution_schedule(plan, execution_schedule, decision_runtime)
         ctx = RunContext(run_id=run_id, seed=seed, horizon=0.0)
         env = ctx.env
         rng = RngRegistry(seed, replication_index)

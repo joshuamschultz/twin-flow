@@ -154,9 +154,9 @@ export const workspaceApi = {
       known_at,
       freshness_rules: [],
     }),
-  schedule: (problem: Record<string, unknown>, backend: string) =>
+  schedule: (scheduleRequest: Record<string, unknown>, backend: string) =>
     request<Record<string, unknown>>("/schedules", {
-      problem,
+      request: scheduleRequest,
       backend,
       time_limit: 10,
     }),

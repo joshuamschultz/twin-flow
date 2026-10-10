@@ -141,7 +141,7 @@ def create_server(client: TwinflowClient) -> Any:
     def solve_schedule_snapshot(
         snapshot_id: str, backend: str = "baseline", time_limit: float = 10
     ) -> dict[str, Any]:
-        """Translate a supported linear twin and verify a deterministic makespan schedule."""
+        """Translate the scenario and order snapshot into a v2 request, solve and verify it."""
         return client.solve_schedule_snapshot(snapshot_id, backend=backend, time_limit=time_limit)
 
     @server.tool()
@@ -213,14 +213,12 @@ def create_server(client: TwinflowClient) -> Any:
 
     @server.tool()
     def schedule_operations(
-        problem: dict[str, Any], backend: str = "baseline", time_limit: float = 10
+        request: dict[str, Any], backend: str = "baseline", time_limit: float = 10
     ) -> dict[str, Any]:
-        """Solve and independently verify explicit finite-capacity constraints; retain evidence."""
-        return dict(
-            client.request(
-                "/schedules", {"problem": problem, "backend": backend, "time_limit": time_limit}
-            )
-        )
+        """Solve and independently verify a v2 SolveRequest (schema_version "2.0": jobs of
+        lot operations, machine options, calendars, operators, setups, objective profile);
+        retain evidence. See `scheduling_example` in the tool contracts."""
+        return dict(client.schedule(request, backend=backend, time_limit=time_limit))
 
     @server.tool()
     def propose_action(

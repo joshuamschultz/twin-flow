@@ -1,11 +1,42 @@
 {
-  "objective": "makespan",
-  "operations": [
-    {"id": "cut", "duration": 2, "required_qualifications": ["machinist"]},
-    {"id": "assemble", "duration": 3, "predecessors": ["cut"], "required_qualifications": ["assembler"]}
-  ],
-  "resources": [
-    {"resource_id": "machine-1", "start": 0, "end": 20, "qualifications": ["machinist"]},
-    {"resource_id": "bench-1", "start": 0, "end": 20, "qualifications": ["assembler"]}
-  ]
+  "schema_version": "2.0",
+  "problem": {
+    "id": "cut-and-assemble",
+    "jobs": [
+      {
+        "id": "order-1",
+        "release": 0,
+        "due": 20,
+        "operations": [
+          {
+            "id": "cut",
+            "work_center_id": "machining",
+            "quantity": 2,
+            "options": [
+              {"machine_id": "machine-1", "fixed_seconds": 1, "unit_seconds": 2, "preference_cost": 0},
+              {"machine_id": "machine-2", "fixed_seconds": 1, "unit_seconds": 3, "preference_cost": 0}
+            ]
+          },
+          {
+            "id": "assemble",
+            "work_center_id": "assembly",
+            "quantity": 2,
+            "options": [
+              {"machine_id": "bench-1", "fixed_seconds": 0, "unit_seconds": 3, "preference_cost": 0}
+            ],
+            "predecessors": [{"operation_id": "cut"}]
+          }
+        ]
+      }
+    ],
+    "machines": [
+      {"id": "machine-1", "work_center_id": "machining"},
+      {"id": "machine-2", "work_center_id": "machining"},
+      {"id": "bench-1", "work_center_id": "assembly"}
+    ],
+    "work_centers": [{"id": "machining"}, {"id": "assembly"}]
+  },
+  "profile": {
+    "objective": {"mode": "lexicographic", "levels": [{"kind": "makespan"}]}
+  }
 }

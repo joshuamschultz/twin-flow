@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from twinflow.application import scenarios
+from twinflow.application.schedule_problem import record_fields
 from twinflow.application.workspace import Workspace
 from twinflow.data import (
     FreshnessRule,
@@ -17,6 +18,15 @@ from twinflow.data import (
     parse_event,
     snapshot_to_dict,
 )
+from twinflow.scheduling import ORToolsSolver, ScheduleIssue, parse_request, solve
+
+
+class ScheduleRequestError(ValueError):
+    """A scheduling body that is not a valid v2 `SolveRequest`; `issues` names each fault."""
+
+    def __init__(self, issues: list[ScheduleIssue]) -> None:
+        super().__init__("; ".join(f"{issue.path}: {issue.message}" for issue in issues))
+        self.issues = issues
 
 
 class DecisionTools:
@@ -194,23 +204,29 @@ class DecisionTools:
         }
         return answer
 
-    def schedule(self, problem: dict[str, Any], backend: str, time_limit: float) -> dict[str, Any]:
-        from twinflow.scheduling import problem_from_dict, solve
-        from twinflow.scheduling.ortools import ORToolsSolver
+    def schedule(self, request: dict[str, Any], backend: str, time_limit: float) -> dict[str, Any]:
+        """Solve and verify a v2 `SolveRequest` and keep the record (COMP-014, REQ-083).
 
+        Raises `ScheduleRequestError` with the parser's issues for a request that is not a
+        valid v2 `SolveRequest` (a v1 body gets a `schema_version` issue).
+        """
         if backend not in ("baseline", "ortools") or not 0 < time_limit <= 30:
             raise ValueError("Choose baseline/ortools and a time limit from 0 to 30 seconds")
-        parsed = problem_from_dict(problem)
+        parsed = parse_request(request)
+        if isinstance(parsed, list):
+            raise ScheduleRequestError(parsed)
         result = solve(
             parsed,
             solver=ORToolsSolver() if backend == "ortools" else None,
-            time_limit_seconds=time_limit,
+            budget_seconds=time_limit,
         )
         record: dict[str, Any] = {
             "id": uuid.uuid4().hex,
-            "problem": problem,
+            **record_fields(parsed, result),
+            "request": request,
             "backend": backend,
-            "result": asdict(result),
+            "time_limit_seconds": time_limit,
+            "result": result.model_dump(mode="json"),
         }
         # Ensure portable evidence before storing it.
         json.dumps(record, allow_nan=False)

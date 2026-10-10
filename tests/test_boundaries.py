@@ -23,6 +23,9 @@ DELETED_MODULES: frozenset[str] = frozenset(
         "twinflow.adapters._gym",
         "twinflow.adapters.dispatch",
         "twinflow.production",
+        "twinflow.scheduling.core",
+        "twinflow.scheduling.ortools",
+        "twinflow.application.linear_schedule",
     }
 )
 
