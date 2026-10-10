@@ -12,8 +12,6 @@ import re
 import subprocess
 import sys
 
-import pytest
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "twinflow"
 
@@ -247,10 +245,28 @@ def test_erp_and_planning_make_no_outbound_calls() -> None:
     assert offenders == [], offenders
 
 
-@pytest.mark.xfail(strict=True, reason="REST proxy deleted in T-212")
 def test_mcp_makes_no_outbound_calls_and_never_uses_the_sdk() -> None:
     offenders = _network_offenders(_existing_py(MCP))
     assert offenders == [], offenders
+
+
+# The `mcp` SDK (the optional `agent` extra) stays at the transport edge: the tool guard,
+# specs, models and handlers import none of it, so REST reuses the guard without the extra.
+_MCP_SDK_IMPORTERS = frozenset({"tools.py", "http.py", "server.py"})
+_MCP_SDK_FREE = frozenset({"__init__.py", "_handlers.py", "guard.py", "models.py", "spec.py"})
+
+
+def test_only_the_mcp_transport_modules_import_the_mcp_sdk() -> None:
+    importers = {
+        path.name
+        for path in _existing_py(MCP)
+        if any(_under(name, ("mcp",)) for _, name in _all_imports(path))
+    }
+    files = {path.name for path in _existing_py(MCP)}
+
+    assert importers <= _MCP_SDK_IMPORTERS, sorted(importers - _MCP_SDK_IMPORTERS)
+    assert _MCP_SDK_FREE <= files, sorted(_MCP_SDK_FREE - files)
+    assert importers.isdisjoint(_MCP_SDK_FREE)
 
 
 def test_boundary_import_scanner_sees_network_and_sdk_imports(tmp_path: pathlib.Path) -> None:

@@ -16,7 +16,7 @@ The cost is O(days x windows): each wall-clock range is cut only where its UTC o
 its existence changes, and each constant piece maps to one real-time interval.
 
 The day walk (`_dated_windows`) is generic over any window with `start_minute` and
-`end_minute`, so overtime expansion (COMP-126) can reuse it with its own window type.
+`end_minute`; `expand_overtime` (COMP-126) reuses it with the priced overtime window type.
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ from collections.abc import Callable, Iterator, Sequence
 from typing import Protocol, TypeVar
 from zoneinfo import ZoneInfo
 
-from twinflow.erp.schema import MINUTES_PER_DAY, Calendar, TimeWindow
+from twinflow.erp.schema import MINUTES_PER_DAY, Calendar, Overtime, OvertimeWindow, TimeWindow
 from twinflow.scheduling.model import Interval
 
-__all__ = ["expand"]
+__all__ = ["OvertimePiece", "expand", "expand_overtime"]
 
 _SECONDS_PER_MINUTE = 60.0
 _ONE_DAY = dt.timedelta(days=1)
@@ -49,6 +49,9 @@ W = TypeVar("W", bound=_MinuteWindow)
 
 # A wall-clock minute's localization: (UTC offset seconds at fold=0, the minute exists).
 _Key = tuple[float, bool]
+
+# One priced overtime interval in seconds from `as_of`: (start, end, cost_multiplier).
+OvertimePiece = tuple[float, float, float]
 
 
 def expand(
@@ -73,6 +76,30 @@ def expand(
         for start, end in _window_epochs(tz, day, window)
     ]
     return _clip_and_merge(pieces, horizon_end.timestamp() - origin)
+
+
+def expand_overtime(
+    overtime: Overtime, tz: ZoneInfo, as_of: dt.datetime, horizon_end: dt.datetime
+) -> tuple[OvertimePiece, ...]:
+    """Return overtime as sorted, disjoint `(start, end, cost_multiplier)` seconds (COMP-126).
+
+    The same day walk and DST rules as `expand`; an exception date replaces its weekday's
+    windows (empty = no overtime). Touching or overlapping pieces merge only when their
+    multipliers are equal, so a change of price stays a boundary (D-125).
+    """
+    week = {day.weekday: day.windows for day in overtime.week}
+    exceptions = {exc.date: exc.windows for exc in overtime.exceptions}
+
+    def windows_on(day: dt.date) -> Sequence[OvertimeWindow]:
+        return exceptions.get(day, week.get(day.weekday(), ()))
+
+    origin = as_of.timestamp()
+    pieces = [
+        (start - origin, end - origin, window.cost_multiplier)
+        for day, window in _dated_windows(as_of, horizon_end, tz, windows_on)
+        for start, end in _window_epochs(tz, day, window)
+    ]
+    return _clip_and_merge_priced(pieces, horizon_end.timestamp() - origin)
 
 
 def _dated_windows(
@@ -159,4 +186,20 @@ def _clip_and_merge(pieces: list[Interval], horizon: float) -> tuple[Interval, .
             merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
         else:
             merged.append((lo, hi))
+    return tuple(merged)
+
+
+def _clip_and_merge_priced(
+    pieces: list[OvertimePiece], horizon: float
+) -> tuple[OvertimePiece, ...]:
+    """Clip to `[0, horizon]`, sort, merge touching or overlapping pieces of equal price."""
+    merged: list[OvertimePiece] = []
+    for start, end, multiplier in sorted(pieces):
+        lo, hi = max(start, 0.0), min(end, horizon)
+        if lo >= hi:
+            continue
+        if merged and lo <= merged[-1][1] and merged[-1][2] == multiplier:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi), multiplier)
+        else:
+            merged.append((lo, hi, multiplier))
     return tuple(merged)

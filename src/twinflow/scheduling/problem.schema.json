@@ -54,7 +54,7 @@
     },
     "Calendar": {
       "additionalProperties": false,
-      "description": "Explicit working intervals `[start, end)`, sorted and non-overlapping (D-065).",
+      "description": "Explicit working intervals `[start, end)`, sorted and non-overlapping (D-065).\n\n`overtime` marks priced parts of that working time (D-125). It is a subset of\n`intervals`, so the verifier and solvers keep one working-time rule; only the cost\nobjective reads it. Entries are sorted, disjoint (touching allowed) and each lies inside\none merged working span.",
       "properties": {
         "id": {
           "maxLength": 200,
@@ -78,6 +78,15 @@
           },
           "maxItems": 1000000,
           "title": "Intervals",
+          "type": "array"
+        },
+        "overtime": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OvertimeInterval"
+          },
+          "maxItems": 1000000,
+          "title": "Overtime",
           "type": "array"
         }
       },
@@ -1087,6 +1096,32 @@
         "size"
       ],
       "title": "OperatorPool",
+      "type": "object"
+    },
+    "OvertimeInterval": {
+      "additionalProperties": false,
+      "description": "A priced window `[start, end)` of working time; premium = `cost_multiplier - 1` (D-125).",
+      "properties": {
+        "cost_multiplier": {
+          "minimum": 1,
+          "title": "Cost Multiplier",
+          "type": "number"
+        },
+        "end": {
+          "title": "End",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "cost_multiplier"
+      ],
+      "title": "OvertimeInterval",
       "type": "object"
     },
     "Pin": {

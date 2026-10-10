@@ -10,6 +10,24 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
+# Fixed literals only; never caller input (they are interpolated into ALTER TABLE).
+_TOOL_AUDIT_COLUMNS = (
+    ("caller_id", "TEXT"),
+    ("tool", "TEXT"),
+    ("request_key", "TEXT"),
+    ("input_digest", "TEXT"),
+    ("duration_ms", "REAL"),
+)
+_AUDIT_FIELDS = (
+    "occurred_at",
+    "operation",
+    "object_kind",
+    "object_id",
+    "outcome",
+    "correlation_id",
+    *(column for column, _ in _TOOL_AUDIT_COLUMNS),
+)
+
 
 class WorkspaceRepository:
     """Store JSON records and atomic job idempotency claims in one local workspace.
@@ -40,6 +58,20 @@ class WorkspaceRepository:
                 "operation TEXT NOT NULL, object_kind TEXT NOT NULL, object_id TEXT NOT NULL, "
                 "outcome TEXT NOT NULL, correlation_id TEXT)"
             )
+        self._migrate_audit_events()
+
+    def _migrate_audit_events(self) -> None:
+        """Forward-only: add the tool-audit columns (COMP-122) to any audit table.
+
+        Fresh and existing workspaces take the same path. The write lock is held while
+        the columns are read, so two processes opening one workspace cannot both add one.
+        """
+        with self._connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            present = {row[1] for row in db.execute("PRAGMA table_info(audit_events)")}
+            for column, column_type in _TOOL_AUDIT_COLUMNS:
+                if column not in present:
+                    db.execute(f"ALTER TABLE audit_events ADD COLUMN {column} {column_type}")
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
@@ -252,25 +284,52 @@ class WorkspaceRepository:
                 ),
             )
 
+    def append_tool_audit(
+        self,
+        *,
+        occurred_at: str,
+        caller_id: str,
+        tool: str,
+        request_key: str | None,
+        input_digest: str,
+        outcome: str,
+        duration_ms: float,
+        correlation_id: str | None,
+    ) -> None:
+        """Append one tool-call audit row (operation ``tool_call``, object = the tool)."""
+        with self._connection() as db:
+            db.execute(
+                "INSERT INTO audit_events"
+                "(occurred_at,operation,object_kind,object_id,outcome,correlation_id,"
+                "caller_id,tool,request_key,input_digest,duration_ms) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    occurred_at,
+                    "tool_call",
+                    "tool",
+                    tool[:256],
+                    outcome[:80],
+                    correlation_id,
+                    caller_id,
+                    tool,
+                    request_key,
+                    input_digest,
+                    duration_ms,
+                ),
+            )
+
     def audit_events(self, limit: int = 100) -> builtins.list[dict[str, object]]:
-        """Return recent audit metadata without exposing arbitrary SQL."""
+        """Return recent audit metadata without exposing arbitrary SQL.
+
+        Rows written before the tool-audit migration carry None in its columns.
+        """
         with self._connection() as db:
             rows = db.execute(
-                "SELECT occurred_at,operation,object_kind,object_id,outcome,correlation_id "
+                f"SELECT {','.join(_AUDIT_FIELDS)} "  # noqa: S608 - fixed column literals
                 "FROM audit_events ORDER BY sequence DESC LIMIT ?",
                 (max(1, min(limit, 1000)),),
             ).fetchall()
-        return [
-            {
-                "occurred_at": row[0],
-                "operation": row[1],
-                "object_kind": row[2],
-                "object_id": row[3],
-                "outcome": row[4],
-                "correlation_id": row[5],
-            }
-            for row in rows
-        ]
+        return [dict(zip(_AUDIT_FIELDS, row, strict=True)) for row in rows]
 
     def backup_to(self, destination: str | Path) -> None:
         """Create a transactionally consistent SQLite copy using the backup API."""

@@ -17,6 +17,11 @@ REQ-168, REQ-169, REQ-171, REQ-177. Decisions: D-119 (plans by reference), D-120
   the wall-clock limit is budget + `timeout_grace_seconds`.
 * TF-003 absent: the four wrapped methods raise `CapabilityUnavailable`; reads still work.
   `explain_plan` is B-6 and always raises `CapabilityUnavailable`.
+* Signed artifacts (COMP-127, REQ-184): problem and plan records carry the `Provenance` of
+  their profile and K-table. Immediately before each solve-type call the problem's profile
+  is re-verified and the active K-table verified through the caller's `PlanningArtifacts`
+  (TF-003 gets it as `k_lookup`). A caller without one is the in-process local embedding:
+  only unsigned problems solve there; a signed problem fails closed.
 """
 
 from __future__ import annotations
@@ -64,10 +69,11 @@ from twinflow.application._planning_records import (
 )
 from twinflow.application._planning_runner import SolveRunner
 from twinflow.application._planning_simulation import check_simulation_settings, simulate
+from twinflow.application.planning_artifacts import PlanningArtifacts, Provenance
 from twinflow.application.portfolio_port import PortfolioApi
 from twinflow.application.workspace import Workspace
 from twinflow.erp.build import RushOrder, build_problem_from_erp, build_rush_job
-from twinflow.erp.profile import PlanningProfile
+from twinflow.erp.profile import PlanningProfile, profile_digest
 from twinflow.erp.schema import ErpSnapshot
 from twinflow.erp.validate import ValidationReport, validate_snapshot
 from twinflow.scheduling import ObjectiveKind, Override, rank
@@ -99,6 +105,9 @@ Computed = tuple[str, list[RecordRow], ResultT]
 
 log = logging.getLogger(__name__)
 
+# In-process callers that pass no artifacts: local embedding, no artifact store.
+_LOCAL_ARTIFACTS = PlanningArtifacts(None, local_mode=True)
+
 
 class PlanningService:
     """ERP planning use cases over one workspace; TF-003 is optional (`portfolio=None`)."""
@@ -120,6 +129,16 @@ class PlanningService:
         self._runner = SolveRunner(max_workers=max_workers, grace_seconds=timeout_grace_seconds)
         self._locks = KeyLocks()
 
+    @property
+    def max_solve_seconds(self) -> float:
+        """The configured cap on any solve's time budget (REQ-169)."""
+        return self._max_solve_seconds
+
+    @property
+    def portfolio_available(self) -> bool:
+        """Whether TF-003's portfolio functions are installed."""
+        return self._portfolio is not None
+
     def close(self) -> None:
         """Release the solve pool without waiting for running solves."""
         self._runner.close()
@@ -132,14 +151,24 @@ class PlanningService:
         """Every issue of `snapshot` under `profile`; writes no record."""
         return validate_snapshot(snapshot, profile)
 
-    def build_problem(self, snapshot: ErpSnapshot, profile: PlanningProfile) -> BuildRecord:
+    def build_problem(
+        self,
+        snapshot: ErpSnapshot,
+        profile: PlanningProfile,
+        *,
+        provenance: Provenance | None = None,
+    ) -> BuildRecord:
         """Build the scheduling problem and store snapshot and problem once by content address.
 
-        A blocked build stores the snapshot with its report and no problem. A repeat call
-        writes nothing and returns the same ids.
+        `provenance` names the signed profile (and K-table) `profile` was read from; None
+        records `profile` as unsigned. A blocked build stores the snapshot with its report
+        and no problem. A repeat call writes nothing and returns the same ids.
         """
+        provenance = provenance or Provenance.unsigned(profile)
+        if provenance.profile_digest != profile_digest(profile):
+            raise ValueError("provenance names another profile")
         result = build_problem_from_erp(snapshot, profile)
-        record, rows = build_records(snapshot, profile, result)
+        record, rows = build_records(snapshot, profile, result, provenance)
         for kind, record_id, body in rows:
             self._create_once(kind, record_id, body)
         return record
@@ -155,6 +184,7 @@ class PlanningService:
         time_budget_seconds: float | None = None,
         seed: int = 0,
         pipelines: tuple[str, ...] | None = None,
+        artifacts: PlanningArtifacts | None = None,
     ) -> PortfolioRecord:
         """Solve a stored problem with the TF-003 portfolio; store one plan per candidate."""
         api = self._api()
@@ -169,15 +199,25 @@ class PlanningService:
 
         def compute() -> Computed[PortfolioRecord]:
             problem = self._problem(problem_id)
+            provenance, k_lookup = self._verified(problem, artifacts)
             budget = self._budget(problem, time_budget_seconds)
             result = self._runner.run(
                 lambda: api.solve_portfolio(
-                    problem.request, budget_seconds=budget, seed=seed, pipelines=pipelines
+                    problem.request,
+                    budget_seconds=budget,
+                    seed=seed,
+                    pipelines=pipelines,
+                    k_lookup=k_lookup,
                 ),
                 budget,
             )
             portfolio_id = f"pf-{uuid.uuid4().hex}"
-            origin = {"method": "solve_portfolio", "seed": seed, "budget_seconds": budget}
+            origin = {
+                "method": "solve_portfolio",
+                "seed": seed,
+                "budget_seconds": budget,
+                **provenance,
+            }
             summary, rows = portfolio_records(problem, portfolio_id, result, origin)
             return f"portfolios/{portfolio_id}", rows, summary
 
@@ -194,6 +234,7 @@ class PlanningService:
         caller_id: str,
         time_budget_seconds: float | None = None,
         seed: int = 0,
+        artifacts: PlanningArtifacts | None = None,
     ) -> PortfolioRecord:
         """Re-plan from a stored plan under `overrides`; a new portfolio on the same problem."""
         api = self._api()
@@ -212,6 +253,7 @@ class PlanningService:
         def compute() -> Computed[PortfolioRecord]:
             plan = self._get("plans", plan_id)
             problem = self._problem(plan["problem_id"])
+            provenance, _ = self._verified(problem, artifacts)
             budget = self._budget(problem, time_budget_seconds)
             previous = previous_plan(plan)
             result = self._runner.run(
@@ -227,6 +269,7 @@ class PlanningService:
                 "overrides": dumped,
                 "seed": seed,
                 "budget_seconds": budget,
+                **provenance,
             }
             summary, rows = portfolio_records(problem, portfolio_id, result, origin)
             return f"portfolios/{portfolio_id}", rows, summary
@@ -244,6 +287,7 @@ class PlanningService:
         caller_id: str,
         time_budget_seconds: float | None = None,
         seed: int = 0,
+        artifacts: PlanningArtifacts | None = None,
     ) -> RushRecord:
         """Insert a rush order into a stored plan; the rush job comes from the item's routing.
 
@@ -263,6 +307,7 @@ class PlanningService:
         def compute() -> Computed[RushRecord]:
             plan = self._get("plans", plan_id)
             problem = self._problem(plan["problem_id"])
+            provenance, _ = self._verified(problem, artifacts)
             snapshot = ErpSnapshot.model_validate(
                 self._get("erp_snapshots", problem.snapshot_digest)["snapshot"]
             )
@@ -284,6 +329,7 @@ class PlanningService:
                 "rush_order": inputs["rush"],
                 "seed": seed,
                 "budget_seconds": budget,
+                **provenance,
             }
             summary, rows = rush_records(problem, new_plan_id, result, rush_job, origin)
             return f"plans/{new_plan_id}", rows, summary
@@ -400,6 +446,18 @@ class PlanningService:
             raise IdempotencyConflict("The request key was already used with different inputs")
         kind, _, record_id = result_id.partition("/")
         return model.model_validate(self._repository.get(kind, record_id)["summary"])
+
+    def _verified(
+        self, problem: StoredProblem, artifacts: PlanningArtifacts | None
+    ) -> tuple[dict[str, Any], object | None]:
+        """Re-verify the problem's signed inputs now; plan provenance fields and `k_lookup`.
+
+        TF-003's `resolve_with_overrides` and `insert_rush_order` take no `k_lookup`; the
+        K-table is still verified and recorded for them.
+        """
+        resolver = artifacts or _LOCAL_ARTIFACTS
+        provenance, k_lookup = resolver.for_solve(problem.provenance, problem.profile)
+        return provenance.record_fields(), k_lookup
 
     def _api(self) -> PortfolioApi:
         if self._portfolio is None:

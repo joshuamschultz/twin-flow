@@ -8,11 +8,14 @@ are stored; no solver or exception text is.
 A `PortfolioResult` is stored as one `portfolios` record without its candidates; each
 candidate is one `plans` record with id `f"{portfolio_id}:{candidate_id}"`, so the schedule
 is stored once. Plan assignments carry their `job_id` so pages filter without the problem.
+Every plan also carries `overtime_seconds`: per machine whose calendar has priced overtime,
+the seconds its assignments spend inside that overtime (D-125, REQ-183).
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from bisect import bisect_right
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -27,13 +30,16 @@ from twinflow.application._planning_models import (
     PortfolioRecord,
     RushRecord,
 )
+from twinflow.application.planning_artifacts import Provenance
 from twinflow.application.portfolio_port import CandidateLike, PortfolioResultLike
 from twinflow.erp.build import BuildResult
 from twinflow.erp.profile import PlanningProfile
 from twinflow.erp.schema import ErpSnapshot, Lineage
 from twinflow.scheduling import (
+    Assignment,
     Job,
     ObjectiveKind,
+    OvertimeInterval,
     PreviousAssignment,
     PreviousPlan,
     Schedule,
@@ -50,7 +56,7 @@ MAX_REPORTED_ISSUES = 500
 
 @dataclass(frozen=True)
 class StoredProblem:
-    """A `problems` record resolved to its typed request and profile."""
+    """A `problems` record resolved to its typed request, profile and provenance."""
 
     problem_id: str
     problem_digest: str
@@ -58,6 +64,7 @@ class StoredProblem:
     request: SolveRequest
     profile: PlanningProfile
     lineage_index: dict[str, Any]
+    provenance: Provenance
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> StoredProblem:
@@ -69,6 +76,7 @@ class StoredProblem:
             request=SolveRequest.model_validate(record["request"]),
             profile=PlanningProfile.model_validate(record["profile"]),
             lineage_index=dict(record["lineage_index"]),
+            provenance=Provenance.from_record(dict(record)),
         )
 
 
@@ -78,11 +86,15 @@ def now() -> str:
 
 
 def build_records(
-    snapshot: ErpSnapshot, profile: PlanningProfile, result: BuildResult
+    snapshot: ErpSnapshot,
+    profile: PlanningProfile,
+    result: BuildResult,
+    provenance: Provenance,
 ) -> tuple[BuildRecord, list[RecordRow]]:
     """The build summary (first 500 issues) and its `erp_snapshots` and `problems` records.
 
-    A blocked build has only the snapshot record, whose report names the hard issues.
+    A blocked build has only the snapshot record, whose report names the hard issues. The
+    problem record carries the signed-artifact `provenance` of its profile and K-table.
     """
     record = BuildRecord(
         status=result.status,
@@ -113,6 +125,7 @@ def build_records(
                 op: lineage.model_dump(mode="json") for op, lineage in result.lineage_index.items()
             },
             "profile": profile.model_dump(mode="json"),
+            **provenance.record_fields(),
         }
         rows.append(("problems", record.problem_id, problem_body))
     return record, rows
@@ -137,6 +150,38 @@ def _assignments(schedule: Schedule, job_of: Mapping[str, str]) -> list[dict[str
         {**a.model_dump(mode="json"), "job_id": job_of.get(a.operation_id)}
         for a in schedule.assignments
     ]
+
+
+def overtime_seconds(request: SolveRequest, schedule: Schedule) -> dict[str, float]:
+    """Seconds each machine with priced overtime works inside it (D-125); 0.0 when none."""
+    calendars = {calendar.id: calendar.overtime for calendar in request.problem.calendars}
+    windows = {
+        machine.id: calendars[machine.calendar_id]
+        for machine in request.problem.machines
+        if machine.calendar_id is not None and calendars.get(machine.calendar_id)
+    }
+    starts = {machine_id: [w.start for w in found] for machine_id, found in windows.items()}
+    totals = dict.fromkeys(sorted(windows), 0.0)
+    for assignment in schedule.assignments:
+        if assignment.machine_id in windows:
+            seconds = _overlap(
+                assignment, windows[assignment.machine_id], starts[assignment.machine_id]
+            )
+            totals[assignment.machine_id] += seconds
+    return totals
+
+
+def _overlap(
+    assignment: Assignment, windows: Sequence[OvertimeInterval], starts: Sequence[float]
+) -> float:
+    """Seconds of `[start, end)` inside sorted, disjoint `windows` (bisect, then walk)."""
+    index = max(bisect_right(starts, assignment.start) - 1, 0)
+    total = 0.0
+    while index < len(windows) and windows[index].start < assignment.end:
+        window = windows[index]
+        total += max(0.0, min(assignment.end, window.end) - max(assignment.start, window.start))
+        index += 1
+    return total
 
 
 def _plan_body(problem: StoredProblem, plan_id: str, origin: Mapping[str, Any]) -> dict[str, Any]:
@@ -170,6 +215,7 @@ def _candidate_record(
         "pipeline": list(candidate.pipeline),
         "schedule": candidate.schedule.model_dump(mode="json", exclude={"assignments"}),
         "assignments": _assignments(candidate.schedule, job_of),
+        "overtime_seconds": overtime_seconds(problem.request, candidate.schedule),
         "objective_values": objective_values(candidate.objective_values),
         "verified": candidate.verified,
         "issues": _issues(candidate.issues),
@@ -248,6 +294,7 @@ def rush_records(
         "evidence_kind": "rush_insert",
         "schedule": schedule,
         "assignments": _assignments(result.schedule, job_index(problem.request, (rush_job,))),
+        "overtime_seconds": overtime_seconds(problem.request, result.schedule),
         "objective_values": objective_values(result.objective_values),
         "verified": result.verified,
         "issues": _issues(result.issues),

@@ -4,7 +4,8 @@ TF-003 (`twinflow.scheduling.portfolio.api`, TF-003 COMP-029) is a dependency th
 absent. This module names only the shape the planning service reads, as structural
 `Protocol`s, and `load_portfolio_api()` imports the real module lazily. Nothing else in the
 application imports TF-003, so a TF-003 signature change is absorbed here (TF-005 SDD
-External Integrations, Risks).
+External Integrations, Risks). The ATCS K-table support (`KTable`, `as_k_lookup`, TF-003
+COMP-028) is reached the same way, through `load_k_table_model()` and `k_lookup_for()`.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ import importlib
 import logging
 from collections.abc import Mapping
 from typing import Any, Protocol, cast
+
+from pydantic import BaseModel
 
 from twinflow.scheduling import (
     Job,
@@ -30,10 +33,13 @@ __all__ = [
     "MenuEntryLike",
     "PortfolioApi",
     "PortfolioResultLike",
+    "k_lookup_for",
+    "load_k_table_model",
     "load_portfolio_api",
 ]
 
 PORTFOLIO_MODULE = "twinflow.scheduling.portfolio.api"
+KTABLE_MODULE = "twinflow.scheduling.learning.ktable"
 
 log = logging.getLogger(__name__)
 
@@ -141,3 +147,29 @@ def load_portfolio_api() -> PortfolioApi | None:
         return None
     # A module is a structural implementation; mypy cannot check a module against a Protocol.
     return cast(PortfolioApi, module)
+
+
+def load_k_table_model() -> type[BaseModel] | None:
+    """TF-003's `KTable` model, or None when TF-003 is not installed."""
+    module = _k_table_module()
+    model = getattr(module, "KTable", None) if module is not None else None
+    if isinstance(model, type) and issubclass(model, BaseModel):
+        return model
+    return None
+
+
+def k_lookup_for(table: BaseModel) -> object | None:
+    """TF-003's `as_k_lookup(table)` (the ATCS `k_lookup`), or None when TF-003 lacks it."""
+    module = _k_table_module()
+    as_k_lookup = getattr(module, "as_k_lookup", None) if module is not None else None
+    if not callable(as_k_lookup):
+        return None
+    lookup: object = as_k_lookup(table)
+    return lookup
+
+
+def _k_table_module() -> object | None:
+    try:
+        return importlib.import_module(KTABLE_MODULE)
+    except ImportError:
+        return None

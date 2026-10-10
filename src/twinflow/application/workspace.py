@@ -36,6 +36,10 @@ SIMULATION_HORIZON_SECONDS = 31_536_000.0
 """The DES runs at most one year of simulated time (`evaluate_capsule` max_sim_time)."""
 
 
+class WorkspaceOwned(RuntimeError):  # noqa: N818 - names the condition, like the message
+    """Another process holds the workspace's owner lock."""
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -75,7 +79,7 @@ class Workspace:
             fcntl.flock(self._ownership.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             self._ownership.close()
-            raise RuntimeError("Workspace is already owned by another service process") from exc
+            raise WorkspaceOwned("Workspace is already owned by another service process") from exc
         self.repository = WorkspaceRepository(
             workspace_root, max_records_per_kind=max_records_per_kind
         )

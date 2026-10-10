@@ -34,7 +34,7 @@ def _await_job(client: TestClient, job_id: str, timeout: float = 120.0) -> dict[
 
 
 def test_health(client: TestClient) -> None:
-    assert client.get("/api/health").json() == {"status": "ok"}
+    assert client.get("/api/health").json() == {"status": "ok", "mcp": "available"}
 
 
 def test_modules_discovery_lists_every_kind(client: TestClient) -> None:

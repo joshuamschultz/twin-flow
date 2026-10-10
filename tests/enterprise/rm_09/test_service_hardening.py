@@ -17,13 +17,14 @@ from twinflow.application.repository import WorkspaceRepository
 from twinflow.application.workspace import Workspace
 from twinflow.cli.admin import main as admin_main
 from twinflow.service.app import create_app
+from twinflow.service.auth import token_sha256
 from twinflow.service.middleware import ServiceBoundaryMiddleware
 from twinflow.service.settings import ServiceSettings
 
 
-def _settings(max_request_bytes: int = 5_242_880) -> ServiceSettings:
+def _settings(tmp_path: Path, max_request_bytes: int = 5_242_880) -> ServiceSettings:
     return ServiceSettings(
-        api_token=_token(),
+        tokens_file=_registry(tmp_path / "tokens.json"),
         cors_origins=("https://planner.example",),
         allowed_hosts=("testserver",),
         max_request_bytes=max_request_bytes,
@@ -34,14 +35,29 @@ def _token() -> str:
     return "-".join(("secure", "test", "token", "123456789"))
 
 
+def _registry(path: Path) -> Path:
+    """A one-entry caller registry (COMP-120) holding only the hash of `_token()`."""
+    entry = {
+        "caller_id": "planner",
+        "token_sha256": token_sha256(_token()),
+        "scopes": ["read", "plan"],
+        "not_after": None,
+    }
+    path.write_text(json.dumps({"tokens": [entry]}), encoding="utf-8")
+    path.chmod(0o600)
+    return path
+
+
 def test_auth_protects_api_schema_and_docs_but_not_probes(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
     with TestClient(
-        create_app("examples", workspace_root=tmp_path, settings=_settings())
+        create_app("examples", workspace_root=tmp_path / "ws", settings=settings)
     ) as client:
         for path in ("/api/health", "/api/workspace/schema", "/openapi.json", "/docs"):
             response = client.get(path)
             assert response.status_code == 401
-            assert "a-secure-test-token" not in response.text
+            assert _token() not in response.text
+            assert token_sha256(_token()) not in response.text
         assert client.get("/health").json() == {"status": "ok"}
         assert client.get("/ready").json() == {"status": "ready"}
         response = client.get(
@@ -56,8 +72,10 @@ def test_auth_protects_api_schema_and_docs_but_not_probes(tmp_path: Path) -> Non
 
 
 def test_cors_hosts_and_request_size_are_restrictive(tmp_path: Path) -> None:
-    settings = _settings(max_request_bytes=100)
-    with TestClient(create_app("examples", workspace_root=tmp_path, settings=settings)) as client:
+    settings = _settings(tmp_path, max_request_bytes=100)
+    with TestClient(
+        create_app("examples", workspace_root=tmp_path / "ws", settings=settings)
+    ) as client:
         headers = {"Authorization": f"Bearer {_token()}"}
         allowed = client.get(
             "/api/health", headers={**headers, "Origin": "https://planner.example"}
@@ -76,13 +94,15 @@ def test_cors_hosts_and_request_size_are_restrictive(tmp_path: Path) -> None:
         assert oversized.status_code == 413
 
 
-def test_nonloopback_binding_requires_environment_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    with pytest.raises(ValueError, match="requires an API token"):
+def test_nonloopback_binding_requires_token_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with pytest.raises(ValueError, match="requires a token registry"):
         ServiceSettings(local_only=False)
-    monkeypatch.delenv("TWINFLOW_API_TOKEN", raising=False)
-    with pytest.raises(ValueError, match="requires an API token"):
+    monkeypatch.delenv("TWINFLOW_TOKENS_FILE", raising=False)
+    with pytest.raises(ValueError, match="requires a token registry"):
         ServiceSettings.from_env(host="service.example")
-    monkeypatch.setenv("TWINFLOW_API_TOKEN", "configured-remote-token")
+    monkeypatch.setenv("TWINFLOW_TOKENS_FILE", str(_registry(tmp_path / "tokens.json")))
     assert ServiceSettings.from_env(host="service.example").local_only is False
     with pytest.raises(ValueError, match="wildcard"):
         ServiceSettings(cors_origins=("*",))
@@ -240,13 +260,17 @@ def test_chunked_body_limit_negative_length_and_post_start_failure() -> None:
         await send_message({"type": "http.response.body", "body": b"ok"})
 
     chunked = _run_asgi(
-        ServiceBoundaryMiddleware(consuming_app, api_token=None, max_request_bytes=5),
+        ServiceBoundaryMiddleware(
+            consuming_app, registry=None, max_request_bytes=5, max_mcp_request_bytes=5
+        ),
         [(b"abc", True), (b"def", False)],
     )
     assert cast(int, chunked[0]["status"]) == 413
 
     negative = _run_asgi(
-        ServiceBoundaryMiddleware(consuming_app, api_token=None, max_request_bytes=5),
+        ServiceBoundaryMiddleware(
+            consuming_app, registry=None, max_request_bytes=5, max_mcp_request_bytes=5
+        ),
         [],
         headers=[(b"content-length", b"-1")],
     )
@@ -261,7 +285,9 @@ def test_chunked_body_limit_negative_length_and_post_start_failure() -> None:
 
     with pytest.raises(RuntimeError, match="after start"):
         _run_asgi(
-            ServiceBoundaryMiddleware(failing_app, api_token=None, max_request_bytes=5),
+            ServiceBoundaryMiddleware(
+                failing_app, registry=None, max_request_bytes=5, max_mcp_request_bytes=5
+            ),
             [],
             sent=sent,
         )

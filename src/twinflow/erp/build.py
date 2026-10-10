@@ -5,8 +5,9 @@
 1. `validate_snapshot`; any hard issue blocks: no request, no problem digest.
 2. Open orders become jobs (`_jobs.py`), their in-plant ops become operations
    (`_operations.py`); material readiness (COMP-115, D-122) runs in job priority order.
-3. Active machines, work centers, calendars (COMP-114), operator pools and the profile's
-   setup functions complete the problem; every collection is sorted by id.
+3. Active machines, work centers, calendars with priced overtime (COMP-114, COMP-126,
+   D-125; `_machine_calendars.py`), operator pools and the profile's setup functions
+   complete the problem; every collection is sorted by id.
 4. Problem id = `"erp-" + sha256("\\n".join([snapshot digest, profile digest,
    BUILDER_VERSION]))[:16]`; problem digest = SHA-256 of the request's canonical JSON. The
    request is round-tripped through TF-002 `parse_request`; a failure is a builder bug and
@@ -23,17 +24,16 @@ routing (REQ-163). Pure and deterministic: no clock read.
 
 from __future__ import annotations
 
-import datetime as dt
 import hashlib
 import json
 from collections.abc import Hashable, Iterable
 from typing import Any, Literal
-from zoneinfo import ZoneInfo
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, ValidationError
 
 from twinflow.erp._checks import issue
 from twinflow.erp._jobs import JobHead, build_job, job_heads, jobs_order
+from twinflow.erp._machine_calendars import machine_calendars
 from twinflow.erp._operations import (
     ShopIndex,
     build_shop_index,
@@ -41,7 +41,6 @@ from twinflow.erp._operations import (
     processing_options,
     walk_route,
 )
-from twinflow.erp.calendars import expand
 from twinflow.erp.issues import ErpIssue
 from twinflow.erp.materials import material_ready_times
 from twinflow.erp.profile import PlanningProfile, profile_digest
@@ -50,7 +49,6 @@ from twinflow.erp.validate import validate_snapshot
 from twinflow.scheduling import parse_request
 from twinflow.scheduling.model import (
     BatchCapacity,
-    Calendar,
     Id,
     Job,
     Machine,
@@ -211,8 +209,8 @@ def _problem(
     shop: ShopIndex,
 ) -> Problem:
     """Assemble the TF-002 problem; every collection sorted by id."""
-    machine_calendars, calendars = _calendars(snapshot, profile)
-    machines = _machines(shop, machine_calendars, jobs, heads)
+    machine_ids_to_calendar, calendars = machine_calendars(snapshot, profile)
+    machines = _machines(shop, machine_ids_to_calendar, jobs, heads)
     functions = {function.id: function for function in profile.erp.setup_functions.values()}
     return Problem(
         id=_problem_id(digests),
@@ -227,33 +225,6 @@ def _problem(
         ),
         setup_functions=tuple(functions[key] for key in sorted(functions)),
     )
-
-
-def _calendars(
-    snapshot: ErpSnapshot, profile: PlanningProfile
-) -> tuple[dict[str, str | None], tuple[Calendar, ...]]:
-    """Each active machine's calendar id and every calendar a machine or pool uses (COMP-114).
-
-    A machine uses its own calendar, else its work center's; neither means always working.
-    Overtime (T-219, COMP-126) extends this one function.
-    """
-    centers = {wc.id: wc.calendar_id for wc in snapshot.work_centers}
-    machine_calendars = {
-        machine.id: machine.calendar_id or centers.get(machine.work_center_id)
-        for machine in snapshot.machines
-        if machine.active
-    }
-    pool_calendars = (pool.calendar_id for pool in snapshot.labor_pools)
-    used = {cid for cid in (*machine_calendars.values(), *pool_calendars) if cid is not None}
-    plant_tz = ZoneInfo(snapshot.plant_timezone)
-    # Real elapsed days in UTC, so the horizon never depends on how `as_of`'s zone is spelled.
-    horizon_end = snapshot.as_of.astimezone(dt.UTC) + dt.timedelta(days=profile.erp.horizon_days)
-    sources = {cal.id: cal for cal in reversed(snapshot.calendars)}  # first record wins
-    calendars = tuple(
-        Calendar(id=cid, intervals=expand(sources[cid], plant_tz, snapshot.as_of, horizon_end))
-        for cid in sorted(used)
-    )
-    return machine_calendars, calendars
 
 
 def _machines(
