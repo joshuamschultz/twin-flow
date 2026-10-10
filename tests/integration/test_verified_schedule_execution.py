@@ -79,20 +79,27 @@ def test_runner_replays_verified_machine_assignments(tmp_path: Path) -> None:
     firings = firings_from_plan(translated, asdict(solved))
     with pytest.raises(ValueError, match="exactly one firing"):
         RunDriver(capsule.compile().model).run(
-            work_orders_from_snapshot(snapshot), seed=42, replication_index=0,
-            artifact_dir=tmp_path, execution_schedule=firings[:-1],
+            work_orders_from_snapshot(snapshot),
+            seed=42,
+            replication_index=0,
+            artifact_dir=tmp_path,
+            execution_schedule=firings[:-1],
         )
     simultaneous_cut = [firing for firing in firings if firing.location_id == "cut"]
     if simultaneous_cut[0].planned_start == simultaneous_cut[1].planned_start:
         overlap = [
             replace(firing, machine_id=simultaneous_cut[0].machine_id)
-            if firing.operation_id == simultaneous_cut[1].operation_id else firing
+            if firing.operation_id == simultaneous_cut[1].operation_id
+            else firing
             for firing in firings
         ]
         with pytest.raises(ValueError, match="overlapping"):
             RunDriver(capsule.compile().model).run(
-                work_orders_from_snapshot(snapshot), seed=42, replication_index=0,
-                artifact_dir=tmp_path, execution_schedule=overlap,
+                work_orders_from_snapshot(snapshot),
+                seed=42,
+                replication_index=0,
+                artifact_dir=tmp_path,
+                execution_schedule=overlap,
             )
     run = RunDriver(capsule.compile().model).run(
         work_orders_from_snapshot(snapshot),
