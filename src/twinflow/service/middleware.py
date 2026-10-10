@@ -13,6 +13,9 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 log = logging.getLogger(__name__)
 _CORRELATION = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+SCHEDULE_PATH = "/api/workspace/schedules"
+# REQ-084 admits 1,000,000 calendar intervals, about 30 MB of JSON; 64 MiB leaves headroom.
+SCHEDULE_BODY_LIMIT_BYTES = 64 * 1024 * 1024
 
 
 class ServiceBoundaryMiddleware:
@@ -38,6 +41,7 @@ class ServiceBoundaryMiddleware:
                     scope, 401, "Authentication required", correlation_id, receive, send
                 )
                 return
+        limit = SCHEDULE_BODY_LIMIT_BYTES if path == SCHEDULE_PATH else self.max_request_bytes
         content_length = headers.get("content-length")
         if content_length is not None:
             try:
@@ -47,7 +51,7 @@ class ServiceBoundaryMiddleware:
                         scope, 400, "Invalid Content-Length", correlation_id, receive, send
                     )
                     return
-                if declared_length > self.max_request_bytes:
+                if declared_length > limit:
                     await _response(
                         scope, 413, "Request body too large", correlation_id, receive, send
                     )
@@ -62,7 +66,7 @@ class ServiceBoundaryMiddleware:
             request_messages.append(message)
             if message["type"] == "http.request":
                 consumed += len(message.get("body", b""))
-                if consumed > self.max_request_bytes:
+                if consumed > limit:
                     await _response(
                         scope, 413, "Request body too large", correlation_id, receive, send
                     )
