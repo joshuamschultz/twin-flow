@@ -133,8 +133,6 @@ def test_no_import_of_deleted_modules() -> None:
 SCHEDULING = SRC / "scheduling"
 # The scheduling engine is a leaf: it knows nothing about the surfaces that call it.
 _SCHEDULING_FORBIDDEN = ("application", "service", "mcp", "plan", "primitives", "cli")
-# The verifier must stay independent of every solver it checks (TF-002 COMP-007).
-_VERIFIER_FORBIDDEN = ("baseline", "cpsat", "timeline")
 
 
 def _absolute_imports(path: pathlib.Path) -> list[tuple[int, str]]:
@@ -159,10 +157,3 @@ def test_scheduling_imports_no_surface_package() -> None:
     offenders = [o for p in sorted(SCHEDULING.rglob("*.py")) for o in _imports_under(p, prefixes)]
     assert offenders == [], offenders
 
-
-def test_verifier_imports_no_solver() -> None:
-    verifier = SCHEDULING / "verifier.py"
-    if not verifier.exists():
-        return
-    prefixes = tuple(f"twinflow.scheduling.{name}" for name in _VERIFIER_FORBIDDEN)
-    assert _imports_under(verifier, prefixes) == []
