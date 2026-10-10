@@ -186,11 +186,22 @@ def _apply_hold(state: _State, hold: HoldOverride, path: str) -> None:
 
 
 def _apply_split(state: _State, split: SplitOverride, path: str) -> None:
-    """Replace the job with children `{job}~k` (k from 1), ops `{op}~k`, quantities scaled."""
+    """Replace the job with children `{job}~k` (k from 1), ops `{op}~k`, quantities scaled.
+
+    A link from another job to a split op X becomes one link per child X~k with the same
+    lags, so the successor waits for every child. A transfer-lot link from another job
+    into the split job has no single lot to count, so it is `split_overlap_link` and the
+    split is skipped.
+    """
     job = state.jobs.get(split.job_id)
     if job is None:
         if _job_targets(state, split.job_id) is None:
             _unknown(state, path, split.id, f"job {split.job_id}")
+        return
+    overlapping = _overlap_links_into(state, job)
+    if overlapping:
+        message = f"split {split.id}: {', '.join(overlapping)} overlap into job {job.id}"
+        state.report("split_overlap_link", path, message)
         return
     children = _split_job(job, split.fractions)
     del state.jobs[job.id]
@@ -198,9 +209,44 @@ def _apply_split(state: _State, split: SplitOverride, path: str) -> None:
     for op in job.operations:
         del state.op_owner[op.id]
         state.split_map[op.id] = tuple(f"{op.id}~{k}" for k in range(1, len(children) + 1))
+    _update_job(state, list(state.jobs), lambda other: _remap_external(other, state.split_map))
     for child in children:
         state.jobs[child.id] = child
         state.op_owner.update({op.id: child.id for op in child.operations})
+
+
+def _overlap_links_into(state: _State, job: Job) -> list[str]:
+    """Ids of ops in other jobs with a transfer-lot link to an op of `job`."""
+    local = {op.id for op in job.operations}
+    return [
+        op.id
+        for other in state.jobs.values()
+        if other.id != job.id
+        for op in other.operations
+        if any(
+            link.operation_id in local and link.overlap_quantity is not None
+            for link in op.predecessors
+        )
+    ]
+
+
+def _remap_external(job: Job, split_map: dict[str, tuple[str, ...]]) -> Job:
+    """Fan every link to a split op out to its children; a job with no such link is kept."""
+    if not any(link.operation_id in split_map for op in job.operations for link in op.predecessors):
+        return job
+    operations = tuple(
+        op.model_copy(
+            update={
+                "predecessors": tuple(
+                    link.model_copy(update={"operation_id": child})
+                    for link in op.predecessors
+                    for child in split_map.get(link.operation_id, (link.operation_id,))
+                )
+            }
+        )
+        for op in job.operations
+    )
+    return job.model_copy(update={"operations": operations})
 
 
 def _split_job(job: Job, fractions: tuple[float, ...]) -> tuple[Job, ...]:
@@ -237,7 +283,7 @@ def _remap_precedence(
     link: Precedence, k: int, fraction: float, local_ids: frozenset[str]
 ) -> Precedence:
     """A link inside the split job points at the same child, and its transfer lot scales
-    with the child's lot; links to other jobs stay."""
+    with the child's lot; links to other jobs stay (a later split of that job fans them out)."""
     if link.operation_id not in local_ids:
         return link
     overlap = None if link.overlap_quantity is None else link.overlap_quantity * fraction
