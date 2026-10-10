@@ -156,4 +156,3 @@ def test_scheduling_imports_no_surface_package() -> None:
     prefixes = tuple(f"twinflow.{name}" for name in _SCHEDULING_FORBIDDEN)
     offenders = [o for p in sorted(SCHEDULING.rglob("*.py")) for o in _imports_under(p, prefixes)]
     assert offenders == [], offenders
-
