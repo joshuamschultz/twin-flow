@@ -336,6 +336,38 @@ def test_tampered_profile_between_build_and_solve_fails_solve_without_calling_tf
     assert sum(world.fake.calls.values()) == 0
 
 
+@pytest.mark.parametrize("field", ["request", "profile"])
+def test_problem_record_profile_edited_between_build_and_solve_fails_closed(
+    world: World, field: str
+) -> None:
+    """The solve runs `request.profile`; both copies must stay bound to the signed profile."""
+
+    async def build(session: McpSession) -> str:
+        await session.call("put_planning_profile", {"profile_toml": PROFILE_TOML})
+        built = await session.call("build_problem_from_erp", {"snapshot": _shop()})
+        return str(built["problem_id"])
+
+    problem_id = _session(world, build)
+    stored = _record(world, "problems", problem_id)
+    if field == "request":
+        profile = stored["request"]["profile"]
+        stored["request"]["profile"] = {**profile, "time_budget_seconds": 299.0}
+        assert stored["request"]["profile"] != profile
+    else:
+        scheduling = stored["profile"]["scheduling"]
+        stored["profile"]["scheduling"] = {**scheduling, "time_budget_seconds": 299.0}
+        assert stored["profile"]["scheduling"] != scheduling
+    _write_body(world, "problems", problem_id, stored)
+
+    async def solve(session: McpSession) -> str:
+        return await _error_code(
+            session, "solve_portfolio", {"problem_id": problem_id, "request_key": "edited"}
+        )
+
+    assert _session(world, solve) == "artifact_signature_invalid"
+    assert sum(world.fake.calls.values()) == 0
+
+
 def test_rolled_back_active_pointer_fails_the_next_build(world: World) -> None:
     async def first_put(session: McpSession) -> None:
         await session.call("put_planning_profile", {"profile_toml": PROFILE_TOML})

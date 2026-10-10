@@ -29,6 +29,7 @@ from twinflow.application._planning_models import NotFound, PlanningError
 from twinflow.application.artifacts import ArtifactKind, ArtifactRef, ArtifactSignatureInvalid
 from twinflow.application.portfolio_port import k_lookup_for, load_k_table_model
 from twinflow.erp.profile import PlanningProfile, load_planning_profile, profile_digest
+from twinflow.scheduling import SchedulingProfile
 
 __all__ = [
     "ArtifactSource",
@@ -139,9 +140,15 @@ class PlanningArtifacts:
         return profile, self._with_k_table(provenance, self.k_table())
 
     def for_solve(
-        self, provenance: Provenance, stored: PlanningProfile
+        self, provenance: Provenance, stored: PlanningProfile, solved: SchedulingProfile
     ) -> tuple[Provenance, object | None]:
-        """Re-verify a stored problem's profile; the plan provenance and the `k_lookup`."""
+        """Re-verify a stored problem's profile; the plan provenance and the `k_lookup`.
+
+        `solved` is the profile inside the stored request, the one the solve runs: it must
+        be the stored profile's scheduling part, which must be the signed profile.
+        """
+        if solved != stored.scheduling:
+            raise ArtifactSignatureInvalid("the problem's request profile is not its profile")
         if provenance.profile_signed:
             self._verify_signed(provenance.profile_digest, stored)
         elif not self._local_mode:

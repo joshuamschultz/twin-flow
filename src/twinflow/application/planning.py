@@ -461,7 +461,9 @@ class PlanningService:
         K-table is still verified and recorded for them.
         """
         resolver = artifacts or _LOCAL_ARTIFACTS
-        provenance, k_lookup = resolver.for_solve(problem.provenance, problem.profile)
+        provenance, k_lookup = resolver.for_solve(
+            problem.provenance, problem.profile, problem.request.profile
+        )
         return provenance.record_fields(), k_lookup
 
     def _api(self) -> PortfolioApi:
