@@ -33,7 +33,6 @@ enough but rejected for setups, operators or calendars.
 from __future__ import annotations
 
 import heapq
-import math
 import time
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -55,21 +54,25 @@ from twinflow.scheduling.objectives import evaluate, primary_kind
 from twinflow.scheduling.seam import Feature, SolveContext
 from twinflow.scheduling.setups import SetupTable
 from twinflow.scheduling.timeline import (
+    Gate,
     MachineTimeline,
+    Placed,
     PoolNeed,
     PoolTimeline,
     ShiftCrossing,
     Slot,
+    SlotCheck,
     SlotRequest,
     effective_calendar,
     hold_operators,
+    material_gate,
     operator_retry,
 )
 
 NAME = "baseline"
 CAPABILITIES = frozenset(Feature)
 _SLACK = 1e-9
-"""Float slack on upper bounds (max_lag, latest_start); far below the verifier's 1e-6."""
+"""Float slack on the horizon bound; far below the verifier's 1e-6."""
 
 
 # --- plain problem values ------------------------------------------------------------------------
@@ -108,32 +111,6 @@ class _Op:
     detached: bool
     shift_crossing: ShiftCrossing
     batch_family: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class _Placed:
-    """Where a predecessor ended up, with the chosen option's fixed and unit seconds."""
-
-    setup_end: float
-    end: float
-    fixed: float
-    unit: float
-
-    def transfer(self, quantity: float) -> float:
-        """Time the first `quantity` units are done: setup_end + fixed + q * unit."""
-        return self.setup_end + self.fixed + quantity * self.unit
-
-
-@dataclass(frozen=True, slots=True)
-class _Gate:
-    """Bounds on an operation's material gate from its release and placed predecessors.
-
-    `lots` holds (pred.end, q) per transfer-lot link for the end >= pred.end + q * unit rule.
-    """
-
-    ready: float
-    limit: float
-    lots: tuple[tuple[float, float], ...]
 
 
 def _options(op: Operation) -> tuple[_Option, ...]:
@@ -193,47 +170,6 @@ def _issue(code: str, op_id: str, message: str) -> ScheduleIssue:
     return ScheduleIssue(code=code, path=op_id, message=message)
 
 
-# --- slot filter ---------------------------------------------------------------------------------
-
-
-class _SlotCheck:
-    """`find_slot` filter for one (operation, option): None accepts, else a retry start.
-
-    Upper bounds (pin latest_start, max_lag) only get worse later, so they reject for good
-    (inf); `missed_max_lag` records why. The transfer-lot end bound and operator capacity
-    ask for a later start.
-    """
-
-    __slots__ = ("_end_floor", "_gate", "_op", "_pools", "missed_max_lag")
-
-    def __init__(
-        self, op: _Op, gate: _Gate, option: _Option, pools: dict[str, PoolTimeline]
-    ) -> None:
-        self._op = op
-        self._gate = gate
-        self._pools = pools
-        self._end_floor = max((end + q * option.unit for end, q in gate.lots), default=-math.inf)
-        self.missed_max_lag = False
-
-    def __call__(self, slot: Slot) -> float | None:
-        latest = self._op.latest_start
-        if latest is not None and slot.start > latest + _SLACK:
-            return math.inf
-        material = slot.setup_end if self._op.detached else slot.start
-        if material > self._gate.limit + _SLACK:
-            self.missed_max_lag = True
-            return math.inf
-        retry: float | None = None
-        if slot.end < self._end_floor - _SLACK:
-            shifted = slot.start + (self._end_floor - slot.end)
-            retry = max(shifted, math.nextafter(slot.start, math.inf))
-        if self._op.needs:
-            blocked = operator_retry(slot, self._op.needs, self._pools)
-            if blocked is not None:
-                retry = blocked if retry is None else max(retry, blocked)
-        return retry
-
-
 # --- the list scheduler --------------------------------------------------------------------------
 
 
@@ -276,7 +212,7 @@ class _ListScheduler:
         }
         self._calendars: dict[tuple[str, tuple[str, ...]], Intervals] = {}
         self._running: set[str] = set()
-        self.placed: dict[str, _Placed] = {}
+        self.placed: dict[str, Placed] = {}
         self.assignments: list[Assignment] = []
 
     # --- phases --------------------------------------------------------------------------
@@ -367,18 +303,9 @@ class _ListScheduler:
 
     # --- one pending operation -----------------------------------------------------------
 
-    def _gate(self, op: _Op) -> _Gate:
-        ready, limit = op.material_ready, math.inf
-        lots: list[tuple[float, float]] = []
-        for link in op.links:
-            pred = self.placed[link.pred_id]
-            base = pred.end if link.overlap is None else pred.transfer(link.overlap)
-            ready = max(ready, base + link.min_lag)
-            if link.max_lag is not None:
-                limit = min(limit, base + link.max_lag)
-            if link.overlap is not None:
-                lots.append((pred.end, link.overlap))
-        return _Gate(ready, limit, tuple(lots))
+    def _gate(self, op: _Op) -> Gate:
+        placed = ((link, self.placed[link.pred_id]) for link in op.links)
+        return material_gate(op.material_ready, placed)
 
     def _place(self, op: _Op) -> ScheduleIssue | None:
         """Place `op` on the option that completes first; an issue when none can.
@@ -391,7 +318,14 @@ class _ListScheduler:
         missed_max_lag = False
         for option in op.options:
             request = self._request(op, option, gate)
-            check = _SlotCheck(op, gate, option, self._pools)
+            check = SlotCheck(
+                gate,
+                unit=option.unit,
+                latest_start=op.latest_start,
+                detached=op.detached,
+                needs=op.needs,
+                pools=self._pools,
+            )
             slot = self._timelines[option.machine_id].find_slot(request, check)
             missed_max_lag |= check.missed_max_lag
             if slot is not None and (best is None or _ranks_before(slot, option, best)):
@@ -401,7 +335,7 @@ class _ListScheduler:
         self._commit(op.id, op.needs, best)
         return None
 
-    def _request(self, op: _Op, option: _Option, gate: _Gate) -> SlotRequest:
+    def _request(self, op: _Op, option: _Option, gate: Gate) -> SlotRequest:
         return SlotRequest(
             op_id=op.id,
             run_seconds=option.run,
@@ -429,7 +363,7 @@ class _ListScheduler:
         batch_id = self._timelines[machine_id].place(chosen.request, slot)
         if needs:
             hold_operators(slot, needs, self._pools)
-        self.placed[op_id] = _Placed(
+        self.placed[op_id] = Placed(
             slot.setup_end, slot.end, chosen.option.fixed, chosen.option.unit
         )
         self.assignments.append(

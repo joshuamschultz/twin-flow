@@ -55,6 +55,11 @@ as a step function. Operator needs attach to phases (D-063): ``setup`` holds the
 Joint search: pass ``lambda slot: operator_retry(slot, needs, pools)`` as the
 ``find_slot`` filter; the filter returns None to accept a slot, or a later start to retry
 from, so machine gaps and pool capacity are searched together in increasing start order.
+
+Precedence (shared by the baseline and the kernel decoder, D-071): ``material_gate`` turns
+placed predecessors (``Placed``) into a ``Gate`` (lowest gate, max-lag limit, transfer-lot
+end floors) and ``SlotCheck`` is the ``find_slot`` filter that enforces it together with
+``pin.latest_start`` and operator capacity.
 """
 
 from __future__ import annotations
@@ -63,7 +68,7 @@ import math
 from bisect import bisect_right
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Literal, Protocol, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
@@ -615,3 +620,118 @@ def effective_calendar(
     for pool_calendar in pool_calendars:
         calendar = intersect(calendar, pool_calendar)
     return calendar
+
+
+# --- precedence gate and slot check -----------------------------------------------------------
+
+
+class LagLink(Protocol):
+    """A precedence link's lags, as ``material_gate`` reads them."""
+
+    @property
+    def min_lag(self) -> float: ...
+
+    @property
+    def max_lag(self) -> float | None: ...
+
+    @property
+    def overlap(self) -> float | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class Placed:
+    """Where a predecessor ended up, with the chosen option's fixed and unit seconds."""
+
+    setup_end: float
+    end: float
+    fixed: float
+    unit: float
+
+    def transfer(self, quantity: float) -> float:
+        """Time the first ``quantity`` units are done: setup_end + fixed + q * unit."""
+        return self.setup_end + self.fixed + quantity * self.unit
+
+
+@dataclass(frozen=True, slots=True)
+class Gate:
+    """Bounds on an operation's material gate from its release and placed predecessors.
+
+    ``ready`` is the lowest gate, ``limit`` the highest one the max lags allow; ``lots``
+    holds (pred.end, q) per transfer-lot link for the ``end >= pred.end + q * unit`` rule.
+    """
+
+    ready: float
+    limit: float
+    lots: tuple[tuple[float, float], ...]
+
+
+def material_gate(release: float, links: Iterable[tuple[LagLink, Placed]]) -> Gate:
+    """The gate of an operation released at ``release`` with these placed predecessors.
+
+    Without overlap g >= pred.end + min_lag; with ``overlap`` q,
+    g >= pred.setup_end + pred.fixed + q * pred.unit + min_lag (SDD Data Model).
+    """
+    ready, limit = release, math.inf
+    lots: list[tuple[float, float]] = []
+    for link, pred in links:
+        base = pred.end if link.overlap is None else pred.transfer(link.overlap)
+        ready = max(ready, base + link.min_lag)
+        if link.max_lag is not None:
+            limit = min(limit, base + link.max_lag)
+        if link.overlap is not None:
+            lots.append((pred.end, link.overlap))
+    return Gate(ready, limit, tuple(lots))
+
+
+class SlotCheck:
+    """``find_slot`` filter for one (operation, option): None accepts, else a retry start.
+
+    Upper bounds (``latest_start``, the gate limit from max lags) only get worse later, so
+    they reject for good (inf); ``missed_max_lag`` records why. The transfer-lot end bound
+    (with the option's ``unit`` seconds) and operator capacity ask for a later start.
+    """
+
+    __slots__ = (
+        "_detached",
+        "_end_floor",
+        "_gate",
+        "_latest",
+        "_needs",
+        "_pools",
+        "missed_max_lag",
+    )
+
+    def __init__(
+        self,
+        gate: Gate,
+        *,
+        unit: float,
+        latest_start: float | None,
+        detached: bool,
+        needs: Sequence[PoolNeed],
+        pools: Mapping[str, PoolTimeline],
+    ) -> None:
+        self._gate = gate
+        self._latest = latest_start
+        self._detached = detached
+        self._needs = needs
+        self._pools = pools
+        self._end_floor = max((end + q * unit for end, q in gate.lots), default=-math.inf)
+        self.missed_max_lag = False
+
+    def __call__(self, slot: Slot) -> float | None:
+        if self._latest is not None and slot.start > self._latest + _SLACK:
+            return math.inf
+        material = slot.setup_end if self._detached else slot.start
+        if material > self._gate.limit + _SLACK:
+            self.missed_max_lag = True
+            return math.inf
+        retry: float | None = None
+        if slot.end < self._end_floor - _SLACK:
+            shifted = slot.start + (self._end_floor - slot.end)
+            retry = max(shifted, math.nextafter(slot.start, math.inf))
+        if self._needs:
+            blocked = operator_retry(slot, self._needs, self._pools)
+            if blocked is not None:
+                retry = blocked if retry is None else max(retry, blocked)
+        return retry

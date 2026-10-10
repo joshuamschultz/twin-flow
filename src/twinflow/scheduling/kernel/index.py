@@ -18,8 +18,8 @@ the string-keyed methods are the readable face. Per op:
 
 Job weight is the effective one: `weight_override` (compiled problems always carry it,
 D-066), else the default class weight. Machines carry their decoder inputs (availability,
-calendar intervals, batch capacity, restart rule, last setup state); `setups` is the
-problem's memoized `SetupTable`.
+calendar intervals, batch capacity, restart rule, last setup state) and their hour costs;
+`setups` is the problem's memoized `SetupTable`.
 """
 
 from __future__ import annotations
@@ -122,7 +122,7 @@ class JobData:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class MachineData:
-    """A machine's decoder inputs as plain values (the restart rule is the frozen model)."""
+    """A machine's decoder and cost inputs as plain values (restart rule: the frozen model)."""
 
     id: str
     work_center_id: str
@@ -132,6 +132,8 @@ class MachineData:
     restart: RestartRule | None
     last_setup_params: SetupParams
     last_setup_family: str | None
+    hour_cost: float
+    setup_hour_cost: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -364,6 +366,8 @@ def _machine_data(machine: Machine, calendars: Mapping[str, tuple[Interval, ...]
         restart=machine.restart,
         last_setup_params=state.last_setup_params,
         last_setup_family=state.last_setup_family,
+        hour_cost=machine.hour_cost,
+        setup_hour_cost=machine.setup_hour_cost,
     )
 
 
