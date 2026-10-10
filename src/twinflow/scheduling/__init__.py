@@ -1,13 +1,13 @@
 """Scheduling problem model v2: contracts, solvers, validator, verifier and objectives.
 
 The facade re-exports the public names of the submodules. `solve` is the one entry point
-(validate, compile overrides, refuse unsupported features, run, verify, evaluate);
-`ORToolsSolver` imports ortools only when it is built, so importing this package never
-needs the optional `scheduling` extra.
+(validate, compile overrides, refuse unsupported features, run, verify, evaluate).
+Solvers are built by name through the registry (`get_solver`, `available_solvers`); the
+facade imports no algorithm module, so importing this package never needs the optional
+`scheduling` extra (D-069).
 """
 
 from twinflow.scheduling.baseline import BaselineSolver
-from twinflow.scheduling.cpsat import OptionalDependencyError, ORToolsSolver
 from twinflow.scheduling.model import (
     SCHEMA_VERSION,
     AbsDiffTerm,
@@ -62,6 +62,10 @@ from twinflow.scheduling.model import (
 from twinflow.scheduling.objectives import SENSE, evaluate, primary_kind, rank
 from twinflow.scheduling.overrides import apply_overrides
 from twinflow.scheduling.profile import default_profile, load_profile
+from twinflow.scheduling.registry import UnknownSolverError
+from twinflow.scheduling.registry import available as available_solvers
+from twinflow.scheduling.registry import get as get_solver
+from twinflow.scheduling.registry import is_registered as is_registered_solver
 from twinflow.scheduling.seam import Feature, SolveContext, Solver
 from twinflow.scheduling.setups import SetupTable
 from twinflow.scheduling.solver import problem_features, solve
@@ -93,14 +97,12 @@ __all__ = [
     "Machine",
     "MachineState",
     "MismatchTerm",
-    "ORToolsSolver",
     "ObjectiveKind",
     "ObjectiveSpec",
     "Operation",
     "OperationStatus",
     "OperatorNeed",
     "OperatorPool",
-    "OptionalDependencyError",
     "Override",
     "Pin",
     "Precedence",
@@ -121,13 +123,17 @@ __all__ = [
     "SolveResult",
     "Solver",
     "SplitOverride",
+    "UnknownSolverError",
     "VerificationResult",
     "WeightedSum",
     "WeightedTerm",
     "WorkCenter",
     "apply_overrides",
+    "available_solvers",
     "default_profile",
     "evaluate",
+    "get_solver",
+    "is_registered_solver",
     "load_profile",
     "parse_request",
     "primary_kind",

@@ -18,7 +18,7 @@ from twinflow.data import (
     parse_event,
     snapshot_to_dict,
 )
-from twinflow.scheduling import ORToolsSolver, ScheduleIssue, parse_request, solve
+from twinflow.scheduling import ScheduleIssue, get_solver, parse_request, solve
 
 
 class ScheduleRequestError(ValueError):
@@ -217,7 +217,7 @@ class DecisionTools:
             raise ScheduleRequestError(parsed)
         result = solve(
             parsed,
-            solver=ORToolsSolver() if backend == "ortools" else None,
+            solver=get_solver("ortools") if backend == "ortools" else None,
             budget_seconds=time_limit,
         )
         record: dict[str, Any] = {

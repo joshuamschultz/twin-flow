@@ -26,6 +26,7 @@ DELETED_MODULES: frozenset[str] = frozenset(
         "twinflow.scheduling.core",
         "twinflow.scheduling.ortools",
         "twinflow.application.linear_schedule",
+        "twinflow.scheduling.cpsat",
     }
 )
 
@@ -156,3 +157,37 @@ def test_scheduling_imports_no_surface_package() -> None:
     prefixes = tuple(f"twinflow.{name}" for name in _SCHEDULING_FORBIDDEN)
     offenders = [o for p in sorted(SCHEDULING.rglob("*.py")) for o in _imports_under(p, prefixes)]
     assert offenders == [], offenders
+
+
+ALGORITHMS = SCHEDULING / "algorithms"
+_ALGORITHMS_PACKAGE = "twinflow.scheduling.algorithms"
+
+
+def _algorithm_module_imports(path: pathlib.Path) -> list[str]:
+    """Imports of a leaf `twinflow.scheduling.algorithms.<x>` (static or by constant name).
+
+    Importing the package itself is allowed: the registry needs its `__path__` to discover
+    the leaves with `pkgutil.iter_modules` (D-069).
+    """
+    package = _package_of(path)
+    found = []
+    for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+        names = [*_imported_names(node, package), *_dynamic_import_name(node)]
+        hit = next((n for n in names if n.startswith(_ALGORITHMS_PACKAGE + ".")), None)
+        if hit is not None:
+            found.append(f"{path.relative_to(ROOT)}:{node.lineno} -> {hit}")
+    return found
+
+
+def test_algorithms_package_exists() -> None:
+    assert (ALGORITHMS / "__init__.py").is_file()
+
+
+def test_scheduling_facade_imports_no_algorithm_module() -> None:
+    assert _algorithm_module_imports(SCHEDULING / "__init__.py") == []
+
+
+def test_no_module_outside_algorithms_imports_an_algorithm_leaf() -> None:
+    outside = [p for p in sorted(SRC.rglob("*.py")) if ALGORITHMS not in p.parents]
+    offenders = [o for p in outside for o in _algorithm_module_imports(p)]
+    assert offenders == [], "leaf algorithm imports outside algorithms/:\n" + "\n".join(offenders)

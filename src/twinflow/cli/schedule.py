@@ -11,14 +11,8 @@ import json
 from pathlib import Path
 from typing import NoReturn
 
-from twinflow.scheduling import (
-    OptionalDependencyError,
-    ORToolsSolver,
-    ScheduleIssue,
-    Solver,
-    parse_request,
-    solve,
-)
+from twinflow.scheduling import ScheduleIssue, Solver, get_solver, parse_request, solve
+from twinflow.scheduling.seam import OptionalDependencyError
 
 MAX_TIME_LIMIT_SECONDS = 30.0  # the same cap the REST and MCP surfaces enforce
 
@@ -50,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         issues = [issue.model_dump(mode="json") for issue in parsed]
         parser.error(f"invalid SolveRequest: {json.dumps(issues, sort_keys=True)}")
     try:
-        selected: Solver | None = ORToolsSolver() if args.solver == "ortools" else None
+        selected: Solver | None = get_solver("ortools") if args.solver == "ortools" else None
     except OptionalDependencyError as exc:
         parser.error(str(exc))
     result = solve(parsed, solver=selected, budget_seconds=args.time_limit)

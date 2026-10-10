@@ -25,7 +25,8 @@ and pool so CP-SAT cannot place it inside another interval or a break, which the
 would reject.
 
 ortools is an optional extra: it is imported when the solver is built, and its absence
-raises `OptionalDependencyError`.
+raises `seam.OptionalDependencyError`. A leaf of `algorithms/` (D-069): it registers
+through `SOLVERS` and nothing outside `algorithms/` imports it.
 """
 
 from __future__ import annotations
@@ -51,7 +52,8 @@ from twinflow.scheduling.model import (
     ScheduleIssue,
 )
 from twinflow.scheduling.objectives import primary_kind
-from twinflow.scheduling.seam import Feature, SolveContext
+from twinflow.scheduling.registry import SolverSpec
+from twinflow.scheduling.seam import Feature, OptionalDependencyError, SolveContext
 
 SCALE = 1_000_000
 """Ticks per second: CP-SAT works on integers, times are float seconds."""
@@ -77,10 +79,6 @@ CAPABILITIES = frozenset(
 OPTIMIZED_OBJECTIVES = frozenset({ObjectiveKind.MAKESPAN, ObjectiveKind.MAX_LATENESS})
 
 Status = Literal["OPTIMAL", "FEASIBLE", "INFEASIBLE", "UNKNOWN"]
-
-
-class OptionalDependencyError(RuntimeError):
-    """Raised when the optional `ortools` extra is not installed."""
 
 
 def _ticks(seconds: float) -> int:
@@ -562,3 +560,15 @@ def _schedule(
         elapsed_seconds=time.perf_counter() - started,
         issues=tuple(issues),
     )
+
+
+SOLVERS = (
+    SolverSpec(
+        name=SOLVER_NAME,
+        family="exact",
+        factory=ORToolsSolver,
+        deterministic=True,
+        capabilities=CAPABILITIES,
+    ),
+)
+"""Registry entries (D-069). `deterministic` holds for the default single worker."""

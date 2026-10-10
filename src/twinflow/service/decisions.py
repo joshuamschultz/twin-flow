@@ -12,7 +12,8 @@ from pydantic import Field, model_validator
 from twinflow.application.decision_tools import DecisionTools, ScheduleRequestError
 from twinflow.application.workspace import Workspace
 from twinflow.data.errors import DataError, EventConflictError
-from twinflow.scheduling import SCHEMA_VERSION, Feature, ObjectiveKind, OptionalDependencyError
+from twinflow.scheduling import SCHEMA_VERSION, Feature, ObjectiveKind
+from twinflow.scheduling.seam import OptionalDependencyError
 from twinflow.service.workspace import StrictModel
 
 log = logging.getLogger(__name__)

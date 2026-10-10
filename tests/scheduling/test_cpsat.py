@@ -19,7 +19,7 @@ pytest.importorskip("ortools")
 
 from oracle import brute_force  # noqa: E402
 
-from twinflow.scheduling.cpsat import OptionalDependencyError, ORToolsSolver  # noqa: E402
+from twinflow.scheduling.algorithms.cpsat import ORToolsSolver  # noqa: E402
 from twinflow.scheduling.model import (  # noqa: E402
     Assignment,
     Job,
@@ -35,7 +35,7 @@ from twinflow.scheduling.model import (  # noqa: E402
     SolveResult,
     WorkCenter,
 )
-from twinflow.scheduling.seam import Feature  # noqa: E402
+from twinflow.scheduling.seam import Feature, OptionalDependencyError  # noqa: E402
 from twinflow.scheduling.solver import solve  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"

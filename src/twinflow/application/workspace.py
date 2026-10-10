@@ -28,7 +28,7 @@ from twinflow.plan.driver import RunDriver
 from twinflow.policy import configured_runtime
 from twinflow.primitives.location import ScheduledFiring
 from twinflow.scenario import ScenarioCapsule
-from twinflow.scheduling import ORToolsSolver, SolveResult, solve
+from twinflow.scheduling import SolveResult, get_solver, solve
 
 log = logging.getLogger(__name__)
 
@@ -746,7 +746,7 @@ class Workspace:
             }
         result = solve(
             translation.request,
-            solver=ORToolsSolver() if backend == "ortools" else None,
+            solver=get_solver("ortools") if backend == "ortools" else None,
             budget_seconds=time_limit,
         )
         plan_record_id = uuid.uuid4().hex

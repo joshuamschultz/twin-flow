@@ -1,8 +1,10 @@
 """Solver seam types: `Feature`, `Solver` and `SolveContext` (COMP-001, REQ-072, REQ-087, D-070).
 
 A leaf module: it imports only `twinflow.scheduling.model` and the standard library, so
-solver modules (`baseline.py`, `cpsat.py`, later `algorithms/*`) import their contract from
-here and `solver.py` can import the default solver at module top without a cycle.
+solver modules (`baseline.py`, `algorithms/*`) import their contract from here and
+`solver.py` can import the default solver at module top without a cycle.
+`OptionalDependencyError` lives here so surfaces can catch it without importing an
+algorithm leaf (D-069).
 """
 
 from __future__ import annotations
@@ -16,6 +18,10 @@ from typing import Protocol
 from twinflow.scheduling.model import ObjectiveSpec, PreviousPlan, Problem, Schedule
 
 ParamValue = float | int | str | bool
+
+
+class OptionalDependencyError(RuntimeError):
+    """Raised when a solver is built without the optional dependency it needs (D-069)."""
 
 
 class Feature(StrEnum):
