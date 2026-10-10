@@ -319,3 +319,51 @@ def test_service_app_starts_without_the_mcp_package(tmp_path: pathlib.Path) -> N
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+# TF-003 reaches the service through exactly one adapter (`application/portfolio_port.py`),
+# so a TF-003 signature change touches one file. Its modules and the portfolio functions
+# (which `twinflow.scheduling` re-exports once TF-003 merges) are named nowhere else.
+_TF003_MODULES = ("twinflow.scheduling.portfolio", "twinflow.scheduling.learning")
+_TF003_SYMBOLS = frozenset(
+    {
+        "solve_portfolio",
+        "resolve_with_overrides",
+        "insert_rush_order",
+        "get_pareto_menu",
+        "PortfolioResult",
+        "MenuEntry",
+        "KTable",
+        "as_k_lookup",
+    }
+)
+_PORTFOLIO_PORT = SRC / "application" / "portfolio_port.py"
+
+
+def _tf003_references(path: pathlib.Path) -> list[str]:
+    tree = ast.parse(path.read_text())
+    found = [
+        f"{line} -> {name}" for line, name in _all_imports(path) if _under(name, _TF003_MODULES)
+    ]
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if _under(node.value, _TF003_MODULES):
+                found.append(f"{node.lineno} -> {node.value!r}")
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("twinflow"):
+            found += [
+                f"{node.lineno} -> {alias.name}"
+                for alias in node.names
+                if alias.name in _TF003_SYMBOLS
+            ]
+    return found
+
+
+def test_only_the_portfolio_port_references_tf003() -> None:
+    offenders = [
+        f"{path.relative_to(ROOT)}:{reference}"
+        for path in _py_files()
+        if path != _PORTFOLIO_PORT
+        for reference in _tf003_references(path)
+    ]
+    assert offenders == [], offenders
+    assert _tf003_references(_PORTFOLIO_PORT), "the scanner must see the adapter's own imports"
