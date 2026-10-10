@@ -33,7 +33,6 @@ from twinflow.application.planning import (
 )
 from twinflow.application.planning_artifacts import NoPlanningProfile
 from twinflow.application.portfolio_port import load_k_table_model
-from twinflow.application.repository import WorkspaceRepository
 from twinflow.erp.build import BUILDER_VERSION
 from twinflow.erp.digest import parse_snapshot
 from twinflow.erp.issues import ErpIssue
@@ -361,7 +360,7 @@ def solve_schedule_snapshot(
         )
 
     claim = _Claim("solve_schedule_snapshot", "schedule_plans", data.request_key, inputs)
-    record = _claimed(services.workspace.repository, caller, claim, run)
+    record = _claimed(services, caller, claim, run)
     return m.SolveSnapshotOutput.model_validate(record)
 
 
@@ -384,7 +383,7 @@ def schedule_operations(
         return services.decisions.schedule(data.request, data.backend, data.time_limit)
 
     claim = _Claim("schedule_operations", "schedules", data.request_key, inputs)
-    record = _claimed(services.workspace.repository, caller, claim, run)
+    record = _claimed(services, caller, claim, run)
     return m.ScheduleOutput.model_validate(record)
 
 
@@ -399,28 +398,30 @@ class _Claim:
 
 
 def _claimed(
-    repository: WorkspaceRepository,
+    services: ToolServices,
     caller: Caller,
     claim: _Claim,
     run: Callable[[], dict[str, Any]],
 ) -> dict[str, Any]:
     """Replay the record claimed under the caller's key, or run and claim a new one.
 
-    `run` stores its own record; the claim follows it. A caller that loses a race for the
-    key replays the winner's record (its own stays stored but unclaimed). A result without
-    an `id` (a blocked translation) stores nothing and claims nothing.
+    `run` stores its own record; the claim follows it. In-process duplicates of one key
+    serialize on the planning service's claim lock, so one runs and the others replay it.
+    A result without an `id` (a blocked translation) stores nothing and claims nothing.
     """
+    repository = services.workspace.repository
     key = claim_key(caller.caller_id, claim.request_key)
     digest = input_digest(claim.method, claim.inputs)
-    claimed = repository.find_request_claim(key)
-    if claimed is None:
-        record = run()
-        if "id" not in record:
-            return record
-        result_id = f"{claim.kind}/{record['id']}"
-        claimed = repository.claim_request(key, digest, result_id, ())
-        if claimed == (digest, result_id):
-            return record
+    with services.planning.claim_lock(key):
+        claimed = repository.find_request_claim(key)
+        if claimed is None:
+            record = run()
+            if "id" not in record:
+                return record
+            result_id = f"{claim.kind}/{record['id']}"
+            claimed = repository.claim_request(key, digest, result_id, ())
+            if claimed == (digest, result_id):
+                return record
     stored_digest, result_id = claimed
     if stored_digest != digest:
         raise IdempotencyConflict("The request key was already used with different inputs")

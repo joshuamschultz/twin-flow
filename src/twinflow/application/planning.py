@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
 from typing import Any, NoReturn, TypeVar
 
 from pydantic import BaseModel
@@ -142,6 +143,10 @@ class PlanningService:
     def close(self) -> None:
         """Release the solve pool without waiting for running solves."""
         self._runner.close()
+
+    def claim_lock(self, key: str) -> AbstractContextManager[None]:
+        """Serialize in-process duplicates of one claim key, here and in keyed tool calls."""
+        return self._locks.hold(key)
 
     # --- snapshots and problems --------------------------------------------------------------
 
@@ -430,7 +435,7 @@ class PlanningService:
         """Replay the stored result of this claim, or compute, store and claim it atomically."""
         key = claim_key(caller_id, request_key)
         digest = input_digest(method, inputs)
-        with self._locks.hold(key):
+        with self.claim_lock(key):
             claimed = self._repository.find_request_claim(key)
             if claimed is None:
                 result_id, rows, result = compute()
