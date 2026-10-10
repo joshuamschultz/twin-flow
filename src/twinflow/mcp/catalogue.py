@@ -15,6 +15,7 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel
 
+from twinflow.application import solver_port
 from twinflow.application.artifacts import ArtifactRef
 from twinflow.application.planning import (
     CompareResult,
@@ -47,6 +48,12 @@ def describe_capabilities(
 
     REQ-169, REQ-186, REQ-187. The key is the raw 32-byte Ed25519 public key in lowercase
     hex; both key fields are None when no signing key is configured.
+
+    Result contract for schedule_operations and solve_schedule_snapshot (REST `POST
+    /schedules` answers 201): a semantic refusal (cycle, unknown reference, horizon) is a
+    stored result with verified=false and typed issues, not an error; only malformed input
+    is refused (REST 422/413). A success status never means the plan is good: read
+    `verified` and `issues`.
     """
     artifacts = services.artifacts
     return m.CapabilitiesOutput.model_validate(
@@ -57,6 +64,7 @@ def describe_capabilities(
             "tool_timeouts": {spec.name: spec.timeout_for(services) for spec in CATALOGUE},
             "signing_public_key": artifacts.public_key_raw.hex() if artifacts else None,
             "signing_key_id": artifacts.key_id if artifacts else None,
+            "solvers": solver_port.available_solvers(),
         }
     )
 

@@ -41,6 +41,7 @@ from twinflow.application.artifacts import ArtifactSignatureInvalid
 from twinflow.application.decision_tools import ScheduleRequestError
 from twinflow.application.planning import Blocked, PlanningError
 from twinflow.application.repository import WorkspaceRepository
+from twinflow.application.solver_port import UnsupportedSolver
 from twinflow.data.errors import DataError, EventConflictError
 from twinflow.erp.profile import ProfileError
 from twinflow.mcp.spec import ToolServices, ToolSpec
@@ -298,6 +299,8 @@ def _typed_failure(exc: Exception) -> ToolFailure | None:
         return _invalid_fields(exc)
     if isinstance(exc, ScheduleRequestError):
         return _schedule_request(exc)
+    if isinstance(exc, UnsupportedSolver):  # names the registered solvers, never the input
+        return ToolFailure(exc.code, str(exc), details={"registered": list(exc.registered)})
     if isinstance(exc, ProfileError):  # names key paths only, by contract (COMP-113)
         return ToolFailure("invalid_input", str(exc))
     return None

@@ -24,11 +24,12 @@ from twinflow.application.schedule_problem import (
     firings_from_plan,
     record_fields,
 )
+from twinflow.application.solver_port import build_solver
 from twinflow.plan.driver import RunDriver
 from twinflow.policy import configured_runtime
 from twinflow.primitives.location import ScheduledFiring
 from twinflow.scenario import ScenarioCapsule
-from twinflow.scheduling import ORToolsSolver, SolveResult, solve
+from twinflow.scheduling import SolveResult, solve
 
 log = logging.getLogger(__name__)
 
@@ -45,15 +46,14 @@ def _now() -> str:
 
 
 def _status_explanation(result: SolveResult, backend: str) -> str:
+    """One sentence on what the named registered solver and the verifier concluded."""
     status = result.schedule.status
     if result.verified and status == "OPTIMAL":
-        return "CP-SAT reported and the verifier checked an optimal assignment"
+        return f"The {backend} solver reported and the verifier checked an optimal assignment"
     if result.verified:
-        if backend == "baseline":
-            return "Verified baseline schedule"
-        return "Best verified schedule found within the time limit; optimality unproved"
+        return f"Verified {backend} schedule"
     if status == "INFEASIBLE":
-        return "CP-SAT reported infeasibility for the translated finite problem"
+        return f"The {backend} solver reported infeasibility for the translated finite problem"
     return "No verified feasibility or infeasibility conclusion is available"
 
 
@@ -735,10 +735,12 @@ class Workspace:
         """Translate the snapshot to a v2 request, solve, verify and keep the plan record.
 
         A scenario the translator refuses returns `status: blocked` with its named issues
-        and keeps no record (COMP-013, COMP-014, REQ-083).
+        and keeps no record (COMP-013, COMP-014, REQ-083). `backend` is any registered
+        solver name; another name raises `UnsupportedSolver` (COMP-028, REQ-088).
         """
-        if backend not in ("baseline", "ortools") or not 0 < time_limit <= 30:
-            raise ValueError("Choose baseline/ortools and a time limit from 0 to 30 seconds")
+        if not 0 < time_limit <= 30:
+            raise ValueError("Choose a time limit from 0 to 30 seconds")
+        solver = build_solver(backend)
         schedule_snapshot = self.repository.get("schedule_snapshots", snapshot_id)
         scenario = self.repository.get("scenarios", schedule_snapshot["scenario_id"])
         translation = build_request(scenario, schedule_snapshot)
@@ -750,7 +752,7 @@ class Workspace:
             }
         result = solve(
             translation.request,
-            solver=ORToolsSolver() if backend == "ortools" else None,
+            solver=solver,
             budget_seconds=time_limit,
         )
         plan_record_id = uuid.uuid4().hex

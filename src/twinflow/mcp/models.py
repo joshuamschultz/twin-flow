@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from twinflow.application.artifacts import ArtifactKind
 from twinflow.application.linear_draft import LinearDraft
+from twinflow.application.solver_port import SolverDescription
 from twinflow.erp.build import RushOrder
 from twinflow.erp.issues import ErpIssue
 from twinflow.erp.profile import PlanningProfile
@@ -27,7 +28,6 @@ JsonScalar = str | int | float | bool | None
 Topic = Literal[
     "metrics", "dates", "blockers", "waits", "termination", "assumptions", "process", "schedule"
 ]
-Backend = Literal["baseline", "ortools"]
 
 Ident = Annotated[str, Field(min_length=1, max_length=200)]
 _MAX_CONTENT = 5_242_880
@@ -135,7 +135,7 @@ class UploadCommitInput(ToolInput):
 class SolveScheduleSnapshotInput(ToolInput):
     snapshot_id: Ident
     request_key: Ident
-    backend: Backend = "baseline"
+    backend: Ident = "baseline"  # any registered solver name (REQ-088)
     time_limit: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
 
 
@@ -172,7 +172,7 @@ class ScheduleOperationsInput(ToolInput):
 
     request: dict[str, Any]
     request_key: Ident
-    backend: Backend = "baseline"
+    backend: Ident = "baseline"  # any registered solver name (REQ-088)
     time_limit: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
 
 
@@ -272,6 +272,7 @@ class CapabilitiesOutput(OpenOutput):
     portfolio_available: bool
     signing_public_key: str | None
     signing_key_id: str | None
+    solvers: list[SolverDescription]
 
 
 class ErpSchemaOutput(ToolOutput):
@@ -382,9 +383,9 @@ class ScheduleSnapshotOutput(OpenOutput):
 
 
 class SolveSnapshotOutput(OpenOutput):
-    """A verified plan record, or `status: blocked` with the translator's issues."""
+    """A plan record (which carries no `status`), or `status: blocked` with the issues."""
 
-    status: str
+    status: str | None = None
 
 
 class ScheduleOutput(OpenOutput):

@@ -10,6 +10,7 @@ from typing import Any
 
 from twinflow.application import scenarios
 from twinflow.application.schedule_problem import record_fields
+from twinflow.application.solver_port import available_solvers, build_solver
 from twinflow.application.workspace import Workspace
 from twinflow.data import (
     FreshnessRule,
@@ -22,7 +23,6 @@ from twinflow.scheduling import (
     SCHEMA_VERSION,
     Feature,
     ObjectiveKind,
-    ORToolsSolver,
     ScheduleIssue,
     parse_request,
     solve,
@@ -58,7 +58,7 @@ class DecisionTools:
             "scheduling_example": scheduling_example,
             "scheduling": {
                 "schema_version": SCHEMA_VERSION,
-                "backends": ["baseline", "ortools"],
+                "solvers": [solver.model_dump(mode="json") for solver in available_solvers()],
                 "features": [feature.value for feature in Feature],
                 "objectives": [kind.value for kind in ObjectiveKind],
             },
@@ -272,16 +272,18 @@ class DecisionTools:
         """Solve and verify a v2 `SolveRequest` and keep the record (COMP-014, REQ-083).
 
         Raises `ScheduleRequestError` with the parser's issues for a request that is not a
-        valid v2 `SolveRequest` (a v1 body gets a `schema_version` issue).
+        valid v2 `SolveRequest` (a v1 body gets a `schema_version` issue), and
+        `UnsupportedSolver` for a `backend` the solver registry does not know.
         """
-        if backend not in ("baseline", "ortools") or not 0 < time_limit <= 30:
-            raise ValueError("Choose baseline/ortools and a time limit from 0 to 30 seconds")
+        if not 0 < time_limit <= 30:
+            raise ValueError("Choose a time limit from 0 to 30 seconds")
+        solver = build_solver(backend)
         parsed = parse_request(request)
         if isinstance(parsed, list):
             raise ScheduleRequestError(parsed)
         result = solve(
             parsed,
-            solver=ORToolsSolver() if backend == "ortools" else None,
+            solver=solver,
             budget_seconds=time_limit,
         )
         record: dict[str, Any] = {

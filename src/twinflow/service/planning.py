@@ -51,6 +51,7 @@ STATUS_BY_CODE: Mapping[str, int] = {
     "no_planning_profile": 409,
     "size_limit": 413,
     "invalid_input": 422,
+    "unsupported_solver": 422,
     "blocked": 422,
     "mixed_problems": 422,
     "incomparable": 422,

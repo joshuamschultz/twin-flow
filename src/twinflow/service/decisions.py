@@ -6,9 +6,11 @@ import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import Field, model_validator
 
 from twinflow.application.decision_tools import DecisionTools, ScheduleRequestError
+from twinflow.application.solver_port import UnsupportedSolver
 from twinflow.application.workspace import Workspace
 from twinflow.data.errors import DataError, EventConflictError
 from twinflow.scheduling import SCHEMA_VERSION, OptionalDependencyError
@@ -47,7 +49,7 @@ class ScheduleRequest(StrictModel):
     """`request` is a v2 `SolveRequest`, parsed by the scheduling validator (REQ-083)."""
 
     request: dict[str, Any]
-    backend: Literal["baseline", "ortools"] = "baseline"
+    backend: str = Field(default="baseline", min_length=1, max_length=200)
     time_limit: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
 
     @model_validator(mode="before")
@@ -77,8 +79,14 @@ class ScheduleUploadCommitRequest(ScheduleUploadPreviewRequest):
 
 
 class ScheduleSolveRequest(StrictModel):
-    backend: Literal["baseline", "ortools"] = "baseline"
+    backend: str = Field(default="baseline", min_length=1, max_length=200)
     time_limit: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
+
+
+def _unsupported_solver(exc: UnsupportedSolver) -> JSONResponse:
+    """422 naming the registered solvers, never the refused name (REQ-088, REQ-170)."""
+    body = {"code": exc.code, "detail": str(exc), "registered": list(exc.registered)}
+    return JSONResponse(body, status_code=422)
 
 
 class ScheduleSimulationRequest(StrictModel):
@@ -139,13 +147,15 @@ def decision_router(workspace: Workspace) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
 
-    @router.post("/schedules", status_code=201)
-    def schedule(request: ScheduleRequest) -> dict[str, Any]:
+    @router.post("/schedules", status_code=201, response_model=None)
+    def schedule(request: ScheduleRequest) -> dict[str, Any] | JSONResponse:
         try:
             return tools.schedule(request.request, request.backend, request.time_limit)
         except ScheduleRequestError as exc:
             detail = [issue.model_dump(mode="json") for issue in exc.issues]
             raise HTTPException(422, detail) from exc
+        except UnsupportedSolver as exc:
+            return _unsupported_solver(exc)
         except OptionalDependencyError as exc:
             raise HTTPException(503, str(exc)) from exc
         except (ValueError, TypeError, KeyError) as exc:
@@ -199,12 +209,16 @@ def decision_router(workspace: Workspace) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @router.post("/schedule-snapshots/{snapshot_id}/solve")
-    def solve_schedule_snapshot(snapshot_id: str, request: ScheduleSolveRequest) -> dict[str, Any]:
+    @router.post("/schedule-snapshots/{snapshot_id}/solve", response_model=None)
+    def solve_schedule_snapshot(
+        snapshot_id: str, request: ScheduleSolveRequest
+    ) -> dict[str, Any] | JSONResponse:
         try:
             return workspace.solve_schedule_snapshot(
                 snapshot_id, request.backend, request.time_limit
             )
+        except UnsupportedSolver as exc:
+            return _unsupported_solver(exc)
         except KeyError as exc:
             raise HTTPException(404, "Schedule snapshot not found") from exc
         except OptionalDependencyError as exc:

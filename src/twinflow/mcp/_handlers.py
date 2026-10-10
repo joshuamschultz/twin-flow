@@ -351,7 +351,13 @@ def commit_schedule_upload(
 def solve_schedule_snapshot(
     services: ToolServices, caller: Caller, data: m.SolveScheduleSnapshotInput
 ) -> m.SolveSnapshotOutput:
-    """Translate, solve and verify a schedule snapshot; the key replays the same plan."""
+    """Translate, solve and verify a schedule snapshot; the key replays the same plan.
+
+    A non-error result is not a good plan: a snapshot the model cannot express returns
+    `status: blocked`, and a semantic refusal (cycle, unknown reference, horizon) returns
+    the stored plan with verified=false and typed issues. Only malformed input is an error.
+    Check `verified` and `issues` before using the schedule.
+    """
     inputs = data.model_dump(mode="json", exclude={"request_key"})
 
     def run() -> dict[str, Any]:
@@ -376,7 +382,13 @@ def simulate_schedule_baseline(
 def schedule_operations(
     services: ToolServices, caller: Caller, data: m.ScheduleOperationsInput
 ) -> m.ScheduleOutput:
-    """Solve and verify a v2 SolveRequest; the key replays the same record."""
+    """Solve and verify a v2 SolveRequest; the key replays the same record.
+
+    A non-error result is not a good plan: a semantic refusal (cycle, unknown reference,
+    horizon) returns the stored record with verified=false and typed issues. Only malformed
+    input (not a v2 SolveRequest, over a size limit) is an error. Check `verified` and
+    `issues` before using the schedule.
+    """
     inputs = data.model_dump(mode="json", exclude={"request_key"})
 
     def run() -> dict[str, Any]:
