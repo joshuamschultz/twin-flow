@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -13,6 +14,8 @@ from twinflow.application.workspace import Workspace
 from twinflow.data.errors import DataError, EventConflictError
 from twinflow.scheduling import SCHEMA_VERSION, Feature, ObjectiveKind, OptionalDependencyError
 from twinflow.service.workspace import StrictModel
+
+log = logging.getLogger(__name__)
 
 
 class ValidateRequest(StrictModel):
@@ -199,7 +202,9 @@ def decision_router(workspace: Workspace) -> APIRouter:
         except OptionalDependencyError as exc:
             raise HTTPException(503, str(exc)) from exc
         except (ValueError, TypeError, KeyError) as exc:
-            raise HTTPException(422, str(exc)) from exc
+            # Solver and backend internals are not a client contract; never echo them.
+            log.warning("schedule request failed: %s", type(exc).__name__, exc_info=exc)
+            raise HTTPException(422, "The schedule request could not be solved") from exc
 
     @router.post("/schedule-uploads/preview")
     def preview_schedule_upload(request: ScheduleUploadPreviewRequest) -> dict[str, Any]:
