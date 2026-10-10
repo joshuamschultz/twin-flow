@@ -51,7 +51,7 @@ from twinflow.scheduling.model import (
     ScheduleIssue,
 )
 from twinflow.scheduling.objectives import primary_kind
-from twinflow.scheduling.solver import Feature
+from twinflow.scheduling.seam import Feature, SolveContext
 
 SCALE = 1_000_000
 """Ticks per second: CP-SAT works on integers, times are float seconds."""
@@ -456,7 +456,12 @@ class ORToolsSolver:
         return CAPABILITIES
 
     def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
+        self,
+        problem: Problem,
+        *,
+        objective: ObjectiveSpec,
+        budget_seconds: float,
+        context: SolveContext,
     ) -> Schedule:
         """Optimize the primary objective of `objective` within `budget_seconds`.
 

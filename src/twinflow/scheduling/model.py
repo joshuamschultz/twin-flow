@@ -35,6 +35,9 @@ LoadTarget = Annotated[float, Field(gt=0, le=1)]
 WeightClass = Literal[1, 2, 4]
 SetupValue = float | Annotated[str, Field(max_length=MAX_TEXT_LENGTH)]
 SetupParams = dict[Id, SetupValue]
+# Pydantic's smart union keeps the input's exact type: True stays bool, 3 stays int (D-070).
+MethodParamValue = float | int | Annotated[str, Field(max_length=MAX_TEXT_LENGTH)] | bool
+MethodParams = dict[Id, dict[Id, MethodParamValue]]
 Interval = tuple[float, float]
 
 
@@ -448,6 +451,7 @@ class SchedulingProfile(_Contract):
     """Plant policy: class weights, objective, frozen zone, solve budget, robustness targets.
 
     Field defaults reproduce today's behavior: lexicographic makespan, baseline solver.
+    `method_params` maps a solver name to its scalar settings (`SolveContext.params`, D-070).
     """
 
     id: Id = "default"
@@ -460,6 +464,7 @@ class SchedulingProfile(_Contract):
     time_budget_seconds: float = Field(default=10.0, gt=0, le=300)
     robustness_load_targets: tuple[LoadTarget, ...] = Field(default=(0.9, 0.8, 0.7), min_length=1)
     default_portfolio: tuple[Id, ...] = Field(default=("baseline",), min_length=1)
+    method_params: MethodParams = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _class_weights_cover_each_class(self) -> Self:

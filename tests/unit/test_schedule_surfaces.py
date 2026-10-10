@@ -26,7 +26,8 @@ from twinflow.scheduling.model import (
     SolveRequest,
 )
 from twinflow.scheduling.overrides import apply_overrides
-from twinflow.scheduling.solver import Feature, solve
+from twinflow.scheduling.seam import Feature, SolveContext
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import parse_request
 from twinflow.scheduling.verifier import verify
 
@@ -291,9 +292,14 @@ class _ForgedSolver:
     capabilities: frozenset[Feature] = frozenset(Feature)
 
     def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
+        self,
+        problem: Problem,
+        *,
+        objective: ObjectiveSpec,
+        budget_seconds: float,
+        context: SolveContext,
     ) -> Schedule:
-        del problem, objective, budget_seconds
+        del problem, objective, budget_seconds, context
         wrong = Assignment(operation_id="cut", machine_id="b1", start=0.0, setup_end=0.0, end=2.0)
         return Schedule(
             status="FEASIBLE", assignments=(wrong,), solver=self.name, elapsed_seconds=0

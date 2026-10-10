@@ -25,7 +25,8 @@ from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.model import ScheduleIssue, SolveRequest, SolveResult
 from twinflow.scheduling.objectives import primary_kind
 from twinflow.scheduling.overrides import apply_overrides
-from twinflow.scheduling.solver import SOLUTION_STATUSES, Feature, problem_features, solve
+from twinflow.scheduling.seam import Feature
+from twinflow.scheduling.solver import SOLUTION_STATUSES, problem_features, solve
 from twinflow.scheduling.validator import validate
 
 SEEDS = range(200)

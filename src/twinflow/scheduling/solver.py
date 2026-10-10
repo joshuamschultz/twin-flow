@@ -1,28 +1,29 @@
-"""Solver seam: features, the `Solver` protocol and `solve()` (COMP-008, REQ-072, REQ-073).
+"""Solver entry point: feature derivation and `solve()` (COMP-001, COMP-008, REQ-072, REQ-073,
+REQ-087).
 
 `solve()` is the one entry point every surface calls: validate the request, compile its
 overrides (D-066), refuse features the solver does not declare (D-067), run the solver on
 the compiled problem with the profile's objective spec, verify any FEASIBLE or OPTIMAL
 answer with the independent verifier, and evaluate every objective of a verified
-schedule (D-068).
+schedule (D-068). The solver gets a `SolveContext` built from the request (D-070).
 
-Solver modules (`baseline.py`, `cpsat.py`) import `Feature` and `Solver` from here, so this
-module never imports them at module level; the default baseline is imported lazily inside
-`_default_solver` to keep the import graph acyclic.
+The seam types (`Feature`, `Solver`, `SolveContext`) live in the leaf `seam.py`; solver
+modules import them from there, so this module imports the default baseline at module top
+without a cycle.
 """
 
 from __future__ import annotations
 
 import math
+import time
 from collections.abc import Iterable, Sequence
-from enum import StrEnum
-from typing import Protocol
+from dataclasses import dataclass
 
+from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.model import (
     CompiledProblem,
     Machine,
     ObjectiveKind,
-    ObjectiveSpec,
     Operation,
     Precedence,
     Problem,
@@ -33,6 +34,7 @@ from twinflow.scheduling.model import (
 )
 from twinflow.scheduling.objectives import evaluate
 from twinflow.scheduling.overrides import apply_overrides
+from twinflow.scheduling.seam import Feature, SolveContext, Solver
 from twinflow.scheduling.setups import SetupTable
 from twinflow.scheduling.validator import validate
 from twinflow.scheduling.verifier import verify
@@ -41,43 +43,6 @@ SOLUTION_STATUSES = frozenset({"FEASIBLE", "OPTIMAL"})
 PROBLEM_PATH = "problem"
 BUDGET_PATH = "budget_seconds"
 SOLVER_PATH = "solver"
-
-
-class Feature(StrEnum):
-    """Modeling features a problem can use and a solver can declare support for (D-067)."""
-
-    ALTERNATIVES = "alternatives"
-    SETUPS = "setups"
-    DETACHED_SETUP = "detached_setup"
-    CALENDARS = "calendars"
-    PAUSE = "pause"
-    OPERATORS = "operators"
-    BATCHING = "batching"
-    RESTART = "restart"
-    LAGS = "lags"
-    MAX_LAGS = "max_lags"
-    OVERLAP = "overlap"
-    PINS = "pins"
-    IN_PROGRESS = "in_progress"
-    MACHINE_STATE = "machine_state"
-
-
-class Solver(Protocol):
-    """A scheduling algorithm behind the seam (REQ-072, D-067).
-
-    `solve` gets the compiled problem and the objective spec only, never the overrides or
-    the profile. It returns UNKNOWN or INFEASIBLE with named issues when it has no plan.
-    """
-
-    @property
-    def name(self) -> str: ...
-
-    @property
-    def capabilities(self) -> frozenset[Feature]: ...
-
-    def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
-    ) -> Schedule: ...
 
 
 # --- feature derivation --------------------------------------------------------------------
@@ -97,8 +62,11 @@ def problem_features(problem: Problem) -> frozenset[Feature]:
       problem triggers no refusal.
     - calendars: a machine with a calendar, or a pool with a calendar that an operation
       draws operators from.
-    - pause / operators / pins / in_progress: an operation with `shift_crossing` pause,
-      operator needs, a pin, or state `in_progress`.
+    - pause: an operation with `shift_crossing` pause where a calendar can apply to it: an
+      option machine has a calendar, or a pool it draws operators from has one. Without
+      such a calendar the op never crosses a closed period, so pause changes nothing.
+    - operators / pins / in_progress: an operation with operator needs, a pin, or state
+      `in_progress`.
     - batching: an operation with a `batch_family`. A batch machine alone is not batching:
       operations without a family run on it one at a time.
     - restart: a machine with a restart rule.
@@ -109,9 +77,12 @@ def problem_features(problem: Problem) -> frozenset[Feature]:
     """
     table = SetupTable.for_problem(problem)
     operations = [op for job in problem.jobs for op in job.operations if op.status.state != "done"]
+    calendared = _Calendared.of(problem)
     features: set[Feature] = set()
     for op in operations:
         features |= _operation_features(op, table)
+        if op.shift_crossing == "pause" and calendared.apply_to(op):
+            features.add(Feature.PAUSE)
     for machine in problem.machines:
         features |= _machine_features(machine, problem.now)
     if _uses_pool_calendar(problem, operations):
@@ -125,7 +96,6 @@ def _operation_features(op: Operation, table: SetupTable) -> set[Feature]:
         Feature.ALTERNATIVES: len(op.options) > 1,
         Feature.SETUPS: has_setup,
         Feature.DETACHED_SETUP: op.setup_detached and has_setup,
-        Feature.PAUSE: op.shift_crossing == "pause",
         Feature.OPERATORS: bool(op.operator_needs),
         Feature.BATCHING: op.batch_family is not None,
         Feature.PINS: op.pin is not None,
@@ -155,6 +125,26 @@ def _machine_features(machine: Machine, now: float) -> set[Feature]:
     return _present(flags)
 
 
+@dataclass(frozen=True, slots=True)
+class _Calendared:
+    """Ids of machines and of operator pools that carry a calendar (kept apart: ids may clash)."""
+
+    machines: frozenset[str]
+    pools: frozenset[str]
+
+    @classmethod
+    def of(cls, problem: Problem) -> _Calendared:
+        machines = frozenset(m.id for m in problem.machines if m.calendar_id is not None)
+        pools = frozenset(p.id for p in problem.operator_pools if p.calendar_id is not None)
+        return cls(machines, pools)
+
+    def apply_to(self, op: Operation) -> bool:
+        """True when an option machine of `op` or a pool it draws from has a calendar."""
+        return any(option.machine_id in self.machines for option in op.options) or any(
+            need.pool_id in self.pools for need in op.operator_needs
+        )
+
+
 def _uses_pool_calendar(problem: Problem, operations: Iterable[Operation]) -> bool:
     used = {need.pool_id for op in operations for need in op.operator_needs}
     return any(pool.id in used and pool.calendar_id is not None for pool in problem.operator_pools)
@@ -168,9 +158,14 @@ def _present(flags: dict[Feature, bool]) -> set[Feature]:
 
 
 def solve(
-    request: SolveRequest, *, solver: Solver | None = None, budget_seconds: float | None = None
+    request: SolveRequest,
+    *,
+    solver: Solver | None = None,
+    budget_seconds: float | None = None,
+    seed: int = 0,
+    warm_start: Schedule | None = None,
 ) -> SolveResult:
-    """Validate, compile, check capabilities, run, verify and evaluate (COMP-008).
+    """Validate, compile, check capabilities, run, verify and evaluate (COMP-001, COMP-008).
 
     `solver` None means the baseline heuristic. `budget_seconds` None means the profile's
     `time_budget_seconds`; a budget that is not finite and > 0 gets a `budget` issue.
@@ -180,8 +175,12 @@ def solve(
     (REQ-073); only then are all thirteen objective values reported. An exception raised
     by the solver is a solver bug: it becomes an UNKNOWN schedule with a `solver_error`
     issue whose message is the exception class name only, so no internals leak.
+
+    The solver receives a `SolveContext` (D-070): the request's previous plan, the frozen
+    zone tolerance (0 without a zone), `seed`, `warm_start`, a monotonic deadline of now +
+    budget taken just before the call, and the profile's `method_params` for its name.
     """
-    chosen = solver if solver is not None else _default_solver()
+    chosen = solver if solver is not None else BaselineSolver()
     budget = request.profile.time_budget_seconds if budget_seconds is None else budget_seconds
     if not (math.isfinite(budget) and budget > 0):
         message = f"budget_seconds must be finite and > 0, got {budget}"
@@ -197,15 +196,41 @@ def solve(
     missing = sorted(features - chosen.capabilities)
     if missing:
         return _refused(chosen, [_unsupported(chosen, f) for f in missing], compiled, features)
-    schedule = _run(chosen, compiled, budget)
+    context = _context(request, chosen, budget, seed, warm_start)
+    schedule = _run(chosen, compiled, budget, context)
     return _checked(request, compiled, features, schedule)
 
 
-def _run(solver: Solver, compiled: CompiledProblem, budget: float) -> Schedule:
+def _context(
+    request: SolveRequest,
+    solver: Solver,
+    budget: float,
+    seed: int,
+    warm_start: Schedule | None,
+) -> SolveContext:
+    """The `SolveContext` for one call; the deadline clock starts here."""
+    profile = request.profile
+    zone = profile.frozen_zone
+    return SolveContext(
+        previous_plan=request.previous_plan,
+        churn_tolerance=zone.tolerance if zone is not None else 0.0,
+        seed=seed,
+        deadline=time.monotonic() + budget,
+        warm_start=warm_start,
+        params=profile.method_params.get(solver.name, {}),
+    )
+
+
+def _run(
+    solver: Solver, compiled: CompiledProblem, budget: float, context: SolveContext
+) -> Schedule:
     """The solver's answer; an exception becomes UNKNOWN with `solver_error`."""
     try:
         return solver.solve(
-            compiled.problem, objective=compiled.profile.objective, budget_seconds=budget
+            compiled.problem,
+            objective=compiled.profile.objective,
+            budget_seconds=budget,
+            context=context,
         )
     except Exception as error:  # any solver bug must not escape solve() as a traceback
         issue = ScheduleIssue(code="solver_error", path=SOLVER_PATH, message=type(error).__name__)
@@ -216,13 +241,6 @@ def _run(solver: Solver, compiled: CompiledProblem, budget: float) -> Schedule:
             elapsed_seconds=0.0,
             issues=(issue,),
         )
-
-
-def _default_solver() -> Solver:
-    """The baseline heuristic, imported here because baseline.py imports this module."""
-    from twinflow.scheduling.baseline import BaselineSolver
-
-    return BaselineSolver()
 
 
 def _unsupported(solver: Solver, feature: Feature) -> ScheduleIssue:

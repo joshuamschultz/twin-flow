@@ -62,8 +62,9 @@ from twinflow.scheduling.model import (
 from twinflow.scheduling.objectives import SENSE, evaluate, primary_kind, rank
 from twinflow.scheduling.overrides import apply_overrides
 from twinflow.scheduling.profile import default_profile, load_profile
+from twinflow.scheduling.seam import Feature, SolveContext, Solver
 from twinflow.scheduling.setups import SetupTable
-from twinflow.scheduling.solver import Feature, Solver, problem_features, solve
+from twinflow.scheduling.solver import problem_features, solve
 from twinflow.scheduling.validator import parse_request, validate
 from twinflow.scheduling.verifier import verify
 
@@ -115,6 +116,7 @@ __all__ = [
     "SchedulingProfile",
     "SetupFunction",
     "SetupTable",
+    "SolveContext",
     "SolveRequest",
     "SolveResult",
     "Solver",

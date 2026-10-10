@@ -1092,6 +1092,40 @@ def test_profile_time_budget_inside_0_300_accepted(budget: float) -> None:
     assert parsed.time_budget_seconds == budget
 
 
+# --- method params (T-114, REQ-087, D-070) ---------------------------------------------------
+
+ATCS_PARAMS = {"atcs": {"K1": 5.0, "flexibility": True, "mode": "active", "iters": 3}}
+
+
+def test_profile_method_params_default_to_an_empty_mapping() -> None:
+    assert SchedulingProfile.model_validate(profile()).method_params == {}
+    assert SchedulingProfile().method_params == {}
+
+
+def test_profile_method_params_accept_scalar_values_and_keep_their_types() -> None:
+    parsed = SchedulingProfile.model_validate(with_(profile(), method_params=ATCS_PARAMS))
+    atcs = parsed.method_params["atcs"]
+    assert atcs == ATCS_PARAMS["atcs"]
+    assert (type(atcs["K1"]), type(atcs["flexibility"]), type(atcs["iters"])) == (
+        float,
+        bool,
+        int,
+    )
+    assert atcs["mode"] == "active"
+
+
+@pytest.mark.parametrize(
+    "value", [[1.0, 2.0], {"nested": 1.0}, None], ids=["list", "mapping", "none"]
+)
+def test_profile_method_params_reject_a_non_scalar_value(value: Any) -> None:
+    data = with_(profile(), method_params={"atcs": {"K1": value}})
+    with pytest.raises(ValidationError) as caught:
+        SchedulingProfile.model_validate(data)
+    locations = [err["loc"][:3] for err in caught.value.errors()]
+    # The error points inside the params, so the field exists and checks its values.
+    assert ("method_params", "atcs", "K1") in locations, locations
+
+
 def test_profile_class_weight_key_3_rejected() -> None:
     assert_rejected(
         SchedulingProfile, with_(profile(), class_weights={1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0})

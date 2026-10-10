@@ -6,6 +6,7 @@ that call `BaselineSolver.solve` directly look at placement order and refusal co
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,8 @@ from twinflow.scheduling.model import (
     SolveResult,
     WorkCenter,
 )
-from twinflow.scheduling.solver import Feature, solve
+from twinflow.scheduling.seam import Feature, SolveContext
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import validate
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -77,8 +79,17 @@ def _request(problem: Problem, **fields: Any) -> SolveRequest:
     return SolveRequest.model_validate({"schema_version": "2.0", "problem": problem} | fields)
 
 
+def _context(budget_seconds: float) -> SolveContext:
+    deadline = time.monotonic() + budget_seconds
+    return SolveContext(
+        previous_plan=None, churn_tolerance=0.0, deadline=deadline, warm_start=None, params={}
+    )
+
+
 def _direct(problem: Problem) -> Schedule:
-    return BaselineSolver().solve(problem, objective=MAKESPAN, budget_seconds=10.0)
+    return BaselineSolver().solve(
+        problem, objective=MAKESPAN, budget_seconds=10.0, context=_context(10.0)
+    )
 
 
 def _by_op(schedule: Schedule) -> dict[str, Assignment]:
@@ -315,7 +326,9 @@ def test_pass_that_outlives_its_budget_returns_unknown_time_limit() -> None:
     jobs = [Job(id=f"J{k}", operations=(_op(f"op{k:05}"),)) for k in range(4000)]
     problem = _problem(jobs)
 
-    schedule = BaselineSolver().solve(problem, objective=MAKESPAN, budget_seconds=0.05)
+    schedule = BaselineSolver().solve(
+        problem, objective=MAKESPAN, budget_seconds=0.05, context=_context(0.05)
+    )
 
     assert schedule.status == "UNKNOWN"
     assert _codes(schedule) == ["time_limit"]

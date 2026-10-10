@@ -49,8 +49,8 @@ from twinflow.scheduling.model import (
     SchedulingProfile,
 )
 from twinflow.scheduling.objectives import evaluate, primary_kind
+from twinflow.scheduling.seam import Feature, SolveContext
 from twinflow.scheduling.setups import SetupTable
-from twinflow.scheduling.solver import Feature
 from twinflow.scheduling.timeline import (
     MachineTimeline,
     PoolNeed,
@@ -472,11 +472,20 @@ class BaselineSolver:
         return CAPABILITIES
 
     def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
+        self,
+        problem: Problem,
+        *,
+        objective: ObjectiveSpec,
+        budget_seconds: float,
+        context: SolveContext,
     ) -> Schedule:
-        """One pass over `problem`, cut off with `time_limit` after `budget_seconds`."""
+        """One pass over `problem`, cut off with `time_limit` at `context.deadline`.
+
+        `budget_seconds` is the same budget `context.deadline` was built from; the pass
+        reads the deadline only.
+        """
         started = time.perf_counter()
-        scheduler = _ListScheduler(problem, time.monotonic() + budget_seconds)
+        scheduler = _ListScheduler(problem, context.deadline)
         issue = scheduler.run(problem) or _horizon_issue(problem, scheduler.assignments)
         if issue is not None:
             elapsed = time.perf_counter() - started

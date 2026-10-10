@@ -1565,7 +1565,7 @@
     },
     "SchedulingProfile": {
       "additionalProperties": false,
-      "description": "Plant policy: class weights, objective, frozen zone, solve budget, robustness targets.\n\nField defaults reproduce today's behavior: lexicographic makespan, baseline solver.",
+      "description": "Plant policy: class weights, objective, frozen zone, solve budget, robustness targets.\n\nField defaults reproduce today's behavior: lexicographic makespan, baseline solver.\n`method_params` maps a solver name to its scalar settings (`SolveContext.params`, D-070).",
       "properties": {
         "class_weights": {
           "additionalProperties": {
@@ -1617,6 +1617,38 @@
           "minLength": 1,
           "title": "Id",
           "type": "string"
+        },
+        "method_params": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "propertyNames": {
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "object"
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Method Params",
+          "type": "object"
         },
         "objective": {
           "default": {

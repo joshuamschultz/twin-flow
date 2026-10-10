@@ -35,7 +35,8 @@ from twinflow.scheduling.model import (  # noqa: E402
     SolveResult,
     WorkCenter,
 )
-from twinflow.scheduling.solver import Feature, solve  # noqa: E402
+from twinflow.scheduling.seam import Feature  # noqa: E402
+from twinflow.scheduling.solver import solve  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 WC = "WC"

@@ -1,16 +1,19 @@
-"""Solver seam tests with fake solvers (T-099, COMP-008, REQ-072, REQ-073, D-067, D-068).
+"""Solver seam tests with fake solvers (T-099, T-114, COMP-001, COMP-008, REQ-072, REQ-073,
+REQ-087, D-067, D-068, D-070).
 
 A fake solver records what `solve()` hands it and returns a schedule chosen by the test,
 so the seam is tested without any real algorithm: feature derivation, capability refusal,
-budget checks, verification of the returned schedule and objective evaluation.
+budget checks, the `SolveContext` the solver receives, verification of the returned
+schedule and objective evaluation.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+import time
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -37,9 +40,13 @@ from twinflow.scheduling.model import (
     WorkCenter,
 )
 from twinflow.scheduling.overrides import apply_overrides
-from twinflow.scheduling.solver import Feature, Solver, problem_features, solve
+from twinflow.scheduling.seam import Feature, Solver
+from twinflow.scheduling.solver import problem_features, solve
 from twinflow.scheduling.validator import validate
 from twinflow.scheduling.verifier import verify
+
+if TYPE_CHECKING:
+    from twinflow.scheduling.seam import SolveContext
 
 WC = "WC"
 ALL_FEATURES = frozenset(Feature)
@@ -113,9 +120,13 @@ def _request(
 
 @dataclass(frozen=True)
 class Call:
+    """One `solve` call; `context` and `called_at` (monotonic clock) are not compared."""
+
     problem: Problem
     objective: ObjectiveSpec
     budget_seconds: float
+    context: SolveContext | None = field(default=None, compare=False)
+    called_at: float = field(default=0.0, compare=False)
 
 
 def _valid_schedule(problem: Problem) -> Schedule:
@@ -140,9 +151,14 @@ class FakeSolver:
     calls: list[Call] = field(default_factory=list)
 
     def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
+        self,
+        problem: Problem,
+        *,
+        objective: ObjectiveSpec,
+        budget_seconds: float,
+        context: SolveContext,
     ) -> Schedule:
-        self.calls.append(Call(problem, objective, budget_seconds))
+        self.calls.append(Call(problem, objective, budget_seconds, context, time.monotonic()))
         return self.answer(problem)
 
 
@@ -169,7 +185,15 @@ SINGLE_FEATURE_PROBLEMS: dict[Feature, tuple[Problem, frozenset[Feature]]] = {
         _problem(machines=(_machine(calendar_id="c"),), calendars=(CALENDAR,)),
         frozenset({Feature.CALENDARS}),
     ),
-    Feature.PAUSE: (_problem((_op("A", shift_crossing="pause"),)), frozenset({Feature.PAUSE})),
+    # Pause only matters where a calendar can apply (review item 7): the pair is the minimum.
+    Feature.PAUSE: (
+        _problem(
+            (_op("A", shift_crossing="pause"),),
+            (_machine(calendar_id="c"),),
+            calendars=(CALENDAR,),
+        ),
+        frozenset({Feature.PAUSE, Feature.CALENDARS}),
+    ),
     Feature.OPERATORS: (
         _problem((_op("A", operator_needs=NEED),), operator_pools=({"id": "P", "size": 1},)),
         frozenset({Feature.OPERATORS}),
@@ -268,6 +292,58 @@ def test_done_operations_contribute_no_features() -> None:
     assert problem_features(_problem((done, _op("B")))) == frozenset()
 
 
+# --- pause needs a calendar that can apply (review item 7) ---------------------------------
+
+
+PAUSED = _op("A", "M1", "M2", shift_crossing="pause")
+
+
+def test_pause_without_any_calendar_is_not_a_feature() -> None:
+    problem = _problem((PAUSED,), (_machine("M1"), _machine("M2")))
+    assert validate(_request(problem)) == []
+    assert problem_features(problem) == frozenset({Feature.ALTERNATIVES})
+
+
+def test_pause_with_a_calendar_on_one_option_machine_is_a_feature() -> None:
+    problem = _problem(
+        (PAUSED,), (_machine("M1"), _machine("M2", calendar_id="c")), calendars=(CALENDAR,)
+    )
+    assert validate(_request(problem)) == []
+    assert problem_features(problem) == frozenset(
+        {Feature.ALTERNATIVES, Feature.CALENDARS, Feature.PAUSE}
+    )
+
+
+def test_pause_with_a_calendar_only_on_a_machine_the_op_cannot_use_is_not_a_feature() -> None:
+    other = _op("B", "M3")
+    machines = (_machine("M1"), _machine("M2"), _machine("M3", calendar_id="c"))
+    problem = _problem((PAUSED, other), machines, calendars=(CALENDAR,))
+    assert validate(_request(problem)) == []
+    assert problem_features(problem) == frozenset({Feature.ALTERNATIVES, Feature.CALENDARS})
+
+
+def test_pause_drawing_operators_from_a_pool_with_a_calendar_is_a_feature() -> None:
+    op = _op("A", shift_crossing="pause", operator_needs=NEED)
+    problem = _problem((op,), operator_pools=(POOL,), calendars=(CALENDAR,))
+    assert validate(_request(problem)) == []
+    assert problem_features(problem) == frozenset(
+        {Feature.OPERATORS, Feature.CALENDARS, Feature.PAUSE}
+    )
+
+
+def test_pause_with_a_calendar_only_on_a_pool_the_op_does_not_draw_from_is_not_a_feature() -> None:
+    paused = _op(
+        "A",
+        shift_crossing="pause",
+        operator_needs=[{"pool_id": "Q", "quantity": 1, "phase": "both"}],
+    )
+    pools = (POOL, {"id": "Q", "size": 1})
+    other = _op("B", operator_needs=NEED)
+    problem = _problem((paused, other), operator_pools=pools, calendars=(CALENDAR,))
+    assert validate(_request(problem)) == []
+    assert problem_features(problem) == frozenset({Feature.OPERATORS, Feature.CALENDARS})
+
+
 # --- what the solver receives ---------------------------------------------------------------
 
 
@@ -292,6 +368,103 @@ def test_explicit_budget_wins_over_profile_budget() -> None:
     fake = FakeSolver()
     solve(_request(_problem()), solver=fake, budget_seconds=1.5)
     assert fake.calls[0].budget_seconds == 1.5
+
+
+# --- the SolveContext the solver receives (T-114, REQ-087, D-070) ---------------------------
+
+
+DEADLINE_SLACK = 0.05
+PREVIOUS = PreviousPlan(
+    plan_id="prev",
+    problem_digest="d",
+    assignments=(PreviousAssignment(operation_id="A", machine_id="M1", start=20.0),),
+)
+
+
+def _context(
+    request: SolveRequest, fake: FakeSolver | None = None, **solve_kwargs: Any
+) -> tuple[SolveContext, Call]:
+    """Run `solve` with a fake and return the one context it received."""
+    solver = fake or FakeSolver()
+    result = solve(request, solver=solver, **solve_kwargs)
+    assert len(solver.calls) == 1, result.issues
+    call = solver.calls[0]
+    assert call.context is not None
+    return call.context, call
+
+
+def _with_previous(request: SolveRequest) -> SolveRequest:
+    return request.model_copy(update={"previous_plan": PREVIOUS})
+
+
+def test_context_previous_plan_is_the_request_previous_plan() -> None:
+    context, _ = _context(_with_previous(_request(_problem())))
+    assert context.previous_plan == PREVIOUS
+
+
+def test_context_previous_plan_is_none_without_one() -> None:
+    context, _ = _context(_request(_problem()))
+    assert context.previous_plan is None
+
+
+def test_context_churn_tolerance_is_the_profile_frozen_zone_tolerance() -> None:
+    profile = SchedulingProfile(frozen_zone=FrozenZone(until=50.0, tolerance=3.5))
+    context, _ = _context(_with_previous(_request(_problem(), profile=profile)))
+    assert context.churn_tolerance == 3.5
+
+
+def test_context_churn_tolerance_is_zero_without_a_frozen_zone() -> None:
+    context, _ = _context(_with_previous(_request(_problem())))
+    assert context.churn_tolerance == 0.0
+
+
+def test_context_seed_and_warm_start_are_what_solve_was_given() -> None:
+    warm = _valid_schedule(_problem())
+    context, _ = _context(_request(_problem()), seed=17, warm_start=warm)
+    assert context.seed == 17
+    assert context.warm_start == warm
+
+
+def test_context_seed_defaults_to_zero_and_warm_start_to_none() -> None:
+    context, _ = _context(_request(_problem()))
+    assert context.seed == 0
+    assert context.warm_start is None
+
+
+def test_context_deadline_is_monotonic_now_plus_the_explicit_budget() -> None:
+    before = time.monotonic()
+    context, call = _context(_request(_problem()), budget_seconds=7.0)
+    assert before + 7.0 <= context.deadline <= call.called_at + 7.0
+    assert abs(context.deadline - (call.called_at + 7.0)) <= DEADLINE_SLACK
+
+
+def test_context_deadline_uses_the_profile_budget_when_none_is_given() -> None:
+    profile = SchedulingProfile(time_budget_seconds=12.0)
+    before = time.monotonic()
+    context, call = _context(_request(_problem(), profile=profile))
+    assert before + 12.0 <= context.deadline <= call.called_at + 12.0
+    assert abs(context.deadline - (call.called_at + 12.0)) <= DEADLINE_SLACK
+
+
+def test_context_params_are_the_profile_method_params_for_the_solver_name() -> None:
+    profile = SchedulingProfile.model_validate(
+        {"method_params": {"atcs": {"K1": 5.0, "mode": "active"}, "fake": {"iters": 3}}}
+    )
+    context, _ = _context(_request(_problem(), profile=profile), FakeSolver(name="atcs"))
+    assert isinstance(context.params, Mapping)
+    assert dict(context.params) == {"K1": 5.0, "mode": "active"}
+
+
+def test_context_params_are_empty_when_the_profile_has_none_for_the_solver() -> None:
+    profile = SchedulingProfile.model_validate({"method_params": {"atcs": {"K1": 5.0}}})
+    context, _ = _context(_request(_problem(), profile=profile))
+    assert isinstance(context.params, Mapping)
+    assert dict(context.params) == {}
+
+
+def test_context_params_are_empty_with_the_default_profile() -> None:
+    context, _ = _context(_request(_problem()))
+    assert dict(context.params) == {}
 
 
 # --- capability refusal ---------------------------------------------------------------------
@@ -351,9 +524,13 @@ def test_verified_result_reports_all_thirteen_objective_values() -> None:
 
 
 def test_features_are_reported_as_sorted_strings() -> None:
-    problem = _problem((_op("A", pin={"machine_id": "M1"}, shift_crossing="pause"),))
+    problem = _problem(
+        (_op("A", pin={"machine_id": "M1"}, shift_crossing="pause"),),
+        (_machine(calendar_id="c"),),
+        calendars=(CALENDAR,),
+    )
     result = solve(_request(problem), solver=FakeSolver())
-    assert result.features == ("pause", "pins")
+    assert result.features == ("calendars", "pause", "pins")
 
 
 def _forged(problem: Problem) -> Schedule:
