@@ -74,7 +74,9 @@ def apply_overrides(request: SolveRequest) -> CompiledProblem:
     """Compile the request's overrides and frozen zone into the problem (D-066).
 
     Effective job weights (explicit `weight_override`, else the profile's class weight)
-    are written into every compiled `Job.weight_override`. The request is not changed.
+    are written into every compiled `Job.weight_override`, and the effective horizon (the
+    earlier of the problem's and the profile's `horizon_end`) into the compiled
+    `Problem.horizon_end`. The request is not changed.
     """
     problem = request.problem
     state = _State(
@@ -88,8 +90,9 @@ def apply_overrides(request: SolveRequest) -> CompiledProblem:
     _apply_frozen_zone(state, request)
     weights = request.profile.class_weights
     jobs = tuple(_with_effective_weight(job, weights) for job in _final_jobs(state, problem.jobs))
+    horizon = _effective_horizon(problem.horizon_end, request.profile.horizon_end)
     return CompiledProblem(
-        problem=problem.model_copy(update={"jobs": jobs}),
+        problem=problem.model_copy(update={"jobs": jobs, "horizon_end": horizon}),
         profile=request.profile,
         held_job_ids=tuple(state.held_job_ids),
         released_from_frozen=tuple(sorted(state.released)),
@@ -518,6 +521,11 @@ def _final_jobs(state: _State, original: tuple[Job, ...]) -> list[Job]:
         for job_id in _job_targets(state, job.id) or ():
             ordered.append(state.jobs[job_id])
     return ordered
+
+
+def _effective_horizon(*ends: float | None) -> float | None:
+    """The earliest of the given horizon ends; None when none is set."""
+    return min((end for end in ends if end is not None), default=None)
 
 
 def _with_effective_weight(job: Job, class_weights: dict[int, float]) -> Job:

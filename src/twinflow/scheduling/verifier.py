@@ -145,6 +145,7 @@ def verify(
     issues.extend(_missing_issues(index, by_op))
     issues.extend(_assignment_issues(index, scoped, by_op, _setup_predecessors(sequences)))
     issues.extend(_machine_overlap_issues(sequences))
+    issues.extend(_horizon_issues(compiled.problem.horizon_end, scoped))
     issues.extend(_operator_capacity_issues(index, scoped))
     issues.extend(_batch_issues(index, scoped))
     issues.extend(_override_issues(index, by_op, raw_overrides))
@@ -259,6 +260,18 @@ def _machine_overlap_issues(
                     yield _issue("machine_overlap", a.operation_id, message)
             if frontier is None or a.end > frontier.end:
                 frontier = a
+
+
+def _horizon_issues(
+    horizon_end: float | None, scoped: Iterable[Assignment]
+) -> Iterator[ScheduleIssue]:
+    """`horizon`: every operation ends by the compiled `horizon_end`, when one is set."""
+    if horizon_end is None:
+        return
+    for a in scoped:
+        if a.end > horizon_end + TOLERANCE:
+            message = f"{a.operation_id}: end {a.end:g} is after horizon_end {horizon_end:g}"
+            yield _issue("horizon", a.operation_id, message)
 
 
 # --- per-assignment checks ----------------------------------------------------------------------

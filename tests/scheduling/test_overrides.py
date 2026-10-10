@@ -413,6 +413,27 @@ def _fractions(rng: np.random.Generator) -> tuple[float, ...]:
     return tuple(float(part) for part in parts / parts.sum())
 
 
+@pytest.mark.parametrize(
+    ("problem_end", "profile_end", "expected"),
+    [
+        (None, None, None),
+        (80.0, None, 80.0),
+        (None, 60.0, 60.0),
+        (80.0, 50.0, 50.0),
+        (40.0, 50.0, 40.0),
+    ],
+)
+def test_compiled_horizon_is_the_earlier_of_problem_and_profile_horizon(
+    problem_end: float | None, profile_end: float | None, expected: float | None
+) -> None:
+    problem = _problem().model_copy(update={"horizon_end": problem_end})
+    profile = SchedulingProfile(horizon_end=profile_end)
+
+    compiled = apply_overrides(_request(problem=problem, profile=profile))
+
+    assert compiled.problem.horizon_end == expected
+
+
 # --- hold ----------------------------------------------------------------------------------
 
 

@@ -18,7 +18,8 @@ with ``overlap_quantity`` q, g >= pred.setup_end + pred.fixed + q * pred.unit + 
 and end >= pred.end + q * succ.unit.
 
 The pass never backtracks, so it cannot prove a problem has no plan: an operation it
-cannot place returns UNKNOWN with ``max_lag_unmet`` or ``no_feasible_slot``, never
+cannot place returns UNKNOWN with ``max_lag_unmet`` or ``no_feasible_slot``, and a plan
+that ends after ``problem.horizon_end`` returns UNKNOWN with ``horizon_exceeded``, never
 INFEASIBLE. Operations of held or done jobs and operations in state ``done`` are not
 scheduled and count as finished for precedence. Restart rules are not modeled (TF-003).
 The budget is not enforced: the pass is a single linear sweep with no anytime result.
@@ -426,6 +427,18 @@ def _unplaceable(op_id: str, missed_max_lag: bool) -> ScheduleIssue:
     return _issue("no_feasible_slot", op_id, message)
 
 
+def _horizon_issue(problem: Problem, assignments: Sequence[Assignment]) -> ScheduleIssue | None:
+    """`horizon_exceeded` for the first operation that ends after `horizon_end`."""
+    horizon = problem.horizon_end
+    if horizon is None:
+        return None
+    late = next((a for a in assignments if a.end > horizon + _SLACK), None)
+    if late is None:
+        return None
+    message = f"{late.operation_id}: ends at {late.end:g}, after horizon_end {horizon:g}"
+    return _issue("horizon_exceeded", late.operation_id, message)
+
+
 # --- the solver ----------------------------------------------------------------------------------
 
 
@@ -454,7 +467,7 @@ class BaselineSolver:
         """One pass over `problem`; `budget_seconds` is not enforced (see the module docstring)."""
         started = time.perf_counter()
         scheduler = _ListScheduler(problem)
-        issue = scheduler.run(problem)
+        issue = scheduler.run(problem) or _horizon_issue(problem, scheduler.assignments)
         if issue is not None:
             elapsed = time.perf_counter() - started
             return Schedule(

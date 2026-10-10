@@ -295,6 +295,22 @@ def test_successor_of_a_held_job_is_refused_with_held_predecessor() -> None:
     assert [issue.code for issue in result.issues] == ["held_predecessor"]
 
 
+@pytest.mark.parametrize(
+    ("problem_end", "profile"),
+    [(6.0, {}), (None, {"horizon_end": 6.0})],
+)
+def test_plan_ending_past_the_horizon_returns_unknown_horizon_exceeded(
+    problem_end: float | None, profile: dict[str, Any]
+) -> None:
+    jobs = [Job(id="J1", operations=(_op("a"),)), Job(id="J2", operations=(_op("b"),))]
+    problem = _problem(jobs, horizon_end=problem_end)
+
+    result = solve(_request(problem, profile=profile))
+
+    assert result.schedule.status == "UNKNOWN"
+    assert [issue.code for issue in result.issues] == ["horizon_exceeded"]
+
+
 def test_same_input_gives_identical_output() -> None:
     request = _fixture("pinedo_7_1_1.json")
 

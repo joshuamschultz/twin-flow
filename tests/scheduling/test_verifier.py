@@ -1127,6 +1127,27 @@ def test_verify_frozen_op_of_a_held_job_is_not_checked() -> None:
     assert _frozen_check(case, _schedule(_a("b", "B", 0, 0, 5))).valid
 
 
+# --- horizon (TF-002 review) -----------------------------------------------------------------
+
+
+def test_verify_op_ending_after_the_horizon_is_horizon() -> None:
+    problem = _problem(
+        [_job("J1", _op("a", "A")), _job("J2", _op("b", "A"))], [_machine("A")], horizon_end=6.0
+    )
+    case = Case(_compile(problem), _schedule())
+
+    issues = _only(
+        _check(case, _schedule(_a("a", "A", 0, 0, 5), _a("b", "A", 5, 5, 10))), "horizon"
+    )
+    assert [issue.path for issue in issues] == ["b"]
+
+
+def test_verify_op_ending_exactly_at_the_horizon_is_valid() -> None:
+    problem = _problem([_job("J1", _op("a", "A"))], [_machine("A")], horizon_end=5.0)
+
+    assert _check(Case(_compile(problem), _schedule(_a("a", "A", 0, 0, 5)))).valid
+
+
 # --- objective -------------------------------------------------------------------------------
 
 
