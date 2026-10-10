@@ -58,6 +58,7 @@ import json
 import sqlite3
 import subprocess
 import sys
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -694,3 +695,55 @@ def test_tamper_leaves_no_fallback_after_a_good_read(
     edit_record(repository, PROFILES, 1, lambda b: b.update(signature=flip_base64(b["signature"])))
 
     assert_refused(store)
+
+
+# --- concurrent puts -------------------------------------------------------------------------
+
+
+class HeldSigner(KeySigner):
+    """Holds the first `sign` call (inside the first put) until released."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self._first = True
+
+    def sign(self, data: bytes) -> bytes:
+        if self._first:
+            self._first = False
+            self.entered.set()
+            assert self.release.wait(10)
+        return super().sign(data)
+
+
+def test_concurrent_puts_take_distinct_sequences_and_leave_a_readable_active(
+    repository: WorkspaceRepository, clock: Clock
+) -> None:
+    signer = HeldSigner()
+    store = SignedArtifactStore(repository, as_signer(signer), clock=clock)
+    refs: list[ArtifactRef] = []
+    errors: list[BaseException] = []
+
+    def put(budget: float) -> None:
+        try:
+            refs.append(store.put(PROFILES, profile(budget), caller_id=CALLER))
+        except BaseException as exc:  # recorded and asserted below
+            errors.append(exc)
+
+    first = threading.Thread(target=put, args=(11.0,))
+    second = threading.Thread(target=put, args=(22.0,))
+    first.start()
+    assert signer.entered.wait(10)
+    second.start()
+    second.join(0.3)  # time for an unserialized second put to read the same count
+    signer.release.set()
+    first.join(10)
+    second.join(10)
+
+    assert errors == []
+    assert sorted(ref.sequence for ref in refs) == [1, 2]
+    active = store.get_active(PROFILES, PlanningProfile)
+    assert active is not None
+    newest = max(refs, key=lambda ref: ref.sequence)
+    assert active[1].digest == newest.digest

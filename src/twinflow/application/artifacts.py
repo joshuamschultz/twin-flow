@@ -34,6 +34,7 @@ import base64
 import binascii
 import hashlib
 import json
+import threading
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any, ClassVar, Literal, Protocol, TypeVar, get_args
@@ -138,6 +139,9 @@ class SignedArtifactStore:
         self._repository = repository
         self._signer = signer
         self._clock = clock
+        # One process owns the workspace; this orders its puts so each takes the next
+        # sequence and the pointer always names the newest record.
+        self._put_lock = threading.Lock()
 
     @property
     def key_id(self) -> str:
@@ -155,7 +159,10 @@ class SignedArtifactStore:
         `caller_id` names the principal; auditing it is the calling tool's job (T-221).
         """
         _require_kind(kind)
-        payload = _canonical(artifact.model_dump(mode="json"))
+        with self._put_lock:
+            return self._put_next(kind, _canonical(artifact.model_dump(mode="json")))
+
+    def _put_next(self, kind: ArtifactKind, payload: str) -> ArtifactRef:
         ref = ArtifactRef(
             kind=kind,
             digest=_digest(payload),
