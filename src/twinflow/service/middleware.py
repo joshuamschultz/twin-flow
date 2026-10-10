@@ -66,8 +66,12 @@ class ServiceBoundaryMiddleware:
         self.max_mcp_request_bytes = max_mcp_request_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] == "lifespan":
             await self.app(scope, receive, send)
+            return
+        if scope["type"] != "http":
+            # Only HTTP is authenticated; any other scope (websocket) fails closed.
+            await send({"type": "websocket.close", "code": 1008})
             return
         headers = Headers(scope=scope)
         correlation_id = _correlation_id(headers.get("x-correlation-id"))

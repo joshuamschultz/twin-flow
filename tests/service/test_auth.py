@@ -17,6 +17,7 @@ Pinned contract choices (orchestrator-pinned API, plus these test-level pins):
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -628,3 +629,33 @@ def test_middleware_without_registry_is_open_local_mode_with_local_caller() -> N
 
     assert response.status_code == 200
     assert response.json() == {"caller": {"caller_id": "local", "scopes": ["plan", "read"]}}
+
+
+def test_middleware_closes_websocket_scopes_without_reaching_the_app(
+    registry_and_tokens: tuple[TokenRegistry, dict[str, str]],
+) -> None:
+    """Only `http` is authenticated, so any other non-lifespan scope fails closed."""
+    reached: list[str] = []
+
+    async def downstream(scope: Any, receive: Any, send: Any) -> None:
+        reached.append(scope["type"])
+
+    middleware = ServiceBoundaryMiddleware(
+        downstream,
+        registry=registry_and_tokens[0],
+        max_request_bytes=5_242_880,
+        max_mcp_request_bytes=16_777_216,
+    )
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "websocket.connect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    scope = {"type": "websocket", "path": "/mcp", "headers": [], "query_string": b""}
+    asyncio.run(middleware(scope, receive, send))
+
+    assert reached == []
+    assert sent == [{"type": "websocket.close", "code": 1008}]
