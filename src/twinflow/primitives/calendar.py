@@ -86,11 +86,11 @@ class WorkingCalendar:
         instant = self.local_datetime(t)
         for offset in range(367):
             day = instant.date() + timedelta(days=offset)
-            for start, end in self._covering_intervals(day):
-                if end <= instant:
-                    continue
-                candidate = max(start, instant)
-                return self.simulation_time(candidate)
+            starts = [
+                max(start, instant) for start, end in self._covering_intervals(day) if end > instant
+            ]
+            if starts:  # config order is not time order: take the earliest
+                return self.simulation_time(min(starts))
         raise ValueError("calendar has no working interval within 367 days")
 
     def current_shift_end(self, t: float) -> float:

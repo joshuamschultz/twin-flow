@@ -125,3 +125,31 @@ def test_available_seconds_clips_a_partial_final_shift_to_horizon() -> None:
 
 def test_always_working_calendar_available_seconds_is_the_whole_horizon() -> None:
     assert AlwaysWorkingCalendar().available_seconds(1234.0) == pytest.approx(1234.0)
+
+
+def _out_of_order_shift_calendar() -> WorkingCalendar:
+    return WorkingCalendar(
+        CalendarConfig(
+            timezone="America/Chicago",
+            origin=datetime.fromisoformat("2026-03-02T00:00:00-06:00"),
+            weekly=(
+                WorkingInterval(frozenset(range(7)), parse_clock("14:00"), parse_clock("22:00")),
+                WorkingInterval(frozenset(range(7)), parse_clock("06:00"), parse_clock("14:00")),
+            ),
+        )
+    )
+
+
+def test_next_shift_start_picks_the_earliest_shift_not_the_first_listed() -> None:
+    calendar = _out_of_order_shift_calendar()
+
+    assert calendar.next_shift_start(0.0) == 6 * 3600.0
+
+
+def test_labor_calendar_intervals_cover_both_out_of_order_shifts() -> None:
+    from twinflow.application.schedule_problem import _working_intervals
+
+    day = 24 * 3600.0
+    intervals = _working_intervals(_out_of_order_shift_calendar().config, 2 * day)
+
+    assert intervals == ((6 * 3600.0, 22 * 3600.0), (day + 6 * 3600.0, day + 22 * 3600.0))
