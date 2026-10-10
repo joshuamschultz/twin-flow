@@ -61,12 +61,14 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
+from _factories import snapshot as empty_envelope
 from fixtures.generate import small_shop
 
 from twinflow.erp.digest import snapshot_digest
 from twinflow.erp.issues import ErpIssue
 from twinflow.erp.profile import PlanningProfile, load_planning_profile
 from twinflow.erp.schema import (
+    Calendar,
     CrewNeed,
     ErpSnapshot,
     Lineage,
@@ -790,3 +792,25 @@ def test_validate_options_are_typed_option_records(shop: ErpSnapshot) -> None:
     op = shop.production_orders[i].operations[j]
     assert all(isinstance(o, OperationOption) for o in op.options)
     assert {o.machine_id for o in op.options} == {"form-1", "form-2", "form-3"}
+
+
+def test_validate_horizon_is_real_elapsed_days_like_the_builder() -> None:
+    """A zone-aware `as_of` must not stretch the horizon by the DST hour (builder parity).
+
+    `as_of` is Saturday 2026-10-31 05:00 CDT; one real day later is Sunday 04:00 CST (fall
+    back at 02:00). The calendar works only Sunday 04:00-05:00, after the real horizon.
+    """
+    as_of = dt.datetime(2026, 10, 31, 5, 0, tzinfo=ZoneInfo("America/Chicago"))
+    calendar = Calendar(
+        id="sunday-dawn",
+        week=(WeekdayWindows(weekday=6, windows=(TimeWindow(start_minute=240, end_minute=300),)),),
+        exceptions=(),
+        lineage=Lineage(table="Calendar", key=("sunday-dawn",)),
+    )
+    snap = ErpSnapshot.model_validate(
+        {**empty_envelope(), "as_of": as_of, "calendars": (calendar,)}
+    )
+
+    report = validate_snapshot(snap, make_profile(horizon_days=1))
+
+    assert [issue.code for issue in report.issues] == ["calendar_no_working_time"]

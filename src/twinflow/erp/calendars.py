@@ -55,6 +55,11 @@ _Key = tuple[float, bool]
 OvertimePiece = tuple[float, float, float]
 
 
+def horizon_end(as_of: dt.datetime, days: int) -> dt.datetime:
+    """`days` real elapsed days after `as_of` (in UTC, so a DST change never stretches it)."""
+    return as_of.astimezone(dt.UTC) + dt.timedelta(days=days)
+
+
 def expand(
     calendar: Calendar, tz: ZoneInfo, as_of: dt.datetime, horizon_end: dt.datetime
 ) -> tuple[Interval, ...]:

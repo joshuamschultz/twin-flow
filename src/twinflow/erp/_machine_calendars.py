@@ -14,11 +14,10 @@ so it keeps `calendar_id = None`.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Sequence
 from zoneinfo import ZoneInfo
 
-from twinflow.erp.calendars import OvertimePiece, expand, expand_overtime
+from twinflow.erp.calendars import OvertimePiece, expand, expand_overtime, horizon_end
 from twinflow.erp.profile import PlanningProfile
 from twinflow.erp.schema import ErpSnapshot, Machine, Overtime
 from twinflow.scheduling.model import Calendar, Interval, OvertimeInterval
@@ -31,15 +30,14 @@ def machine_calendars(
 ) -> tuple[dict[str, str | None], tuple[Calendar, ...]]:
     """Each active machine's calendar id and every calendar a machine or pool uses, by id."""
     tz = ZoneInfo(snapshot.plant_timezone)
-    # Real elapsed days in UTC, so the horizon never depends on how `as_of`'s zone is spelled.
-    horizon_end = snapshot.as_of.astimezone(dt.UTC) + dt.timedelta(days=profile.erp.horizon_days)
+    horizon = horizon_end(snapshot.as_of, profile.erp.horizon_days)
     sources = {cal.id: cal for cal in reversed(snapshot.calendars)}  # first record wins
     expanded: dict[str, tuple[Interval, ...]] = {}
 
     def regular(calendar_id: str) -> tuple[Interval, ...]:
         if calendar_id not in expanded:
             source = sources[calendar_id]
-            expanded[calendar_id] = expand(source, tz, snapshot.as_of, horizon_end)
+            expanded[calendar_id] = expand(source, tz, snapshot.as_of, horizon)
         return expanded[calendar_id]
 
     regular_ids = _regular_calendar_ids(snapshot)
@@ -50,7 +48,7 @@ def machine_calendars(
         regular_id = regular_ids[machine_id]
         if regular_id is None:
             continue  # always working: overtime adds no working time
-        pieces = expand_overtime(overtime, tz, snapshot.as_of, horizon_end)
+        pieces = expand_overtime(overtime, tz, snapshot.as_of, horizon)
         calendar = _with_overtime(f"{regular_id}+ot:{machine_id}", regular(regular_id), pieces)
         assigned[machine_id] = calendar.id
         own.append(calendar)

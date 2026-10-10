@@ -37,7 +37,7 @@ from twinflow.erp._checks import (
     order_operations,
     reference_issues,
 )
-from twinflow.erp.calendars import expand
+from twinflow.erp.calendars import expand, horizon_end
 from twinflow.erp.digest import snapshot_digest
 from twinflow.erp.issues import ErpIssue
 from twinflow.erp.profile import PlanningProfile
@@ -273,9 +273,9 @@ def _purchase_issues(snapshot: ErpSnapshot, today: dt.date) -> Iterator[ErpIssue
 
 def _calendar_issues(snapshot: ErpSnapshot, tz: ZoneInfo, horizon_days: int) -> Iterator[ErpIssue]:
     """A calendar with no working second between `as_of` and the profile horizon."""
-    horizon_end = snapshot.as_of + dt.timedelta(days=horizon_days)
+    horizon = horizon_end(snapshot.as_of, horizon_days)
     for k, calendar in enumerate(snapshot.calendars):
-        if not expand(calendar, tz, snapshot.as_of, horizon_end):
+        if not expand(calendar, tz, snapshot.as_of, horizon):
             yield issue("calendar_no_working_time", f"$.calendars[{k}]", calendar.lineage)
 
 
