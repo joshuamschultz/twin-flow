@@ -34,6 +34,8 @@ ORTOOLS_MODULES = ("ortools", "ortools.sat", "ortools.sat.python", "ortools.sat.
 ORTOOLS_CAPABILITIES = frozenset(
     {
         Feature.ALTERNATIVES,
+        Feature.SETUPS,
+        Feature.DETACHED_SETUP,
         Feature.CALENDARS,
         Feature.OPERATORS,
         Feature.LAGS,
