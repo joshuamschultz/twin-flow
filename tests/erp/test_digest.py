@@ -78,11 +78,45 @@ _MISSING = object()
 # --- canonical JSON and digest --------------------------------------------------------------
 
 
+def _record_key(record: Any) -> str:
+    return json.dumps(record, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
 def test_canonical_json_is_sorted_compact_json_without_digest() -> None:
+    # Top-level collections are sets of keyed rows: their order is not content (SDD Deviations).
     snap = parsed({**full_snapshot(), "digest": "b" * 64})
     body = snap.model_dump(mode="json", exclude={"digest"})
+    for name, value in body.items():
+        if isinstance(value, list):
+            body[name] = sorted(value, key=_record_key)
     expected = json.dumps(body, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     assert canonical_json(snap) == expected
+
+
+def test_digest_stable_under_reordering_of_top_level_collections() -> None:
+    from fixtures.generate import small_shop
+
+    snap = small_shop()
+    reordered = snap.model_copy(
+        update={
+            name: tuple(reversed(getattr(snap, name)))
+            for name, field in type(snap).model_fields.items()
+            if isinstance(getattr(snap, name), tuple)
+        }
+    )
+    assert any(getattr(reordered, n) != getattr(snap, n) for n in ("machines", "production_orders"))
+    assert snapshot_digest(reordered) == snapshot_digest(snap)
+
+
+def test_digest_changes_when_nested_order_changes() -> None:
+    # Nested tuples (an order's operations, a calendar's windows) keep their order as content.
+    data = full_snapshot()
+    order = data["production_orders"][0]
+    if len(order["operations"]) < 2:
+        order["operations"].append({**order["operations"][0], "op_id": "zz-second", "sequence": 99})
+    before = snapshot_digest(parsed(data))
+    order["operations"].reverse()
+    assert snapshot_digest(parsed(data)) != before
 
 
 def test_snapshot_digest_is_sha256_hex_of_canonical_json() -> None:

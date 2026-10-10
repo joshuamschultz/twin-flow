@@ -9,7 +9,7 @@
   "extractor_version": "1",
   "generation": "seed-7"
  },
- "digest": "0c60bd665ba67f4006d5bccab055ab4f401a009e71c52efc2807df896505d7ba",
+ "digest": "9f95807427227f24aeec88469b5d6ded52c9a80dfceb0429603f076539910652",
  "source_issues": [],
  "items": [
   {
@@ -1147,7 +1147,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -1738,7 +1738,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -2220,7 +2220,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -2454,7 +2454,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -2713,7 +2713,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -2906,7 +2906,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -3438,7 +3438,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -3904,7 +3904,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -4188,7 +4188,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -5311,7 +5311,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -5604,7 +5604,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -5838,7 +5838,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -6618,7 +6618,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -7220,7 +7220,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -7909,7 +7909,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -8214,7 +8214,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -8822,7 +8822,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -9114,7 +9114,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -9516,7 +9516,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -9918,7 +9918,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -10210,7 +10210,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -10476,13 +10476,13 @@
        "0020"
       ]
      },
-     "status": "in_process",
+     "status": "complete",
      "qty_to_produce": 300.0,
-     "qty_complete": 170.0,
-     "qty_scrapped": 4.0,
-     "qty_remaining": 126.0,
+     "qty_complete": 300.0,
+     "qty_scrapped": 0.0,
+     "qty_remaining": 0.0,
      "current_machine_id": null,
-     "actual_start": "2026-10-12T00:00:00-05:00"
+     "actual_start": null
     },
     {
      "op_id": "0030",
@@ -10515,7 +10515,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -10525,13 +10525,13 @@
        "0030"
       ]
      },
-     "status": "pending",
+     "status": "in_process",
      "qty_to_produce": 300.0,
-     "qty_complete": 0.0,
-     "qty_scrapped": 0.0,
-     "qty_remaining": 300.0,
+     "qty_complete": 170.0,
+     "qty_scrapped": 4.0,
+     "qty_remaining": 126.0,
      "current_machine_id": null,
-     "actual_start": null
+     "actual_start": "2026-10-12T00:00:00-05:00"
     },
     {
      "op_id": "0040",
@@ -10786,7 +10786,7 @@
      "qty_complete": 425.0,
      "qty_scrapped": 0.0,
      "qty_remaining": 475.0,
-     "current_machine_id": "form-1",
+     "current_machine_id": "form-2",
      "actual_start": "2026-10-12T01:00:00-05:00"
     },
     {
@@ -10820,7 +10820,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -11136,13 +11136,13 @@
        "0020"
       ]
      },
-     "status": "in_process",
+     "status": "complete",
      "qty_to_produce": 1950.0,
-     "qty_complete": 821.0,
+     "qty_complete": 1950.0,
      "qty_scrapped": 0.0,
-     "qty_remaining": 1129.0,
-     "current_machine_id": "form-1",
-     "actual_start": "2026-10-12T01:00:00-05:00"
+     "qty_remaining": 0.0,
+     "current_machine_id": null,
+     "actual_start": null
     },
     {
      "op_id": "0030",
@@ -11199,13 +11199,13 @@
        "0030"
       ]
      },
-     "status": "pending",
+     "status": "in_process",
      "qty_to_produce": 1950.0,
-     "qty_complete": 0.0,
+     "qty_complete": 821.0,
      "qty_scrapped": 0.0,
-     "qty_remaining": 1950.0,
-     "current_machine_id": null,
-     "actual_start": null
+     "qty_remaining": 1129.0,
+     "current_machine_id": "grind-1",
+     "actual_start": "2026-10-12T01:00:00-05:00"
     },
     {
      "op_id": "0040",
@@ -11481,7 +11481,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -11844,13 +11844,13 @@
        "0020"
       ]
      },
-     "status": "in_process",
+     "status": "complete",
      "qty_to_produce": 400.0,
-     "qty_complete": 203.0,
-     "qty_scrapped": 3.0,
-     "qty_remaining": 194.0,
-     "current_machine_id": "form-1",
-     "actual_start": "2026-10-12T01:00:00-05:00"
+     "qty_complete": 400.0,
+     "qty_scrapped": 0.0,
+     "qty_remaining": 0.0,
+     "current_machine_id": null,
+     "actual_start": null
     },
     {
      "op_id": "0030",
@@ -11907,13 +11907,13 @@
        "0030"
       ]
      },
-     "status": "pending",
+     "status": "in_process",
      "qty_to_produce": 400.0,
-     "qty_complete": 0.0,
-     "qty_scrapped": 0.0,
-     "qty_remaining": 400.0,
-     "current_machine_id": null,
-     "actual_start": null
+     "qty_complete": 203.0,
+     "qty_scrapped": 3.0,
+     "qty_remaining": 194.0,
+     "current_machine_id": "grind-2",
+     "actual_start": "2026-10-12T01:00:00-05:00"
     },
     {
      "op_id": "0040",
@@ -12236,7 +12236,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -12528,7 +12528,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -12896,7 +12896,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -13217,7 +13217,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -14390,7 +14390,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -14912,13 +14912,13 @@
        "0020"
       ]
      },
-     "status": "in_process",
+     "status": "complete",
      "qty_to_produce": 700.0,
-     "qty_complete": 248.0,
-     "qty_scrapped": 1.0,
-     "qty_remaining": 451.0,
-     "current_machine_id": "form-1",
-     "actual_start": "2026-10-12T01:00:00-05:00"
+     "qty_complete": 700.0,
+     "qty_scrapped": 0.0,
+     "qty_remaining": 0.0,
+     "current_machine_id": null,
+     "actual_start": null
     },
     {
      "op_id": "0030",
@@ -14951,7 +14951,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -14961,11 +14961,11 @@
        "0030"
       ]
      },
-     "status": "pending",
+     "status": "complete",
      "qty_to_produce": 700.0,
-     "qty_complete": 0.0,
+     "qty_complete": 700.0,
      "qty_scrapped": 0.0,
-     "qty_remaining": 700.0,
+     "qty_remaining": 0.0,
      "current_machine_id": null,
      "actual_start": null
     },
@@ -15024,11 +15024,11 @@
        "0040"
       ]
      },
-     "status": "pending",
+     "status": "complete",
      "qty_to_produce": 700.0,
-     "qty_complete": 0.0,
+     "qty_complete": 700.0,
      "qty_scrapped": 0.0,
-     "qty_remaining": 700.0,
+     "qty_remaining": 0.0,
      "current_machine_id": null,
      "actual_start": null
     },
@@ -15068,13 +15068,13 @@
        "0050"
       ]
      },
-     "status": "pending",
+     "status": "in_process",
      "qty_to_produce": 700.0,
-     "qty_complete": 0.0,
-     "qty_scrapped": 0.0,
-     "qty_remaining": 700.0,
-     "current_machine_id": null,
-     "actual_start": null
+     "qty_complete": 248.0,
+     "qty_scrapped": 1.0,
+     "qty_remaining": 451.0,
+     "current_machine_id": "pack-1",
+     "actual_start": "2026-10-12T01:00:00-05:00"
     }
    ],
    "materials": [
@@ -15272,7 +15272,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {
@@ -15508,13 +15508,13 @@
        "0010"
       ]
      },
-     "status": "complete",
+     "status": "in_process",
      "qty_to_produce": 1250.0,
-     "qty_complete": 1250.0,
-     "qty_scrapped": 0.0,
-     "qty_remaining": 0.0,
-     "current_machine_id": null,
-     "actual_start": null
+     "qty_complete": 706.0,
+     "qty_scrapped": 2.0,
+     "qty_remaining": 542.0,
+     "current_machine_id": "coil-1",
+     "actual_start": "2026-10-12T02:00:00-05:00"
     },
     {
      "op_id": "0020",
@@ -15554,13 +15554,13 @@
        "0020"
       ]
      },
-     "status": "in_process",
+     "status": "pending",
      "qty_to_produce": 1250.0,
-     "qty_complete": 706.0,
-     "qty_scrapped": 2.0,
-     "qty_remaining": 542.0,
-     "current_machine_id": "form-1",
-     "actual_start": "2026-10-12T02:00:00-05:00"
+     "qty_complete": 0.0,
+     "qty_scrapped": 0.0,
+     "qty_remaining": 1250.0,
+     "current_machine_id": null,
+     "actual_start": null
     },
     {
      "op_id": "0030",
@@ -15865,7 +15865,7 @@
      "outside": null,
      "crew": null,
      "batch": {
-      "capacity": 500.0,
+      "capacity": 2000.0,
       "unit": "ea"
      },
      "lineage": {

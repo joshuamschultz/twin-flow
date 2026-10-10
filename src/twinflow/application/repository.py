@@ -5,7 +5,7 @@ from __future__ import annotations
 import builtins
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
@@ -131,6 +131,52 @@ class WorkspaceRepository:
                 "INSERT INTO requests(key,digest,job_id) VALUES(?,?,?)", (key, digest, job_id)
             )
         return job_id, True
+
+    def find_request_claim(self, key: str) -> tuple[str, str] | None:
+        """The `(input digest, result id)` claimed under `key`, or None when unclaimed."""
+        with self._connection() as db:
+            row = db.execute("SELECT digest,job_id FROM requests WHERE key=?", (key,)).fetchone()
+        return (str(row[0]), str(row[1])) if row else None
+
+    def claim_request(
+        self,
+        key: str,
+        digest: str,
+        result_id: str,
+        records: Sequence[tuple[str, str, dict[str, Any]]],
+    ) -> tuple[str, str]:
+        """Atomically store `records` and claim `key` for `result_id`, or keep the first claim.
+
+        Returns the `(digest, result id)` that owns `key` after the call. When `key` was
+        already claimed nothing is written and the existing claim is returned, so a caller
+        that lost a race can compare digests and replay the winner's result. Unlike
+        `claim_job`, the claimed result may live in any record kind, and no job is created.
+        """
+        with self._connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT digest,job_id FROM requests WHERE key=?", (key,)).fetchone()
+            if row:
+                return str(row[0]), str(row[1])
+            for kind, record_id, payload in records:
+                self._insert_within_quota(db, kind, record_id, payload)
+            db.execute(
+                "INSERT INTO requests(key,digest,job_id) VALUES(?,?,?)", (key, digest, result_id)
+            )
+        return digest, result_id
+
+    def _insert_within_quota(
+        self, db: sqlite3.Connection, kind: str, record_id: str, payload: dict[str, Any]
+    ) -> None:
+        count = db.execute("SELECT COUNT(*) FROM records WHERE kind=?", (kind,)).fetchone()
+        if count is not None and count[0] >= self.max_records_per_kind:
+            raise ValueError("Workspace record quota reached")
+        try:
+            db.execute(
+                "INSERT INTO records(kind,id,body) VALUES(?,?,?)",
+                (kind, record_id, json.dumps(payload, allow_nan=False)),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("Record already exists") from exc
 
     def transition_job(
         self,

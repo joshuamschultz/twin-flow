@@ -18,7 +18,7 @@ from __future__ import annotations
 import datetime as dt
 import time
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -529,6 +529,50 @@ def test_census_in_process_operation_with_and_without_current_machine(
     for op in with_machine:
         current = machines[op.current_machine_id or ""]
         assert current.active and current.work_center_id == op.work_center_id
+
+
+def _inferred_machine(snap: ErpSnapshot, op: RoutingOperation) -> str | None:
+    """The builder's inference: most preferred active option; a center option -> first by id."""
+    machines = machines_by_id(snap)
+    for option in sorted(op.options, key=lambda o: o.preference):
+        if option.machine_id is not None and machines[option.machine_id].active:
+            return option.machine_id
+        if option.machine_id is None:
+            center = sorted(
+                m.id
+                for m in snap.machines
+                if m.work_center_id == option.work_center_id and m.active
+            )
+            if center:
+                return center[0]
+    return None
+
+
+@pytest.mark.parametrize("make", [small_shop, dst_variant, scaled_shop])
+def test_census_at_most_one_in_process_op_per_machine_including_inferred(
+    make: Callable[[], ErpSnapshot],
+) -> None:
+    snap = make()
+    running = [
+        op.current_machine_id or _inferred_machine(snap, op)
+        for _, op in order_ops(snap)
+        if op.status == "in_process"
+    ]
+    assert running and None not in running
+    duplicates = {m: n for m, n in Counter(running).items() if n > 1}
+    assert duplicates == {}
+
+
+@pytest.mark.parametrize("make", [small_shop, dst_variant, scaled_shop])
+def test_census_every_open_batch_lot_fits_its_capacity(make: Callable[[], ErpSnapshot]) -> None:
+    snap = make()
+    lots = [
+        (op.qty_remaining, op.batch.capacity)
+        for order, op in order_ops(snap)
+        if order.status in OPEN_STATUSES and op.batch is not None and op.status != "complete"
+    ]
+    assert lots
+    assert all(qty <= capacity for qty, capacity in lots)
 
 
 def test_census_work_centers_and_machines(shop: ErpSnapshot) -> None:

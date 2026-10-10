@@ -1,8 +1,9 @@
 """Snapshot digest, size gate and version gate (COMP-111).
 
 `canonical_json` gives one byte string per snapshot content: the JSON-mode dump without
-the `digest` field, keys sorted, compact separators, no NaN, and `ensure_ascii=True` so the
-bytes are pure ASCII and never depend on a text encoding. `snapshot_digest` is its SHA-256.
+the `digest` field, keys sorted, top-level collections sorted, compact separators, no NaN,
+and `ensure_ascii=True` so the bytes are pure ASCII and never depend on a text encoding.
+`snapshot_digest` is its SHA-256.
 
 `parse_snapshot` is the input boundary. In order it refuses: more than `MAX_SNAPSHOT_BYTES`
 of JSON (before parsing bytes), input that is not a JSON object, any `schema_version` but
@@ -31,10 +32,21 @@ ROOT_PATH = "$"
 
 
 def canonical_json(snapshot: ErpSnapshot) -> bytes:
-    """The canonical ASCII JSON bytes of `snapshot`, excluding its `digest` field."""
+    """The canonical ASCII JSON bytes of `snapshot`, excluding its `digest` field.
+
+    Top-level collections are sets of keyed rows, so each is sorted by its records'
+    canonical text: a mapper that emits rows in another order gives the same digest.
+    Nested tuples (an order's operations, a calendar's windows) keep their order.
+    """
     body = snapshot.model_dump(mode="json", exclude={"digest"})
-    text = json.dumps(body, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    return text.encode("ascii")
+    for name, value in body.items():
+        if isinstance(value, list):
+            body[name] = sorted(value, key=_compact)
+    return _compact(body).encode("ascii")
+
+
+def _compact(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
 def snapshot_digest(snapshot: ErpSnapshot) -> str:

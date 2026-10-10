@@ -24,6 +24,9 @@ Resolved SDD gaps (documented so later tests do not guess):
 * "Late" purchase line: open, promised after every due date of the orders that need its item.
 * The shortage misses total open demand by half the smallest requirement, so exactly one
   requirement is uncovered whatever order COMP-115 allocates in.
+* Machines are unary (TF-002 rejects two in-progress ops on one machine), so each in-process
+  op, including the one whose machine the builder infers, runs on its own machine. In the
+  scaled shop the in-process orders outnumber the machines; the rest wait between ops.
 """
 
 from __future__ import annotations
@@ -81,7 +84,10 @@ PLATING_VENDOR = "VEND-PLATE"
 INSPECTORS = "inspectors"
 BOX_ITEM = "BOX-STD"
 SITE = "MAIN"
-OVEN_BATCH = BatchSpec(capacity=500.0, unit="ea")
+MAX_LOT = 2_000  # order quantities are drawn from 200..2000 in steps of 50
+# The oven holds the largest lot, so every clean-fixture batch op fits in one load (TF-002
+# rejects a batch op above its machine's capacity; the builder flags such a lot instead).
+OVEN_BATCH = BatchSpec(capacity=float(MAX_LOT), unit="ea")
 
 FAMILIES = {"music_wire": "MW", "stainless_302": "SS", "chrome_silicon": "CS"}
 DIAMETERS = (0.8, 1.6, 3.2)
@@ -590,11 +596,12 @@ def _orders(
     mapped = [c.id for c in customers if c.priority_class != UNMAPPED_CLASS]
     unmapped = next(c.id for c in customers if c.priority_class == UNMAPPED_CLASS)
     built = _Built()
+    running: set[str] = set()  # machines that already run an in-process op
     for index, status in enumerate(statuses):
         role = roles.get(index, "")
         order_id = f"MO-{index + 1:04d}"
         part = rng.choice(parts)
-        quantity = float(rng.randrange(200, 2_001, 50))
+        quantity = float(rng.randrange(200, MAX_LOT + 1, 50))
         due = shape.as_of_date + dt.timedelta(days=rng.randint(2, shape.due_span_days))
         links: tuple[SalesLink, ...] = ()
         if role != "stock":
@@ -618,7 +625,7 @@ def _orders(
                 due_date=None if role == "no_due_date" else due,
                 sales_links=links,
                 operations=_order_operations(
-                    rng, order_id, part, quantity, status, role, as_of, machines
+                    rng, order_id, part, quantity, status, role, as_of, machines, running
                 ),
                 materials=_materials(order_id, index, part, quantity, status),
                 lineage=lineage("production_order", order_id),
@@ -667,15 +674,19 @@ def _order_operations(
     role: str,
     as_of: dt.datetime,
     machines: tuple[Machine, ...],
+    running: set[str],
 ) -> tuple[OrderOperation, ...]:
+    slot = None
+    if status == "in_process":
+        slot = _running_slot(part.routing.operations, role, machines, running)
     ops = []
     for position, template in enumerate(part.routing.operations):
-        progress = _progress(rng, quantity, status, position)
+        progress = _progress(rng, quantity, status, position, slot[0] if slot else None)
         current = None
         actual_start = None
         if progress["status"] == "in_process":
-            if role != "machine_inferred":
-                current = _current_machine(template, machines)
+            if role != "machine_inferred" and slot is not None:
+                current = slot[1]
             actual_start = as_of - dt.timedelta(hours=rng.randint(1, 6))
         fields = template.model_dump(exclude={"lineage", "options", "outside", "crew", "batch"})
         ops.append(
@@ -694,12 +705,21 @@ def _order_operations(
     return tuple(ops)
 
 
-def _progress(rng: random.Random, quantity: float, status: str, position: int) -> dict:
-    """Op status and quantities: done orders are complete; in_process runs its second op."""
-    done = status in ("complete", "closed") or (status == "in_process" and position == 0)
+def _progress(
+    rng: random.Random, quantity: float, status: str, position: int, running: int | None
+) -> dict:
+    """Op status and quantities.
+
+    Done orders are complete. An in_process order has its ops before `running` complete,
+    the op at `running` in process and the rest pending. With no free machine (`running`
+    None, only in the scaled shop) the order sits between ops: first op complete, rest pending.
+    """
+    done = status in ("complete", "closed")
+    if status == "in_process":
+        done = position < running if running is not None else position == 0
     if done:
         return _quantities("complete", quantity, quantity, 0.0)
-    if status == "in_process" and position == 1:
+    if status == "in_process" and position == running:
         complete = float(int(quantity * rng.uniform(0.25, 0.6)))
         return _quantities("in_process", quantity, complete, float(rng.randint(0, 5)))
     return _quantities("pending", quantity, 0.0, 0.0)
@@ -715,17 +735,50 @@ def _quantities(status: str, quantity: float, complete: float, scrapped: float) 
     }
 
 
-def _current_machine(op: RoutingOperation, machines: tuple[Machine, ...]) -> str:
-    """The most preferred active machine an in-process op can run on."""
+def _running_slot(
+    ops: tuple[RoutingOperation, ...],
+    role: str,
+    machines: tuple[Machine, ...],
+    running: set[str],
+) -> tuple[int, str] | None:
+    """The first in-plant op, after the first, whose machine runs no other in-process op.
+
+    A unary machine runs one op at a time, so every in-process op gets its own machine. The
+    first op (coiling) is the last resort, when every later op's machine is busy. The
+    `machine_inferred` op has no current machine in the ERP; its machine is the one the
+    builder infers (most preferred active option; a work-center option resolves to the
+    center's first active machine by id), and that machine must be free too.
+    """
+    positions = [*range(1, len(ops)), 0]
+    for position in positions:
+        op = ops[position]
+        if op.outside is not None:
+            continue
+        exclude = set() if role == "machine_inferred" else running
+        machine = _preferred_machine(op, machines, exclude)
+        if machine is not None and machine not in running:
+            running.add(machine)
+            return position, machine
+    return None
+
+
+def _preferred_machine(
+    op: RoutingOperation, machines: tuple[Machine, ...], exclude: set[str]
+) -> str | None:
+    """The most preferred active machine of `op`'s options that is not in `exclude`."""
     by_id = {m.id: m for m in machines}
     for option in sorted(op.options, key=lambda o: o.preference):
-        if option.machine_id is not None and by_id[option.machine_id].active:
-            return option.machine_id
-        if option.machine_id is None:
-            return next(
-                m.id for m in machines if m.work_center_id == option.work_center_id and m.active
-            )
-    raise ValueError("an in-process operation needs an active option")
+        if option.machine_id is not None:
+            if by_id[option.machine_id].active and option.machine_id not in exclude:
+                return option.machine_id
+            continue
+        center = sorted(
+            m.id for m in machines if m.work_center_id == option.work_center_id and m.active
+        )
+        free = [m for m in center if m not in exclude]
+        if free:
+            return free[0]
+    return None
 
 
 def _materials(
@@ -735,7 +788,7 @@ def _materials(
     wire_qty = round(quantity * part.wire_per_unit, 3)
     box_qty = round(quantity * 0.01, 3)
     done = status in ("complete", "closed")
-    wire_issued = done or status == "in_process"  # coiling (the first op) is done
+    wire_issued = done or status == "in_process"  # coiling (the first op) is done or running
     return (
         MaterialRequirement(
             item_id=part.wire_id,
