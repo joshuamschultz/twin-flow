@@ -13,10 +13,13 @@ untouched job's first operation waits on another untouched job's last operation 
 through a transfer lot), and the predecessor job is split. Its draws come from a separate
 stream, `np.random.default_rng((seed, 115))`, so every other seed's request is unchanged.
 
-A few seeds (seed % 20 == 13) add a restart rule, which no solver declares (expect
-`unsupported_feature`). Overrides of every kind and a frozen zone with a previous plan
-appear on some seeds. Override targets are distinct jobs without in-progress operations so
-the compiled problem stays valid.
+Restart rules (D-074, T-117): a few seeds (seed % 20 == 13) put one on the last machine,
+and rich seeds give each machine, the batch machine included, a rule with some chance
+(short thresholds, so warm-ups actually happen). The rich-seed draws come from a separate
+stream, `np.random.default_rng((seed, 117))`, so no other draw of any seed changes. The
+baseline supports restart; CP-SAT refuses it until T-122. Overrides of every kind and a
+frozen zone with a previous plan appear on some seeds. Override targets are distinct jobs
+without in-progress operations so the compiled problem stays valid.
 
 `scale_request(seed)` builds the 600 jobs x 8 operations problem of T-111.
 """
@@ -49,6 +52,8 @@ OVERRIDE_KINDS = (
     "lock",
 )
 CPSAT_OBJECTIVES = ("makespan", "max_lateness")
+RESTART_THRESHOLDS = (5.0, 20.0, 60.0)
+RESTART_WARMUPS = (2.0, 5.0, 10.0)
 FULL_OBJECTIVES = ("makespan", "weighted_tardiness", "total_setup", "cost")
 
 
@@ -262,7 +267,19 @@ class _RequestBuilder:
         if any(BATCH_MACHINE == op["options"][0]["machine_id"] for op in self._operations()):
             batch = {"capacity": 3.0, "unit": "pc"}
             machines.append({"id": BATCH_MACHINE, "work_center_id": WC, "batch": batch})
+        if self.shape.rich:
+            self._add_restart_rules(machines)
         return machines
+
+    def _add_restart_rules(self, machines: list[dict[str, Any]]) -> None:
+        """Give each machine a restart rule with chance 0.3, from its own stream (T-117)."""
+        rng = np.random.default_rng((self.seed, 117))
+        for machine in machines:
+            if _chance(rng, 0.3):
+                machine["restart"] = {
+                    "idle_threshold_seconds": _pick(rng, RESTART_THRESHOLDS),
+                    "warmup_seconds": _pick(rng, RESTART_WARMUPS),
+                }
 
     def _machine(self, machine_id: str) -> dict[str, Any]:
         rng = self.rng

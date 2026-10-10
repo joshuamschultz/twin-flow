@@ -647,3 +647,30 @@ def test_solve_with_frozen_pins_lost_in_compile_does_not_verify(
     assert result.schedule.status == "FEASIBLE"
     assert not result.verified
     assert [issue.code for issue in result.issues] == ["frozen"]
+
+
+# --- restart rule through the default solver (T-116, D-074, REQ-107) -------------------------
+
+
+def test_default_solver_supports_restart_and_its_schedule_verifies() -> None:
+    restart = {"idle_threshold_seconds": 10.0, "warmup_seconds": 5.0}
+    first = _op("A")
+    second = _op("B", predecessors=[{"operation_id": "A", "min_lag": 20.0}])
+    problem = _problem((first, second), (_machine(restart=restart),))
+
+    result = solve(_request(problem))
+
+    assert "unsupported_feature" not in [i.code for i in result.issues], result.issues
+    assert "restart" in result.features
+    assert result.verified is True, result.issues
+    by_op = {a.operation_id: a for a in result.schedule.assignments}
+    assert (by_op["B"].start, by_op["B"].setup_end, by_op["B"].end) == (25.0, 30.0, 35.0)
+
+
+def test_default_solver_verifies_the_single_feature_restart_problem() -> None:
+    problem, _ = SINGLE_FEATURE_PROBLEMS[Feature.RESTART]
+
+    result = solve(_request(problem))
+
+    assert [i.code for i in result.issues] == []
+    assert result.verified is True

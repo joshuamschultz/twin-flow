@@ -7,8 +7,18 @@ solver bug cannot hide behind the code that checks it.
 
 Every issue has a code from COMP-007, a path (the operation id, the batch id, the override
 id or `primary_value`) and a message. All time comparisons allow an absolute tolerance of
-`TOLERANCE` seconds. Work is O(n log n) in the number of assignments: lookups go through
-an index built once, machine sequences and operator usage are sorted sweeps.
+`TOLERANCE` seconds, calendar fit included (`calendar_math` takes it as `slack`). The one
+exact comparison is the restart idle against its threshold (D-074): warm-up is due only
+when idle is strictly longer, so idle equal to the threshold needs none. Work is
+O(n log n) in the number of assignments: lookups go through an index built once, machine
+sequences and operator usage are sorted sweeps.
+
+Restart rule (D-074, COMP-008): when a machine with a restart rule idled longer than
+`idle_threshold_seconds` before an operation's start, its setup phase is the setup plus
+`warmup_seconds`. Idle is clock time from the end of the previous occupation on the
+machine (a batch is one occupation, so it pays once), or from max(now, available_from)
+for the first. A `pause` operation's warm-up is setup work and pauses like the setup. A
+setup phase that is exactly the warm-up short is `restart`; any other mismatch is `setup`.
 """
 
 from __future__ import annotations
@@ -287,6 +297,7 @@ class _Placement:
     machine: Machine
     option: ProcessingOption
     predecessor: str | None
+    idle_since: float
 
     @property
     def run_seconds(self) -> float:
@@ -299,6 +310,14 @@ class _Placement:
         if self.operation.setup_detached:
             return "setup_end", self.assignment.setup_end
         return "start", self.assignment.start
+
+    @property
+    def warmup(self) -> float:
+        """Warm-up seconds in the setup phase: due when idle is longer than the threshold."""
+        rule = self.machine.restart
+        if rule is None or self.assignment.start - self.idle_since <= rule.idle_threshold_seconds:
+            return 0.0
+        return rule.warmup_seconds
 
 
 def _assignment_issues(
@@ -318,9 +337,13 @@ def _assignment_issues(
             message = f"{op.id}: machine {a.machine_id} is not an option"
             yield _issue("ineligible_machine", op.id, message)
             continue
-        placement = _Placement(
-            a, op, index.job_of[op.id], index.machine[a.machine_id], option, predecessors[op.id]
-        )
+        machine = index.machine[a.machine_id]
+        predecessor = predecessors[op.id]
+        if predecessor is None:
+            idle_since = max(index.compiled.problem.now, machine.state.available_from)
+        else:
+            idle_since = by_op[predecessor].end
+        placement = _Placement(a, op, index.job_of[op.id], machine, option, predecessor, idle_since)
         yield from _length_issues(index, placement)
         yield from _readiness_issues(index, placement)
         yield from _pin_issues(placement)
@@ -346,7 +369,10 @@ def _in_progress_issues(index: _Index, op: Operation, a: Assignment) -> Iterator
 
 
 def _length_issues(index: _Index, p: _Placement) -> Iterator[ScheduleIssue]:
-    """Setup and run lengths and calendar fit, by the operation's `shift_crossing` rule."""
+    """Setup and run lengths and calendar fit, by the operation's `shift_crossing` rule.
+
+    `setup` here is the sequence-dependent setup only; each rule adds `p.warmup`.
+    """
     setup = index.setups.seconds(p.machine.id, p.predecessor, p.operation.id)
     if p.operation.shift_crossing == "pause":
         yield from _pause_issues(index, p, setup)
@@ -364,25 +390,26 @@ def _forbid_issues(index: _Index, p: _Placement, setup: float) -> Iterator[Sched
     if not _close(a.end - a.setup_end, p.run_seconds):
         message = f"{op_id}: run {a.end - a.setup_end:g} s, expected {p.run_seconds:g} s"
         yield _issue("duration", op_id, message)
-    if not _close(a.setup_end - a.start, setup):
-        message = f"{op_id}: setup {a.setup_end - a.start:g} s, expected {setup:g} s"
-        yield _issue("setup", op_id, message)
-    if not calendar_math.fits_within(index.calendar_of(p.machine.calendar_id), a.start, a.end):
+    yield from _setup_phase_issues(p, a.setup_end - a.start, setup)
+    machine_calendar = index.calendar_of(p.machine.calendar_id)
+    if not calendar_math.fits_within(machine_calendar, a.start, a.end, TOLERANCE):
         message = f"{op_id}: [{a.start:g}, {a.end:g}) leaves machine {p.machine.id}'s calendar"
         yield _issue("calendar", op_id, message)
     for need in p.operation.operator_needs:
         intervals = index.calendar_of(index.pool[need.pool_id].calendar_id)
-        if not calendar_math.fits_within(intervals, a.start, a.end):
+        if not calendar_math.fits_within(intervals, a.start, a.end, TOLERANCE):
             message = f"{op_id}: [{a.start:g}, {a.end:g}) leaves pool {need.pool_id}'s calendar"
             yield _issue("operator_calendar", op_id, message)
 
 
 def _pause_issues(index: _Index, p: _Placement, setup: float) -> Iterator[ScheduleIssue]:
-    """`pause`: setup then run consume work seconds of the effective calendar only.
+    """`pause`: setup (with any warm-up) then run consume work seconds of the effective calendar.
 
     start is a working instant (next_working(start) = start), work_seconds(start,
-    setup_end) = setup, and end = finish_after_work(start, setup + r). A start inside a
-    break would fake lags measured from it, and an empty op there is out of the calendar.
+    setup_end) = setup + warm-up, and end = finish_after_work(start, setup + warm-up + r)
+    computed exactly or with `TOLERANCE` slack (work overrunning an interval end by float
+    noise may end there or carry over). A start inside a break would fake lags measured
+    from it, and an empty op there is out of the calendar.
     """
     a, op_id = p.assignment, p.operation.id
     calendar = index.effective_calendar(p.machine, p.operation)
@@ -391,15 +418,36 @@ def _pause_issues(index: _Index, p: _Placement, setup: float) -> Iterator[Schedu
         message = f"{op_id}: start {a.start:g} is not a working instant of its calendar"
         yield _issue("calendar", op_id, message)
         return
-    setup_work = calendar_math.work_seconds(calendar, a.start, a.setup_end)
-    if not _close(setup_work, setup):
-        message = f"{op_id}: setup has {setup_work:g} working s, expected {setup:g} s"
-        yield _issue("setup", op_id, message)
-    finish = calendar_math.finish_after_work(calendar, a.start, setup + p.run_seconds)
-    if finish is None or not _close(finish, a.end):
+    yield from _setup_phase_issues(
+        p, calendar_math.work_seconds(calendar, a.start, a.setup_end), setup
+    )
+    work = setup + p.warmup + p.run_seconds
+    finishes = {
+        calendar_math.finish_after_work(calendar, a.start, work),
+        calendar_math.finish_after_work(calendar, a.start, work, TOLERANCE),
+    }
+    if not any(finish is not None and _close(finish, a.end) for finish in finishes):
+        finish = calendar_math.finish_after_work(calendar, a.start, work)
         expected = "never" if finish is None else f"{finish:g}"
         message = f"{op_id}: end {a.end:g}, paused work finishes at {expected}"
         yield _issue("calendar", op_id, message)
+
+
+def _setup_phase_issues(p: _Placement, phase: float, setup: float) -> Iterator[ScheduleIssue]:
+    """`setup`: the setup phase (working seconds for pause) is setup + warm-up (D-074).
+
+    A phase that holds the setup but lacks a due warm-up is `restart`, never `setup`.
+    """
+    op_id, warmup = p.operation.id, p.warmup
+    if _close(phase, setup + warmup):
+        return
+    if warmup > 0 and _close(phase, setup):
+        idle = p.assignment.start - p.idle_since
+        message = f"{op_id}: idle {idle:g} s needs a {warmup:g} s warm-up in the setup phase"
+        yield _issue("restart", op_id, message)
+        return
+    message = f"{op_id}: setup phase {phase:g} s, expected {setup + warmup:g} s"
+    yield _issue("setup", op_id, message)
 
 
 def _readiness_issues(index: _Index, p: _Placement) -> Iterator[ScheduleIssue]:

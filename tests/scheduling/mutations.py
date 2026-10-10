@@ -115,3 +115,24 @@ def with_nonfinite(
         schedule,
         tuple(forged if a is original else a for a in schedule.assignments),
     )
+
+
+def remove_warmup(schedule: Schedule, operation_id: str, seconds: float) -> Schedule:
+    """Cut `seconds` of warm-up from one setup phase (D-074): start stays, run keeps its length.
+
+    `setup_end` and `end` move `seconds` earlier. When the assignment is in a batch, every
+    member of that batch on the same machine changes alike, so the batch stays aligned.
+    """
+    target = assignment_of(schedule, operation_id)
+    changed = schedule
+    for a in schedule.assignments:
+        same_batch = (
+            target.batch_id is not None
+            and a.batch_id == target.batch_id
+            and a.machine_id == target.machine_id
+        )
+        if a is target or same_batch:
+            changed = replace(
+                changed, a.operation_id, setup_end=a.setup_end - seconds, end=a.end - seconds
+            )
+    return changed

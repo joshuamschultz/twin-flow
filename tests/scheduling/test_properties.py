@@ -25,6 +25,7 @@ from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.model import ScheduleIssue, SolveRequest, SolveResult
 from twinflow.scheduling.objectives import primary_kind
 from twinflow.scheduling.overrides import apply_overrides
+from twinflow.scheduling.registry import get as get_solver
 from twinflow.scheduling.seam import Feature
 from twinflow.scheduling.solver import SOLUTION_STATUSES, problem_features, solve
 from twinflow.scheduling.validator import validate
@@ -50,8 +51,8 @@ def _baseline(seed: int) -> SolveResult:
 
 @functools.cache
 def _cpsat(seed: int) -> SolveResult:
-    cpsat = pytest.importorskip("twinflow.scheduling.cpsat")
-    solver = cpsat.ORToolsSolver(workers=1, seed=0)
+    pytest.importorskip("ortools")
+    solver = get_solver("ortools", workers=1, seed=0)
     return solve(_request(seed), solver=solver, budget_seconds=CPSAT_BUDGET_SECONDS)
 
 
@@ -162,9 +163,9 @@ def test_baseline_verifies_on_most_seeds() -> None:
 
 @pytest.mark.parametrize("seed", SEEDS)
 def test_cpsat_refuses_exactly_or_every_plan_verifies(seed: int) -> None:
-    cpsat = pytest.importorskip("twinflow.scheduling.cpsat")
+    result = _cpsat(seed)
 
-    _assert_contract(seed, _cpsat(seed), cpsat.CAPABILITIES)
+    _assert_contract(seed, result, get_solver("ortools").capabilities)
 
 
 @pytest.mark.parametrize("seed", SEEDS)
@@ -185,9 +186,10 @@ def test_cpsat_runs_and_verifies_on_a_share_of_seeds() -> None:
     assert len(verified) >= MIN_CPSAT_VERIFIED, f"only {len(verified)} CP-SAT seeds verified"
 
 
-def test_restart_is_refused_by_every_solver() -> None:
+def test_restart_is_refused_by_cpsat_and_supported_by_the_baseline() -> None:
     restart_seeds = [s for s in SEEDS if Feature.RESTART in _compiled_features(s)]
     assert restart_seeds, "no seed uses restart"
     for seed in restart_seeds:
-        for result in (_baseline(seed), _cpsat(seed)):
-            assert "restart" in _named_unsupported(result), f"seed {seed}: {_issue_codes(result)}"
+        assert "restart" not in _named_unsupported(_baseline(seed)), f"seed {seed}"
+        cpsat = _cpsat(seed)
+        assert "restart" in _named_unsupported(cpsat), f"seed {seed}: {_issue_codes(cpsat)}"

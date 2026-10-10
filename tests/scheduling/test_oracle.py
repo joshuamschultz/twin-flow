@@ -54,6 +54,7 @@ from twinflow.scheduling.model import (
 from twinflow.scheduling.objectives import evaluate
 from twinflow.scheduling.overrides import apply_overrides
 from twinflow.scheduling.setups import SetupTable
+from twinflow.scheduling.verifier import verify
 
 HERE = Path(__file__).parent
 FIXTURES = HERE / "fixtures"
@@ -336,6 +337,72 @@ def test_semi_active_refuses_unsupported_operation_features(field: str, value: o
 
     with pytest.raises(ValueError, match="oracle does not support"):
         semi_active(_problem(job), {"A": ["x", "a"]})
+
+
+# --- restart rule (T-116, D-074) ------------------------------------------------------------
+
+
+def _restart_problem(min_lag: float, **machine_state: float) -> Problem:
+    """a then b on R (threshold 10, warm-up 4, setup 0); b waits `min_lag` after a."""
+    machine = Machine.model_validate(
+        {
+            "id": "R",
+            "work_center_id": "WC",
+            "restart": {"idle_threshold_seconds": 10.0, "warmup_seconds": 4.0},
+            "state": machine_state,
+        }
+    )
+    job = Job(
+        id="j",
+        operations=(
+            _op("a", "R"),
+            _op("b", "R", predecessors=[Precedence(operation_id="a", min_lag=min_lag)]),
+        ),
+    )
+    return _problem(job, machines=(machine,))
+
+
+@pytest.mark.parametrize(
+    ("min_lag", "expected_b"),
+    [
+        (10.0, (15.0, 15.0, 20.0)),  # idle 10 == threshold: no warm-up
+        (20.0, (25.0, 29.0, 34.0)),  # idle 20 > threshold: setup phase 0 + 4
+    ],
+)
+def test_semi_active_adds_the_warmup_after_an_idle_longer_than_threshold(
+    min_lag: float, expected_b: tuple[float, float, float]
+) -> None:
+    placed = _by_op(semi_active(_restart_problem(min_lag), {"R": ["a", "b"]}))
+
+    assert (placed["a"].start, placed["a"].setup_end, placed["a"].end) == (0.0, 0.0, 5.0)
+    assert (placed["b"].start, placed["b"].setup_end, placed["b"].end) == expected_b
+
+
+def test_semi_active_first_op_idle_is_measured_from_max_now_available_from() -> None:
+    job = Job(id="j", release=31.0, operations=(_op("a", "R"),))
+    machine = Machine.model_validate(
+        {
+            "id": "R",
+            "work_center_id": "WC",
+            "restart": {"idle_threshold_seconds": 10.0, "warmup_seconds": 4.0},
+            "state": {"available_from": 20.0},
+        }
+    )
+    problem = _problem(job, machines=(machine,))
+
+    placed = _by_op(semi_active(problem, {"R": ["a"]}))["a"]
+
+    assert (placed.start, placed.setup_end, placed.end) == (31.0, 35.0, 40.0)
+
+
+def test_semi_active_restart_schedule_verifies_with_production_verifier() -> None:
+    problem = _restart_problem(20.0)
+    schedule = semi_active(problem, {"R": ["a", "b"]})
+    compiled = apply_overrides(SolveRequest(schema_version="2.0", problem=problem))
+
+    result = verify(compiled, (), schedule)
+
+    assert result.valid, result.issues
 
 
 # --- brute_force edges -------------------------------------------------------------------------

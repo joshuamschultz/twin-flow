@@ -12,19 +12,22 @@ One forward pass over the compiled problem, in three phases:
 Each operation tries every option (only the pinned machine when the pin names one) with
 ``MachineTimeline.find_slot`` on its effective calendar, filtered by operator capacity,
 the transfer-lot end bound, ``max_lag`` and ``pin.latest_start``, and keeps the option that
-completes first (tie: lowest machine id). Gates follow the SDD Data Model: material gate
-g = start (attached) or setup_end (detached); without overlap g >= pred.end + min_lag;
-with ``overlap_quantity`` q, g >= pred.setup_end + pred.fixed + q * pred.unit + min_lag
-and end >= pred.end + q * succ.unit.
+completes first (ties: lowest ``preference_cost``, then lowest machine id). Gates follow
+the SDD Data Model: material gate g = start (attached) or setup_end (detached); without
+overlap g >= pred.end + min_lag; with ``overlap_quantity`` q, g >= pred.setup_end +
+pred.fixed + q * pred.unit + min_lag and end >= pred.end + q * succ.unit.
 
 The pass never backtracks, so it cannot prove a problem has no plan: an operation it
 cannot place returns UNKNOWN with ``max_lag_unmet`` or ``no_feasible_slot``, and a plan
 that ends after ``problem.horizon_end`` returns UNKNOWN with ``horizon_exceeded``, never
 INFEASIBLE. Operations of held or done jobs and operations in state ``done`` are not
-scheduled and count as finished for precedence. Restart rules are not modeled (TF-003).
+scheduled and count as finished for precedence. Restart rules (D-074) are passed to each
+machine's timeline, which adds the warm-up to the setup phase after a long idle.
 The budget is a monotonic deadline checked before each placement: a pass that outlives it
-returns UNKNOWN with ``time_limit`` (the pass has no anytime result). One placement scans
-the machine's gaps, so a pass is O(n^2) in operations per machine (faster search: TF-003).
+returns UNKNOWN with ``time_limit`` (the pass has no anytime result). One placement skips
+the gaps too short for its run in one vectorized step (``MachineTimeline``), so it visits
+only gaps that may fit; the worst case stays O(n) per placement when every gap is long
+enough but rejected for setups, operators or calendars.
 """
 
 from __future__ import annotations
@@ -64,7 +67,7 @@ from twinflow.scheduling.timeline import (
 )
 
 NAME = "baseline"
-CAPABILITIES = frozenset(Feature) - {Feature.RESTART}
+CAPABILITIES = frozenset(Feature)
 _SLACK = 1e-9
 """Float slack on upper bounds (max_lag, latest_start); far below the verifier's 1e-6."""
 
@@ -78,6 +81,7 @@ class _Option:
     fixed: float
     unit: float
     run: float
+    preference_cost: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +144,7 @@ def _options(op: Operation) -> tuple[_Option, ...]:
             o.fixed_seconds,
             o.unit_seconds,
             o.fixed_seconds + op.quantity * o.unit_seconds,
+            o.preference_cost,
         )
         for o in sorted(op.options, key=lambda o: o.machine_id)
         if pinned_machine is None or o.machine_id == pinned_machine
@@ -253,6 +258,12 @@ class _ListScheduler:
                 setups,
                 available_from=m.state.available_from,
                 batch_capacity=m.batch.capacity if m.batch else None,
+                restart=(
+                    (m.restart.idle_threshold_seconds, m.restart.warmup_seconds)
+                    if m.restart
+                    else None
+                ),
+                now=problem.now,
             )
             for m in problem.machines
         }
@@ -370,7 +381,11 @@ class _ListScheduler:
         return _Gate(ready, limit, tuple(lots))
 
     def _place(self, op: _Op) -> ScheduleIssue | None:
-        """Place `op` on the option that completes first; an issue when none can."""
+        """Place `op` on the option that completes first; an issue when none can.
+
+        Ties on completion go to the lowest preference cost; options are in machine id
+        order, so a full tie keeps the lowest machine id.
+        """
         gate = self._gate(op)
         best: _Candidate | None = None
         missed_max_lag = False
@@ -379,7 +394,7 @@ class _ListScheduler:
             check = _SlotCheck(op, gate, option, self._pools)
             slot = self._timelines[option.machine_id].find_slot(request, check)
             missed_max_lag |= check.missed_max_lag
-            if slot is not None and (best is None or slot.end < best.slot.end):
+            if slot is not None and (best is None or _ranks_before(slot, option, best)):
                 best = _Candidate(option, request, slot)
         if best is None:
             return _unplaceable(op.id, missed_max_lag)
@@ -429,6 +444,11 @@ class _ListScheduler:
         )
 
 
+def _ranks_before(slot: Slot, option: _Option, best: _Candidate) -> bool:
+    """Earlier completion wins; on a tie, the lower preference cost."""
+    return (slot.end, option.preference_cost) < (best.slot.end, best.option.preference_cost)
+
+
 def _unplaceable(op_id: str, missed_max_lag: bool) -> ScheduleIssue:
     if missed_max_lag:
         message = f"{op_id}: no slot meets its max_lag after the predecessors already placed"
@@ -468,7 +488,7 @@ class BaselineSolver:
 
     @property
     def capabilities(self) -> frozenset[Feature]:
-        """Every feature except `restart` (warm-up after idle is TF-003)."""
+        """Every feature, `restart` included (D-074)."""
         return CAPABILITIES
 
     def solve(

@@ -4,9 +4,10 @@
 sequences; `brute_force` enumerates every option choice and every per-machine sequence
 and keeps the best schedule by `oracle_math.objective_values`. The oracle is deliberately small:
 it supports releases, ready times, machine state, sequence-dependent setups (attached
-and detached, D-063) and end-to-gate precedence with `min_lag`. Problems using calendars,
-operators, batching, restarts, pins, shop-floor status, held jobs, transfer-lot overlap or
-`max_lag` raise ValueError, so a test can never trust an oracle that ignored a constraint.
+and detached, D-063), restart warm-ups (D-074) and end-to-gate precedence with `min_lag`.
+Problems using calendars, operators, batching, pins, shop-floor status, held jobs,
+transfer-lot overlap or `max_lag` raise ValueError, so a test can never trust an oracle
+that ignored a constraint.
 Setup seconds and objective values come from `oracle_math`, an independent re-implementation
 of the SDD text: the oracle never imports `setups`, `objectives` or `verifier`.
 
@@ -48,7 +49,6 @@ class SequenceDeadlock(ValueError):
 def _unsupported_features(problem: Problem) -> list[str]:
     found = [f"machine {m.id} calendar" for m in problem.machines if m.calendar_id]
     found += [f"machine {m.id} batch" for m in problem.machines if m.batch]
-    found += [f"machine {m.id} restart" for m in problem.machines if m.restart]
     found += [f"job {j.id} status {j.status}" for j in problem.jobs if j.status != "open"]
     for op in _operations(problem):
         found += _unsupported_operation_features(op)
@@ -106,6 +106,7 @@ class _Placer:
         self._ops = {op.id: op for op in _operations(problem)}
         self._release = {op.id: job.release for job in problem.jobs for op in job.operations}
         self._available = {m.id: m.state.available_from for m in problem.machines}
+        self._restart = {m.id: m.restart for m in problem.machines}
         self.placed: dict[str, Assignment] = {}
 
     def ready(self, op_id: str) -> bool:
@@ -114,11 +115,13 @@ class _Placer:
     def place(self, machine_id: str, prev_id: str | None, op_id: str) -> None:
         op = self._ops[op_id]
         setup = self._setups.seconds(machine_id, prev_id, op_id)
-        machine_free = max(self._problem.now, self._available[machine_id])
+        idle_since = max(self._problem.now, self._available[machine_id])
         if prev_id is not None:
-            machine_free = max(machine_free, self.placed[prev_id].end)
+            idle_since = self.placed[prev_id].end
+        machine_free = max(self._problem.now, self._available[machine_id], idle_since)
         gate = self._material_gate(op)
         start = max(machine_free, gate - setup if op.setup_detached else gate)
+        setup += self._warmup(machine_id, start - idle_since)
         option = next(o for o in op.options if o.machine_id == machine_id)
         run = option.fixed_seconds + op.quantity * option.unit_seconds
         self.placed[op_id] = Assignment(
@@ -128,6 +131,13 @@ class _Placer:
             setup_end=start + setup,
             end=start + setup + run,
         )
+
+    def _warmup(self, machine_id: str, idle: float) -> float:
+        """D-074: the machine's warm-up seconds when `idle` is longer than its threshold."""
+        rule = self._restart[machine_id]
+        if rule is not None and idle > rule.idle_threshold_seconds:
+            return rule.warmup_seconds
+        return 0.0
 
     def _material_gate(self, op: Operation) -> float:
         """Earliest time the material is there: now, release, ready time, predecessor + lag."""
@@ -143,7 +153,11 @@ def semi_active(problem: Problem, sequences: Sequences) -> Schedule:
     machine's `available_from` and its material gate allow. The gate is the latest of
     `now`, job release, `ready_time` and each predecessor's end plus `min_lag`; with an
     attached setup the start waits for it, with a detached setup only `setup_end` does
-    (D-063). Machines missing from `sequences` get no operations.
+    (D-063). A machine with a restart rule adds its warm-up to the setup phase when it
+    idled longer than the threshold before `start`, measured from the previous op's end
+    or from max(now, available_from) for the first (D-074). The start is chosen first
+    from the setup alone, so a warm-up never pulls a detached start earlier; it only
+    moves `setup_end` and `end`. Machines missing from `sequences` get no operations.
 
     Raises ValueError for unsupported features or sequences that do not list each
     operation once on one of its options, and SequenceDeadlock when the sequences
