@@ -1,0 +1,1966 @@
+{
+  "$defs": {
+    "AbsDiffTerm": {
+      "additionalProperties": false,
+      "description": "Setup term: `seconds_per_unit * |a - b|` over a numeric setup parameter (D-064).",
+      "properties": {
+        "kind": {
+          "const": "abs_diff",
+          "default": "abs_diff",
+          "title": "Kind",
+          "type": "string"
+        },
+        "param": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Param",
+          "type": "string"
+        },
+        "seconds_per_unit": {
+          "minimum": 0,
+          "title": "Seconds Per Unit",
+          "type": "number"
+        }
+      },
+      "required": [
+        "param",
+        "seconds_per_unit"
+      ],
+      "title": "AbsDiffTerm",
+      "type": "object"
+    },
+    "BatchCapacity": {
+      "additionalProperties": false,
+      "description": "Batch limit of a machine, in a named unit (scheduled from TF-003).",
+      "properties": {
+        "capacity": {
+          "exclusiveMinimum": 0,
+          "title": "Capacity",
+          "type": "number"
+        },
+        "unit": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capacity",
+        "unit"
+      ],
+      "title": "BatchCapacity",
+      "type": "object"
+    },
+    "Calendar": {
+      "additionalProperties": false,
+      "description": "Explicit working intervals `[start, end)`, sorted and non-overlapping (D-065).",
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "intervals": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 1000000,
+          "title": "Intervals",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "intervals"
+      ],
+      "title": "Calendar",
+      "type": "object"
+    },
+    "EpsilonBound": {
+      "additionalProperties": false,
+      "description": "Upper bound on a secondary objective.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ObjectiveKind"
+        },
+        "upper": {
+          "title": "Upper",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "upper"
+      ],
+      "title": "EpsilonBound",
+      "type": "object"
+    },
+    "EpsilonConstraint": {
+      "additionalProperties": false,
+      "description": "Optimize `primary` subject to upper bounds on other objectives.",
+      "properties": {
+        "bounds": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EpsilonBound"
+          },
+          "title": "Bounds",
+          "type": "array"
+        },
+        "mode": {
+          "const": "epsilon_constraint",
+          "default": "epsilon_constraint",
+          "title": "Mode",
+          "type": "string"
+        },
+        "primary": {
+          "$ref": "#/$defs/ObjectiveKind"
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "title": "EpsilonConstraint",
+      "type": "object"
+    },
+    "ExcludeMachineOverride": {
+      "additionalProperties": false,
+      "description": "Hard: remove the machine option; soft: add `penalty` to it (D-066).",
+      "properties": {
+        "fact_ref": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Fact Ref",
+          "type": "string"
+        },
+        "hardness": {
+          "enum": [
+            "hard",
+            "soft"
+          ],
+          "title": "Hardness",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "kind": {
+          "const": "exclude_machine",
+          "default": "exclude_machine",
+          "title": "Kind",
+          "type": "string"
+        },
+        "machine_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Machine Id",
+          "type": "string"
+        },
+        "operation_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operation Id"
+        },
+        "penalty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Penalty"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "fact_ref",
+        "reason",
+        "hardness",
+        "machine_id"
+      ],
+      "title": "ExcludeMachineOverride",
+      "type": "object"
+    },
+    "ExpediteOverride": {
+      "additionalProperties": false,
+      "description": "Raise a job to weight class 4 and optionally pull its due date in (D-066).",
+      "properties": {
+        "due": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Due"
+        },
+        "fact_ref": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Fact Ref",
+          "type": "string"
+        },
+        "hardness": {
+          "const": "hard",
+          "title": "Hardness",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "job_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "expedite",
+          "default": "expedite",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "fact_ref",
+        "reason",
+        "hardness",
+        "job_id"
+      ],
+      "title": "ExpediteOverride",
+      "type": "object"
+    },
+    "FamilyMatrixEntry": {
+      "additionalProperties": false,
+      "description": "Changeover seconds from one setup family to another (D-064).",
+      "properties": {
+        "from_family": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "From Family",
+          "type": "string"
+        },
+        "seconds": {
+          "minimum": 0,
+          "title": "Seconds",
+          "type": "number"
+        },
+        "to_family": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "To Family",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_family",
+        "to_family",
+        "seconds"
+      ],
+      "title": "FamilyMatrixEntry",
+      "type": "object"
+    },
+    "FrozenZone": {
+      "additionalProperties": false,
+      "description": "Operations of the previous plan starting before `until` keep their place (D-066).",
+      "properties": {
+        "tolerance": {
+          "minimum": 0,
+          "title": "Tolerance",
+          "type": "number"
+        },
+        "until": {
+          "title": "Until",
+          "type": "number"
+        }
+      },
+      "required": [
+        "until",
+        "tolerance"
+      ],
+      "title": "FrozenZone",
+      "type": "object"
+    },
+    "HoldOverride": {
+      "additionalProperties": false,
+      "description": "Delay a job until a time, or remove it from this solve when `until` is None (D-066).",
+      "properties": {
+        "fact_ref": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Fact Ref",
+          "type": "string"
+        },
+        "hardness": {
+          "const": "hard",
+          "title": "Hardness",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "job_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "hold",
+          "default": "hold",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Until"
+        }
+      },
+      "required": [
+        "id",
+        "fact_ref",
+        "reason",
+        "hardness",
+        "job_id"
+      ],
+      "title": "HoldOverride",
+      "type": "object"
+    },
+    "Job": {
+      "additionalProperties": false,
+      "description": "A customer order made of operations; its effective weight comes from its class.",
+      "properties": {
+        "customer": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Customer"
+        },
+        "due": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Due"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/Operation"
+          },
+          "maxItems": 100000,
+          "title": "Operations",
+          "type": "array"
+        },
+        "promised_ship": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Promised Ship"
+        },
+        "release": {
+          "default": 0.0,
+          "title": "Release",
+          "type": "number"
+        },
+        "sales_order_refs": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Sales Order Refs",
+          "type": "array"
+        },
+        "status": {
+          "default": "open",
+          "enum": [
+            "open",
+            "held",
+            "done"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "weight_class": {
+          "default": 1,
+          "enum": [
+            1,
+            2,
+            4
+          ],
+          "title": "Weight Class",
+          "type": "integer"
+        },
+        "weight_override": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weight Override"
+        }
+      },
+      "required": [
+        "id",
+        "operations"
+      ],
+      "title": "Job",
+      "type": "object"
+    },
+    "Lexicographic": {
+      "additionalProperties": false,
+      "description": "Optimize objectives in strict priority order.",
+      "properties": {
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/LexicographicLevel"
+          },
+          "minItems": 1,
+          "title": "Levels",
+          "type": "array"
+        },
+        "mode": {
+          "const": "lexicographic",
+          "default": "lexicographic",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "levels"
+      ],
+      "title": "Lexicographic",
+      "type": "object"
+    },
+    "LexicographicLevel": {
+      "additionalProperties": false,
+      "description": "One priority level; later levels may not worsen this one by more than the tolerance.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ObjectiveKind"
+        },
+        "tolerance": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Tolerance",
+          "type": "number"
+        },
+        "tolerance_kind": {
+          "default": "absolute",
+          "enum": [
+            "absolute",
+            "relative"
+          ],
+          "title": "Tolerance Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "LexicographicLevel",
+      "type": "object"
+    },
+    "LockOverride": {
+      "additionalProperties": false,
+      "description": "Pin an operation to a machine and/or an exact start (D-066).",
+      "properties": {
+        "fact_ref": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Fact Ref",
+          "type": "string"
+        },
+        "hardness": {
+          "const": "hard",
+          "title": "Hardness",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "lock",
+          "default": "lock",
+          "title": "Kind",
+          "type": "string"
+        },
+        "machine_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Machine Id"
+        },
+        "operation_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        }
+      },
+      "required": [
+        "id",
+        "fact_ref",
+        "reason",
+        "hardness",
+        "operation_id"
+      ],
+      "title": "LockOverride",
+      "type": "object"
+    },
+    "Machine": {
+      "additionalProperties": false,
+      "description": "A unary machine: one operation at a time; more capacity is more machines (D-062).\n\n`calendar_id` None means always working (D-065).",
+      "properties": {
+        "batch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BatchCapacity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "calendar_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Id"
+        },
+        "hour_cost": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Hour Cost",
+          "type": "number"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "restart": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RestartRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "setup_function_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Setup Function Id"
+        },
+        "setup_hour_cost": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Setup Hour Cost",
+          "type": "number"
+        },
+        "state": {
+          "$ref": "#/$defs/MachineState",
+          "default": {
+            "available_from": 0.0,
+            "last_setup_family": null,
+            "last_setup_params": {}
+          }
+        },
+        "work_center_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Work Center Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "work_center_id"
+      ],
+      "title": "Machine",
+      "type": "object"
+    },
+    "MachineState": {
+      "additionalProperties": false,
+      "description": "What the machine is doing at `now`: when it frees up and how it is set up.",
+      "properties": {
+        "available_from": {
+          "default": 0.0,
+          "title": "Available From",
+          "type": "number"
+        },
+        "last_setup_family": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Setup Family"
+        },
+        "last_setup_params": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "maxLength": 2000,
+                "type": "string"
+              }
+            ]
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Last Setup Params",
+          "type": "object"
+        }
+      },
+      "title": "MachineState",
+      "type": "object"
+    },
+    "MismatchTerm": {
+      "additionalProperties": false,
+      "description": "Setup term: `seconds` when a setup parameter differs, else 0 (D-064).",
+      "properties": {
+        "kind": {
+          "const": "mismatch",
+          "default": "mismatch",
+          "title": "Kind",
+          "type": "string"
+        },
+        "param": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Param",
+          "type": "string"
+        },
+        "seconds": {
+          "minimum": 0,
+          "title": "Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "param",
+        "seconds"
+      ],
+      "title": "MismatchTerm",
+      "type": "object"
+    },
+    "ObjectiveKind": {
+      "description": "The thirteen schedule objectives (REQ-068); formulas live in objectives.py.",
+      "enum": [
+        "makespan",
+        "weighted_completion",
+        "max_lateness",
+        "tardy_count",
+        "weighted_tardy_count",
+        "total_tardiness",
+        "weighted_tardiness",
+        "earliness_tardiness",
+        "total_setup",
+        "cost",
+        "churn",
+        "robustness",
+        "soft_penalty"
+      ],
+      "title": "ObjectiveKind",
+      "type": "string"
+    },
+    "Operation": {
+      "additionalProperties": false,
+      "description": "One processing step of a whole lot of `quantity` units, never split into pieces (D-061).\n\nSetup is the first phase of the operation, not a separate task (D-063): the machine is\nbusy on `[start, end)` and `setup_detached` chooses whether material must be present\nfrom `start` (false) or only from `setup_end` (true). `shift_crossing` says whether\nthe operation must fit inside one working interval or may pause over breaks (D-065).",
+      "properties": {
+        "batch_family": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Family"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "operator_needs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OperatorNeed"
+          },
+          "title": "Operator Needs",
+          "type": "array"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/ProcessingOption"
+          },
+          "minItems": 1,
+          "title": "Options",
+          "type": "array"
+        },
+        "pin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "predecessors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Precedence"
+          },
+          "title": "Predecessors",
+          "type": "array"
+        },
+        "quantity": {
+          "exclusiveMinimum": 0,
+          "title": "Quantity",
+          "type": "number"
+        },
+        "ready_time": {
+          "default": 0.0,
+          "title": "Ready Time",
+          "type": "number"
+        },
+        "setup_detached": {
+          "default": false,
+          "title": "Setup Detached",
+          "type": "boolean"
+        },
+        "setup_family": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Setup Family"
+        },
+        "setup_params": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "maxLength": 2000,
+                "type": "string"
+              }
+            ]
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Setup Params",
+          "type": "object"
+        },
+        "shift_crossing": {
+          "default": "forbid",
+          "enum": [
+            "forbid",
+            "pause"
+          ],
+          "title": "Shift Crossing",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/OperationStatus",
+          "default": {
+            "machine_id": null,
+            "remaining_seconds": null,
+            "state": "pending"
+          }
+        },
+        "work_center_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Work Center Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "work_center_id",
+        "quantity",
+        "options"
+      ],
+      "title": "Operation",
+      "type": "object"
+    },
+    "OperationStatus": {
+      "additionalProperties": false,
+      "description": "Shop-floor state: in-progress operations are placed at `now`; done ones are skipped.",
+      "properties": {
+        "machine_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Machine Id"
+        },
+        "remaining_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remaining Seconds"
+        },
+        "state": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "in_progress",
+            "done"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "title": "OperationStatus",
+      "type": "object"
+    },
+    "OperatorNeed": {
+      "additionalProperties": false,
+      "description": "Operators from a pool, held during the setup phase, the run phase or both (D-063).",
+      "properties": {
+        "phase": {
+          "enum": [
+            "setup",
+            "run",
+            "both"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "pool_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Pool Id",
+          "type": "string"
+        },
+        "quantity": {
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pool_id",
+        "quantity",
+        "phase"
+      ],
+      "title": "OperatorNeed",
+      "type": "object"
+    },
+    "OperatorPool": {
+      "additionalProperties": false,
+      "description": "Interchangeable operators with an optional shift calendar (D-063, D-065).",
+      "properties": {
+        "calendar_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Id"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "size"
+      ],
+      "title": "OperatorPool",
+      "type": "object"
+    },
+    "Pin": {
+      "additionalProperties": false,
+      "description": "Fixes an operation's machine and/or a window for its start.",
+      "properties": {
+        "earliest_start": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Earliest Start"
+        },
+        "latest_start": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Start"
+        },
+        "machine_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Machine Id"
+        }
+      },
+      "title": "Pin",
+      "type": "object"
+    },
+    "Precedence": {
+      "additionalProperties": false,
+      "description": "End-to-gate link from the predecessor `operation_id`, with lags and optional overlap.\n\n`overlap_quantity` is a transfer lot: the successor may start once that much of the\npredecessor's lot is done (D-061).",
+      "properties": {
+        "max_lag": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Lag"
+        },
+        "min_lag": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Min Lag",
+          "type": "number"
+        },
+        "operation_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "overlap_quantity": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Overlap Quantity"
+        }
+      },
+      "required": [
+        "operation_id"
+      ],
+      "title": "Precedence",
+      "type": "object"
+    },
+    "PreferMachineOverride": {
+      "additionalProperties": false,
+      "description": "Hard: keep only the machine option; soft: add `penalty` to the others (D-066).",
+      "properties": {
+        "fact_ref": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Fact Ref",
+          "type": "string"
+        },
+        "hardness": {
+          "enum": [
+            "hard",
+            "soft"
+          ],
+          "title": "Hardness",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "kind": {
+          "const": "prefer_machine",
+          "default": "prefer_machine",
+          "title": "Kind",
+          "type": "string"
+        },
+        "machine_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Machine Id",
+          "type": "string"
+        },
+        "operation_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operation Id"
+        },
+        "penalty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Penalty"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "fact_ref",
+        "reason",
+        "hardness",
+        "machine_id"
+      ],
+      "title": "PreferMachineOverride",
+      "type": "object"
+    },
+    "PreviousAssignment": {
+      "additionalProperties": false,
+      "description": "Where and when an operation ran in the previous plan.",
+      "properties": {
+        "machine_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Machine Id",
+          "type": "string"
+        },
+        "operation_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "operation_id",
+        "machine_id",
+        "start"
+      ],
+      "title": "PreviousAssignment",
+      "type": "object"
+    },
+    "PreviousPlan": {
+      "additionalProperties": false,
+      "description": "The plan being revised; drives the frozen zone and churn.",
+      "properties": {
+        "assignments": {
+          "items": {
+            "$ref": "#/$defs/PreviousAssignment"
+          },
+          "title": "Assignments",
+          "type": "array"
+        },
+        "plan_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "problem_digest": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Problem Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id",
+        "problem_digest",
+        "assignments"
+      ],
+      "title": "PreviousPlan",
+      "type": "object"
+    },
+    "PriorityOverride": {
+      "additionalProperties": false,
+      "description": "Set a job's weight class or explicit weight, exactly one of the two (D-066).",
+      "properties": {
+        "fact_ref": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Fact Ref",
+          "type": "string"
+        },
+        "hardness": {
+          "const": "hard",
+          "title": "Hardness",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "job_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "priority",
+          "default": "priority",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weight"
+        },
+        "weight_class": {
+          "anyOf": [
+            {
+              "enum": [
+                1,
+                2,
+                4
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weight Class"
+        }
+      },
+      "required": [
+        "id",
+        "fact_ref",
+        "reason",
+        "hardness",
+        "job_id"
+      ],
+      "title": "PriorityOverride",
+      "type": "object"
+    },
+    "Problem": {
+      "additionalProperties": false,
+      "description": "The shop at `now`: jobs, machines, work centers, calendars, operator pools, setups.",
+      "properties": {
+        "calendars": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Calendar"
+          },
+          "maxItems": 10000,
+          "title": "Calendars",
+          "type": "array"
+        },
+        "horizon_end": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Horizon End"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "jobs": {
+          "items": {
+            "$ref": "#/$defs/Job"
+          },
+          "maxItems": 100000,
+          "title": "Jobs",
+          "type": "array"
+        },
+        "machines": {
+          "items": {
+            "$ref": "#/$defs/Machine"
+          },
+          "maxItems": 10000,
+          "title": "Machines",
+          "type": "array"
+        },
+        "now": {
+          "default": 0.0,
+          "title": "Now",
+          "type": "number"
+        },
+        "operator_pools": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OperatorPool"
+          },
+          "maxItems": 10000,
+          "title": "Operator Pools",
+          "type": "array"
+        },
+        "setup_functions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SetupFunction"
+          },
+          "maxItems": 10000,
+          "title": "Setup Functions",
+          "type": "array"
+        },
+        "work_centers": {
+          "items": {
+            "$ref": "#/$defs/WorkCenter"
+          },
+          "maxItems": 10000,
+          "title": "Work Centers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "jobs",
+        "machines",
+        "work_centers"
+      ],
+      "title": "Problem",
+      "type": "object"
+    },
+    "ProcessingOption": {
+      "additionalProperties": false,
+      "description": "One eligible machine for an operation; run seconds = fixed + quantity * unit (D-061).",
+      "properties": {
+        "fixed_seconds": {
+          "minimum": 0,
+          "title": "Fixed Seconds",
+          "type": "number"
+        },
+        "machine_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Machine Id",
+          "type": "string"
+        },
+        "preference_cost": {
+          "minimum": 0,
+          "title": "Preference Cost",
+          "type": "number"
+        },
+        "unit_seconds": {
+          "minimum": 0,
+          "title": "Unit Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "machine_id",
+        "fixed_seconds",
+        "unit_seconds",
+        "preference_cost"
+      ],
+      "title": "ProcessingOption",
+      "type": "object"
+    },
+    "RestartRule": {
+      "additionalProperties": false,
+      "description": "Warm-up needed after the machine has idled longer than the threshold (D-063).",
+      "properties": {
+        "idle_threshold_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Idle Threshold Seconds",
+          "type": "number"
+        },
+        "warmup_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Warmup Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "idle_threshold_seconds",
+        "warmup_seconds"
+      ],
+      "title": "RestartRule",
+      "type": "object"
+    },
+    "SchedulingProfile": {
+      "additionalProperties": false,
+      "description": "Plant policy: class weights, objective, frozen zone, solve budget, robustness targets.\n\nField defaults reproduce today's behavior: lexicographic makespan, baseline solver.",
+      "properties": {
+        "class_weights": {
+          "additionalProperties": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "title": "Class Weights",
+          "type": "object"
+        },
+        "default_portfolio": {
+          "default": [
+            "baseline"
+          ],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Default Portfolio",
+          "type": "array"
+        },
+        "frozen_zone": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FrozenZone"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "horizon_end": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Horizon End"
+        },
+        "id": {
+          "default": "default",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "objective": {
+          "default": {
+            "levels": [
+              {
+                "kind": "makespan",
+                "tolerance": 0.0,
+                "tolerance_kind": "absolute"
+              }
+            ],
+            "mode": "lexicographic"
+          },
+          "discriminator": {
+            "mapping": {
+              "epsilon_constraint": "#/$defs/EpsilonConstraint",
+              "lexicographic": "#/$defs/Lexicographic",
+              "weighted_sum": "#/$defs/WeightedSum"
+            },
+            "propertyName": "mode"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/WeightedSum"
+            },
+            {
+              "$ref": "#/$defs/Lexicographic"
+            },
+            {
+              "$ref": "#/$defs/EpsilonConstraint"
+            }
+          ],
+          "title": "Objective"
+        },
+        "robustness_load_targets": {
+          "default": [
+            0.9,
+            0.8,
+            0.7
+          ],
+          "items": {
+            "exclusiveMinimum": 0,
+            "maximum": 1,
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Robustness Load Targets",
+          "type": "array"
+        },
+        "time_budget_seconds": {
+          "default": 10.0,
+          "exclusiveMinimum": 0,
+          "maximum": 300,
+          "title": "Time Budget Seconds",
+          "type": "number"
+        }
+      },
+      "title": "SchedulingProfile",
+      "type": "object"
+    },
+    "SetupFunction": {
+      "additionalProperties": false,
+      "description": "A closed set of typed setup terms, never an expression (D-064, REQ-084).",
+      "properties": {
+        "combine": {
+          "default": "sum",
+          "enum": [
+            "sum",
+            "max"
+          ],
+          "title": "Combine",
+          "type": "string"
+        },
+        "default_seconds": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Default Seconds",
+          "type": "number"
+        },
+        "family_matrix": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FamilyMatrixEntry"
+          },
+          "title": "Family Matrix",
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "terms": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "abs_diff": "#/$defs/AbsDiffTerm",
+                "mismatch": "#/$defs/MismatchTerm"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/AbsDiffTerm"
+              },
+              {
+                "$ref": "#/$defs/MismatchTerm"
+              }
+            ]
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "terms"
+      ],
+      "title": "SetupFunction",
+      "type": "object"
+    },
+    "SplitOverride": {
+      "additionalProperties": false,
+      "description": "Split a job's lot into child jobs by positive fractions that sum to 1 (D-061, D-066).",
+      "properties": {
+        "fact_ref": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Fact Ref",
+          "type": "string"
+        },
+        "fractions": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Fractions",
+          "type": "array"
+        },
+        "hardness": {
+          "const": "hard",
+          "title": "Hardness",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "job_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "split",
+          "default": "split",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "fact_ref",
+        "reason",
+        "hardness",
+        "job_id",
+        "fractions"
+      ],
+      "title": "SplitOverride",
+      "type": "object"
+    },
+    "WeightedSum": {
+      "additionalProperties": false,
+      "description": "Minimize a weighted sum of objectives.",
+      "properties": {
+        "mode": {
+          "const": "weighted_sum",
+          "default": "weighted_sum",
+          "title": "Mode",
+          "type": "string"
+        },
+        "terms": {
+          "items": {
+            "$ref": "#/$defs/WeightedTerm"
+          },
+          "minItems": 1,
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "required": [
+        "terms"
+      ],
+      "title": "WeightedSum",
+      "type": "object"
+    },
+    "WeightedTerm": {
+      "additionalProperties": false,
+      "description": "One objective in a weighted sum, optionally divided by `scale` to normalize it.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ObjectiveKind"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "weight": {
+          "minimum": 0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "weight"
+      ],
+      "title": "WeightedTerm",
+      "type": "object"
+    },
+    "WorkCenter": {
+      "additionalProperties": false,
+      "description": "A group of machines; its setup function applies when a machine has none (D-064).",
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "setup_function_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Setup Function Id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "WorkCenter",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The versioned input boundary: problem, profile, overrides and previous plan.",
+  "properties": {
+    "overrides": {
+      "default": [],
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "exclude_machine": "#/$defs/ExcludeMachineOverride",
+            "expedite": "#/$defs/ExpediteOverride",
+            "hold": "#/$defs/HoldOverride",
+            "lock": "#/$defs/LockOverride",
+            "prefer_machine": "#/$defs/PreferMachineOverride",
+            "priority": "#/$defs/PriorityOverride",
+            "split": "#/$defs/SplitOverride"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/LockOverride"
+          },
+          {
+            "$ref": "#/$defs/ExpediteOverride"
+          },
+          {
+            "$ref": "#/$defs/PriorityOverride"
+          },
+          {
+            "$ref": "#/$defs/ExcludeMachineOverride"
+          },
+          {
+            "$ref": "#/$defs/PreferMachineOverride"
+          },
+          {
+            "$ref": "#/$defs/SplitOverride"
+          },
+          {
+            "$ref": "#/$defs/HoldOverride"
+          }
+        ]
+      },
+      "maxItems": 10000,
+      "title": "Overrides",
+      "type": "array"
+    },
+    "previous_plan": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PreviousPlan"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "problem": {
+      "$ref": "#/$defs/Problem"
+    },
+    "profile": {
+      "$ref": "#/$defs/SchedulingProfile"
+    },
+    "schema_version": {
+      "const": "2.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "problem"
+  ],
+  "title": "SolveRequest",
+  "type": "object"
+}
