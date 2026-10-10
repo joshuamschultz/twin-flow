@@ -591,6 +591,47 @@ def test_verify_empty_span_strictly_inside_an_op_is_machine_overlap() -> None:
     _only(_check(case, schedule), "machine_overlap")
 
 
+# --- pause starts on a working instant (TF-002 review) ---------------------------------------
+
+
+def _pause_after(seconds: float) -> Case:
+    """a on A [0, 10); b (pause, `seconds` s) on B working [0, 10) and [20, 40), max_lag 0."""
+    problem = _problem(
+        [
+            _job(
+                "J",
+                _op("a", "A", seconds=10),
+                _op("b", "B", seconds=seconds, shift_crossing="pause", **_after("a", max_lag=0)),
+            )
+        ],
+        [_machine("A"), _machine("B", calendar_id="cal")],
+        calendars=(Calendar(id="cal", intervals=((0, 10), (20, 40))),),
+    )
+    return Case(_compile(problem), _schedule())
+
+
+def test_verify_pause_op_starting_inside_a_break_is_calendar() -> None:
+    case = _pause_after(5)
+    schedule = _schedule(_a("a", "A", 0, 0, 10), _a("b", "B", 10, 10, 25))
+
+    issues = _only(_check(case, schedule), "calendar")
+    assert _names(issues, "b")
+
+
+def test_verify_zero_length_pause_op_inside_a_break_is_calendar() -> None:
+    case = _pause_after(0)
+    schedule = _schedule(_a("a", "A", 0, 0, 10), _a("b", "B", 10, 10, 10))
+
+    _only(_check(case, schedule), "calendar")
+
+
+def test_verify_pause_op_starting_where_work_begins_is_valid() -> None:
+    case = _pause_after(5)
+    schedule = _schedule(_a("a", "A", 10, 10, 20), _a("b", "B", 20, 20, 25))
+
+    assert _check(case, schedule).valid
+
+
 # --- one mutation, exactly one family ---------------------------------------------------------
 
 MUTATIONS = [

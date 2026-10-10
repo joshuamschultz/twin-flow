@@ -359,10 +359,17 @@ def _forbid_issues(index: _Index, p: _Placement, setup: float) -> Iterator[Sched
 def _pause_issues(index: _Index, p: _Placement, setup: float) -> Iterator[ScheduleIssue]:
     """`pause`: setup then run consume work seconds of the effective calendar only.
 
-    work_seconds(start, setup_end) = setup, and end = finish_after_work(start, setup + r).
+    start is a working instant (next_working(start) = start), work_seconds(start,
+    setup_end) = setup, and end = finish_after_work(start, setup + r). A start inside a
+    break would fake lags measured from it, and an empty op there is out of the calendar.
     """
     a, op_id = p.assignment, p.operation.id
     calendar = index.effective_calendar(p.machine, p.operation)
+    working = calendar_math.next_working(calendar, a.start)
+    if working is None or not _close(working, a.start):
+        message = f"{op_id}: start {a.start:g} is not a working instant of its calendar"
+        yield _issue("calendar", op_id, message)
+        return
     setup_work = calendar_math.work_seconds(calendar, a.start, a.setup_end)
     if not _close(setup_work, setup):
         message = f"{op_id}: setup has {setup_work:g} working s, expected {setup:g} s"
