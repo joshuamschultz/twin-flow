@@ -1,0 +1,205 @@
+{
+  "schema_version": "2.0",
+  "problem": {
+    "id": "pinedo-14.2.1",
+    "jobs": [
+      {
+        "id": "1",
+        "weight_override": 2.0,
+        "due": 12.0,
+        "operations": [
+          {
+            "id": "1-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 13.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "setup_family": "j1"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "weight_override": 4.0,
+        "due": 37.0,
+        "operations": [
+          {
+            "id": "2-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 9.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "setup_family": "j2"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "weight_override": 2.0,
+        "due": 21.0,
+        "operations": [
+          {
+            "id": "3-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 13.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "setup_family": "j3"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "weight_override": 5.0,
+        "due": 22.0,
+        "operations": [
+          {
+            "id": "4-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 10.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "setup_family": "j4"
+          }
+        ]
+      }
+    ],
+    "machines": [
+      {
+        "id": "M1",
+        "work_center_id": "WC-M1",
+        "setup_function_id": "pinedo-s-jk",
+        "state": {
+          "last_setup_family": "start"
+        }
+      }
+    ],
+    "work_centers": [
+      {
+        "id": "WC-M1"
+      }
+    ],
+    "setup_functions": [
+      {
+        "id": "pinedo-s-jk",
+        "terms": [],
+        "family_matrix": [
+          {
+            "from_family": "start",
+            "to_family": "j1",
+            "seconds": 1.0
+          },
+          {
+            "from_family": "start",
+            "to_family": "j2",
+            "seconds": 1.0
+          },
+          {
+            "from_family": "start",
+            "to_family": "j3",
+            "seconds": 3.0
+          },
+          {
+            "from_family": "start",
+            "to_family": "j4",
+            "seconds": 4.0
+          },
+          {
+            "from_family": "j1",
+            "to_family": "j2",
+            "seconds": 4.0
+          },
+          {
+            "from_family": "j1",
+            "to_family": "j3",
+            "seconds": 1.0
+          },
+          {
+            "from_family": "j1",
+            "to_family": "j4",
+            "seconds": 3.0
+          },
+          {
+            "from_family": "j2",
+            "to_family": "j1",
+            "seconds": 0.0
+          },
+          {
+            "from_family": "j2",
+            "to_family": "j3",
+            "seconds": 1.0
+          },
+          {
+            "from_family": "j2",
+            "to_family": "j4",
+            "seconds": 0.0
+          },
+          {
+            "from_family": "j3",
+            "to_family": "j1",
+            "seconds": 1.0
+          },
+          {
+            "from_family": "j3",
+            "to_family": "j2",
+            "seconds": 2.0
+          },
+          {
+            "from_family": "j3",
+            "to_family": "j4",
+            "seconds": 3.0
+          },
+          {
+            "from_family": "j4",
+            "to_family": "j1",
+            "seconds": 4.0
+          },
+          {
+            "from_family": "j4",
+            "to_family": "j2",
+            "seconds": 3.0
+          },
+          {
+            "from_family": "j4",
+            "to_family": "j3",
+            "seconds": 1.0
+          }
+        ]
+      }
+    ]
+  },
+  "profile": {
+    "objective": {
+      "mode": "lexicographic",
+      "levels": [
+        {
+          "kind": "weighted_tardiness"
+        }
+      ]
+    }
+  }
+}
