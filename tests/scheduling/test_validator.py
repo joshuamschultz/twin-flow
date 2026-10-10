@@ -492,6 +492,36 @@ def test_validate_two_in_progress_ops_on_one_machine_is_in_progress_machine() ->
     assert "A1" in issue.message
 
 
+def _held_predecessor_problem() -> Problem:
+    """J1 (A1 -> A2) is held; B1 of the open job J2 waits on A1."""
+    held = Job(id="J1", status="held", operations=(_op("A1"), _op("A2", after="A1")))
+    successor = _op("B1", "M3", work_center_id="WC2", after="A1")
+    return _problem(jobs=(held, Job(id="J2", operations=(successor,))))
+
+
+def test_validate_scheduled_op_after_an_op_of_a_held_job_is_held_predecessor() -> None:
+    issue = _only(validate(_request(_held_predecessor_problem())), "held_predecessor")
+
+    assert issue.path == f"{B1}.predecessors[0]"
+
+
+def test_validate_hold_override_on_a_predecessor_job_is_held_predecessor() -> None:
+    problem = _problem(b1=_op("B1", "M3", work_center_id="WC2", after="A1"))
+    hold = HoldOverride(id="h", hardness="hard", job_id="J1", **FACT)
+
+    issue = _only(validate(_request(problem, overrides=(hold,))), "held_predecessor")
+
+    assert issue.path == f"{B1}.predecessors[0]"
+
+
+def test_validate_held_successor_of_a_held_job_is_valid() -> None:
+    held = _held_predecessor_problem().jobs[0]
+    successor = _op("B1", "M3", work_center_id="WC2", after="A1")
+    problem = _problem(jobs=(held, Job(id="J2", status="held", operations=(successor,))))
+
+    assert validate(_request(problem)) == []
+
+
 # --- override issues ------------------------------------------------------------------------
 
 

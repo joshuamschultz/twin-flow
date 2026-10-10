@@ -283,6 +283,18 @@ def test_frozen_zone_leaves_an_in_progress_op_at_now_instead_of_refusing_it() ->
     assert _by_op(result.schedule)["p"].start == 10.0
 
 
+def test_successor_of_a_held_job_is_refused_with_held_predecessor() -> None:
+    jobs = [
+        Job(id="J", status="held", operations=(_op("A"),)),
+        Job(id="K", operations=(_op("B", predecessors=[{"operation_id": "A"}]),)),
+    ]
+
+    result = solve(_request(_problem(jobs)))
+
+    assert result.schedule.status == "UNKNOWN"
+    assert [issue.code for issue in result.issues] == ["held_predecessor"]
+
+
 def test_same_input_gives_identical_output() -> None:
     request = _fixture("pinedo_7_1_1.json")
 

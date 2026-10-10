@@ -632,6 +632,20 @@ def test_verify_pause_op_starting_where_work_begins_is_valid() -> None:
     assert _check(case, schedule).valid
 
 
+# --- held predecessors (TF-002 review) -------------------------------------------------------
+
+
+def test_verify_op_scheduled_after_an_op_of_a_held_job_is_precedence() -> None:
+    problem = _problem(
+        [_job("J", _op("a", "A"), status="held"), _job("K", _op("b", "A", **_after("a")))],
+        [_machine("A")],
+    )
+    case = Case(_compile(problem), _schedule())
+
+    issues = _only(_check(case, _schedule(_a("b", "A", 0, 0, 5))), "precedence")
+    assert _names(issues, "a")
+
+
 # --- one mutation, exactly one family ---------------------------------------------------------
 
 MUTATIONS = [

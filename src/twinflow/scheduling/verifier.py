@@ -418,10 +418,17 @@ def _precedence_issues(
 ) -> Iterator[ScheduleIssue]:
     """Lags from each predecessor's end (or transfer lot) to this operation's material gate.
 
-    A done predecessor counts as finished; an unassigned one is reported as missing.
+    A done predecessor counts as finished; an unassigned one is reported as missing. A
+    predecessor that is held (or gone from the compiled problem) never finishes, so the
+    operation cannot run: `precedence`.
     """
     for link in p.operation.predecessors:
-        if index.operation[link.operation_id].status.state == "done":
+        pred_op = index.operation.get(link.operation_id)
+        if pred_op is not None and pred_op.status.state == "done":
+            continue
+        if pred_op is None or index.job_of[pred_op.id].id in index.held_jobs:
+            message = f"{p.operation.id}: predecessor {link.operation_id} is held, never finishes"
+            yield _issue("precedence", p.operation.id, message)
             continue
         pred = by_op.get(link.operation_id)
         if pred is None:

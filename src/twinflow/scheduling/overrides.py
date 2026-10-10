@@ -84,6 +84,7 @@ def apply_overrides(request: SolveRequest) -> CompiledProblem:
     )
     for index, override in _ordered(request.overrides):
         _apply_one(state, override, f"overrides[{index}]")
+    _report_held_predecessors(state, problem.jobs)
     _apply_frozen_zone(state, request)
     weights = request.profile.class_weights
     jobs = tuple(_with_effective_weight(job, weights) for job in _final_jobs(state, problem.jobs))
@@ -243,6 +244,28 @@ def _remap_precedence(
     return link.model_copy(
         update={"operation_id": f"{link.operation_id}~{k}", "overlap_quantity": overlap}
     )
+
+
+def _report_held_predecessors(state: _State, jobs: tuple[Job, ...]) -> None:
+    """`held_predecessor`: an op still solved waits on an unfinished op a hold removed."""
+    held_pending = {
+        op.id
+        for job in jobs
+        if job.id in state.held_job_set
+        for op in job.operations
+        if op.status.state != "done"
+    }
+    for j, job in enumerate(jobs):
+        if job.id in state.held_job_set or job.status != "open":
+            continue
+        for o, op in enumerate(job.operations):
+            if op.status.state == "done":
+                continue
+            for k, link in enumerate(op.predecessors):
+                if link.operation_id in held_pending:
+                    path = f"problem.jobs[{j}].operations[{o}].predecessors[{k}]"
+                    message = f"predecessor {link.operation_id} of {op.id} belongs to a held job"
+                    state.report("held_predecessor", path, message)
 
 
 # --- priority and expedite ------------------------------------------------------------------

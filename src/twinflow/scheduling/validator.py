@@ -64,6 +64,8 @@ class _Index:
     calendars: frozenset[str]
     pools: frozenset[str]
     setup_functions: frozenset[str]
+    held_ops: frozenset[str]
+    unscheduled_ops: frozenset[str]
 
 
 def _index(problem: Problem) -> _Index:
@@ -90,6 +92,19 @@ def _index(problem: Problem) -> _Index:
         calendars=frozenset(calendar.id for calendar in problem.calendars),
         pools=frozenset(pool.id for pool in problem.operator_pools),
         setup_functions=frozenset(function.id for function in problem.setup_functions),
+        held_ops=frozenset(
+            op.id
+            for job in problem.jobs
+            if job.status == "held"
+            for op in job.operations
+            if op.status.state != "done"
+        ),
+        unscheduled_ops=frozenset(
+            op.id
+            for job in problem.jobs
+            for op in job.operations
+            if job.status != "open" or op.status.state == "done"
+        ),
     )
 
 
@@ -459,6 +474,16 @@ def _batch_rules(index: _Index, path: str, op: Operation) -> Iterator[ScheduleIs
         yield _issue("batch_rules", f"{path}.batch_family", message)
 
 
+def _held_predecessors(index: _Index, path: str, op: Operation) -> Iterator[ScheduleIssue]:
+    """A scheduled op may not wait on an unfinished op of a held job: it would never start."""
+    if op.id in index.unscheduled_ops:
+        return
+    for k, link in enumerate(op.predecessors):
+        if link.operation_id in index.held_ops:
+            message = f"predecessor {link.operation_id} of {op.id} belongs to a held job"
+            yield _issue("held_predecessor", f"{path}.predecessors[{k}]", message)
+
+
 def _option_machines(op: Operation) -> set[str]:
     return {option.machine_id for option in op.options}
 
@@ -509,6 +534,7 @@ _OPERATION_CHECKS: tuple[Callable[[_Index, str, Operation], Iterator[ScheduleIss
     _no_options,
     _lag_bounds,
     _overlaps,
+    _held_predecessors,
     _batch_rules,
     _pin_outside_options,
     _pin_window,
