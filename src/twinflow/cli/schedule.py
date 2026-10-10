@@ -9,14 +9,25 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import NoReturn
 
 from twinflow.scheduling import (
     OptionalDependencyError,
     ORToolsSolver,
+    ScheduleIssue,
     Solver,
     parse_request,
     solve,
 )
+
+MAX_TIME_LIMIT_SECONDS = 30.0  # the same cap the REST and MCP surfaces enforce
+
+
+def _refuse(parser: argparse.ArgumentParser, message: str, code: str, path: str) -> NoReturn:
+    issue = ScheduleIssue(code=code, path=path, message=message)
+    parser.error(
+        f"invalid SolveRequest: {json.dumps([issue.model_dump(mode='json')], sort_keys=True)}"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,7 +36,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--solver", choices=("baseline", "ortools"), default="baseline")
     parser.add_argument("--time-limit", type=float, help="seconds; default: the profile budget")
     args = parser.parse_args(argv)
-    parsed = parse_request(args.request.read_bytes())
+    if args.time_limit is not None and args.time_limit > MAX_TIME_LIMIT_SECONDS:
+        message = (
+            f"budget_seconds must be at most {MAX_TIME_LIMIT_SECONDS:g}, got {args.time_limit}"
+        )
+        _refuse(parser, message, "budget", "budget_seconds")
+    try:
+        content = args.request.read_bytes()
+    except OSError as exc:
+        _refuse(parser, f"cannot read {args.request}: {exc.strerror}", "unreadable", "request")
+    parsed = parse_request(content)
     if isinstance(parsed, list):
         issues = [issue.model_dump(mode="json") for issue in parsed]
         parser.error(f"invalid SolveRequest: {json.dumps(issues, sort_keys=True)}")

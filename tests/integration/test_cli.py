@@ -151,6 +151,7 @@ from __future__ import annotations
 
 import ast
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -758,3 +759,43 @@ class TestScheduleCommand:
         captured = capsys.readouterr()
         assert code != 0
         assert "schema_version" in captured.out + captured.err
+
+
+class TestScheduleCommandRefusals:
+    """A bad path or budget is refused as typed issues, exit 2, never a traceback."""
+
+    @pytest.mark.parametrize("make_path", [lambda tmp: tmp / "missing.json", lambda tmp: tmp])
+    def test_unreadable_request_path_exits_two_with_a_typed_issue(
+        self, make_path: Callable[[Path], Path], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from twinflow.cli import schedule
+
+        with pytest.raises(SystemExit) as raised:
+            schedule.main([str(make_path(tmp_path))])
+
+        err = capsys.readouterr().err
+        assert raised.value.code == 2
+        assert "Traceback" not in err
+        assert "invalid SolveRequest" in err
+
+    @pytest.mark.parametrize("limit", ["30.5", "1e9"])
+    def test_time_limit_above_thirty_seconds_is_a_budget_issue(
+        self, limit: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        request = tmp_path / "request.json"
+        request.write_text(json.dumps(_v2_schedule_request()), encoding="utf-8")
+
+        code = main(["schedule", str(request), "--time-limit", limit])
+
+        captured = capsys.readouterr()
+        assert code == 2
+        assert '"code": "budget"' in captured.err
+        assert captured.out == ""
+
+    def test_time_limit_of_thirty_seconds_is_accepted(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        request = tmp_path / "request.json"
+        request.write_text(json.dumps(_v2_schedule_request()), encoding="utf-8")
+
+        assert main(["schedule", str(request), "--time-limit", "30"]) == 0
