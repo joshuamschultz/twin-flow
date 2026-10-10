@@ -339,12 +339,27 @@ def _calendar_interval_issues(calendar: Calendar, path: str) -> Iterator[Schedul
         previous_end = max(previous_end, end)
 
 
+def _in_progress_sharing(index: _Index) -> Iterator[ScheduleIssue]:
+    """A unary machine runs at most one in-progress operation at `now`."""
+    running: dict[str, str] = {}
+    for path, op in index.operations:
+        machine_id = op.status.machine_id
+        if op.status.state != "in_progress" or machine_id is None:
+            continue
+        if machine_id in running:
+            message = f"machine {machine_id} already runs in-progress {running[machine_id]}"
+            yield _issue("in_progress_machine", f"{path}.status.machine_id", message)
+        else:
+            running[machine_id] = op.id
+
+
 _PROBLEM_CHECKS: tuple[Callable[[_Index], Iterator[ScheduleIssue]], ...] = (
     _duplicate_ids,
     _resource_references,
     _cycles,
     _restart_rules,
     _calendar_order,
+    _in_progress_sharing,
 )
 
 
@@ -464,12 +479,28 @@ def _pin_window(index: _Index, path: str, op: Operation) -> Iterator[ScheduleIss
 
 
 def _in_progress_machine(index: _Index, path: str, op: Operation) -> Iterator[ScheduleIssue]:
+    """An in-progress op runs on an option machine at `now`; its pin must allow exactly that."""
     status = op.status
     if status.state != "in_progress":
         return
     if status.remaining_seconds is None or status.machine_id not in _option_machines(op):
         message = "in-progress operation needs remaining_seconds and an option machine_id"
         yield _issue("in_progress_machine", f"{path}.status", message)
+    yield from _in_progress_pin(index.problem.now, path, op)
+
+
+def _in_progress_pin(now: float, path: str, op: Operation) -> Iterator[ScheduleIssue]:
+    pin, status = op.pin, op.status
+    if pin is None:
+        return
+    if pin.machine_id is not None and pin.machine_id != status.machine_id:
+        message = f"pin machine {pin.machine_id} is not in-progress machine {status.machine_id}"
+        yield _issue("in_progress_machine", f"{path}.pin.machine_id", message)
+    early = pin.earliest_start is not None and pin.earliest_start > now
+    late = pin.latest_start is not None and pin.latest_start < now
+    if early or late:
+        message = f"pin window excludes now {now:g}, where in-progress {op.id} runs"
+        yield _issue("in_progress_machine", f"{path}.pin", message)
 
 
 _OPERATION_CHECKS: tuple[Callable[[_Index, str, Operation], Iterator[ScheduleIssue]], ...] = (

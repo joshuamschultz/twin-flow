@@ -247,6 +247,42 @@ def test_two_in_progress_ops_on_one_machine_return_unknown_no_feasible_slot() ->
     assert _codes(schedule) == ["no_feasible_slot"]
 
 
+def test_in_progress_op_pinned_to_another_machine_is_refused_by_name() -> None:
+    running = _op(
+        "p",
+        ("M1", 5.0),
+        ("M2", 5.0),
+        pin={"machine_id": "M2"},
+        status={"state": "in_progress", "machine_id": "M1", "remaining_seconds": 4.0},
+    )
+    problem = _problem(_one_job(running), (_machine("M1"), _machine("M2")))
+
+    result = solve(_request(problem))
+
+    assert result.schedule.status == "UNKNOWN"
+    assert [issue.code for issue in result.issues] == ["in_progress_machine"]
+
+
+def test_frozen_zone_leaves_an_in_progress_op_at_now_instead_of_refusing_it() -> None:
+    running = _op(
+        "p", status={"state": "in_progress", "machine_id": "M1", "remaining_seconds": 4.0}
+    )
+    previous = {
+        "plan_id": "prev",
+        "problem_digest": "d",
+        "assignments": [{"operation_id": "p", "machine_id": "M1", "start": 3.0}],
+    }
+    profile = {"frozen_zone": {"until": 50.0, "tolerance": 0.0}}
+    request = _request(
+        _problem(_one_job(running), now=10.0), profile=profile, previous_plan=previous
+    )
+
+    result = solve(request)
+
+    assert result.verified, result.issues
+    assert _by_op(result.schedule)["p"].start == 10.0
+
+
 def test_same_input_gives_identical_output() -> None:
     request = _fixture("pinedo_7_1_1.json")
 

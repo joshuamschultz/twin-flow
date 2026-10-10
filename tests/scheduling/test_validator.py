@@ -453,6 +453,45 @@ def test_validate_in_progress_needs_option_machine_and_remaining(status: Operati
     assert issue.path == f"{A1}.status"
 
 
+RUNNING_ON_M1 = OperationStatus(state="in_progress", machine_id="M1", remaining_seconds=4.0)
+
+
+@pytest.mark.parametrize(
+    ("pin", "path"),
+    [
+        (Pin(machine_id="M2"), f"{A1}.pin.machine_id"),
+        (Pin(earliest_start=1.0), f"{A1}.pin"),
+        (Pin(latest_start=-1.0), f"{A1}.pin"),
+    ],
+)
+def test_validate_in_progress_op_whose_pin_excludes_its_status_is_in_progress_machine(
+    pin: Pin, path: str
+) -> None:
+    problem = _problem(a1=_op("A1", status=RUNNING_ON_M1, pin=pin))
+
+    issue = _only(validate(_request(problem)), "in_progress_machine")
+
+    assert issue.path == path
+
+
+def test_validate_in_progress_op_whose_pin_matches_its_status_is_valid() -> None:
+    pin = Pin(machine_id="M1", earliest_start=0.0, latest_start=0.0)
+    problem = _problem(a1=_op("A1", status=RUNNING_ON_M1, pin=pin))
+
+    assert validate(_request(problem)) == []
+
+
+def test_validate_two_in_progress_ops_on_one_machine_is_in_progress_machine() -> None:
+    a1 = _op("A1", status=RUNNING_ON_M1)
+    a2 = _op("A2", status=RUNNING_ON_M1, predecessors=())
+    problem = _problem(a1=a1, a2=a2)
+
+    issue = _only(validate(_request(problem)), "in_progress_machine")
+
+    assert issue.path == f"{A2}.status.machine_id"
+    assert "A1" in issue.message
+
+
 # --- override issues ------------------------------------------------------------------------
 
 

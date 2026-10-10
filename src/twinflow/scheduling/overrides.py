@@ -421,9 +421,12 @@ def _apply_frozen_zone(state: _State, request: SolveRequest) -> None:
 
 
 def _freeze(state: _State, assignment: PreviousAssignment, tolerance: float) -> None:
-    """Pin one op; a lock on it or a hard removal of its machine wins and releases it."""
+    """Pin one op; a lock on it or a hard removal of its machine wins and releases it.
+
+    Done ops are skipped; so are in-progress ops, which their status already fixes at `now`.
+    """
     op_id = assignment.operation_id
-    if op_id not in state.op_owner or _operation(state, op_id).status.state == "done":
+    if op_id not in state.op_owner or _operation(state, op_id).status.state != "pending":
         return
     if op_id in state.locked_by or (op_id, assignment.machine_id) in state.removed_by:
         state.released.add(op_id)
