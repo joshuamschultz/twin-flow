@@ -14,8 +14,10 @@ from typing import Any
 
 import pytest
 
+from twinflow.scheduling import overrides
 from twinflow.scheduling.model import (
     Assignment,
+    FrozenZone,
     HoldOverride,
     Job,
     Machine,
@@ -23,6 +25,8 @@ from twinflow.scheduling.model import (
     ObjectiveSpec,
     Operation,
     Override,
+    PreviousAssignment,
+    PreviousPlan,
     Problem,
     Schedule,
     SchedulingProfile,
@@ -427,3 +431,38 @@ def test_budget_not_positive_and_finite_is_rejected(budget: float) -> None:
     assert fake.calls == []
     assert result.schedule.status == "UNKNOWN"
     assert [(i.code, i.path) for i in result.issues] == [("budget", "budget_seconds")]
+
+
+# --- frozen zone is verified independently (TF-002 review) ----------------------------------
+
+
+def _frozen_request() -> SolveRequest:
+    """A on M1, frozen at its previous start 20 (zone until 50, tolerance 0)."""
+    previous = PreviousPlan(
+        plan_id="prev",
+        problem_digest="d",
+        assignments=(PreviousAssignment(operation_id="A", machine_id="M1", start=20.0),),
+    )
+    profile = SchedulingProfile(frozen_zone=FrozenZone(until=50.0, tolerance=0.0))
+    return _request(_problem(), profile=profile).model_copy(update={"previous_plan": previous})
+
+
+def test_solve_keeps_a_frozen_op_at_its_previous_start_and_verifies() -> None:
+    result = solve(_frozen_request())
+
+    assert result.verified, result.issues
+    (a,) = result.schedule.assignments
+    assert (a.machine_id, a.start) == ("M1", 20.0)
+
+
+def test_solve_with_frozen_pins_lost_in_compile_does_not_verify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mutation: drop the compile step's frozen pins; the verifier still enforces the zone."""
+    monkeypatch.setattr(overrides, "_apply_frozen_zone", lambda state, request: None)
+
+    result = solve(_frozen_request())
+
+    assert result.schedule.status == "FEASIBLE"
+    assert not result.verified
+    assert [issue.code for issue in result.issues] == ["frozen"]

@@ -119,7 +119,9 @@ def _by_op(schedule: Schedule) -> dict[str, Assignment]:
 
 
 def _codes(request: SolveRequest, schedule: Schedule) -> set[str]:
-    verification = verify(apply_overrides(request), request.overrides, schedule)
+    verification = verify(
+        apply_overrides(request), request.overrides, schedule, request.previous_plan
+    )
     assert verification.valid is (not verification.issues)
     return {issue.code for issue in verification.issues}
 

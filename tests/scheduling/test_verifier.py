@@ -43,6 +43,7 @@ from twinflow.scheduling.model import (
     Calendar,
     CompiledProblem,
     ExcludeMachineOverride,
+    FrozenZone,
     HoldOverride,
     Job,
     LockOverride,
@@ -53,6 +54,8 @@ from twinflow.scheduling.model import (
     OperatorPool,
     Override,
     PreferMachineOverride,
+    PreviousAssignment,
+    PreviousPlan,
     Problem,
     ProcessingOption,
     Schedule,
@@ -1023,6 +1026,105 @@ def test_verify_hold_until_on_a_split_job_holds_on_every_child() -> None:
 
     assert _check(case, honored).valid
     _only(_check(case, broken), "override")
+
+
+# --- frozen zone, checked against the previous plan (TF-002 review) ---------------------------
+
+
+FROZEN = FrozenZone(until=10.0, tolerance=1.0)
+PREVIOUS = PreviousPlan(
+    plan_id="prev",
+    problem_digest="d",
+    assignments=(
+        PreviousAssignment(operation_id="a", machine_id="A", start=4.0),
+        PreviousAssignment(operation_id="b", machine_id="B", start=30.0),
+    ),
+)
+
+
+def _frozen_case(*raw: Override, **job_fields: Any) -> Case:
+    """a (5 s on A or B) and b (5 s on B) with a frozen zone whose pins were never compiled.
+
+    The compiled problem carries the profile's frozen zone but no frozen pin, as if the
+    compile step had skipped it: only the verifier's own check can catch a moved op.
+    """
+    problem = _problem(
+        [_job("J", _op("a", "A", "B"), **job_fields), _job("K", _op("b", "B"))],
+        [_machine("A"), _machine("B")],
+    )
+    compiled = _compile(problem).model_copy(
+        update={"profile": SchedulingProfile(frozen_zone=FROZEN)}
+    )
+    return Case(compiled, _schedule(), raw)
+
+
+def _frozen_check(case: Case, schedule: Schedule) -> VerificationResult:
+    result = verifier.verify(case.compiled, case.raw_overrides, schedule, PREVIOUS)
+    assert result.valid is (not result.issues), result
+    return result
+
+
+@pytest.mark.parametrize(
+    "a",
+    [_a("a", "A", 4, 4, 9), _a("a", "A", 3, 3, 8), _a("a", "A", 5, 5, 10)],
+)
+def test_verify_frozen_op_on_its_previous_machine_within_tolerance_is_valid(
+    a: Assignment,
+) -> None:
+    schedule = _schedule(a, _a("b", "B", 0, 0, 5))
+
+    assert _frozen_check(_frozen_case(), schedule).valid
+
+
+@pytest.mark.parametrize(
+    "a",
+    [_a("a", "A", 0, 0, 5), _a("a", "A", 6, 6, 11), _a("a", "B", 4, 4, 9)],
+)
+def test_verify_frozen_op_moved_or_on_another_machine_is_frozen(a: Assignment) -> None:
+    schedule = _schedule(a, _a("b", "B", 10, 10, 15))
+
+    issues = _only(_frozen_check(_frozen_case(), schedule), "frozen")
+    assert [issue.path for issue in issues] == ["a"]
+
+
+def test_verify_without_previous_plan_skips_the_frozen_check() -> None:
+    schedule = _schedule(_a("a", "A", 0, 0, 5), _a("b", "B", 0, 0, 5))
+
+    assert _check(_frozen_case(), schedule).valid
+
+
+_RELEASING = {
+    "lock": LockOverride(id="o", hardness="hard", operation_id="a", start=0.0, **_meta()),
+    "exclude_previous": ExcludeMachineOverride(
+        id="o", hardness="hard", job_id="J", machine_id="A", **_meta()
+    ),
+    "prefer_other": PreferMachineOverride(
+        id="o", hardness="hard", operation_id="a", machine_id="B", **_meta()
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_RELEASING))
+def test_verify_frozen_op_released_by_a_raw_hard_override_is_not_frozen(name: str) -> None:
+    case = _frozen_case(_RELEASING[name])
+    schedule = _schedule(_a("a", "B", 0, 0, 5), _a("b", "B", 5, 5, 10))
+
+    assert "frozen" not in _codes(_frozen_check(case, schedule))
+
+
+def test_verify_soft_override_does_not_release_a_frozen_op() -> None:
+    soft = PreferMachineOverride(
+        id="o", hardness="soft", operation_id="a", machine_id="B", penalty=1.0, **_meta()
+    )
+    schedule = _schedule(_a("a", "B", 0, 0, 5), _a("b", "B", 5, 5, 10))
+
+    _only(_frozen_check(_frozen_case(soft), schedule), "frozen")
+
+
+def test_verify_frozen_op_of_a_held_job_is_not_checked() -> None:
+    case = _frozen_case(status="held")
+
+    assert _frozen_check(case, _schedule(_a("b", "B", 0, 0, 5))).valid
 
 
 # --- objective -------------------------------------------------------------------------------

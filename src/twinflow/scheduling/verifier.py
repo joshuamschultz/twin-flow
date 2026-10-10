@@ -36,6 +36,8 @@ from twinflow.scheduling.model import (
     Override,
     Precedence,
     PreferMachineOverride,
+    PreviousAssignment,
+    PreviousPlan,
     ProcessingOption,
     Schedule,
     ScheduleIssue,
@@ -118,12 +120,17 @@ def _build_index(compiled: CompiledProblem, raw_overrides: Sequence[Override]) -
 
 
 def verify(
-    compiled: CompiledProblem, raw_overrides: Sequence[Override], schedule: Schedule
+    compiled: CompiledProblem,
+    raw_overrides: Sequence[Override],
+    schedule: Schedule,
+    previous_plan: PreviousPlan | None = None,
 ) -> VerificationResult:
     """Check `schedule` against every hard constraint of `compiled` (REQ-074).
 
     `raw_overrides` is the request's override list: hard overrides are checked against it
-    directly, so an override the compile step lost is still enforced (D-066). The reported
+    directly, so an override the compile step lost is still enforced (D-066). Likewise the
+    profile's frozen zone is checked against `previous_plan` itself, not through the
+    compiled pins (no previous plan: no frozen check). The reported
     `primary_value` is compared with `objectives.evaluate` for the primary kind of
     `compiled.profile.objective`, only when every other check passed (the objective of an
     infeasible schedule has no meaning). Non-finite times stop verification early.
@@ -141,6 +148,7 @@ def verify(
     issues.extend(_operator_capacity_issues(index, scoped))
     issues.extend(_batch_issues(index, scoped))
     issues.extend(_override_issues(index, by_op, raw_overrides))
+    issues.extend(_frozen_issues(index, by_op, raw_overrides, previous_plan))
     if not issues:
         issues.extend(_objective_issues(compiled, schedule))
     return VerificationResult(valid=not issues, issues=tuple(issues))
@@ -644,6 +652,64 @@ def _hold_until_holds(
         if gate < until - TOLERANCE:
             return False
     return True
+
+
+# --- frozen zone ----------------------------------------------------------------------------------
+
+
+def _frozen_issues(
+    index: _Index,
+    by_op: Mapping[str, Assignment],
+    raw_overrides: Sequence[Override],
+    previous_plan: PreviousPlan | None,
+) -> Iterator[ScheduleIssue]:
+    """`frozen`: a previous assignment starting before `until` keeps its machine and start.
+
+    Checked when the op is still solved (in the compiled problem, pending, its job open)
+    and no raw hard override releases it: a lock on it, an exclude of its previous
+    machine, or a prefer of another machine. Start may move by the zone's tolerance.
+    """
+    zone = index.compiled.profile.frozen_zone
+    if zone is None or previous_plan is None:
+        return
+    for previous in previous_plan.assignments:
+        if previous.start >= zone.until or not _frozen_applies(index, previous, raw_overrides):
+            continue
+        a = by_op.get(previous.operation_id)
+        if a is None:
+            continue  # reported as missing
+        moved = abs(a.start - previous.start) > zone.tolerance + TOLERANCE
+        if moved or a.machine_id != previous.machine_id:
+            message = (
+                f"{a.operation_id}: frozen at {previous.machine_id} {previous.start:g} "
+                f"+- {zone.tolerance:g}, got {a.machine_id} {a.start:g}"
+            )
+            yield _issue("frozen", a.operation_id, message)
+
+
+def _frozen_applies(
+    index: _Index, previous: PreviousAssignment, raw_overrides: Iterable[Override]
+) -> bool:
+    op = index.operation.get(previous.operation_id)
+    if op is None or op.status.state != "pending":
+        return False
+    job = index.job_of[op.id]
+    if job.id in index.held_jobs or job.status != "open":
+        return False
+    return not any(_releases(o, op.id, job.id, previous.machine_id) for o in raw_overrides)
+
+
+def _releases(override: Override, op_id: str, job_id: str, machine_id: str) -> bool:
+    """True when a hard raw override wins over the frozen pin of `op_id` on `machine_id`."""
+    if override.hardness != "hard":
+        return False
+    if isinstance(override, LockOverride):
+        return override.operation_id == op_id
+    if isinstance(override, ExcludeMachineOverride | PreferMachineOverride):
+        targets = override.operation_id == op_id or override.job_id == job_id
+        excluded = isinstance(override, ExcludeMachineOverride)
+        return targets and (override.machine_id == machine_id) == excluded
+    return False
 
 
 # --- objective ----------------------------------------------------------------------------------

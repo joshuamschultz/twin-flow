@@ -233,7 +233,7 @@ def _checked(
     """Verify a FEASIBLE or OPTIMAL answer and evaluate it when it verifies."""
     if schedule.status not in SOLUTION_STATUSES:
         return _result(schedule, compiled, features, issues=schedule.issues)
-    verification = verify(compiled, request.overrides, schedule)
+    verification = verify(compiled, request.overrides, schedule, request.previous_plan)
     issues = (*schedule.issues, *verification.issues)
     if not verification.valid:
         return _result(schedule, compiled, features, issues=issues)
