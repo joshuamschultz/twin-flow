@@ -259,7 +259,7 @@ The working windows of one weekday (Monday = 0).
 
 ### `TimeWindow`
 
-Plant-local working minutes of one day; `end_minute < start_minute` crosses midnight.
+Plant-local working minutes of one day; `end_minute <= start_minute` crosses midnight.
 
 | Field | Type | Required |
 |---|---|---|

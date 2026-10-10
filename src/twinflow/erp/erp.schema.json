@@ -1546,7 +1546,7 @@
     },
     "TimeWindow": {
       "additionalProperties": false,
-      "description": "Plant-local working minutes of one day; `end_minute < start_minute` crosses midnight.",
+      "description": "Plant-local working minutes of one day; `end_minute <= start_minute` crosses midnight.",
       "properties": {
         "end_minute": {
           "maximum": 1440,

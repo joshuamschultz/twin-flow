@@ -18,4 +18,4 @@ Evaluations are bounded asynchronous jobs. Submit positive replications, a nonne
 
 The local service stores metadata and artifacts in `.twinflow-workspace`; use admin backup/restore for a controlled copy.
 
-This is an agent contract slice, not a hosted multi-tenant product. One trusted workspace, shared token middleware, local SQLite, bounded in-process workers, no built-in LLM, and no production writeback are intentional limits. Operator approval and dry-run delivery are API routes; MCP only creates proposals.
+This is an agent contract slice, not a hosted multi-tenant product. One trusted workspace, named caller tokens, local SQLite, bounded in-process workers, no built-in LLM, and no production writeback are intentional limits. Operator approval and dry-run delivery are API routes; MCP only creates proposals.

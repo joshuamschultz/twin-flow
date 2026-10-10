@@ -339,7 +339,7 @@ class InventoryBalance(_Contract):
 
 
 class TimeWindow(_Contract):
-    """Plant-local working minutes of one day; `end_minute < start_minute` crosses midnight."""
+    """Plant-local working minutes of one day; `end_minute <= start_minute` crosses midnight."""
 
     start_minute: StartMinute
     end_minute: EndMinute
