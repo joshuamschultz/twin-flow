@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
+from twinflow.scheduling import model as model_module
 from twinflow.scheduling.model import (
     SCHEMA_VERSION,
     AbsDiffTerm,
@@ -1195,3 +1196,86 @@ def test_solve_result_full_round_trip_keys_objective_values_by_kind() -> None:
 def test_solve_result_unknown_objective_kind_rejected() -> None:
     payload = {"schedule": schedule(), "verified": True, "objective_values": {"profit": 1.0}}
     assert_rejected(SolveResult, payload, "objective_values")
+
+
+# --- ATCS run records (T-130, REQ-121, SDD Data Model "AtcsRun", "Schedule additions") ------
+#
+# `AtcsRun` is read through the module attribute (not the import block above) so that, before
+# it exists, only these tests fail rather than the whole file.
+
+
+def atcs_run() -> Data:
+    return {
+        "work_center_id": "WC-M1",
+        "tau": 0.566,
+        "R": 0.472,
+        "eta": 0.178,
+        "m": 1,
+        "K1": 4.97,
+        "K2": 0.671,
+        "source": "formula",
+        "objective_value": 98.0,
+    }
+
+
+def _atcs_run_model() -> type[BaseModel]:
+    cls: type[BaseModel] = model_module.AtcsRun
+    return cls
+
+
+def test_atcs_run_full_payload_validates_with_every_field() -> None:
+    parsed = _atcs_run_model().model_validate(atcs_run())
+    assert parsed.model_dump() == atcs_run()
+
+
+def test_atcs_run_json_round_trip_is_identity() -> None:
+    cls = _atcs_run_model()
+    original = cls.model_validate(atcs_run())
+    assert cls.model_validate_json(original.model_dump_json()) == original
+
+
+def test_atcs_run_is_frozen_and_closed() -> None:
+    cls = _atcs_run_model()
+    assert_rejected(cls, with_(atcs_run(), bogus=1), "bogus")
+    instance = cls.model_validate(atcs_run())
+    with pytest.raises(ValidationError):
+        instance.K1 = 1.0
+
+
+@pytest.mark.parametrize("source", ["formula", "table", "explicit", "perturbed"])
+def test_atcs_run_accepts_each_k_source(source: str) -> None:
+    parsed = _atcs_run_model().model_validate(with_(atcs_run(), source=source))
+    assert parsed.source == source
+
+
+def test_atcs_run_unknown_k_source_rejected() -> None:
+    assert_rejected(_atcs_run_model(), with_(atcs_run(), source="guess"), "source")
+
+
+def test_atcs_run_objective_value_may_be_none() -> None:
+    parsed = _atcs_run_model().model_validate(with_(atcs_run(), objective_value=None))
+    assert parsed.objective_value is None
+
+
+def test_atcs_run_machine_count_is_an_int() -> None:
+    assert_rejected(_atcs_run_model(), with_(atcs_run(), m=1.5), "m")
+
+
+@pytest.mark.parametrize("field", ["tau", "R", "eta", "K1", "K2"])
+def test_atcs_run_non_finite_factor_rejected(field: str) -> None:
+    assert_rejected(_atcs_run_model(), with_(atcs_run(), **{field: math.inf}), field)
+
+
+def test_schedule_atcs_runs_default_to_empty() -> None:
+    parsed = Schedule.model_validate(schedule())
+    assert parsed.atcs_runs == ()
+
+
+def test_schedule_with_atcs_runs_round_trips() -> None:
+    payload = with_(schedule(), atcs_runs=[atcs_run(), with_(atcs_run(), work_center_id="B")])
+    original = Schedule.model_validate(payload)
+    runs = original.atcs_runs
+    assert isinstance(runs, tuple)
+    assert [r.work_center_id for r in runs] == ["WC-M1", "B"]
+    assert all(isinstance(r, _atcs_run_model()) for r in runs)
+    assert Schedule.model_validate_json(original.model_dump_json()) == original

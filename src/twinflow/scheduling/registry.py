@@ -19,7 +19,7 @@ from twinflow.scheduling import algorithms
 from twinflow.scheduling.baseline import CAPABILITIES as BASELINE_CAPABILITIES
 from twinflow.scheduling.baseline import NAME as BASELINE_NAME
 from twinflow.scheduling.baseline import BaselineSolver
-from twinflow.scheduling.seam import Feature, ParamValue, Solver
+from twinflow.scheduling.seam import Feature, Solver
 
 
 class UnknownSolverError(ValueError):
@@ -100,8 +100,12 @@ def is_registered(name: str) -> bool:
     return name in _entries()
 
 
-def get(name: str, **params: ParamValue) -> Solver:
-    """A fresh solver built with `params`; `UnknownSolverError` for an unregistered name."""
+def get(name: str, **params: object) -> Solver:
+    """A fresh solver built with constructor `params`; `UnknownSolverError` for an unknown name.
+
+    Params are the factory's arguments: scalars, or objects such as ATCS's `k_lookup`
+    (SDD Data Model "SolveContext"); per-solve scalar settings travel in `SolveContext.params`.
+    """
     entry = _entries().get(name)
     if entry is None:
         registered = ", ".join(sorted(_entries()))

@@ -33,9 +33,20 @@ with a due date is accepted on its lowest `preference_cost` options whose estima
 earliest estimated finish at any cost. An op without a due date is accepted on its
 lowest-cost options only.
 
+A machine policy implements `MachinePolicy` (`accepted(state, p)`, the machine positions the
+ready op at position p may go to now); `PreferredUnlessLate` is the default.
+
 A rule implements `PriorityRule`: `index(state, op_id, machine_id, t, last_op_id)` returns a
 float or a tuple of floats (compared lexicographically; higher first), with an optional
 `prepare(index)` the engine calls once at construction.
+
+**Followers** (ATCS macro jobs, Pinedo p.93, p.448): a rule may also define
+`followers(state, op_id, machine_id) -> Sequence[str]`. When machine i decides next, the
+engine first asks for the followers of i's last placed op and places the first one that is
+ready, eligible on i and has est no later than i's free time (its gate is met when the
+last op finishes), ahead of the conflict set; followers that do not qualify stay in the
+pool. A placed follower is i's new last op, so a chain continues decision by decision.
+Followers are ordinary placements, so the sequences still decode to the engine's schedule.
 
 Per decision the engine touches only the deciding machine's candidates: ready ops are kept
 per machine incrementally, `t_i` and the completion bound are cached per machine and
@@ -172,6 +183,12 @@ def _earliest(op: OpData, now: float) -> float:
 # --- machine policy -------------------------------------------------------------------------
 
 
+class MachinePolicy(Protocol):
+    """Which machines a ready op may go to now (machine positions, a subset of its options)."""
+
+    def accepted(self, state: DispatchState, p: int) -> tuple[int, ...]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class PreferredUnlessLate:
     """Preferred machine unless late (D-072, Pinedo p.523); see the module docstring."""
@@ -233,7 +250,7 @@ class DispatchState:
     _last: list[int]
     _last_start: list[float]
     _placed: list[Placed | None]
-    _policy: PreferredUnlessLate
+    _policy: MachinePolicy
     _pools: dict[str, PoolTimeline]
     _queue: dict[str, int]
     _remaining: int
@@ -243,7 +260,7 @@ class DispatchState:
     _waiting: list[int]
 
     @classmethod
-    def initial(cls, static: _Static, policy: PreferredUnlessLate) -> DispatchState:
+    def initial(cls, static: _Static, policy: MachinePolicy) -> DispatchState:
         """In-progress ops placed at `now`; every op with no unplaced predecessor ready.
 
         A conflict among in-progress ops is kept in `issue` (the engine returns it).
@@ -325,6 +342,9 @@ class DispatchState:
     def queue_length(self, center_id: str) -> int:
         """Ready (every predecessor placed), unplaced ops of a work center."""
         return self._queue.get(center_id, 0)
+
+    def is_placed(self, op_id: str) -> bool:
+        return self._placed[self.static.index.pos[op_id]] is not None
 
     def last_op(self, machine_id: str) -> str | None:
         last = self._last[self.static.index.machine_pos[machine_id]]
@@ -572,10 +592,13 @@ def gt_branch(state: DispatchState) -> tuple[tuple[str, str], ...]:
 # --- the engine ------------------------------------------------------------------------------
 
 
+Followers = Callable[[DispatchState, str, str], Sequence[str]]
+
+
 class DispatchEngine:
     """List scheduling with a priority rule and the machine policy (module docstring)."""
 
-    __slots__ = ("_mode", "_policy", "_rule", "_static")
+    __slots__ = ("_followers", "_mode", "_policy", "_rule", "_static")
 
     def __init__(
         self,
@@ -583,14 +606,15 @@ class DispatchEngine:
         rule: PriorityRule,
         *,
         mode: Mode = "nondelay",
-        policy: PreferredUnlessLate | None = None,
+        policy: MachinePolicy | None = None,
     ) -> None:
         if mode not in ("nondelay", "active"):
             raise ValueError(f"unknown dispatch mode {mode!r}")
         self._static = _Static.build(index)
         self._rule = rule
         self._mode = mode
-        self._policy = policy or PreferredUnlessLate()
+        self._policy: MachinePolicy = policy or PreferredUnlessLate()
+        self._followers: Followers | None = getattr(rule, "followers", None)
         prepare: Callable[[ProblemIndex], None] | None = getattr(rule, "prepare", None)
         if prepare is not None:
             prepare(index)
@@ -653,6 +677,8 @@ class DispatchEngine:
         self, state: DispatchState, m: int, t: float, conflict: list[int]
     ) -> ScheduleIssue | None:
         """Place the best op of `conflict` that fits on `m`; the first issue when none does."""
+        if self._follow(state, m):
+            return None
         first_issue: ScheduleIssue | None = None
         for p in self._ordered(state, m, t, conflict):
             issue = state.place(p, m)
@@ -660,6 +686,21 @@ class DispatchEngine:
                 return None
             first_issue = first_issue or issue
         return first_issue
+
+    def _follow(self, state: DispatchState, m: int) -> bool:
+        """Place the first follower of `m`'s last op whose gate is met (module docstring)."""
+        last = state.last_pos(m)
+        if self._followers is None or last == _NONE:
+            return False
+        index = self._static.index
+        machine_id = index.machines[m].id
+        free = state.free_time(machine_id)
+        for follower in self._followers(state, index.op_ids[last], machine_id):
+            q = index.pos[follower]
+            est = state.candidates(m).get(q)
+            if est is not None and est <= free + _EPS and state.place(q, m) is None:
+                return True
+        return False
 
     def _ordered(self, state: DispatchState, m: int, t: float, conflict: list[int]) -> list[int]:
         """`conflict` by rule index, highest first; ties by op id."""
@@ -719,20 +760,34 @@ class DispatchSolver:
         started = time.perf_counter()
         index = ProblemIndex.build(problem)
         engine = DispatchEngine(index, self._rule_factory(), mode=self._mode)
-        result = engine.run(deadline=context.deadline)
-        if isinstance(result, ScheduleIssue):
-            return Schedule(
-                status="UNKNOWN",
-                assignments=(),
-                solver=self._name,
-                elapsed_seconds=time.perf_counter() - started,
-                issues=(result,),
-            )
-        values = fast_values(index, result.decoded, context.previous_plan, context.churn_tolerance)
-        schedule = result.decoded.schedule(self._name)
-        return schedule.model_copy(
-            update={
-                "primary_value": values[primary_kind(objective)],
-                "elapsed_seconds": time.perf_counter() - started,
-            }
+        return dispatch_schedule(self._name, engine, index, objective, context, started)
+
+
+def dispatch_schedule(
+    name: str,
+    engine: DispatchEngine,
+    index: ProblemIndex,
+    objective: ObjectiveSpec,
+    context: SolveContext,
+    started: float,
+) -> Schedule:
+    """Run `engine` to `context.deadline`: FEASIBLE with the primary value, else UNKNOWN.
+
+    `started` is the solve's `time.perf_counter()` start, for `elapsed_seconds`.
+    """
+    result = engine.run(deadline=context.deadline)
+    if isinstance(result, ScheduleIssue):
+        return Schedule(
+            status="UNKNOWN",
+            assignments=(),
+            solver=name,
+            elapsed_seconds=time.perf_counter() - started,
+            issues=(result,),
         )
+    values = fast_values(index, result.decoded, context.previous_plan, context.churn_tolerance)
+    return result.decoded.schedule(name).model_copy(
+        update={
+            "primary_value": values[primary_kind(objective)],
+            "elapsed_seconds": time.perf_counter() - started,
+        }
+    )

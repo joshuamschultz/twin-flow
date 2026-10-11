@@ -559,6 +559,24 @@ class Assignment(_Contract):
         return self
 
 
+class AtcsRun(_Contract):
+    """One ATCS run on a work center: its statistics, K and the plan's primary value (REQ-121).
+
+    `source` says where K came from: the p.376 formula, a `k_lookup` table, explicit method
+    params, or a learning perturbation (D-073, D-082).
+    """
+
+    work_center_id: Id
+    tau: float
+    R: float
+    eta: float
+    m: int = Field(ge=0)
+    K1: float
+    K2: float
+    source: Literal["formula", "table", "explicit", "perturbed"]
+    objective_value: float | None = None
+
+
 class Schedule(_Contract):
     """A solver's answer with its status, primary value and bound."""
 
@@ -569,6 +587,7 @@ class Schedule(_Contract):
     solver: Id
     elapsed_seconds: NonNegFloat
     issues: tuple[ScheduleIssue, ...] = ()
+    atcs_runs: tuple[AtcsRun, ...] = ()
 
 
 class CompiledProblem(_Contract):
