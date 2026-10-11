@@ -8,6 +8,17 @@ All notable changes to twinflow are recorded here. The format follows
 
 ### Added
 
+- **TF-004 simulation link:** every verified plan (ERP or scenario) runs in the new
+  operation-level DES `twinflow.execution`, whose rules are the verifier's. Stochastic run
+  and setup factors, preempt-resume breakdowns and scripted outages come from a signed
+  `[simulation]` table in the planning profile, with keyed common random numbers so
+  separately stored simulations with one seed are paired. New MCP tool
+  `simulate_portfolio`; `simulate_plan` is synchronous for every plan; `compare_plans`
+  takes `simulation_ids`; `query_evidence` topic `schedule` pages rows by `simulation_id`.
+  Results report Pinedo's robustness measures, the 90/80/70 load check and paired deltas
+  against an `edd` dispatch baseline. See "Simulating plans" in
+  [the agent guide](docs/enterprise/AGENT-GUIDE.md).
+
 - `split_output: true` on locations to explode each produced bundle into quantity-one
   bundles while preserving thing, unit, attributes, and order identity. A fractional
   remainder is emitted as one final fractional bundle. See [modeling](docs/modeling.md)
@@ -72,6 +83,14 @@ All notable changes to twinflow are recorded here. The format follows
 - **Breaking (TF-005):** the MCP tool `simulate_schedule_plan` is removed; use
   `simulate_plan` (scenario plans) and `simulate_schedule_baseline`. ERP plans return
   `simulation_link_pending` until the simulation link ships.
+- **Breaking (TF-004):** the material-flow DES has no scheduled-replay mode
+  (`RunDriver.check_execution_schedule`, `execution_schedule`, `schedule_trace`,
+  `Workspace.submit_schedule_plan`, the `schedule_execution` result block and
+  `POST /api/workspace/schedule-plans/{id}/simulate` are gone). `simulate_plan` drops
+  `wait_seconds` and the 10-replication cap; `simulation_link_pending` is gone. Adding
+  `[simulation]` changes every planning profile digest: re-put the profile and rebuild
+  problems after upgrading (older signed profiles fail closed with
+  `artifact_signature_invalid`).
 - **Breaking (TF-005):** the MCP tools `preview_schedule_upload` and `commit_schedule_upload`
   take `upload_name` instead of `filename`. Only its extension is read.
 - All removed code is reachable at git tag `pre-cleanup`.
