@@ -24,6 +24,14 @@ adjacent ops on one machine: it refuses a swap that closes a cycle (another u ->
 before touching anything, reorders only the topological window between u and v (the ops
 reachable from u move after the rest), recomputes the setups of v, u and the follower,
 and recomputes heads from the first changed node, only where a head can change.
+`move_node(op, machine, position)` (reassign moves, T-146) takes op out of its machine
+chain and inserts it at `position` of another: it refuses a cycle (op reaching its new
+machine predecessor, or its new follower reaching op) before touching anything, swaps the
+op's option and job-arc weights, restores the topological order per new arc the same way
+(the ops reachable from the arc's head move after the rest of the window), and updates
+heads like a swap. Moving an op back to where it was restores every head exactly (heads
+are a deterministic function of the arcs). `as_decoded()` is the graph's schedule as a
+`Decoded`, so the graph estimate and the decoder share one value function (`fast_values`).
 
 `graph_exact(features)`: the graph's values equal the decoder's for these features
 (D-076). Pins count as exact: a pin's earliest start is a head bound, and a latest start
@@ -39,6 +47,7 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from twinflow.scheduling.kernel.decode import Decoded
 from twinflow.scheduling.kernel.index import OpData, OpOption, ProblemIndex
 from twinflow.scheduling.seam import Feature
 
@@ -91,6 +100,7 @@ class DisjunctiveGraph:
         "_det",
         "_detached",
         "_dur",
+        "_first",
         "_floor",
         "_head",
         "_in_progress",
@@ -99,6 +109,7 @@ class DisjunctiveGraph:
         "_mnext",
         "_mprev",
         "_nodes",
+        "_option",
         "_order",
         "_rank",
         "_release",
@@ -124,12 +135,12 @@ class DisjunctiveGraph:
         self._head = [0.0] * n
         self._order: list[int] = []
         self._rank = [_NONE] * n
-        options: dict[int, OpOption] = {}
+        self._first: dict[str, int] = {}
+        self._option: dict[int, OpOption] = {}
         for op_id, machine_id in choice.items():
             p = index.pos[op_id]
-            options[p] = _chosen_option(index.ops[p], machine_id)
-            self._set_node(p, machine_id, options[p])
-        self._arcs_in, self._arcs_out = _job_arcs(index, options, n)
+            self._set_node(p, machine_id, _chosen_option(index.ops[p], machine_id))
+        self._arcs_in, self._arcs_out = _job_arcs(index, self._option, n)
 
     @classmethod
     def build(
@@ -170,6 +181,41 @@ class DisjunctiveGraph:
             if ends:
                 completions[job.id] = max(ends)
         return completions
+
+    def sequences(self) -> dict[str, list[str]]:
+        """Machine id -> its op ids in sequence order, for every machine with a node."""
+        op_ids = self._index.op_ids
+        return {
+            machine_id: [op_ids[p] for p in self._chain(machine_id)]
+            for machine_id, first in self._first.items()
+            if first != _NONE
+        }
+
+    def placement(self, op_id: str) -> tuple[str, int]:
+        """The op's machine and its index in that machine's sequence."""
+        p = self._node(op_id)
+        k, x = 0, self._mprev[p]
+        while x != _NONE:
+            k, x = k + 1, self._mprev[x]
+        return self._machine[p], k
+
+    def as_decoded(self) -> Decoded:
+        """The graph's schedule: starts = heads, setup_ends = head + setup, ends = head + dur.
+
+        Batch ids are None. ValueError unless every scheduled op of the index is a node.
+        """
+        n = len(self._index.ops)
+        if len(self._nodes) != n:
+            raise ValueError("as_decoded needs every scheduled op as a node")
+        head = self._head
+        return Decoded(
+            index=self._index,
+            options=tuple(self._option[p] for p in range(n)),
+            starts=tuple(head),
+            setup_ends=tuple([h + s for h, s in zip(head, self._setup, strict=True)]),
+            ends=tuple([h + d for h, d in zip(head, self._dur, strict=True)]),
+            batch_ids=(None,) * n,
+        )
 
     def critical_path(self, sink: str | None = None) -> list[str]:
         """Op ids of one longest source path to the makespan sink, or to job `sink`'s V_k."""
@@ -279,12 +325,44 @@ class DisjunctiveGraph:
             self._refresh_duration(p)
         self._update_heads(changed)
 
+    def move_node(self, op_id: str, machine_id: str, position: int) -> None:
+        """Move `op_id` to index `position` of `machine_id`'s sequence, heads incrementally.
+
+        Raises `GraphCycle` (graph unchanged) when the move closes a cycle, and ValueError
+        (graph unchanged) when the op has no option on `machine_id`, is already there, the
+        position is outside 0..len, or it would precede an in-progress op.
+        """
+        p = self._node(op_id)
+        if self._machine[p] == machine_id:
+            raise ValueError(f"{op_id} is already on {machine_id}")
+        option = _chosen_option(self._index.ops[p], machine_id)
+        before, after = self._insertion_neighbors(machine_id, position)
+        old_machine, old_prev, old_next = self._machine[p], self._mprev[p], self._mnext[p]
+        self._unlink(p)
+        reach = self._reach(p, before)
+        if before in reach or (after != _NONE and p in self._reach(after, p)):
+            self._link_between(old_prev, p, old_next, old_machine)
+            ids = self._index.op_ids
+            raise GraphCycle(f"moving {ids[p]} to {machine_id} closes a cycle")
+        self._set_node(p, machine_id, option)
+        self._rebuild_arcs(p)
+        self._link_between(before, p, after, machine_id)
+        if before != _NONE and self._rank[before] > self._rank[p]:
+            self._reorder_window(p, before, reach)
+        if after != _NONE and self._rank[p] > self._rank[after]:
+            self._reorder_window(after, p, self._reach(after, p))
+        changed = [x for x in (p, after, old_next) if x != _NONE]
+        for x in changed:
+            self._refresh_duration(x)
+        self._update_heads(changed)
+
     # --- build helpers ---------------------------------------------------------------------
 
     def _set_node(self, p: int, machine_id: str, option: OpOption) -> None:
         op = self._index.ops[p]
         machine = self._index.machines[self._index.machine_pos[machine_id]]
         self._machine[p] = machine_id
+        self._option[p] = option
         if op.in_progress is not None:
             self._in_progress[p] = True
             self._run[p] = op.in_progress.remaining_seconds or 0.0
@@ -301,6 +379,7 @@ class DisjunctiveGraph:
         self, machine_id: str, sequence: Sequence[str], choice: Mapping[str, str]
     ) -> None:
         previous = _NONE
+        self._first[machine_id] = _NONE
         for op_id in sequence:
             if choice.get(op_id) != machine_id:
                 raise ValueError(f"{op_id} is sequenced on {machine_id} but not chosen there")
@@ -308,6 +387,8 @@ class DisjunctiveGraph:
             self._mprev[p] = previous
             if previous != _NONE:
                 self._mnext[previous] = p
+            else:
+                self._first[machine_id] = p
             previous = p
 
     def _topological_order(self) -> list[int]:
@@ -407,6 +488,8 @@ class DisjunctiveGraph:
         """Machine order becomes before -> first -> second -> after."""
         if before != _NONE:
             self._mnext[before] = first
+        else:
+            self._first[self._machine[first]] = first
         self._mprev[first] = before
         self._mnext[first] = second
         self._mprev[second] = first
@@ -443,6 +526,81 @@ class DisjunctiveGraph:
             if head != self._head[x]:
                 self._head[x] = head
                 dirty.update(y for y, _ in self._out_edges(x))
+
+    # --- node-move helpers ------------------------------------------------------------------
+
+    def _insertion_neighbors(self, machine_id: str, position: int) -> tuple[int, int]:
+        """The machine predecessor and follower an op inserted at `position` gets."""
+        chain = self._chain(machine_id)
+        if not 0 <= position <= len(chain):
+            raise ValueError(f"position {position} is outside 0..{len(chain)} on {machine_id}")
+        after = chain[position] if position < len(chain) else _NONE
+        if after != _NONE and self._in_progress[after]:
+            raise ValueError(f"an op cannot precede in-progress {self._index.op_ids[after]}")
+        return (chain[position - 1] if position > 0 else _NONE), after
+
+    def _chain(self, machine_id: str) -> list[int]:
+        chain: list[int] = []
+        x = self._first.get(machine_id, _NONE)
+        while x != _NONE:
+            chain.append(x)
+            x = self._mnext[x]
+        return chain
+
+    def _unlink(self, p: int) -> None:
+        """Take `p` out of its machine chain; its neighbors become adjacent."""
+        prev, follower = self._mprev[p], self._mnext[p]
+        if prev != _NONE:
+            self._mnext[prev] = follower
+        elif self._first.get(self._machine[p]) == p:
+            self._first[self._machine[p]] = follower
+        if follower != _NONE:
+            self._mprev[follower] = prev
+        self._mprev[p] = self._mnext[p] = _NONE
+
+    def _link_between(self, before: int, p: int, after: int, machine_id: str) -> None:
+        """Insert the unlinked `p` between adjacent `before` and `after` of `machine_id`."""
+        self._mprev[p], self._mnext[p] = before, after
+        if before != _NONE:
+            self._mnext[before] = p
+        else:
+            self._first[machine_id] = p
+        if after != _NONE:
+            self._mprev[after] = p
+
+    def _reach(self, start: int, target: int) -> set[int]:
+        """Nodes reachable from `start` (itself included) up to `target`'s rank.
+
+        With `target` `_NONE` only `start`. Every path to `target` stays within its rank.
+        """
+        if target == _NONE:
+            return {start}
+        last = self._rank[target]
+        reach = {start}
+        stack = [start]
+        while stack:
+            x = stack.pop()
+            for y, _ in self._out_edges(x):
+                if y not in reach and self._rank[y] <= last:
+                    reach.add(y)
+                    stack.append(y)
+        return reach
+
+    def _rebuild_arcs(self, p: int) -> None:
+        """Recreate the job arcs at `p` for its current option (overlap weights use it)."""
+        for old in self._arcs_in[p]:
+            self._replace_arc(old, self._new_arc(old))
+        for old in self._arcs_out[p]:
+            self._replace_arc(old, self._new_arc(old))
+
+    def _new_arc(self, old: _JobArc) -> _JobArc:
+        link = next(lk for lk in self._index.ops[old.v].predecessors if lk.pred_pos == old.u)
+        u_option, v_option = self._option[old.u], self._option[old.v]
+        return _arc(old.u, old.v, u_option, v_option, link.min_lag, link.overlap)
+
+    def _replace_arc(self, old: _JobArc, new: _JobArc) -> None:
+        self._arcs_in[old.v] = tuple(new if a is old else a for a in self._arcs_in[old.v])
+        self._arcs_out[old.u] = tuple(new if a is old else a for a in self._arcs_out[old.u])
 
     # --- lookups ---------------------------------------------------------------------------
 

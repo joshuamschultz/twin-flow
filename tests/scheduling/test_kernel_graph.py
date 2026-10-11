@@ -13,6 +13,13 @@ Cmax with equality on a critical path; `tails(job_id)` does the same to job sink
 holds only the ops with a path to V_k (the job's own ops and the ops that reach them).
 A cycle raises `GraphCycle` (a ValueError) and is never looped on; `apply_swap` that
 would close a cycle raises it and leaves the graph unchanged.
+`move_node(op, machine, position)` (T-146, reassign moves) takes op out of its machine's
+sequence and inserts it at index `position` of `machine`'s sequence (its chosen option
+becomes the one on `machine`), with the same incremental head update and the same cycle
+refusal. `placement(op)` is (machine, index in its sequence); `sequences()` maps every
+machine with nodes to its op ids in order, and `as_decoded()` gives the graph's schedule
+as a `Decoded` (starts = heads, setup_ends = head + setup, ends = head + dur, batch ids
+None).
 
 `graph_exact(features)`: True when every feature is graph-exact per the SDD Data Model
 (alternatives, setups, detached_setup, lags, overlap, machine_state, in_progress, pins).
@@ -442,3 +449,153 @@ def test_path_and_tail_matrices_on_7_1_1_job_arcs_only() -> None:
         [-np.inf, -np.inf, -np.inf],
     ]  # 1-1 runs 10, 1-2 runs 8 (Pinedo Example 7.1.1)
     assert tails.tolist() == [[22.0, -np.inf, -np.inf], [-np.inf, -np.inf, 3.0]]
+
+
+# --- node moves between machines (T-146, reassign moves) ---------------------------------------
+
+
+def _moved(
+    sequences: Mapping[str, Sequence[str]], op_id: str, target: str, position: int
+) -> dict[str, list[str]]:
+    moved = {m: [o for o in seq if o != op_id] for m, seq in sequences.items()}
+    moved.setdefault(target, []).insert(position, op_id)
+    return moved
+
+
+def _random_node_move(
+    rng: np.random.Generator,
+    index: ProblemIndex,
+    choice: Mapping[str, str],
+    sequences: Mapping[str, Sequence[str]],
+) -> tuple[str, str, int] | None:
+    op_id = sorted(choice)[int(rng.integers(len(choice)))]
+    others = sorted(o.machine_id for o in index.op(op_id).options if o.machine_id != choice[op_id])
+    if not others:
+        return None
+    target = others[int(rng.integers(len(others)))]
+    return op_id, target, int(rng.integers(len(sequences.get(target, ())) + 1))
+
+
+def test_move_node_equals_full_recompute_on_500_moves() -> None:
+    applied = cycles = 0
+    for seed in range(200):
+        request, choice, sequences = random_job_shop(seed, setups=True)
+        index = ProblemIndex.build(compile_request(request).problem)
+        graph = DisjunctiveGraph.build(index, choice, _copy(sequences))
+        rng = np.random.default_rng((seed, 146))
+        for _ in range(20):
+            picked = _random_node_move(rng, index, choice, sequences)
+            if picked is None:
+                continue
+            op_id, target, position = picked
+            moved = _moved(sequences, op_id, target, position)
+            moved_choice = {**choice, op_id: target}
+            try:
+                full = DisjunctiveGraph.build(index, moved_choice, _copy(moved))
+            except GraphCycle:
+                before = graph.heads()
+                with pytest.raises(GraphCycle):
+                    graph.move_node(op_id, target, position)
+                assert graph.heads() == before, f"seed {seed}: failed move changed heads"
+                assert graph.sequences() == {m: s for m, s in sequences.items() if s}
+                cycles += 1
+                continue
+            graph.move_node(op_id, target, position)
+            choice, sequences = moved_choice, moved
+            assert graph.sequences() == {m: s for m, s in sequences.items() if s}
+            assert graph.heads() == pytest.approx(full.heads()), f"seed {seed}: {op_id}"
+            assert graph.completions() == pytest.approx(full.completions())
+            assert graph.tails() == pytest.approx(full.tails())
+            applied += 1
+        if applied >= SWAPS:
+            break
+    print(f"\nnode moves applied {applied}, cycle moves refused {cycles}")
+    assert applied >= SWAPS
+    assert cycles >= 1
+
+
+def test_move_node_back_restores_the_heads_exactly() -> None:
+    request, choice, sequences = random_job_shop(3, setups=True)
+    index = ProblemIndex.build(compile_request(request).problem)
+    graph = DisjunctiveGraph.build(index, choice, _copy(sequences))
+    heads = graph.heads()
+    rng = np.random.default_rng(7)
+    restored = 0
+    for _ in range(50):
+        picked = _random_node_move(rng, index, choice, sequences)
+        if picked is None:
+            continue
+        op_id, target, position = picked
+        home = choice[op_id]
+        back = sequences[home].index(op_id)
+        try:
+            graph.move_node(op_id, target, position)
+        except GraphCycle:
+            continue
+        graph.move_node(op_id, home, back)
+        assert graph.heads() == heads
+        assert graph.sequences() == {m: s for m, s in sequences.items() if s}
+        restored += 1
+    assert restored >= 10
+
+
+def test_move_node_refuses_bad_input_and_leaves_the_graph_unchanged() -> None:
+    request, choice, sequences = random_job_shop(0, setups=True)
+    index = ProblemIndex.build(compile_request(request).problem)
+    graph = DisjunctiveGraph.build(index, choice, _copy(sequences))
+    op_id = sorted(choice)[0]
+    other = next(o.machine_id for o in index.op(op_id).options if o.machine_id != choice[op_id])
+    ineligible = ({"M0", "M1", "M2"} - {o.machine_id for o in index.op(op_id).options}).pop()
+    heads = graph.heads()
+
+    with pytest.raises(ValueError):
+        graph.move_node(op_id, ineligible, 0)
+    with pytest.raises(ValueError):
+        graph.move_node(op_id, choice[op_id], 0)
+    with pytest.raises(ValueError):
+        graph.move_node(op_id, other, len(sequences[other]) + 1)
+    with pytest.raises(ValueError):
+        graph.move_node("no-such-op", other, 0)
+    assert graph.heads() == heads
+
+
+def test_sequences_lists_every_machine_chain_in_order() -> None:
+    graph = _graph_7_1_1(OPTIMAL_7_1_1)
+
+    assert graph.sequences() == {m: list(seq) for m, seq in OPTIMAL_7_1_1.items()}
+    assert _graph_7_1_1({}).sequences() == {}
+
+
+def test_as_decoded_equals_the_decoder_on_7_1_1() -> None:
+    request = load_request("pinedo_7_1_1")
+    index = ProblemIndex.build(compile_request(request).problem)
+    decoded = decode(index, only_choice(request), OPTIMAL_7_1_1)
+    assert isinstance(decoded, Decoded)
+    graph = DisjunctiveGraph.build(index, only_choice(request), OPTIMAL_7_1_1)
+
+    estimate = graph.as_decoded()
+
+    assert estimate.options == decoded.options
+    assert estimate.starts == decoded.starts
+    assert estimate.setup_ends == decoded.setup_ends
+    assert estimate.ends == decoded.ends
+    assert estimate.batch_ids == (None,) * len(index.ops)
+
+
+def test_as_decoded_needs_every_op_as_a_node() -> None:
+    request = load_request("pinedo_7_1_1")
+    index = ProblemIndex.build(compile_request(request).problem)
+    choice = only_choice(request)
+    del choice["1-1"]
+    graph = DisjunctiveGraph.build(index, choice, {})
+
+    with pytest.raises(ValueError):
+        graph.as_decoded()
+
+
+def test_placement_is_the_machine_and_index_in_its_sequence() -> None:
+    graph = _graph_7_1_1(OPTIMAL_7_1_1)
+
+    for machine_id, sequence in OPTIMAL_7_1_1.items():
+        for k, op_id in enumerate(sequence):
+            assert graph.placement(op_id) == (machine_id, k)
