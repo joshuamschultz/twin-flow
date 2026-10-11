@@ -476,8 +476,8 @@ def propose_action(
 
 def get_planning_profile(services: ToolServices, caller: Caller, _: m.NoInput) -> m.ArtifactOutput:
     """The verified active planning profile."""
-    store = _store(services, NoPlanningProfile("No signed planning profile store is configured"))
-    active = store.get_active("planning_profiles", PlanningProfile)
+    _store(services, NoPlanningProfile("No signed planning profile store is configured"))
+    active = services.planning_artifacts.active_signed_profile()
     if active is None:
         raise NoPlanningProfile("No planning profile is active; put one first")
     return _artifact_output(*active)

@@ -15,6 +15,11 @@ moment of use (nothing is cached):
   not an error (`k_lookup` None, TF-003 picks K itself). With TF-003 installed it is passed
   to the solver through TF-003's `as_k_lookup`.
 
+* Re-digest: every stored profile read here must re-digest to its signed digest after load.
+  A profile signed before a field existed (TF-004's `[simulation]`) would otherwise load
+  with that field's default, silently unsigned; it is `ArtifactSignatureInvalid` naming the
+  digest, with no default fallback even in local mode (TF-005 D-126).
+
 The digests and sequences used are recorded on every problem and plan record (`Provenance`).
 """
 
@@ -124,15 +129,21 @@ class PlanningArtifacts:
         """The profile a build or validation uses, and its profile provenance."""
         if digest is not None:
             return self._named_profile(digest)
-        if self._store is not None:
-            active = self._store.get_active(PROFILES, PlanningProfile)
-            if active is not None:
-                profile, ref = active
-                return profile, Provenance(ref.digest, ref.sequence, True)
+        active = self.active_signed_profile()
+        if active is not None:
+            profile, ref = active
+            return profile, Provenance(ref.digest, ref.sequence, True)
         if not self._local_mode:
             raise NoPlanningProfile("No signed planning profile is active; put one first")
         default = load_planning_profile("")
         return default, Provenance.unsigned(default)
+
+    def active_signed_profile(self) -> tuple[PlanningProfile, ArtifactRef] | None:
+        """The verified, re-digested active profile; None without a store or an active one."""
+        if self._store is None:
+            return None
+        active = self._store.get_active(PROFILES, PlanningProfile)
+        return None if active is None else _redigested(*active)
 
     def for_build(self, digest: str | None) -> tuple[PlanningProfile, Provenance]:
         """The build's profile, with the active K-table recorded in its provenance."""
@@ -174,7 +185,7 @@ class PlanningArtifacts:
                 raise NoPlanningProfile("No signed planning profile store is configured")
             raise NotFound("No stored planning profile has that digest")
         try:
-            profile, ref = self._store.get(PROFILES, digest, PlanningProfile)
+            profile, ref = _redigested(*self._store.get(PROFILES, digest, PlanningProfile))
         except KeyError:
             raise NotFound("No stored planning profile has that digest") from None
         return profile, Provenance(ref.digest, ref.sequence, True)
@@ -183,7 +194,7 @@ class PlanningArtifacts:
         if self._store is None:
             raise ArtifactSignatureInvalid("a signed problem needs the artifact store")
         try:
-            self._store.get(PROFILES, digest, PlanningProfile)
+            _redigested(*self._store.get(PROFILES, digest, PlanningProfile))
         except KeyError:
             raise ArtifactSignatureInvalid("the problem's signed profile is gone") from None
         if profile_digest(stored) != digest:
@@ -192,3 +203,13 @@ class PlanningArtifacts:
     @staticmethod
     def _with_k_table(provenance: Provenance, k_table: KTableUse) -> Provenance:
         return replace(provenance, k_table_digest=k_table.digest, k_table_sequence=k_table.sequence)
+
+
+def _redigested(profile: PlanningProfile, ref: ArtifactRef) -> tuple[PlanningProfile, ArtifactRef]:
+    """Return the loaded profile only if it re-digests to the digest it was signed under."""
+    if profile_digest(profile) != ref.digest:
+        raise ArtifactSignatureInvalid(
+            f"stored planning profile {ref.digest} does not re-digest to its signed digest "
+            "after load (signed before a profile field existed?); put the profile again"
+        )
+    return profile, ref

@@ -1,12 +1,14 @@
 """Simulation policy and distribution types: the `[simulation]` table (COMP-131, D-092, D-109).
 
-Pure Pydantic types, no behaviour. A distribution in a factor field multiplies planned
+Pure Pydantic types plus `policy_digest`. A distribution in a factor field multiplies planned
 seconds; in a repair field it is seconds. Every model is frozen, closed to unknown fields
 and finite (the TF-002 contract, D-060), and every list is bounded (D-109).
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -183,3 +185,15 @@ class SimulationPolicy(_Frozen):
                 'need distribution_source = "profile"'
             )
         return self
+
+
+def policy_digest(policy: SimulationPolicy) -> str:
+    """Lowercase SHA-256 hex of the policy as canonical JSON (sorted keys, compact).
+
+    The same canonical form as the planning profile's `profile_digest`; every simulation
+    records it so a result names the exact policy it ran under (REQ-139).
+    """
+    canonical = json.dumps(
+        policy.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

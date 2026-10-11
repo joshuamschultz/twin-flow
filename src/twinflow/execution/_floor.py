@@ -82,14 +82,16 @@ class _Gate:
         self.event: simpy.Event | None = None
         self.limits: list[float] = []
 
-    def satisfy(self, ready_at: float, limit: float | None) -> None:
-        """One link is met: the gate may open at `ready_at` or later."""
+    def satisfy(self, ready_at: float, limit: float | None) -> bool:
+        """One link is met: the gate may open at `ready_at` or later. True when it was the
+        last one (the gate is open from `time`)."""
         self.time = max(self.time, ready_at)
         if limit is not None:
             self.limits.append(limit)
         self.pending -= 1
         if self.pending == 0 and self.event is not None:
             self.event.succeed()
+        return self.pending == 0
 
 
 @dataclass(slots=True)
@@ -166,13 +168,17 @@ class Floor:
         return gate
 
     def start(self) -> None:
-        """Start one process per machine the sequencer names."""
+        """Report the gates open from the start, then start one process per machine the
+        sequencer names."""
+        for op_id, gate in self.gates.items():
+            if gate.pending == 0:
+                self.sequencer.gate_open(op_id, gate.time)
         for machine_id in self.sequencer.machine_ids():
             self.env.process(self._machine_process(self.machines[machine_id]))
 
     def _machine_process(self, machine: MachineRuntime) -> Steps:
         while True:
-            nxt = self.sequencer.next_unit(machine.id)
+            nxt = self.sequencer.next_unit(machine)
             if nxt is None:
                 return
             if isinstance(nxt, simpy.Event):
@@ -357,7 +363,7 @@ class Floor:
         while fired < len(milestones) and milestones[fired].threshold <= done:
             link = milestones[fired].link
             limit = None if link.max_lag is None else now + link.max_lag
-            self.gates[milestones[fired].succ_id].satisfy(now + link.min_lag, limit)
+            self._satisfy(milestones[fired].succ_id, now + link.min_lag, limit)
             fired += 1
         return fired
 
@@ -400,11 +406,18 @@ class Floor:
             for succ_id, link in self.successors[op.id]:
                 if link.overlap_quantity is None:
                     limit = None if link.max_lag is None else end + link.max_lag
-                    self.gates[succ_id].satisfy(end + link.min_lag, limit)
+                    self._satisfy(succ_id, end + link.min_lag, limit)
             waiting = self._finished.pop(op.id, None)
             if waiting is not None:
                 waiting.succeed()
         self.remaining -= len(run.unit.members)
+        self.sequencer.unit_done(run.unit)
+
+    def _satisfy(self, op_id: str, ready_at: float, limit: float | None) -> None:
+        """Meet one link of `op_id`'s gate; tell the sequencer when the gate opens."""
+        gate = self.gates[op_id]
+        if gate.satisfy(ready_at, limit):
+            self.sequencer.gate_open(op_id, gate.time)
 
     # --- records ---------------------------------------------------------------------------------
 

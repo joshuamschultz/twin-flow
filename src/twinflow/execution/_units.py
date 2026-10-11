@@ -2,7 +2,7 @@
 
 A `Unit` is one start on one machine: a single operation, or the members of one batch
 (one setup, one run draw, D-088). Everything the executor needs about it is resolved once
-by `build_unit`, so plan control (now) and dispatch control (T-182) hand the same object
+by `build_unit`, so plan control and dispatch control hand the same object
 to the same machine code. The only difference between the two controls is *which* unit a
 machine takes next: that decision is the `Sequencer` protocol.
 """
@@ -15,6 +15,7 @@ from typing import Literal, Protocol
 
 import simpy
 
+from twinflow.execution._resources import MachineRuntime
 from twinflow.execution.shop import ShopMachine, ShopModel, ShopOperation
 from twinflow.scheduling import calendar_math
 from twinflow.scheduling.calendar_math import Intervals
@@ -142,11 +143,24 @@ def _needs(members: Iterable[ShopOperation], phases: tuple[str, ...]) -> PoolNee
 
 
 class Sequencer(Protocol):
-    """Decides which unit each machine takes next; everything after that is shared."""
+    """Decides which unit each machine takes next; everything after that is shared.
 
-    def next_unit(self, machine_id: str) -> Unit | simpy.Event | None:
+    The floor asks with the idle machine's runtime (up/down state, last operation) and
+    reports the two changes a sequencer cannot see itself: an operation's material gate
+    opening and a unit finishing (D-102).
+    """
+
+    def next_unit(self, machine: MachineRuntime) -> Unit | simpy.Event | None:
         """The machine's next unit, an event to wait on before asking again, or None
         when the machine has nothing more to do."""
+        ...
+
+    def gate_open(self, operation_id: str, time: float) -> None:
+        """Every predecessor link of the operation is met: material is there at `time`."""
+        ...
+
+    def unit_done(self, unit: Unit) -> None:
+        """The unit finished at the current time."""
         ...
 
     def machine_ids(self) -> tuple[str, ...]:
@@ -159,7 +173,7 @@ class Sequencer(Protocol):
 
 
 class Control(Protocol):
-    """A sequencing mode of the executor: plan control now, dispatch control in T-182."""
+    """A sequencing mode of the executor: plan control or dispatch control."""
 
     def sequencer(self, shop: ShopModel, env: simpy.Environment) -> Sequencer:
         """A fresh sequencer for one run of `shop` (raises ValueError on bad input)."""

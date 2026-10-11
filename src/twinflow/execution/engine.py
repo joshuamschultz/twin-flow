@@ -1,4 +1,4 @@
-"""SimPy executor: a verified plan (or, in T-182, a dispatch rule) run on the shop (COMP-135).
+"""SimPy executor: a verified plan or a dispatch rule run on the shop (COMP-135).
 
 `execute(shop, control, draws, outages, limits)` runs one replication and returns an
 `ExecutionRun` of one `OpRecord` per pending operation. The control decides only which
@@ -6,7 +6,8 @@ unit each machine takes next (`_units.Sequencer`); everything after that decisio
 shared floor code in `_floor.py` (D-088, D-102). `PlanControl` runs each machine through
 its planned assignments in the verifier's order `(start, end, operation id)`, a batch as
 one unit, with the planned start as an earliest start: late work right-shifts its
-successors and nothing is resequenced (D-088).
+successors and nothing is resequenced (D-088). `DispatchControl` (`_dispatch.py`) picks
+each idle machine's next unit by a dispatch rule instead (D-102).
 
 Randomness comes only from keyed draws (D-095): run and setup factors keyed by operation
 id, failures and repairs by `machine:k` (D-094), and a source's scripted outage `i` fires
@@ -27,6 +28,7 @@ from typing import Literal
 import simpy
 
 from twinflow.engine.rng import SOURCE_OUTAGE, keyed_uniform
+from twinflow.execution._dispatch import DispatchControl
 from twinflow.execution._floor import Floor, RepDraws
 from twinflow.execution._resources import (
     MachineRuntime,
@@ -117,10 +119,16 @@ class _PlanSequencer:
     def __init__(self, units: Mapping[str, Sequence[Unit]]) -> None:
         self._queues = {machine_id: deque(queue) for machine_id, queue in units.items()}
 
-    def next_unit(self, machine_id: str) -> Unit | simpy.Event | None:
+    def next_unit(self, machine: MachineRuntime) -> Unit | simpy.Event | None:
         """The next planned unit, or None after the last one."""
-        queue = self._queues[machine_id]
+        queue = self._queues[machine.id]
         return queue.popleft() if queue else None
+
+    def gate_open(self, operation_id: str, time: float) -> None:
+        """Plan control waits on gates in the floor; nothing to track."""
+
+    def unit_done(self, unit: Unit) -> None:
+        """Plan control follows the plan; nothing to track."""
 
     def machine_ids(self) -> tuple[str, ...]:
         """Machines with planned work."""
@@ -263,6 +271,7 @@ def _horizon_violations(horizon_end: float | None, records: Iterable[OpRecord]) 
 
 __all__ = [
     "Control",
+    "DispatchControl",
     "ExecutionRun",
     "Limits",
     "OpRecord",

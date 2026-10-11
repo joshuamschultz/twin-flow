@@ -47,6 +47,7 @@ import base64
 import hashlib
 import json
 import logging
+import re
 import sqlite3
 import sys
 from collections.abc import Iterator
@@ -64,10 +65,13 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
     load_pem_private_key,
 )
+from pydantic import BaseModel, ConfigDict
 
 from mcp import types
+from twinflow.application.artifacts import ArtifactSignatureInvalid
 from twinflow.application.decision_tools import DecisionTools
 from twinflow.application.planning import PlanningService
+from twinflow.application.planning_artifacts import PlanningArtifacts
 from twinflow.application.workspace import Workspace
 from twinflow.erp.profile import load_planning_profile, profile_digest
 from twinflow.mcp.tools import CATALOGUE, ToolServices, build_server
@@ -542,3 +546,188 @@ def test_no_private_key_material_in_outputs_audit_rows_logs_or_database(
     )
     assert raw not in database_bytes
     assert not any(needle.encode("ascii") in database_bytes for needle in texts)
+
+
+# --- TF-004: the `[simulation]` table is signed with the profile (T-185, REQ-139, D-104) -----
+
+SIMULATION_TOML = (
+    PROFILE_TOML
+    + '\n[simulation]\ndistribution_source = "profile"\nbaseline_rule = "edd"\n\n'
+    + "[[simulation.run_factors]]\n"
+    + 'distribution = { kind = "lognormal", mean = 1.0, cv = 0.15 }\n\n'
+    + "[[simulation.setup_factors]]\n"
+    + 'distribution = { kind = "lognormal", mean = 1.1, cv = 0.3 }\n'
+)
+
+
+class _PreSimulationProfile(BaseModel):
+    """A profile body exactly as TF-005 stored it: `scheduling` and `erp`, no `simulation`.
+
+    Put through the real `SignedArtifactStore`, so the record is validly signed and its
+    digest is the SHA-256 of the pre-TF-004 canonical payload.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+
+def _pre_simulation_body() -> dict[str, Any]:
+    body = tiny_profile().model_dump(mode="json")
+    body.pop("simulation", None)
+    assert set(body) == {"scheduling", "erp"}
+    return body
+
+
+def _put_pre_simulation_profile(world: World) -> str:
+    """Store a TF-005-era signed profile; return its signed digest."""
+    assert world.services.artifacts is not None
+    ref = world.services.artifacts.put(
+        "planning_profiles",
+        _PreSimulationProfile.model_validate(_pre_simulation_body()),
+        caller_id="local",
+    )
+    canonical = json.dumps(_pre_simulation_body(), sort_keys=True, separators=(",", ":"))
+    assert ref.digest == hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return str(ref.digest)
+
+
+def _record_count(world: World, kind: str) -> int:
+    with closing(_db(world)) as db:
+        row = db.execute("SELECT COUNT(*) FROM records WHERE kind = ?", (kind,)).fetchone()
+    return int(row[0])
+
+
+def test_put_planning_profile_signs_the_simulation_table_and_get_returns_it(
+    world: World,
+) -> None:
+    expected = load_planning_profile(SIMULATION_TOML)
+
+    async def body(session: McpSession) -> tuple[dict[str, Any], dict[str, Any]]:
+        ref = await session.call("put_planning_profile", {"profile_toml": SIMULATION_TOML})
+        active = await session.call("get_planning_profile", {})
+        return ref, active
+
+    ref, active = _session(world, body)
+
+    assert ref["digest"] == profile_digest(expected)
+    assert active["digest"] == ref["digest"]
+    assert active["artifact"]["simulation"] == expected.simulation.model_dump(mode="json")
+    assert active["artifact"]["simulation"]["distribution_source"] == "profile"
+    stored = json.loads(_record(world, "planning_profiles", "00000001")["payload"])
+    assert stored["simulation"] == expected.simulation.model_dump(mode="json")
+
+
+def test_put_planning_profile_typed_profile_round_trips_the_simulation_table(
+    world: World,
+) -> None:
+    profile = load_planning_profile(SIMULATION_TOML)
+
+    async def body(session: McpSession) -> dict[str, Any]:
+        await session.call("put_planning_profile", {"profile": profile.model_dump(mode="json")})
+        return await session.call("get_planning_profile", {})
+
+    active = _session(world, body)
+
+    assert active["digest"] == profile_digest(profile)
+    assert active["artifact"] == profile.model_dump(mode="json")
+
+
+def test_profiles_differing_only_in_simulation_are_distinct_signed_versions(
+    world: World,
+) -> None:
+    async def body(session: McpSession) -> dict[str, Any]:
+        plain = await session.call("put_planning_profile", {"profile_toml": PROFILE_TOML})
+        calibrated = await session.call("put_planning_profile", {"profile_toml": SIMULATION_TOML})
+        named = await session.call(
+            "build_problem_from_erp", {"snapshot": _shop(), "profile_digest": plain["digest"]}
+        )
+        return {"plain": plain, "calibrated": calibrated, "named": named}
+
+    out = _session(world, body)
+
+    assert out["plain"]["digest"] != out["calibrated"]["digest"]
+    assert (out["plain"]["sequence"], out["calibrated"]["sequence"]) == (1, 2)
+    assert out["named"]["profile_digest"] == out["plain"]["digest"]
+
+
+def test_put_planning_profile_invalid_simulation_table_is_refused_and_stores_nothing(
+    world: World,
+) -> None:
+    bad = PROFILE_TOML + "\n[simulation]\nreplications = 101\n"
+
+    async def body(session: McpSession) -> dict[str, Any]:
+        result = await session.raw("put_planning_profile", {"profile_toml": bad})
+        assert result.is_error, "an over-cap [simulation] table was signed"
+        return error_payload(result)
+
+    payload = _session(world, body)
+
+    assert payload["code"] == "invalid_input"
+    # The cross-field cap check reports at the table, not as an unknown table.
+    assert re.search(r"simulation(\.[a-z_]+)?: value_error", str(payload["message"])), payload
+    assert _record_count(world, "planning_profiles") == 0
+
+
+def test_pre_simulation_signed_profile_fails_get_planning_profile_closed(world: World) -> None:
+    _put_pre_simulation_profile(world)
+
+    async def body(session: McpSession) -> str:
+        return await _error_code(session, "get_planning_profile", {})
+
+    assert _session(world, body) == "artifact_signature_invalid"
+
+
+def test_pre_simulation_signed_profile_fails_the_build_instead_of_loading_defaults(
+    world: World,
+) -> None:
+    old_digest = _put_pre_simulation_profile(world)
+
+    async def body(session: McpSession) -> tuple[str, str]:
+        active = await _error_code(session, "build_problem_from_erp", {"snapshot": _shop()})
+        named = await _error_code(
+            session, "build_problem_from_erp", {"snapshot": _shop(), "profile_digest": old_digest}
+        )
+        return active, named
+
+    assert _session(world, body) == ("artifact_signature_invalid", "artifact_signature_invalid")
+    assert _record_count(world, "problems") == 0
+    assert sum(world.fake.calls.values()) == 0
+
+
+def test_pre_simulation_signed_profile_is_refused_by_planning_artifacts_with_a_clear_message(
+    world: World,
+) -> None:
+    old_digest = _put_pre_simulation_profile(world)
+    # Local mode must not rescue it with the built-in default either (D-126: no fallback).
+    artifacts = PlanningArtifacts(world.services.artifacts, local_mode=True)
+
+    for digest in (None, old_digest):
+        with pytest.raises(ArtifactSignatureInvalid) as caught:
+            artifacts.profile(digest)
+        assert caught.value.code == "artifact_signature_invalid"
+        assert "digest" in str(caught.value), str(caught.value)
+
+
+def test_problem_built_under_a_pre_simulation_profile_fails_its_solve_closed(
+    world: World,
+) -> None:
+    """A TF-005-era problem names the old signed digest; its re-verification must fail."""
+    old_digest = _put_pre_simulation_profile(world)
+
+    async def build(session: McpSession) -> str:
+        await session.call("put_planning_profile", {"profile_toml": PROFILE_TOML})
+        built = await session.call("build_problem_from_erp", {"snapshot": _shop()})
+        return str(built["problem_id"])
+
+    problem_id = _session(world, build)
+    # Rewrite the problem as TF-005 stored it: built under sequence 1, the pre-TF-004 body.
+    stored = _record(world, "problems", problem_id)
+    stored.update(profile=_pre_simulation_body(), profile_digest=old_digest, profile_sequence=1)
+    _write_body(world, "problems", problem_id, stored)
+
+    async def solve(session: McpSession) -> str:
+        return await _error_code(
+            session, "solve_portfolio", {"problem_id": problem_id, "request_key": "pre-sim"}
+        )
+
+    assert _session(world, solve) == "artifact_signature_invalid"
+    assert sum(world.fake.calls.values()) == 0
