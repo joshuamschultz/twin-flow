@@ -10,6 +10,11 @@ candidate is one `plans` record with id `f"{portfolio_id}:{candidate_id}"`, so t
 is stored once. Plan assignments carry their `job_id` so pages filter without the problem.
 Every plan also carries `overtime_seconds`: per machine whose calendar has priced overtime,
 the seconds its assignments spend inside that overtime (D-125, REQ-183).
+
+The horizon is a planning window, not a wall (TF-005 review ruling A, DEV-12): the problem
+record carries `horizon_seconds`, and every plan record gets one soft
+`capacity_beyond_horizon` issue per job whose last assignment ends past it, with the job's
+lineage (None for a job outside the problem, the rush job).
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ from twinflow.application._planning_models import (
 from twinflow.application.planning_artifacts import Provenance
 from twinflow.application.portfolio_port import CandidateLike, PortfolioResultLike
 from twinflow.erp.build import BuildResult
+from twinflow.erp.calendars import horizon_seconds
 from twinflow.erp.profile import PlanningProfile
 from twinflow.erp.schema import ErpSnapshot, Lineage
 from twinflow.scheduling import (
@@ -125,6 +131,7 @@ def build_records(
                 op: lineage.model_dump(mode="json") for op, lineage in result.lineage_index.items()
             },
             "profile": profile.model_dump(mode="json"),
+            "horizon_seconds": result.horizon_seconds,
             **provenance.record_fields(),
         }
         rows.append(("problems", record.problem_id, problem_body))
@@ -143,6 +150,29 @@ def job_index(request: SolveRequest, extra: Iterable[Job] = ()) -> dict[str, str
 
 def _issues(issues: Iterable[ScheduleIssue]) -> list[dict[str, Any]]:
     return [found.model_dump(mode="json") for found in issues]
+
+
+def capacity_issues(
+    problem: StoredProblem, schedule: Schedule, job_of: Mapping[str, str]
+) -> list[dict[str, Any]]:
+    """One soft `capacity_beyond_horizon` per job whose planned end is past the window."""
+    window = horizon_seconds(problem.profile.erp.horizon_days)
+    ends: dict[str, float] = {}
+    for assignment in schedule.assignments:
+        job_id = job_of.get(assignment.operation_id)
+        if job_id is not None:
+            ends[job_id] = max(ends.get(job_id, assignment.end), assignment.end)
+    return [
+        {
+            "code": "capacity_beyond_horizon",
+            "severity": "soft",
+            "job_id": job_id,
+            "lineage": problem.lineage_index.get(job_id),
+            "message": "job finishes after the planning window; capacity in it is short",
+        }
+        for job_id, end in sorted(ends.items())
+        if end > window
+    ]
 
 
 def _assignments(schedule: Schedule, job_of: Mapping[str, str]) -> list[dict[str, Any]]:
@@ -218,7 +248,10 @@ def _candidate_record(
         "overtime_seconds": overtime_seconds(problem.request, candidate.schedule),
         "objective_values": objective_values(candidate.objective_values),
         "verified": candidate.verified,
-        "issues": _issues(candidate.issues),
+        "issues": [
+            *_issues(candidate.issues),
+            *capacity_issues(problem, candidate.schedule, job_of),
+        ],
     }
 
 
@@ -282,6 +315,7 @@ def rush_records(
 ) -> tuple[RushRecord, list[RecordRow]]:
     """The summary and the one `plans` record of a rush insertion."""
     schedule = result.schedule.model_dump(mode="json", exclude={"assignments"})
+    job_of = job_index(problem.request, (rush_job,))
     summary = RushRecord(
         plan_id=plan_id,
         problem_id=problem.problem_id,
@@ -293,11 +327,11 @@ def rush_records(
         **_plan_body(problem, plan_id, origin),
         "evidence_kind": "rush_insert",
         "schedule": schedule,
-        "assignments": _assignments(result.schedule, job_index(problem.request, (rush_job,))),
+        "assignments": _assignments(result.schedule, job_of),
         "overtime_seconds": overtime_seconds(problem.request, result.schedule),
         "objective_values": objective_values(result.objective_values),
         "verified": result.verified,
-        "issues": _issues(result.issues),
+        "issues": [*_issues(result.issues), *capacity_issues(problem, result.schedule, job_of)],
         "held_job_ids": list(result.held_job_ids),
         "features": list(result.features),
         "summary": summary.model_dump(mode="json"),

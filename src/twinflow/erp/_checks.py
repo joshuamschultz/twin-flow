@@ -67,9 +67,13 @@ RULES: dict[str, tuple[Severity, str]] = {
         "soft",
         "in-process operation has no free machine to be running on; it is planned from now",
     ),
+    "in_progress_paused_offshift": (
+        "soft",
+        "in-process operation's crew is off shift at as_of; it is paused on its machine",
+    ),
     "release_after_horizon": (
         "soft",
-        "order releases, or its material arrives, at or after the horizon end; the job is held",
+        "order releases, or its material arrives, at or after the calendar end; the job is held",
     ),
     "outside_process_last": (
         "soft",

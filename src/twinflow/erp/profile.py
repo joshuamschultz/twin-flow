@@ -41,6 +41,11 @@ class ErpPolicy(_Frozen):
 
     `shift_crossing_default` applies to every built op, `batch_shift_crossing` to ops with a
     `BatchSpec` (an oven load runs on unattended once started) (TF-005 builder-gap ruling).
+
+    `horizon_days` is the planning window, not a wall (TF-005 review ruling A, DEV-12):
+    calendars run on to the expansion cap (`calendars.expansion_days`) so work that does not
+    fit the window is planned late instead of failing. `hard_horizon = true` puts the wall
+    back: calendars stop at the horizon and the problem carries `horizon_end`.
     """
 
     class_weights: dict[Id, WeightClass] = Field(default_factory=dict)
@@ -51,6 +56,7 @@ class ErpPolicy(_Frozen):
     shortage_policy: Literal["flag", "hold"] = "flag"
     due_at: Literal["end_of_day", "start_of_day"] = "end_of_day"
     horizon_days: int = Field(default=56, ge=1, le=366)
+    hard_horizon: StrictBool = False
     po_past_due_grace_seconds: float = Field(default=86_400, ge=0)
     setup_family_param: Id | None = None
     setup_functions: dict[Id, SetupFunction] = Field(default_factory=dict)

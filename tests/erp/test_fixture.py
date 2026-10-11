@@ -743,3 +743,29 @@ def test_scaled_shop_parses_and_keeps_the_scenario_elements() -> None:
     assert sum(o.rush for o in snap.production_orders) == 2
     demand = remaining_demand(snap)
     assert [i for i, q in demand.items() if sum(q) > supply(snap, i)] != []
+
+
+@pytest.mark.slow
+def test_scaled_shop_has_an_in_process_crew_op_whose_crew_is_off_shift_at_as_of() -> None:
+    # TF-005 review ruling B scenario: as_of is Monday 05:00 and the crew pool works from
+    # 07:00, so an in-process crew op (MO-0154:0040 on inspect-5) must be paused at now.
+    snap = scaled_shop()
+    local = snap.as_of.astimezone(PLANT_TZ)
+    pools = {pool.id: pool.calendar_id for pool in snap.labor_pools}
+    calendars = {calendar.id: calendar for calendar in snap.calendars}
+
+    def crew_on_shift(pool_id: str) -> bool:
+        calendar_id = pools[pool_id]
+        if calendar_id is None:
+            return True
+        minute = local.hour * 60 + local.minute
+        week = {day.weekday: day.windows for day in calendars[calendar_id].week}
+        return any(w.start_minute <= minute < w.end_minute for w in week.get(local.weekday(), ()))
+
+    off_shift = {
+        f"{o.id}:{op.op_id}"
+        for o in snap.production_orders
+        for op in o.operations
+        if op.status == "in_process" and op.crew and not crew_on_shift(op.crew.labor_pool_id)
+    }
+    assert "MO-0154:0040" in off_shift

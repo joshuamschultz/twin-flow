@@ -3,17 +3,24 @@
 The Western Spring mapper team works from `docs/enterprise/ERP-V0-TO-V1-CHANGES.md`. This
 test parses its "Field table" and checks the doc against the code, so the list cannot drift:
 every v1 field it names exists, every v0 model has a row, the version string matches, and
-every issue code it names is a code the code can raise.
+every issue code it names is a code the code can raise. Its "Field requirements" table lists
+every field of every model with whether it is required and its type; those cells are checked
+against the pydantic models too (`describe_field` is the one place that turns an annotation
+into the doc's vocabulary).
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import re
+import types
 from pathlib import Path
-from typing import Literal, get_args, get_origin
+from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel
+from pydantic.fields import FieldInfo
+from pydantic.types import Strict
 
 from twinflow.erp import schema
 from twinflow.erp._checks import RULES
@@ -255,3 +262,122 @@ def test_every_issue_code_named_exists_in_the_code() -> None:
 @pytest.mark.parametrize("code", ["unsupported_schema_version", "batch_lot_exceeds_capacity"])
 def test_key_codes_are_real(code: str) -> None:
     assert code in _code_literals()
+
+
+# --- requiredness and types ---------------------------------------------------------------------
+
+_NONE_TYPE = type(None)
+_HEX64 = "{64}"
+
+
+def _strip(annotation: Any) -> tuple[Any, list[Any]]:
+    """Remove `Annotated[...]` wrappers -> (core type, their metadata)."""
+    metadata: list[Any] = []
+    while get_origin(annotation) is Annotated:
+        annotation, *extra = get_args(annotation)
+        for item in extra:
+            metadata.extend(item.metadata if isinstance(item, FieldInfo) else [item])
+    return annotation, metadata
+
+
+def _type_name(annotation: Any, outer_metadata: tuple[Any, ...] = ()) -> tuple[str, bool]:
+    """(doc type text, None allowed) of an annotation, in the doc's vocabulary.
+
+    `outer_metadata` is what pydantic already lifted off the field's own `Annotated` (`Strict`).
+    """
+    core, metadata = _strip(annotation)
+    metadata = [*outer_metadata, *metadata]
+    origin = get_origin(core)
+    if origin in (Union, types.UnionType):
+        members = [_type_name(arg) for arg in get_args(core) if arg is not _NONE_TYPE]
+        nullable = any(arg is _NONE_TYPE for arg in get_args(core)) or any(n for _, n in members)
+        return " | ".join(text for text, _ in members), nullable
+    if origin is Literal:
+        return "Literal[" + ", ".join(str(value) for value in get_args(core)) + "]", False
+    if origin is tuple:
+        return f"tuple[{_type_name(get_args(core)[0])[0]}]", False
+    if origin is dict:
+        key, value = get_args(core)
+        return f"dict[{_type_name(key)[0]}, {_type_name(value)[0]}]", False
+    return _scalar_name(core, metadata), False
+
+
+def _scalar_name(core: Any, metadata: list[Any]) -> str:
+    if core is AwareDatetime:
+        return "aware datetime"
+    if core is dt.date:
+        return "date"
+    if core is bool:
+        return (
+            "bool (strict)" if any(isinstance(m, Strict) and m.strict for m in metadata) else "bool"
+        )
+    if core is str and any(_HEX64 in str(getattr(m, "pattern", "")) for m in metadata):
+        return "sha256 hex"
+    if isinstance(core, type):
+        return core.__name__
+    raise AssertionError(f"the doc has no word for {core!r}")
+
+
+def describe_field(info: FieldInfo) -> tuple[str, str]:
+    """(requiredness, type) of a model field as the doc's "Field requirements" table writes them.
+
+    Requiredness is `required`, `required-nullable` (must be present, may be null) or
+    `optional (default X)`.
+    """
+    type_text, nullable = _type_name(info.annotation, tuple(info.metadata))
+    if info.is_required():
+        return ("required-nullable" if nullable else "required"), type_text
+    return f"optional (default {info.get_default(call_default_factory=True)})", type_text
+
+
+def _requirement_rows() -> list[tuple[str, str, str]]:
+    """The (`Model.field`, requiredness, type) of every row of the doc's "Field requirements"."""
+    lines = DOC.read_text(encoding="utf-8").splitlines()
+    start = lines.index("## Field requirements")
+    rows: list[tuple[str, str, str]] = []
+    for line in lines[start + 1 :]:
+        if line.startswith("## "):
+            break
+        if not line.startswith("|") or set(line) <= {"|", "-", " "} or line.startswith("| Field "):
+            continue
+        cells = [cell.strip().strip("`") for cell in _CELL_SPLIT.split(line.strip())[1:-1]]
+        assert len(cells) == 3, f"requirement row does not have 3 cells: {line[:80]}"
+        rows.append((cells[0], cells[1], cells[2].replace("\\|", "|")))
+    return rows
+
+
+def test_requirement_table_matches_the_models() -> None:
+    models = _models()
+    documented: set[str] = set()
+    for name, requiredness, type_text in _requirement_rows():
+        model, _, field = name.partition(".")
+        assert model in models and field in models[model].model_fields, f"{name} is not a field"
+        assert name not in documented, f"{name} is listed twice"
+        documented.add(name)
+        assert describe_field(models[model].model_fields[field]) == (requiredness, type_text), name
+
+
+def test_requirement_table_covers_every_field() -> None:
+    every = {f"{m}.{f}" for m, cls in _models().items() for f in cls.model_fields}
+    documented = {name for name, _, _ in _requirement_rows()}
+    assert every == documented, sorted(every ^ documented)
+
+
+def test_lineage_sentence_lists_every_model_with_a_lineage_field() -> None:
+    """The doc names the models that need `lineage`; `SourceIssue.lineage` is the nullable one."""
+    text = DOC.read_text(encoding="utf-8")
+    sentence = next(
+        line for line in text.splitlines() if line.startswith("- `lineage` is required on")
+    )
+    named = set(_BACKTICKED.findall(sentence.split(":", 1)[1].split(". ")[0]))
+    required = {
+        m
+        for m, cls in _models().items()
+        if "lineage" in cls.model_fields
+        and describe_field(cls.model_fields["lineage"]) == ("required", "Lineage")
+    }
+    assert named == required, sorted(named ^ required)
+    assert describe_field(schema.SourceIssue.model_fields["lineage"]) == (
+        "required-nullable",
+        "Lineage",
+    )

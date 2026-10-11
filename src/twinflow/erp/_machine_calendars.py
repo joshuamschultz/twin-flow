@@ -1,6 +1,8 @@
 """Machine calendars of the problem builder, with priced overtime (COMP-114, COMP-126).
 
 A machine uses its own calendar, else its work center's; neither means always working.
+Every calendar, and its overtime, runs to the same `calendars.expansion_end` (the expansion
+cap past the planning window, or the horizon end with `hard_horizon`; ruling A, DEV-12).
 
 Overtime (D-125) is a priced subset of working time. With `ErpPolicy.use_overtime` true, a
 machine's overtime is `machine.overtime` when set, else its work center's (the machine's
@@ -17,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from zoneinfo import ZoneInfo
 
-from twinflow.erp.calendars import OvertimePiece, expand, expand_overtime, horizon_end
+from twinflow.erp.calendars import OvertimePiece, expand, expand_overtime, expansion_end
 from twinflow.erp.profile import PlanningProfile
 from twinflow.erp.schema import ErpSnapshot, Machine, Overtime
 from twinflow.scheduling.model import Calendar, Interval, OvertimeInterval
@@ -30,14 +32,14 @@ def machine_calendars(
 ) -> tuple[dict[str, str | None], tuple[Calendar, ...]]:
     """Each active machine's calendar id and every calendar a machine or pool uses, by id."""
     tz = ZoneInfo(snapshot.plant_timezone)
-    horizon = horizon_end(snapshot.as_of, profile.erp.horizon_days)
+    until = expansion_end(snapshot.as_of, profile.erp)
     sources = {cal.id: cal for cal in reversed(snapshot.calendars)}  # first record wins
     expanded: dict[str, tuple[Interval, ...]] = {}
 
     def regular(calendar_id: str) -> tuple[Interval, ...]:
         if calendar_id not in expanded:
             source = sources[calendar_id]
-            expanded[calendar_id] = expand(source, tz, snapshot.as_of, horizon)
+            expanded[calendar_id] = expand(source, tz, snapshot.as_of, until)
         return expanded[calendar_id]
 
     regular_ids = _regular_calendar_ids(snapshot)
@@ -48,7 +50,7 @@ def machine_calendars(
         regular_id = regular_ids[machine_id]
         if regular_id is None:
             continue  # always working: overtime adds no working time
-        pieces = expand_overtime(overtime, tz, snapshot.as_of, horizon)
+        pieces = expand_overtime(overtime, tz, snapshot.as_of, until)
         calendar = _with_overtime(f"{regular_id}+ot:{machine_id}", regular(regular_id), pieces)
         assigned[machine_id] = calendar.id
         own.append(calendar)

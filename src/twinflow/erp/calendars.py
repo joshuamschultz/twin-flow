@@ -17,6 +17,12 @@ its existence changes, and each constant piece maps to one real-time interval.
 
 The day walk (`_dated_windows`) is generic over any window with `start_minute` and
 `end_minute`; `expand_overtime` (COMP-126) reuses it with the priced overtime window type.
+
+How far to expand (TF-005 review ruling A, DEV-12): the horizon is a planning window, so
+calendars run on to the expansion cap, `expansion_days(policy) = min(4 x horizon_days, 730)`
+real days after `as_of`; with `hard_horizon` they stop at the horizon end. `expansion_end`
+and `expansion_seconds` are that one end, shared by every calendar, overtime and the
+builder's hold rule.
 """
 
 from __future__ import annotations
@@ -27,10 +33,23 @@ from collections.abc import Callable, Iterator, Sequence
 from typing import Protocol, TypeVar
 from zoneinfo import ZoneInfo
 
+from twinflow.erp.profile import ErpPolicy
 from twinflow.erp.schema import MINUTES_PER_DAY, Calendar, Overtime, OvertimeWindow, TimeWindow
 from twinflow.scheduling.model import Interval
 
-__all__ = ["OvertimePiece", "expand", "expand_overtime"]
+__all__ = [
+    "OvertimePiece",
+    "expand",
+    "expand_overtime",
+    "expansion_days",
+    "expansion_end",
+    "expansion_seconds",
+    "horizon_end",
+    "horizon_seconds",
+]
+
+MAX_EXPANSION_DAYS = 730
+"""Two years: the longest any calendar is expanded, whatever the horizon (ruling A)."""
 
 _SECONDS_PER_MINUTE = 60.0
 _ONE_DAY = dt.timedelta(days=1)
@@ -63,6 +82,22 @@ def horizon_end(as_of: dt.datetime, days: int) -> dt.datetime:
 def horizon_seconds(days: int) -> float:
     """The horizon length in real elapsed seconds from `as_of` (`horizon_end - as_of`)."""
     return dt.timedelta(days=days).total_seconds()
+
+
+def expansion_days(policy: ErpPolicy) -> int:
+    """Days the calendars cover past `as_of` without a hard horizon: 4 windows, at most 730."""
+    return min(4 * policy.horizon_days, MAX_EXPANSION_DAYS)
+
+
+def expansion_seconds(policy: ErpPolicy) -> float:
+    """Real seconds from `as_of` to the calendar end: the cap, or the horizon when hard."""
+    days = policy.horizon_days if policy.hard_horizon else expansion_days(policy)
+    return horizon_seconds(days)
+
+
+def expansion_end(as_of: dt.datetime, policy: ErpPolicy) -> dt.datetime:
+    """The instant every built calendar stops (UTC, so a DST change never stretches it)."""
+    return as_of.astimezone(dt.UTC) + dt.timedelta(seconds=expansion_seconds(policy))
 
 
 def expand(

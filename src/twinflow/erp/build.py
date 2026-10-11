@@ -7,7 +7,10 @@
    (`_operations.py`); material readiness (COMP-115, D-122) runs in job priority order.
 3. Active machines, work centers, calendars with priced overtime (COMP-114, COMP-126,
    D-125; `_machine_calendars.py`), operator pools and the profile's setup functions
-   complete the problem; every collection is sorted by id.
+   complete the problem; every collection is sorted by id. Calendars run to the expansion
+   cap past the planning window; `Problem.horizon_end` is set only with `hard_horizon`
+   (ruling A, DEV-12). In-process ops whose crew is off shift are paused, each with a hard
+   lock onto its machine in the request's overrides (ruling B, `_paused.py`).
 4. Problem id = `"erp-" + sha256("\\n".join([snapshot digest, profile digest,
    BUILDER_VERSION]))[:16]`; problem digest = SHA-256 of the request's canonical JSON. The
    request is round-tripped through TF-002 `parse_request`; a failure is a builder bug and
@@ -41,6 +44,8 @@ from twinflow.erp._operations import (
     processing_options,
     walk_route,
 )
+from twinflow.erp._paused import off_shift_pools, paused_locks
+from twinflow.erp.calendars import horizon_seconds
 from twinflow.erp.issues import ErpIssue
 from twinflow.erp.materials import material_ready_times
 from twinflow.erp.profile import PlanningProfile, profile_digest
@@ -77,7 +82,11 @@ _SEVERITY_RANK = {"hard": 0, "soft": 1}
 
 
 class BuildResult(BaseModel):
-    """The outcome of one build: a ready request, or the hard issues that block it."""
+    """The outcome of one build: a ready request, or the hard issues that block it.
+
+    `horizon_seconds` is the planning window length (`profile.erp.horizon_days` real days),
+    in both horizon modes; plans flag jobs that end past it (ruling A).
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -90,6 +99,7 @@ class BuildResult(BaseModel):
     builder_version: str = BUILDER_VERSION
     counts: dict[str, int]
     lineage_index: dict[str, Lineage]
+    horizon_seconds: float
 
 
 class RushOrder(BaseModel):
@@ -109,13 +119,14 @@ def build_problem_from_erp(snapshot: ErpSnapshot, profile: PlanningProfile) -> B
     """Build the TF-002 request for every open order of `snapshot` under `profile`."""
     report = validate_snapshot(snapshot, profile)
     digests = (report.snapshot_digest, profile_digest(profile))
+    window = horizon_seconds(profile.erp.horizon_days)
     if report.hard_count:
-        return _blocked(digests, report.issues)
+        return _blocked(digests, report.issues, window)
     try:
         return _build(snapshot, profile, digests, report.issues)
     except ValidationError:
         found = issue("builder_invariant", "$", None)
-        return _blocked(digests, _merge(report.issues, (found,)))
+        return _blocked(digests, _merge(report.issues, (found,)), window)
 
 
 def build_rush_job(
@@ -174,7 +185,7 @@ def _build(
     shop = build_shop_index(snapshot, policy)
     heads = job_heads(snapshot, policy)
     plan = material_ready_times(snapshot, jobs_order(heads), policy)
-    running = running_machines(heads, shop)
+    running = running_machines(heads, shop, off_shift_pools(snapshot))
     jobs: list[Job] = []
     builder_issues: list[ErpIssue] = []
     for head in heads:
@@ -183,12 +194,17 @@ def _build(
         builder_issues.extend((*head.issues, *op_issues))
     problem = _problem(snapshot, profile, digests, jobs, heads, shop)
     request = SolveRequest(
-        schema_version=REQUEST_SCHEMA_VERSION, problem=problem, profile=profile.scheduling
+        schema_version=REQUEST_SCHEMA_VERSION,
+        problem=problem,
+        profile=profile.scheduling,
+        overrides=paused_locks(running.paused, running.machines),
     )
     issues = _merge(validator_issues, plan.issues, builder_issues)
+    window = horizon_seconds(policy.horizon_days)
     dumped = request.model_dump(mode="json")
     if parse_request(dumped) != request:
-        return _blocked(digests, _merge(issues, (issue("builder_invariant", "$", None),)))
+        invariant = issue("builder_invariant", "$", None)
+        return _blocked(digests, _merge(issues, (invariant,)), window)
     return BuildResult(
         status="ready",
         issues=issues,
@@ -198,6 +214,7 @@ def _build(
         profile_digest=digests[1],
         counts=_counts(problem, heads),
         lineage_index=_lineage_index(heads),
+        horizon_seconds=window,
     )
 
 
@@ -213,9 +230,11 @@ def _problem(
     machine_ids_to_calendar, calendars = machine_calendars(snapshot, profile)
     machines = _machines(shop, machine_ids_to_calendar, jobs, heads)
     functions = {function.id: function for function in profile.erp.setup_functions.values()}
+    policy = profile.erp
     return Problem(
         id=_problem_id(digests),
         now=0.0,
+        horizon_end=horizon_seconds(policy.horizon_days) if policy.hard_horizon else None,
         jobs=tuple(sorted(jobs, key=lambda job: job.id)),
         machines=machines,
         work_centers=_work_centers(snapshot, profile.erp.setup_functions),
@@ -322,7 +341,7 @@ def _lineage_index(heads: Iterable[JobHead]) -> dict[str, Lineage]:
     return dict(sorted(index.items()))
 
 
-def _blocked(digests: tuple[str, str], issues: tuple[ErpIssue, ...]) -> BuildResult:
+def _blocked(digests: tuple[str, str], issues: tuple[ErpIssue, ...], window: float) -> BuildResult:
     return BuildResult(
         status="blocked",
         issues=issues,
@@ -332,6 +351,7 @@ def _blocked(digests: tuple[str, str], issues: tuple[ErpIssue, ...]) -> BuildRes
         profile_digest=digests[1],
         counts=dict.fromkeys(("jobs", "operations", "machines", "held_jobs", "done_operations"), 0),
         lineage_index={},
+        horizon_seconds=window,
     )
 
 

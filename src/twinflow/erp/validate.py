@@ -37,6 +37,7 @@ from twinflow.erp._checks import (
     order_operations,
     reference_issues,
 )
+from twinflow.erp._dates import order_due_day, order_promised_day
 from twinflow.erp.calendars import expand, horizon_end
 from twinflow.erp.digest import snapshot_digest
 from twinflow.erp.issues import ErpIssue
@@ -161,7 +162,7 @@ def _order_issues(snapshot: ErpSnapshot, index: Index, today: dt.date) -> Iterat
         if order.status in OPEN_ORDER_STATUSES:
             path = f"$.production_orders[{i}]"
             yield from _sales_link_issues(order, path, index)
-            yield from _due_issues(order, path, _linked_lines(order, index), today)
+            yield from _due_issues(order, path, index, today)
 
 
 def _sales_link_issues(order: ProductionOrder, path: str, index: Index) -> Iterator[ErpIssue]:
@@ -171,31 +172,20 @@ def _sales_link_issues(order: ProductionOrder, path: str, index: Index) -> Itera
             yield issue("sales_link_missing", f"{path}.sales_links[{k}]", order.lineage)
 
 
-def _linked_lines(order: ProductionOrder, index: Index) -> list[SalesOrderLine]:
-    """The sales order lines an order's links resolve to, in link order."""
-    found = (index.sales_lines.get(_record_line_key(link)) for link in order.sales_links)
-    return [line for line in found if line is not None]
-
-
 def _due_issues(
-    order: ProductionOrder, path: str, lines: list[SalesOrderLine], today: dt.date
+    order: ProductionOrder, path: str, index: Index, today: dt.date
 ) -> Iterator[ErpIssue]:
     """`no_due_date` with no date at all; `past_due_no_promise` when the unpromised due passed.
 
-    The due is the first present of a linked line's promised date, a linked line's requested
-    date and the order's due date (REQ-155). Past due is strictly before today's local date.
+    The due and promised days come from `_dates` (ruling C), the same helpers the builder
+    uses: a promise on any linked line means the order is promised. Past due is strictly
+    before today's local date.
     """
-    if _first_date(line.promised_date for line in lines) is not None:
-        return
-    due = _first_date(line.requested_date for line in lines) or order.due_date
+    due = order_due_day(order, index.sales_lines)
     if due is None:
         yield issue("no_due_date", path, order.lineage)
-    elif due < today:
+    elif due < today and order_promised_day(order, index.sales_lines) is None:
         yield issue("past_due_no_promise", path, order.lineage)
-
-
-def _first_date(dates: Iterable[dt.date | None]) -> dt.date | None:
-    return next((day for day in dates if day is not None), None)
 
 
 # --- operations: quantities, options, batches --------------------------------------------------

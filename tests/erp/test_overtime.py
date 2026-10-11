@@ -62,7 +62,7 @@ from fixtures.generate import (
 from twinflow.application.planning import PlanningService
 from twinflow.application.workspace import Workspace
 from twinflow.erp.build import BuildResult, build_problem_from_erp
-from twinflow.erp.calendars import expand, expand_overtime
+from twinflow.erp.calendars import expand, expand_overtime, expansion_end
 from twinflow.erp.digest import snapshot_digest
 from twinflow.erp.profile import ErpPolicy, PlanningProfile
 from twinflow.erp.schema import (
@@ -441,8 +441,8 @@ def ready(result: BuildResult) -> SolveRequest:
 
 
 def horizon_end(snapshot: ErpSnapshot, profile: PlanningProfile) -> dt.datetime:
-    """The builder's horizon: real elapsed days in UTC from `as_of` (build.py `_calendars`)."""
-    return snapshot.as_of.astimezone(dt.UTC) + dt.timedelta(days=profile.erp.horizon_days)
+    """Where built calendars end: the expansion cap in real elapsed time (DEV-12, ruling A)."""
+    return expansion_end(snapshot.as_of, profile.erp)
 
 
 def calendars_by_id(request: SolveRequest) -> dict[str, ProblemCalendar]:

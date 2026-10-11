@@ -584,9 +584,10 @@ def test_build_finish_unattended_op_needs_its_crew_for_the_setup_only() -> None:
 
 
 def test_build_release_at_or_after_the_horizon_end_holds_the_job_with_soft_issue() -> None:
-    # as_of 2026-10-12 05:00 CDT, horizon 7 days: 2026-10-19 05:00 CDT. A release date of
-    # 2026-10-20 starts at 00:00 local, after the horizon end; MO-2 releases inside it.
-    late = _order("MO-1", _op("MO-1", "10", "form", RANKED)) | {"release_date": "2026-10-20"}
+    # as_of 2026-10-12 05:00 CDT, horizon 7 days, so the calendar expansion cap is
+    # min(4 x 7, 730) = 28 real days: 2026-11-09 04:00 CST (TF-005 review ruling A). A release
+    # date of 2026-11-10 starts at 00:00 local, after the cap end; MO-2 releases inside it.
+    late = _order("MO-1", _op("MO-1", "10", "form", RANKED)) | {"release_date": "2026-11-10"}
     early = _order("MO-2", _op("MO-2", "10", "form", RANKED)) | {"release_date": "2026-10-13"}
     snapshot = _snapshot([late, early], FORM_MACHINES)
     result = build_problem_from_erp(snapshot, _profile("horizon_days = 7\n"))
@@ -601,8 +602,8 @@ def test_build_release_at_or_after_the_horizon_end_holds_the_job_with_soft_issue
 
 
 def test_build_op_material_ready_after_the_horizon_end_holds_the_job() -> None:
-    # Op 10's wire arrives on 2026-10-20, after the 7-day horizon: no working time is left
-    # for it, so the job is held rather than failing the whole solve.
+    # Op 10's wire arrives on 2026-11-10, after the 28-day expansion cap of a 7-day horizon
+    # (ruling A): no working time is left for it, so the job is held rather than failing.
     wire = {"id": "WIRE", "uom": "ea", "attributes": {}, "lineage": lineage("item", "WIRE")}
     need = {
         "item_id": "WIRE",
@@ -620,7 +621,7 @@ def test_build_op_material_ready_after_the_horizon_end_holds_the_job() -> None:
         "qty_ordered": 5.0,
         "qty_received": 0.0,
         "status": "open",
-        "promised_date": "2026-10-20",
+        "promised_date": "2026-11-10",
         "receipts": [],
         "lineage": lineage("purchase_line", "PO-1", "1"),
     }

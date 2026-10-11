@@ -503,7 +503,8 @@ The validator returns every issue it finds, not the first one. Issues are sorted
 | `inactive_machine_option` | soft | validator | some options of this open operation are inactive |
 | `in_process_machine_inferred` | soft | builder | in-process operation names no machine; its most preferred active machine is assumed |
 | `in_progress_machine_unknown` | soft | builder | in-process operation has no free machine to be running on; it is planned from now |
-| `release_after_horizon` | soft | builder | order releases, or its material arrives, at or after the horizon end; the job is held |
+| `in_progress_paused_offshift` | soft | builder | in-process operation's crew is off shift at as_of; it is paused on its machine |
+| `release_after_horizon` | soft | builder | order releases, or its material arrives, at or after the calendar end; the job is held |
 | `outside_process_last` | soft | builder | outside operation ends the route; its lead time is taken off the due date |
 | `batch_lot_exceeds_capacity` | soft | builder | batch lot is larger than the batch capacity; it runs alone instead of batched |
 | `no_routing` | hard | builder | no standard routing of this item matches the request |
@@ -513,6 +514,7 @@ The validator returns every issue it finds, not the first one. Issues are sorted
 | `schema` | hard | parse gate | one issue per model error, with a `$`-rooted path and no input value |
 | `po_no_promise` | soft | builder | open purchase line has no promised date; it is not counted as supply |
 | `material_short` | soft | builder | cumulative supply never covers a material requirement |
+| `capacity_beyond_horizon` | soft | planning service (plan records) | job finishes after the planning window; capacity in it is short |
 
 Codes in `source_issues` are the mapper's own. They are copied into the report with the severity the mapper gave. Use `hard` only for a fact the plan cannot go without, and `soft` for a fact you could default.
 
@@ -526,6 +528,12 @@ All open batch operations on one work center must use the same capacity. A diffe
 
 An `in_process` operation runs on its `current_machine_id` from the start of the plan for `qty_remaining` times its run time, and needs no operators (its crew is already at work). Named machines claim first, in order id then operation sequence order. An operation with no usable named machine, or whose machine an earlier operation already holds, takes its most preferred active option machine that no other running operation holds (soft `in_process_machine_inferred`). When every option machine is taken, the operation is planned from now like a pending one (soft `in_progress_machine_unknown`). One machine never runs two operations at once.
 
+An in-process operation with a `crew` is paused when its labor pool's calendar has no working time at `as_of` (windows are start-inclusive, end-exclusive: `as_of` on a window start is on shift, on a window end is off; a pool with no calendar is always on shift). A paused operation is planned as pending on the machine it holds (named or inferred), with its remaining time (`qty_remaining` times the machine's run time, no setup) as one fixed piece. It needs its crew again, follows the shift-crossing rule, is never batched, and is pinned to that machine by a hard lock, so it resumes there when the crew returns. The machine is free until then. The builder raises the soft issue `in_progress_paused_offshift` for it. A crew on shift at `as_of` leaves the operation running as above.
+
+## Due date (due-date rule)
+
+Each linked sales line is due on its `promised_date`, else its `requested_date`. An order is due on the earliest of those across all its linked sales lines, whatever the link order. With no dated linked line, the order's own `due_date` is used. The order is promised on the earliest `promised_date` across its linked lines. The validator and the builder use the same rule: `no_due_date` when nothing gives a date, and `past_due_no_promise` when the due date is before the `as_of` date and no linked line is promised.
+
 ## Shift crossing (planning profile)
 
 Each built operation gets a shift-crossing rule from the `[erp]` table of the planning profile:
@@ -537,7 +545,11 @@ Each built operation gets a shift-crossing rule from the `[erp]` table of the pl
 
 The values are `"forbid"` (the operation must fit inside one working interval), `"pause"` (setup and run stop at a break and go on in the next shift) and `"finish_unattended"` (the operation must start inside working time, then runs on to its end past the shift end, as an oven load does). A crew on a finish-unattended operation is needed for the setup only. Rush orders follow the same keys.
 
-An order whose release (its `release_date`, outside lead before its first operation, or material readiness) is at or after the end of the planning horizon cannot be placed. The builder holds that job and raises the soft issue `release_after_horizon`, so the rest of the plan still solves.
+## Planning window (horizon rule)
+
+`horizon_days` in the `[erp]` table (default 56) is the planning window, not a wall. Calendars and overtime are expanded past it to the expansion cap: `min(4 x horizon_days, 730)` real days after `as_of`. Work that does not fit inside the window is planned late inside the cap instead of failing the solve, and each plan names every job that ends past the window with the soft issue `capacity_beyond_horizon` (with the job's lineage). Set `hard_horizon = true` to make the window a wall again: calendars stop at the horizon end and the solver may not plan past it.
+
+An order whose release (its `release_date`, outside lead before its first operation, or material readiness) is at or after the calendar end (the expansion cap, or the horizon end with `hard_horizon = true`) cannot be placed. The builder holds that job and raises the soft issue `release_after_horizon`, so the rest of the plan still solves. A release between the window end and the cap is planned normally.
 
 ## Mapping guidance
 

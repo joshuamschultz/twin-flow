@@ -3,21 +3,26 @@
 Two passes, because material readiness (COMP-115) needs the job priority order first:
 
 1. `job_heads` reads every open order into a `JobHead`: weight class (rush, else the first
-   sales link's customer class, else the stock class), due (D-129: first link's promised,
-   its requested, then the order's due date, at `due_at`, minus trailing outside lead),
-   `promised_ship` (start of the promised date), the release floor (start of the release
-   date and the leading outside lead, never below 0), the hold flag and the route walk.
+   sales link's customer class, else the stock class), due (D-129 as revised by ruling C:
+   `_dates.order_due_day`, the earliest linked-line due, at `due_at`, minus trailing outside
+   lead), `promised_ship` (start of `_dates.order_promised_day`), the release floor (start
+   of the release date and the leading outside lead, never below 0), the hold flag and the
+   route walk.
 2. `build_job` turns a head into a TF-002 `Job` with the material plan: op ready time =
    max(own queue, material ready), release = max(floor, material ready for the order). A
-   release (or an op's material ready time) at or after the horizon end holds the job
-   (soft `release_after_horizon`), since no calendar has working time there.
+   release (or an op's material ready time) at or after the calendar end
+   (`calendars.expansion_seconds`: the expansion cap, or the horizon with `hard_horizon`)
+   holds the job (soft `release_after_horizon`), since no calendar has working time there
+   (ruling A). A release past the planning window but inside the cap is planned normally.
 
 `running_machines` gives every in-process op its machine across ALL jobs (TF-005 ruling):
 explicit current machines claim first, in (order id, op sequence) order; an op whose machine
 is unusable or already claimed falls through to inference, which in the same order gives
 each op its most preferred active option machine not yet held (soft
 `in_process_machine_inferred`). With none free the op is pending from now (soft
-`in_progress_machine_unknown`). No machine ever holds two in-progress ops.
+`in_progress_machine_unknown`). No machine ever holds two in-progress ops. An op with a
+machine whose crew pool is off shift at `as_of` is paused there (ruling B, `_paused.py`;
+soft `in_progress_paused_offshift`).
 
 Times are real elapsed seconds from `as_of` (DST-safe, via `start_of_day_seconds`).
 """
@@ -36,6 +41,7 @@ from twinflow.erp._checks import (
     issue,
     line_key,
 )
+from twinflow.erp._dates import order_due_day, order_promised_day
 from twinflow.erp._operations import (
     RouteStep,
     RouteWalk,
@@ -46,7 +52,8 @@ from twinflow.erp._operations import (
     processing_options,
     walk_route,
 )
-from twinflow.erp.calendars import horizon_seconds
+from twinflow.erp._paused import OpKey, paused_option
+from twinflow.erp.calendars import expansion_seconds
 from twinflow.erp.issues import ErpIssue
 from twinflow.erp.materials import MaterialPlan, start_of_day_seconds
 from twinflow.erp.profile import ErpPolicy
@@ -59,10 +66,7 @@ from twinflow.scheduling.model import (
     WeightClass,
 )
 
-__all__ = ["JobHead", "RunningMachines", "build_job", "job_heads", "jobs_order", "running_machines"]
-
-RunningMachines = dict[tuple[str, str], str | None]
-"""(order id, op id) of each in-process op -> its running machine (None: none free)."""
+__all__ = ["JobHead", "Running", "build_job", "job_heads", "jobs_order", "running_machines"]
 
 _ONE_DAY = dt.timedelta(days=1)
 
@@ -80,6 +84,14 @@ class JobHead:
     release_floor: float
     held: bool
     issues: tuple[ErpIssue, ...]
+
+
+@dataclass(frozen=True)
+class Running:
+    """Each in-process op's running machine (None: none free) and which of them are paused."""
+
+    machines: dict[OpKey, str | None]
+    paused: frozenset[OpKey]
 
 
 @dataclass(frozen=True)
@@ -121,7 +133,9 @@ def jobs_order(heads: list[JobHead]) -> list[str]:
     return [head.order.id for head in sorted(heads, key=key)]
 
 
-def running_machines(heads: list[JobHead], shop: ShopIndex) -> RunningMachines:
+def running_machines(
+    heads: list[JobHead], shop: ShopIndex, off_shift_pools: frozenset[str]
+) -> Running:
     """The running machine of every in-process in-plant op (see the module docstring)."""
     running = sorted(
         (
@@ -133,7 +147,7 @@ def running_machines(heads: list[JobHead], shop: ShopIndex) -> RunningMachines:
         key=lambda pair: (pair[0], pair[1].sequence, pair[1].op_id),
     )
     ranked = {(order_id, op.op_id): preferred_machines(op, shop) for order_id, op in running}
-    result: RunningMachines = {}
+    result: dict[OpKey, str | None] = {}
     for order_id, op in running:
         machine = op.current_machine_id
         if machine in ranked[(order_id, op.op_id)] and machine not in result.values():
@@ -143,7 +157,14 @@ def running_machines(heads: list[JobHead], shop: ShopIndex) -> RunningMachines:
         if key not in result:
             held = set(result.values())
             result[key] = next((m for m in ranked[key] if m not in held), None)
-    return result
+    paused = frozenset(
+        (order_id, op.op_id)
+        for order_id, op in running
+        if result[(order_id, op.op_id)] is not None
+        and op.crew is not None
+        and op.crew.labor_pool_id in off_shift_pools
+    )
+    return Running(machines=result, paused=paused)
 
 
 def build_job(
@@ -151,7 +172,7 @@ def build_job(
     plan: MaterialPlan,
     shop: ShopIndex,
     policy: ErpPolicy,
-    running: RunningMachines,
+    running: Running,
 ) -> tuple[Job, tuple[ErpIssue, ...]]:
     """The TF-002 job of one head plus its per-operation builder issues."""
     order = head.order
@@ -162,10 +183,14 @@ def build_job(
         j, op = by_id[step.op.op_id]
         operation = _order_operation(order, op, step, plan, shop, policy, running)
         operations.append(operation)
-        issues.extend(_operation_issues(op, operation, f"{head.path}.operations[{j}]"))
+        path = f"{head.path}.operations[{j}]"
+        key = (order.id, op.op_id)
+        issues.extend(_operation_issues(op, operation, path, running.machines.get(key)))
+        if key in running.paused:
+            issues.append(issue("in_progress_paused_offshift", path, op.lineage))
     release = max(head.release_floor, plan.ready.get((order.id, None), 0.0))
     starts = (release, *(operation.ready_time for operation in operations))
-    late = max(starts) >= horizon_seconds(policy.horizon_days)
+    late = max(starts) >= expansion_seconds(policy)
     if late:
         issues.append(issue("release_after_horizon", head.path, order.lineage))
     job = Job(
@@ -180,11 +205,13 @@ def build_job(
     return job, tuple(issues)
 
 
-def _operation_issues(op: OrderOperation, operation: Operation, path: str) -> Iterator[ErpIssue]:
-    """Builder issues of one built op: its running machine and its batch lot."""
-    if op.status == "in_process" and operation.status.state != "in_progress":
+def _operation_issues(
+    op: OrderOperation, operation: Operation, path: str, machine: str | None
+) -> Iterator[ErpIssue]:
+    """Builder issues of one built op: its running machine (if any) and its batch lot."""
+    if op.status == "in_process" and machine is None:
         yield issue("in_progress_machine_unknown", path, op.lineage)
-    elif op.status == "in_process" and operation.status.machine_id != op.current_machine_id:
+    elif op.status == "in_process" and machine != op.current_machine_id:
         yield issue("in_process_machine_inferred", path, op.lineage)
     if op.batch is not None and not lot_fits_batch(op, operation.quantity):
         yield issue("batch_lot_exceeds_capacity", f"{path}.batch", op.lineage)
@@ -215,9 +242,9 @@ def _is_open(order: ProductionOrder) -> bool:
 def _job_head(order: ProductionOrder, path: str, dates: _Dates) -> JobHead:
     walk = walk_route(op for op in order.operations if op.status not in DONE_OPERATION_STATUSES)
     line = _first_line(order, dates)
-    due_day = _due_day(order, line)
+    due_day = order_due_day(order, dates.sales_lines)
     due = None if due_day is None else dates.due_of(due_day) - walk.due_lead
-    promised = None if line is None or line.promised_date is None else line.promised_date
+    promised = order_promised_day(order, dates.sales_lines)
     release_day = order.release_date
     release_date_seconds = 0.0 if release_day is None else dates.start_of(release_day)
     return JobHead(
@@ -239,14 +266,6 @@ def _first_line(order: ProductionOrder, dates: _Dates) -> SalesOrderLine | None:
         return None
     link = order.sales_links[0]
     return dates.sales_lines.get(line_key(link.order_type, link.order_nbr, link.line_nbr))
-
-
-def _due_day(order: ProductionOrder, line: SalesOrderLine | None) -> dt.date | None:
-    if line is not None and line.promised_date is not None:
-        return line.promised_date
-    if line is not None and line.requested_date is not None:
-        return line.requested_date
-    return order.due_date
 
 
 def _weight_class(
@@ -281,21 +300,31 @@ def _order_operation(
     plan: MaterialPlan,
     shop: ShopIndex,
     policy: ErpPolicy,
-    running: RunningMachines,
+    running: Running,
 ) -> Operation:
-    """One built op of an order (`op` is the order operation of `step`)."""
+    """One built op of an order (`op` is the order operation of `step`).
+
+    A paused op (ruling B) is pending on its one running-machine option from now, with its
+    crew needs, and never batched.
+    """
+    key = (order.id, op.op_id)
     options = processing_options(op, shop)
-    material = plan.ready.get((order.id, op.op_id), 0.0)
-    return make_operation(
+    status = _status(op, options, running.machines.get(key))
+    ready_time = max(step.queue, plan.ready.get(key, 0.0))
+    paused = key in running.paused
+    if paused:
+        options, status, ready_time = paused_option(options, status), OperationStatus(), 0.0
+    operation = make_operation(
         order.id,
         step,
         options,
         quantity=op.qty_remaining,
         batch_default=order.item_id,
-        ready_time=max(step.queue, material),
-        status=_status(op, options, running.get((order.id, op.op_id))),
+        ready_time=ready_time,
+        status=status,
         policy=policy,
     )
+    return operation.model_copy(update={"batch_family": None}) if paused else operation
 
 
 def _status(

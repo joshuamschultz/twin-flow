@@ -23,11 +23,14 @@ Contract pinned here (the implementation follows these tests):
   sort_keys=True, separators=(",", ":"), allow_nan=False)` of the returned request.
 * Times are real elapsed seconds from `as_of` (`now = 0`). A date `d` read at "start of day"
   is 00:00 of `d` in `plant_timezone`; "end of day" is 00:00 of `d + 1`.
-* Due (D-129): first present of the first sales link's line `promised_date`, its
-  `requested_date`, then the order's `due_date`, at `profile.erp.due_at` (default end of day).
+* Due (D-129, revised by TF-005 review ruling C): each linked line's due is its
+  `promised_date`, else its `requested_date`; the job due is the EARLIEST of those across all
+  linked lines, else the order's `due_date`, at `profile.erp.due_at` (default end of day).
+  Focused multi-link cases live in `test_due_from_lines.py`.
 * `promised_ship` (PINNED, SDD Time convention: "Release and promise dates use the same rule
-  with start of day"): 00:00 local of the linked line's `promised_date`; None when there is
-  no promised date (even when the due comes from requested or the order due date).
+  with start of day"): 00:00 local of the earliest `promised_date` across the linked lines;
+  None when there is no promised date (even when the due comes from requested or the order
+  due date).
 * Op status mapping (PINNED): `in_process` -> `OperationStatus("in_progress", machine,
   remaining_seconds = qty_remaining * unit_seconds of that machine's option)`; `pending` ->
   default `OperationStatus()`; `complete` / `cancelled` ops are NOT emitted (SDD COMP-116 step
@@ -242,13 +245,24 @@ def expected_class(snapshot: ErpSnapshot, order: ProductionOrder) -> int:
     return CLASS_MAP.get(customer.priority_class or "", DEFAULT_CLASS)
 
 
+def linked_lines(snapshot: ErpSnapshot, order: ProductionOrder) -> list[SalesOrderLine]:
+    found = (sales_line(snapshot, link) for link in order.sales_links)
+    return [line for line in found if line is not None]
+
+
 def due_date_of(snapshot: ErpSnapshot, order: ProductionOrder) -> dt.date | None:
-    line = first_line(snapshot, order)
-    if line is not None and line.promised_date is not None:
-        return line.promised_date
-    if line is not None and line.requested_date is not None:
-        return line.requested_date
-    return order.due_date
+    """Ruling C: earliest (promised else requested) across linked lines, else the order due."""
+    days = [
+        line.promised_date or line.requested_date
+        for line in linked_lines(snapshot, order)
+        if (line.promised_date or line.requested_date) is not None
+    ]
+    return min(days) if days else order.due_date
+
+
+def promised_date_of(snapshot: ErpSnapshot, order: ProductionOrder) -> dt.date | None:
+    days = [ln.promised_date for ln in linked_lines(snapshot, order) if ln.promised_date]
+    return min(days) if days else None
 
 
 def internal_ops(order: ProductionOrder) -> list[OrderOperation]:
@@ -723,8 +737,7 @@ def test_build_promised_ship_is_start_of_promised_date_else_none(
 ) -> None:
     jobs = jobs_by_id(request_)
     for order in open_orders(shop):
-        line = first_line(shop, order)
-        promised = None if line is None else line.promised_date
+        promised = promised_date_of(shop, order)
         expected = None if promised is None else seconds_at(promised, shop)
         assert jobs[order.id].promised_ship == expected, order.id
 
