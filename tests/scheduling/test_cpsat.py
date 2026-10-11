@@ -394,6 +394,32 @@ def test_pause_is_still_refused_through_solve() -> None:
     assert "pause" in result.issues[0].message
 
 
+def _pause_problem() -> Problem:
+    """M1 works [0, 5) and [10, 30); A (6 s) may pause over the break, B runs 2 s."""
+    calendar = {"id": "c", "intervals": [(0.0, 5.0), (10.0, 30.0)]}
+    return _problem(
+        [[_op("A", {"M1": 6.0}, shift_crossing="pause")], [_op("B", {"M1": 2.0})]],
+        (_machine("M1", calendar_id="c"),),
+        calendars=(calendar,),
+    )
+
+
+def test_pause_is_refused_when_called_directly_not_modeled_as_forbid() -> None:
+    # A composite method (reschedule's improver, rolling_horizon's seam solver) calls the
+    # solver past solve()'s capability check; CP-SAT must refuse a feature it does not
+    # model itself instead of answering OPTIMAL for the forbid reading (makespan 16 vs 11).
+    schedule = _exact_solver().solve(
+        _pause_problem(),
+        objective=_single(ObjectiveKind.MAKESPAN),
+        budget_seconds=5.0,
+        context=_context(time.monotonic() + 5.0),
+    )
+
+    assert schedule.status == "UNKNOWN"
+    assert [issue.code for issue in schedule.issues] == ["unsupported_feature"]
+    assert "pause" in schedule.issues[0].message
+
+
 # --- precision and time limit --------------------------------------------------------------
 
 

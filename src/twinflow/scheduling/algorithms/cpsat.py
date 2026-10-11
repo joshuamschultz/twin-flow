@@ -109,6 +109,7 @@ from itertools import permutations
 from typing import Any, Literal
 
 from twinflow.scheduling.baseline import BaselineSolver
+from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.kernel.index import DEFAULT_CLASS_WEIGHTS
 from twinflow.scheduling.kernel.score import Scorer, Values
 from twinflow.scheduling.model import (
@@ -233,6 +234,21 @@ def _in_progress_machine(op: Operation) -> str:
 
 
 # --- refusals -------------------------------------------------------------------------------
+
+
+def _feature_refusals(problem: Problem) -> list[ScheduleIssue]:
+    """`unsupported_feature` per feature outside `CAPABILITIES` (D-067). `solve()` checks this
+    too, but composite methods call this solver past it; without the check a `pause` op
+    would be modeled as `forbid` and the answer reported OPTIMAL for the wrong problem."""
+    missing = sorted(problem_features(problem) - CAPABILITIES)
+    return [
+        ScheduleIssue(
+            code="unsupported_feature",
+            path="problem",
+            message=f"solver {SOLVER_NAME} does not support feature {feature.value}",
+        )
+        for feature in missing
+    ]
 
 
 def _precision_refusals(problem: Problem, context: SolveContext) -> list[ScheduleIssue]:
@@ -1540,14 +1556,18 @@ class ORToolsSolver:
     ) -> Schedule:
         """Optimize `objective` within the budget and `context.deadline`, whichever is first.
 
-        UNKNOWN with `unsupported_precision`, `model_too_large` or `unsupported_magnitude`
-        when refused (in that order, all before a model is built); INFEASIBLE with
-        `infeasible`; UNKNOWN with `time_limit` when time ran out before any plan. A model
-        CP-SAT finds invalid is a bug and raises.
+        UNKNOWN with `unsupported_feature`, `unsupported_precision`, `model_too_large` or
+        `unsupported_magnitude` when refused (in that order, all before a model is built);
+        INFEASIBLE with `infeasible`; UNKNOWN with `time_limit` when time ran out before any
+        plan. A model CP-SAT finds invalid is a bug and raises.
         """
         started = time.perf_counter()
         scheduled = _scheduled(problem)
-        refusals = _precision_refusals(problem, context) or _size_refusals(problem, scheduled)
+        refusals = (
+            _feature_refusals(problem)
+            or _precision_refusals(problem, context)
+            or _size_refusals(problem, scheduled)
+        )
         if refusals:
             return _schedule("UNKNOWN", started, issues=refusals)
         setups = _setup_tables(problem, scheduled)

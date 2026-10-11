@@ -48,6 +48,7 @@ from kernel_cases import (
 )
 from oracle import brute_force
 
+from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.kernel.decode import Decoded, decode
 from twinflow.scheduling.kernel.index import ProblemIndex
 from twinflow.scheduling.model import (
@@ -59,7 +60,7 @@ from twinflow.scheduling.model import (
 )
 from twinflow.scheduling.objectives import evaluate
 from twinflow.scheduling.seam import Feature
-from twinflow.scheduling.solver import problem_features, solve
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.verifier import verify
 
 SEEDS = range(200)

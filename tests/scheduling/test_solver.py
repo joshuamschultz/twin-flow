@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from twinflow.scheduling import overrides
+from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.model import (
     Assignment,
     FrozenZone,
@@ -41,7 +42,7 @@ from twinflow.scheduling.model import (
 )
 from twinflow.scheduling.overrides import apply_overrides
 from twinflow.scheduling.seam import Feature, Solver
-from twinflow.scheduling.solver import problem_features, solve
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import validate
 from twinflow.scheduling.verifier import verify
 

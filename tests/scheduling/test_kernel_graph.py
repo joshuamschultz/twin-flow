@@ -52,11 +52,12 @@ from kernel_cases import (
     without_features,
 )
 
+from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.kernel.decode import Decoded, decode
 from twinflow.scheduling.kernel.graph import DisjunctiveGraph, GraphCycle, graph_exact
 from twinflow.scheduling.kernel.index import ProblemIndex
 from twinflow.scheduling.seam import Feature
-from twinflow.scheduling.solver import problem_features, solve
+from twinflow.scheduling.solver import solve
 
 EPS = 1e-6
 EXACT = (

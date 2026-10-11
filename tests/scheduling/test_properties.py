@@ -52,6 +52,7 @@ from generators import OVERRIDE_KINDS, random_request
 
 from twinflow.scheduling.baseline import CAPABILITIES as BASELINE_CAPABILITIES
 from twinflow.scheduling.baseline import BaselineSolver
+from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.model import (
     CompiledProblem,
     ExcludeMachineOverride,
@@ -70,7 +71,7 @@ from twinflow.scheduling.overrides import apply_overrides
 from twinflow.scheduling.registry import SolverInfo, available
 from twinflow.scheduling.registry import get as get_solver
 from twinflow.scheduling.seam import Feature, OptionalDependencyError, ParamValue, Solver
-from twinflow.scheduling.solver import SOLUTION_STATUSES, problem_features, solve
+from twinflow.scheduling.solver import SOLUTION_STATUSES, solve
 from twinflow.scheduling.validator import validate
 
 SEEDS = range(200)

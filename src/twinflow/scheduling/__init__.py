@@ -10,6 +10,7 @@ facade imports no algorithm module, so importing this package never needs the op
 """
 
 from twinflow.scheduling.baseline import BaselineSolver
+from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.model import (
     SCHEMA_VERSION,
     AbsDiffTerm,
@@ -79,7 +80,7 @@ from twinflow.scheduling.registry import get as get_solver
 from twinflow.scheduling.registry import is_registered as is_registered_solver
 from twinflow.scheduling.seam import Feature, SolveContext, Solver
 from twinflow.scheduling.setups import SetupTable
-from twinflow.scheduling.solver import problem_features, solve
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import parse_request, validate
 from twinflow.scheduling.verifier import verify
 
