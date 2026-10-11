@@ -14,12 +14,16 @@ setup(previous op or None for the machine state, op) + run (the setup is attache
 - `lmax_schrage`: non-delay EDD over released, dp-ready ops; `lmax_schrage_swaps` adds
   first-improvement adjacent swaps; `solve_lmax` is exact up to `exact_limit` ops (SDD
   COMP-013: 10).
-- `wt_atc_sequence`: 1|r_j,dp|sum w (C - d^k)^+ dispatched by the multi-due ATC index
-  (Pinedo p.199) whenever the machine frees. Setups enter the timing, not the index.
+- `wt_atc_sequence`: 1|r_j,s_jk,dp|sum w (C - d^k)^+ dispatched by the multi-due ATC index
+  (Pinedo p.199) whenever the machine frees, times the SDD setup factor exp(-s /
+  setup_scale) with s the setup after the machine's previous op (`setup_scale` = K2 sbar;
+  the default inf gives factor 1, the book's index).
 - `solve_center_parallel`: the Pm|r_j,s_jk,M_j,dp| version of a multi-machine center
-  (p.212): at the earliest possible start, the most urgent ready op (EDD, or the largest
-  ATC index) goes to the eligible machine that completes it first. One machine reduces to
-  the single-machine solvers.
+  (p.212), non-delay at t = the earliest possible start: for Lmax the ready op with the
+  earliest due goes to the eligible machine that completes it first; for weighted
+  tardiness the (op, machine) pair with the largest index (ATC with that machine's run,
+  times the setup factor) among released ops and machines free at t (ties: earlier
+  finish, op id, machine id). One machine reduces to the single-machine solvers.
 
 Ties always break by op id, then machine id, so every result is deterministic.
 
@@ -389,6 +393,7 @@ def wt_atc_sequence(
     K: float,  # noqa: N803  # Pinedo's name for the look-ahead parameter
     pbar: float | None = None,
     setup: Setup | None = None,
+    setup_scale: float = math.inf,
 ) -> SubResult:
     """Dispatch by the multi-due ATC index at t = the earliest time the machine is usable.
 
@@ -407,7 +412,11 @@ def wt_atc_sequence(
         earliest = {o: _earliest(o, by_id[o].release, ready.done, gates) for o in ready.ops()}
         t = max(free, min(earliest.values()))
         op_id = _most_urgent(
-            {o: _atc(by_id[o].run, earliest[o], by_id[o].dues, t, scale) for o in earliest}
+            {
+                o: _atc(by_id[o].run, earliest[o], by_id[o].dues, t, scale)
+                * _setup_factor(setup(previous, o) if setup else 0.0, setup_scale)
+                for o in earliest
+            }
         )
         free = max(t, earliest[op_id]) + (setup(previous, op_id) if setup else 0.0)
         free += by_id[op_id].run
@@ -415,6 +424,11 @@ def wt_atc_sequence(
         sequence.append(op_id)
         previous = op_id
     return SubResult(tuple(sequence), _weighted_tardiness(ops, ready.done))
+
+
+def _setup_factor(seconds: float, setup_scale: float) -> float:
+    """exp(-s / (K2 sbar)), the ATCS setup factor; 1 for an infinite scale."""
+    return math.exp(-seconds / setup_scale) if setup_scale < math.inf else 1.0
 
 
 def _most_urgent(index: Mapping[str, float]) -> str:
@@ -434,6 +448,7 @@ def solve_center_parallel(
     objective: CenterObjective = "lmax",
     K: float = 2.0,  # noqa: N803  # Pinedo's name for the look-ahead parameter
     exact_limit: int = DEFAULT_EXACT_LIMIT,
+    setup_scale: float = math.inf,
 ) -> CenterResult:
     """Sequence a center's ops on its machines (see the module); one machine reduces to
     `solve_lmax` or `wt_atc_sequence`. ValueError for an op with no machine in `machines`."""
@@ -441,10 +456,10 @@ def solve_center_parallel(
         if not any(m in op.runs for m in machines):
             raise ValueError(f"{op.id} has no eligible machine in {list(machines)}")
     if len(machines) == 1:
-        return _one_machine(ops, machines[0], dp, setup, objective, K, exact_limit)
+        return _one_machine(ops, machines[0], dp, setup, objective, K, exact_limit, setup_scale)
     if K <= 0.0:
         raise ValueError("K must be positive")
-    return _CenterDispatch(ops, machines, dp, setup, objective, K).run()
+    return _CenterDispatch(ops, machines, dp, setup, objective, K, setup_scale).run()
 
 
 def _one_machine(
@@ -455,6 +470,7 @@ def _one_machine(
     objective: CenterObjective,
     K: float,  # noqa: N803
     exact_limit: int,
+    setup_scale: float,
 ) -> CenterResult:
     single = [SubOp(o.id, o.release, o.runs[machine_id], o.due, o.dues) for o in ops]
 
@@ -462,13 +478,20 @@ def _one_machine(
     if objective == "lmax":
         result = solve_lmax(single, dp, setup=on_machine, exact_limit=exact_limit)
     else:
-        result = wt_atc_sequence(single, dp, K=K, setup=on_machine)
+        result = wt_atc_sequence(single, dp, K=K, setup=on_machine, setup_scale=setup_scale)
     sequences = {machine_id: result.sequence} if result.sequence else {}
     return CenterResult(sequences, result.value)
 
 
 class _CenterDispatch:
-    """Non-delay list scheduling of a center over its machines (see the module)."""
+    """Non-delay list scheduling of a center over its machines (see the module).
+
+    An op's dp gate is fixed once its last dp predecessor is placed, so it is computed
+    then; each machine keeps a heap of its ready ops by gate and the set of those already
+    released, so a decision looks only at the released ops of the machines free at t. A
+    released op's urgency does not change with t (its (r - t)^+ term is 0), so it is
+    computed once per (op, machine); only the setup factor follows the machine's last op.
+    """
 
     def __init__(
         self,
@@ -478,6 +501,7 @@ class _CenterDispatch:
         setup: CenterSetup | None,
         objective: CenterObjective,
         K: float,  # noqa: N803
+        setup_scale: float,
     ) -> None:
         self._ops = ops
         self._by_id = {o.id: o for o in ops}
@@ -487,54 +511,119 @@ class _CenterDispatch:
         self._objective = objective
         shortest = [min(o.runs[m] for m in self._eligible[o.id]) for o in ops]
         self._scale = K * _default_pbar(shortest)
+        self._setup_scale = setup_scale
         self._free = dict.fromkeys(machines, -math.inf)
         self._last: dict[str, str | None] = dict.fromkeys(machines, None)
         self._sequences: dict[str, list[str]] = {m: [] for m in machines}
+        self._done: dict[str, float] = {}
+        self._gate: dict[str, float] = {}
+        self._pending: dict[str, list[tuple[float, str]]] = {m: [] for m in machines}
+        self._released: dict[str, set[str]] = {m: set() for m in machines}
+        self._released_by_gate: dict[str, list[tuple[float, str]]] = {m: [] for m in machines}
+        self._urgency: dict[tuple[str, str], float] = {}
+        self._waiting = {o.id: len(self._gates.get(o.id, ())) for o in ops}
+        self._followers: dict[str, list[str]] = {}
+        for after, pairs in self._gates.items():
+            for before, _ in pairs:
+                self._followers.setdefault(before, []).append(after)
 
     def run(self) -> CenterResult:
-        ready = _Ready(list(self._by_id), self._gates)
-        while ready.remaining():
-            earliest = {
-                o: _earliest(o, self._by_id[o].release, ready.done, self._gates)
-                for o in ready.ops()
-            }
-            starts = {
-                o: min(max(e, self._free[m]) for m in self._eligible[o])
-                for o, e in earliest.items()
-            }
-            t = min(starts.values())
-            candidates = [o for o in earliest if starts[o] <= t]
-            op_id = self._pick(candidates, earliest, t)
-            machine_id, finish = self._fastest_machine(op_id, earliest[op_id])
+        for op in self._ops:
+            if self._waiting[op.id] == 0:
+                self._make_ready(op.id)
+        for _ in self._ops:
+            t = self._next_time()
+            op_id, machine_id = self._pick(t)
+            finish = self._finish(op_id, machine_id)
             self._free[machine_id], self._last[machine_id] = finish, op_id
             self._sequences[machine_id].append(op_id)
-            ready.place(op_id, finish)
+            self._place(op_id, finish)
         sequences = {m: tuple(seq) for m, seq in self._sequences.items() if seq}
         if self._objective == "lmax":
-            return CenterResult(sequences, _lmax(self._ops, ready.done))
-        return CenterResult(sequences, _weighted_tardiness(self._ops, ready.done))
+            return CenterResult(sequences, _lmax(self._ops, self._done))
+        return CenterResult(sequences, _weighted_tardiness(self._ops, self._done))
 
-    def _pick(self, candidates: list[str], earliest: Mapping[str, float], t: float) -> str:
+    # --- readiness -----------------------------------------------------------------------
+
+    def _make_ready(self, op_id: str) -> None:
+        gate = _earliest(op_id, self._by_id[op_id].release, self._done, self._gates)
+        self._gate[op_id] = gate
+        for m in self._eligible[op_id]:
+            heapq.heappush(self._pending[m], (gate, op_id))
+
+    def _place(self, op_id: str, completion: float) -> None:
+        self._done[op_id] = completion
+        for m in self._eligible[op_id]:
+            self._released[m].discard(op_id)
+        for after in self._followers.get(op_id, ()):
+            self._waiting[after] -= 1
+            if self._waiting[after] == 0:
+                self._make_ready(after)
+
+    def _smallest_gate(self, heap: list[tuple[float, str]]) -> float:
+        """The smallest gate in a machine heap, placed ops dropped first."""
+        while heap and heap[0][1] in self._done:
+            heapq.heappop(heap)
+        return heap[0][0] if heap else math.inf
+
+    def _next_time(self) -> float:
+        """t = the earliest start of any ready op; releases every op gated by t.
+
+        No ready op left while some op is unplaced means the dp close a cycle.
+        """
+        t = math.inf
+        for m, free in self._free.items():
+            gate = min(
+                self._smallest_gate(self._released_by_gate[m]),
+                self._smallest_gate(self._pending[m]),
+            )
+            t = min(t, max(free, gate))
+        for m, pending in self._pending.items():
+            while pending and pending[0][0] <= t:
+                entry = heapq.heappop(pending)
+                if entry[1] not in self._done:
+                    self._released[m].add(entry[1])
+                    heapq.heappush(self._released_by_gate[m], entry)
+        if t == math.inf:
+            raise DelayedPrecedenceViolation("the delayed precedences close a cycle")
+        return t
+
+    # --- the decision --------------------------------------------------------------------
+
+    def _pick(self, t: float) -> tuple[str, str]:
+        """(op, machine): EDD then the fastest machine for Lmax; for weighted tardiness the
+        released (op, machine) pair on a machine free by t with the largest ATCS index."""
+        pairs = [
+            (o, m)
+            for m, released in self._released.items()
+            if self._free[m] <= t
+            for o in released
+            if self._gate[o] <= t
+        ]
         if self._objective == "lmax":
-            return min(candidates, key=lambda o: (self._by_id[o].due, o))
-        index = {
-            o: _atc(self._shortest_run(o), earliest[o], self._by_id[o].dues, t, self._scale)
-            for o in candidates
-        }
-        return _most_urgent(index)
+            op_id = min((o for o, _ in pairs), key=lambda o: (self._by_id[o].due, o))
+            return op_id, self._fastest_machine(op_id)
+        index = {pair: self._pair_index(*pair) for pair in pairs}
+        finish = {pair: self._finish(*pair) for pair in index}
+        return min(index, key=lambda pair: (-index[pair], finish[pair], pair))
 
-    def _shortest_run(self, op_id: str) -> float:
-        runs = self._by_id[op_id].runs
-        return min(runs[m] for m in self._eligible[op_id])
+    def _pair_index(self, op_id: str, machine_id: str) -> float:
+        key = (op_id, machine_id)
+        urgency = self._urgency.get(key)
+        if urgency is None:
+            op = self._by_id[op_id]
+            urgency = _atc(op.runs[machine_id], -math.inf, op.dues, 0.0, self._scale)
+            self._urgency[key] = urgency
+        return urgency * _setup_factor(self._setup_seconds(op_id, machine_id), self._setup_scale)
 
-    def _fastest_machine(self, op_id: str, earliest: float) -> tuple[str, float]:
+    def _setup_seconds(self, op_id: str, machine_id: str) -> float:
+        return self._setup(machine_id, self._last[machine_id], op_id) if self._setup else 0.0
+
+    def _finish(self, op_id: str, machine_id: str) -> float:
+        start = max(self._gate[op_id], self._free[machine_id])
+        return start + self._setup_seconds(op_id, machine_id) + self._by_id[op_id].runs[machine_id]
+
+    def _fastest_machine(self, op_id: str) -> str:
         """The eligible machine that completes the op first (smaller id on a tie)."""
-        runs = self._by_id[op_id].runs
-        finish = {
-            m: max(earliest, self._free[m])
-            + (self._setup(m, self._last[m], op_id) if self._setup else 0.0)
-            + runs[m]
-            for m in self._eligible[op_id]
-        }
-        fastest = min(finish, key=lambda m: (finish[m], m))
-        return fastest, finish[fastest]
+        finish = {m: self._finish(op_id, m) for m in self._eligible[op_id]}
+        return min(finish, key=lambda m: (finish[m], m))

@@ -31,12 +31,13 @@ by these tests:
   Schrage plus swaps beyond (SDD COMP-013).
 - `multi_due_atc_index(op, t, *, pbar, K) -> float`: sum over (w, d) in `op.dues` of
   (w / p) * exp(-(d - p + (r - t)^+)^+ / (K * pbar)) (Pinedo p.199, setup factor 1).
-- `wt_atc_sequence(ops, dp, *, K, pbar=None, setup=None) -> SubResult`: dispatch by the
-  multi-due index whenever the machine frees (t = earliest time the machine is usable);
-  `pbar` defaults to the integer part of the mean run (p.199).
-- `solve_center_parallel(ops, machines, dp, *, setup=None, objective="lmax", K=2.0)
-  -> CenterResult`: the Pm|r_j,s_jk,M_j,dp|Lmax (or weighted tardiness) center version
-  (p.212); with one machine it reduces to the single-machine algorithm.
+- `wt_atc_sequence(ops, dp, *, K, pbar=None, setup=None, setup_scale=inf) -> SubResult`:
+  dispatch by the multi-due index whenever the machine frees (t = earliest time the machine
+  is usable); `pbar` defaults to the integer part of the mean run (p.199); `setup_scale`
+  (K2 sbar) multiplies the index by the setup factor exp(-s / setup_scale) (T-143).
+- `solve_center_parallel(ops, machines, dp, *, setup=None, objective="lmax", K=2.0,
+  setup_scale=inf) -> CenterResult`: the Pm|r_j,s_jk,M_j,dp|Lmax (or weighted tardiness)
+  center version (p.212); with one machine it reduces to the single-machine algorithm.
 
 Every brute force below is written here, independent of the module.
 """
@@ -662,3 +663,64 @@ def test_center_parallel_result_decodes_to_the_same_times_and_verifies(seed: int
         assert decoded.end(op_id) == pytest.approx(end), f"seed {seed}: end of {op_id}"
     verification = verify(compiled, request.overrides, decoded.schedule("sb-center"))
     assert verification.valid, verification.issues
+
+
+# --- setup-aware weighted-tardiness subproblems (T-143; SDD setup factor, p.212) -----------------
+#
+# `setup_scale` (keyword, default inf = factor 1) is K2 * sbar_c of the SDD index: each op's
+# multi-due ATC index is multiplied by exp(-s / setup_scale), s the setup from the op that
+# precedes it on that machine (the machine state when first). On a center the decision is
+# the (op, machine) pair, among released ops and machines free at t, with the largest
+# index (ties: earlier finish, then op id, then machine id).
+
+
+def test_wt_atc_sequence_setup_factor_prefers_the_op_with_the_smaller_setup() -> None:
+    ops = [
+        SubOp(id="a", release=0.0, run=2.0, dues=((1.0, 2.0),)),
+        SubOp(id="b", release=0.0, run=2.0, dues=((1.0, 2.0),)),
+    ]
+    from_state = {"a": 4.0, "b": 0.0}
+
+    def setup(previous: str | None, nxt: str) -> float:
+        return from_state[nxt] if previous is None else 0.0
+
+    assert wt_atc_sequence(ops, [], K=1.0, setup=setup).sequence == ("a", "b")  # tie: op id
+
+    result = wt_atc_sequence(ops, [], K=1.0, setup=setup, setup_scale=2.0)
+
+    assert result.sequence == ("b", "a")
+    assert result.value == pytest.approx(1.0 * (2.0 - 2.0) + 1.0 * (4.0 - 2.0))
+
+
+def test_center_weighted_tardiness_picks_the_op_machine_pair_with_the_setup_factor() -> None:
+    """y is slightly more urgent than x, but y needs a 10 s setup on either machine and x
+    none on A: with the factor x starts first on A; without it y starts at 0."""
+    ops = [
+        CenterOp(id="x", release=0.0, runs={"A": 3.0, "B": 3.0}, dues=((1.0, 6.0),)),
+        CenterOp(id="y", release=0.0, runs={"A": 3.0, "B": 3.0}, dues=((1.0, 5.0),)),
+    ]
+
+    def setup(machine_id: str, previous: str | None, nxt: str) -> float:
+        if nxt == "y":
+            return 10.0
+        return 0.0 if machine_id == "A" else 10.0
+
+    plain = solve_center_parallel(ops, ["A", "B"], [], setup=setup, objective="weighted_tardiness")
+    aware = solve_center_parallel(
+        ops, ["A", "B"], [], setup=setup, objective="weighted_tardiness", setup_scale=2.0
+    )
+
+    assert plain.sequences["A"][0] == "y"  # most urgent first, fastest machine (tie: A)
+    assert aware.sequences["A"] == ("x",)
+    assert aware.sequences["B"] == ("y",)
+    completions = _center_completions(ops, aware.sequences, [], setup)
+    assert completions == {"x": 3.0, "y": 13.0}
+    assert aware.value == pytest.approx(1.0 * (13.0 - 5.0))
+
+
+def test_center_parallel_refuses_delayed_precedences_that_close_a_cycle() -> None:
+    ops = [CenterOp(id=o, release=0.0, runs={"A": 1.0, "B": 1.0}) for o in ("a", "b")]
+    cycle = [DelayedPrecedence("a", "b", 0.0), DelayedPrecedence("b", "a", 0.0)]
+
+    with pytest.raises(DelayedPrecedenceViolation):
+        solve_center_parallel(ops, ["A", "B"], cycle)

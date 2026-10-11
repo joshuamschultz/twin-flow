@@ -389,3 +389,56 @@ def test_tails_of_a_job_sink_never_include_ops_that_cannot_reach_it() -> None:
     assert set(graph.tails("1")) == {"1-1", "1-2", "1-3"}
     with pytest.raises(ValueError):
         graph.tails("no-such-job")
+
+
+# --- path and tail matrices (T-143: shifting bottleneck at 600 x 8, SDD Risks) ---------------
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_path_lengths_matrix_equals_longest_path_for_every_pair(seed: int) -> None:
+    """`path_lengths(op_ids)[i, j]` = longest_path(op_ids[i], op_ids[j]), -inf when none
+    (the diagonal included): one pass for all pairs instead of one search per pair."""
+    request, choice, sequences = random_job_shop(seed, setups=True)
+    index = ProblemIndex.build(compile_request(request).problem)
+    graph = DisjunctiveGraph.build(index, choice, sequences)
+    ops = sorted(choice)[::2]
+
+    lengths = graph.path_lengths(ops)
+
+    assert lengths.shape == (len(ops), len(ops))
+    for i, a in enumerate(ops):
+        for j, b in enumerate(ops):
+            expected = graph.longest_path(a, b) if a != b else None
+            assert lengths[i, j] == (-np.inf if expected is None else expected), (a, b)
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_sink_tails_matrix_equals_tails_of_every_job_sink(seed: int) -> None:
+    """`sink_tails(op_ids)[i, k]` = tails(job k)[op_ids[i]] for job k = index.jobs[k], -inf
+    when the op does not reach V_k."""
+    request, choice, sequences = random_job_shop(seed, setups=True)
+    index = ProblemIndex.build(compile_request(request).problem)
+    graph = DisjunctiveGraph.build(index, choice, sequences)
+    ops = sorted(choice)
+
+    tails = graph.sink_tails(ops)
+
+    assert tails.shape == (len(ops), len(index.jobs))
+    for k, job in enumerate(index.jobs):
+        expected = graph.tails(job.id)
+        for i, op_id in enumerate(ops):
+            assert tails[i, k] == pytest.approx(expected.get(op_id, -np.inf)), (op_id, job.id)
+
+
+def test_path_and_tail_matrices_on_7_1_1_job_arcs_only() -> None:
+    graph = _graph_7_1_1({})
+
+    lengths = graph.path_lengths(["1-1", "1-3", "2-1"])
+    tails = graph.sink_tails(["1-1", "3-3"])
+
+    assert lengths.tolist() == [
+        [-np.inf, 18.0, -np.inf],
+        [-np.inf, -np.inf, -np.inf],
+        [-np.inf, -np.inf, -np.inf],
+    ]  # 1-1 runs 10, 1-2 runs 8 (Pinedo Example 7.1.1)
+    assert tails.tolist() == [[22.0, -np.inf, -np.inf], [-np.inf, -np.inf, 3.0]]

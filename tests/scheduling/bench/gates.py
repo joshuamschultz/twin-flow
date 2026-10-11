@@ -15,8 +15,12 @@ with `seeds=(0,)`; `seed_stable` then checks it gives identical output for seeds
 the first 3 instances. Stochastic methods pass `GATE_SEEDS` (0 to 4).
 
 A method is a registry name or a zero-argument callable returning a `Solver` (tests pass
-fakes). A `Bench` names the instances and the rules; `HELD_OUT_BENCH` is the D-083 set, and
-tests use a tiny bench with fake rules. Baseline scores are cached per bench for the session.
+fakes); `params` (optional on every call) become `profile.method_params[solver.name]`, the
+solver's `SolveContext.params`. A `Bench` names the instances, the rules and the score
+terms; `HELD_OUT_BENCH` is the D-083 set, and tests use a tiny bench with fake rules.
+`MAKESPAN_BENCH` is the same instances scored by makespan alone (normalized by EDD's
+makespan), for a makespan-only method whose D-083 bench-profile gate the orchestrator rules
+structurally out of reach. Baseline scores are cached per bench for the session.
 """
 
 from __future__ import annotations
@@ -37,15 +41,18 @@ from twinflow.scheduling.model import (
     WeightedTerm,
 )
 from twinflow.scheduling.registry import get as get_solver
-from twinflow.scheduling.seam import Solver
+from twinflow.scheduling.seam import ParamValue, Solver
 from twinflow.scheduling.solver import solve
 
 Method = str | Callable[[], Solver]
 Values = Mapping[ObjectiveKind, float]
+Params = Mapping[str, ParamValue]
+Terms = tuple[tuple[ObjectiveKind, float], ...]
 
 RULES = ("fifo", "edd", "spt")
 REFERENCE_RULE = "edd"
-BENCH_TERMS = ((ObjectiveKind.WEIGHTED_TARDINESS, 1.0), (ObjectiveKind.TOTAL_SETUP, 0.2))
+BENCH_TERMS: Terms = ((ObjectiveKind.WEIGHTED_TARDINESS, 1.0), (ObjectiveKind.TOTAL_SETUP, 0.2))
+MAKESPAN_TERMS: Terms = ((ObjectiveKind.MAKESPAN, 1.0),)
 WIN_SHARE = 0.6
 MAX_CV = 0.05
 GATE_SEEDS = (0, 1, 2, 3, 4)
@@ -56,12 +63,14 @@ DEFAULT_BUDGET_SECONDS = 10.0
 
 @dataclass(frozen=True, slots=True)
 class Bench:
-    """Instances (`instance(seed)` for each of `instance_seeds`) and the comparison rules."""
+    """Instances (`instance(seed)` for each of `instance_seeds`), the comparison rules and
+    the score terms (kind, weight), each normalized by the reference rule's value."""
 
     instance: Callable[[int], SolveRequest]
     instance_seeds: tuple[int, ...]
     rules: tuple[tuple[str, Method], ...] = tuple((rule, rule) for rule in RULES)
     budget_seconds: float = DEFAULT_BUDGET_SECONDS
+    terms: Terms = BENCH_TERMS
 
     @property
     def required_wins(self) -> int:
@@ -72,6 +81,7 @@ class Bench:
 
 
 HELD_OUT_BENCH = Bench(instance=hmlv_instance, instance_seeds=HELD_OUT_SEEDS)
+MAKESPAN_BENCH = Bench(instance=hmlv_instance, instance_seeds=HELD_OUT_SEEDS, terms=MAKESPAN_TERMS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +100,7 @@ class GateVerdict:
 # --- profile and score ----------------------------------------------------------------------
 
 
-def bench_profile(reference: Values | None) -> WeightedSum:
+def bench_profile(reference: Values | None, terms: Terms = BENCH_TERMS) -> WeightedSum:
     """The bench objective; each term is scaled by max(reference value, 1) (1 without one)."""
     return WeightedSum(
         terms=tuple(
@@ -99,7 +109,7 @@ def bench_profile(reference: Values | None) -> WeightedSum:
                 weight=weight,
                 scale=max(reference[kind], 1.0) if reference is not None else 1.0,
             )
-            for kind, weight in BENCH_TERMS
+            for kind, weight in terms
         )
     )
 
@@ -119,13 +129,22 @@ def _solver(method: Method) -> Solver:
 
 
 def _run(
-    bench: Bench, method: Method, instance_seed: int, seed: int, objective: ObjectiveSpec
+    bench: Bench,
+    method: Method,
+    instance_seed: int,
+    seed: int,
+    objective: ObjectiveSpec,
+    params: Params | None = None,
 ) -> SolveResult:
     request = _instance(bench, instance_seed)
-    profile = request.profile.model_copy(update={"objective": objective})
+    solver = _solver(method)
+    update: dict[str, object] = {"objective": objective}
+    if params is not None:
+        update["method_params"] = {solver.name: dict(params)}
+    profile = request.profile.model_copy(update=update)
     return solve(
         request.model_copy(update={"profile": profile}),
-        solver=_solver(method),
+        solver=solver,
         budget_seconds=bench.budget_seconds,
         seed=seed,
     )
@@ -134,7 +153,8 @@ def _run(
 @functools.cache
 def reference_values(bench: Bench, instance_seed: int) -> Values:
     """The reference rule's objective values on one instance; raises when it does not verify."""
-    result = _run(bench, bench.rule(REFERENCE_RULE), instance_seed, 0, bench_profile(None))
+    objective = bench_profile(None, bench.terms)
+    result = _run(bench, bench.rule(REFERENCE_RULE), instance_seed, 0, objective)
     if not result.verified:
         raise RuntimeError(
             f"reference rule {REFERENCE_RULE} did not verify on instance {instance_seed}: "
@@ -143,17 +163,28 @@ def reference_values(bench: Bench, instance_seed: int) -> Values:
     return result.objective_values
 
 
+def _spec(bench: Bench, instance_seed: int) -> WeightedSum:
+    return bench_profile(reference_values(bench, instance_seed), bench.terms)
+
+
 def score(
-    method: Method, instance_seed: int, seed: int = 0, *, bench: Bench = HELD_OUT_BENCH
+    method: Method,
+    instance_seed: int,
+    seed: int = 0,
+    *,
+    bench: Bench = HELD_OUT_BENCH,
+    params: Params | None = None,
 ) -> float:
     """The method's bench score on one instance; infinity when its answer does not verify."""
-    spec = bench_profile(reference_values(bench, instance_seed))
-    result = _run(bench, method, instance_seed, seed, spec)
+    spec = _spec(bench, instance_seed)
+    result = _run(bench, method, instance_seed, seed, spec, params)
     return bench_score(spec, result.objective_values) if result.verified else math.inf
 
 
-def _scores(method: Method, seed: int, bench: Bench) -> tuple[float, ...]:
-    return tuple(score(method, i, seed, bench=bench) for i in bench.instance_seeds)
+def _scores(
+    method: Method, seed: int, bench: Bench, params: Params | None = None
+) -> tuple[float, ...]:
+    return tuple(score(method, i, seed, bench=bench, params=params) for i in bench.instance_seeds)
 
 
 @functools.cache
@@ -228,19 +259,25 @@ def judge(
 
 
 def beats_baselines(
-    method: Method, seeds: Sequence[int] = (0,), *, bench: Bench = HELD_OUT_BENCH
+    method: Method,
+    seeds: Sequence[int] = (0,),
+    *,
+    bench: Bench = HELD_OUT_BENCH,
+    params: Params | None = None,
 ) -> GateVerdict:
     """D-083: does `method` beat FIFO, EDD and SPT on `bench` for every seed in `seeds`?"""
-    seed_scores = [_scores(method, seed, bench) for seed in seeds]
+    seed_scores = [_scores(method, seed, bench, params) for seed in seeds]
     return judge(seed_scores, baseline_table(bench), bench.required_wins)
 
 
-def seed_stable(method: Method, *, bench: Bench = HELD_OUT_BENCH) -> bool:
+def seed_stable(
+    method: Method, *, bench: Bench = HELD_OUT_BENCH, params: Params | None = None
+) -> bool:
     """Seeds 0 and 1 give the same status and assignments on the first 3 instances."""
     for instance_seed in bench.instance_seeds[:STABILITY_INSTANCES]:
-        spec = bench_profile(reference_values(bench, instance_seed))
+        spec = _spec(bench, instance_seed)
         outputs = {
-            _run(bench, method, instance_seed, seed, spec).schedule.model_dump_json(
+            _run(bench, method, instance_seed, seed, spec, params).schedule.model_dump_json(
                 include={"status", "assignments"}
             )
             for seed in STABILITY_SEEDS
@@ -248,3 +285,11 @@ def seed_stable(method: Method, *, bench: Bench = HELD_OUT_BENCH) -> bool:
         if len(outputs) > 1:
             return False
     return True
+
+
+def format_verdict(label: str, verdict: GateVerdict, instances: int) -> str:
+    """One table row: label, per-seed means, wins per seed out of `instances`, CV, verdict."""
+    means = " ".join(f"{m:.4f}" for m in verdict.seed_means)
+    wins = " ".join(f"{w}/{instances}" for w in verdict.wins)
+    outcome = "PASS" if verdict.passed else "FAIL"
+    return f"{label:<28} mean {means:<8} wins {wins:<6} cv {verdict.cv:.4f} {outcome}"

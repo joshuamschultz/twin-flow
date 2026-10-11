@@ -3,15 +3,17 @@
 SDD pseudo-code "Shifting bottleneck, makespan" (Pinedo Alg 7.2.1, p.189-195) and
 "Shifting bottleneck, weighted tardiness" (Sec 7.3, p.196-202), on work centers (p.212):
 
-1. Every op starts on its shortest-run machine (ties: machine id), the provisional choice
-   that gives the graph its durations; in-progress ops stay first on their machines.
+1. Provisional machines: each op starts on its fastest option (run times the machine's
+   calendar slowdown, see below; ties: machine id); in-progress ops stay first on their
+   machines. Each multi-machine center then takes the machines its own subproblem picks on
+   the job-arc graph (eligibility, speed and setups: `solve_center_parallel`).
 2. While a center is open: build the disjunctive graph G of the fixed centers, and for each
    open center solve its subproblem with r(o) = head(o), delayed precedence a -> b with
-   delay L(a, b) - dur(a) for every G path between two of its ops (p.194-196), and
+   delay L(a, b) - dur(a) for the graph paths between two of its ops (p.194-196), and
    - makespan: d(o) = Cmax(G) - q(o) + dur(o), q the tail to V; Lmax subproblem;
    - weighted tardiness: d^k(o) = max(d_k, C_k) - q_k(o) + dur(o) for each job sink V_k
      that o reaches (p.198: a job already late in G is charged only for added delay);
-     multi-due ATC subproblem.
+     multi-due ATC subproblem with the setup factor exp(-s / (K2 sbar_c)) (SDD).
    One-machine centers use the single-machine solvers, multi-machine centers the
    parallel-machine version, which also picks each op's machine (`sb_subproblems`).
 3. Criticality: the subproblem value for makespan and for `subproblem_value`; for
@@ -19,18 +21,33 @@ SDD pseudo-code "Shifting bottleneck, makespan" (Pinedo Alg 7.2.1, p.189-195) an
    the job completions after inserting the center (p.199-200), Kc default pbar of the
    center. The most critical center (ties: center id) is fixed.
 4. Re-optimization: `reopt_rounds` passes over the other fixed centers in insertion order;
-   each is removed, re-solved and kept when Cmax (weighted tardiness of G for `sb_wt`) does
-   not increase.
+   each is removed, re-solved and kept when the objective does not rise: Cmax (weighted
+   tardiness for `sb_wt`) of G while a center is open, the `evaluate` key of the complete
+   plan once every center is fixed. A final round then re-optimizes every center (the
+   last one fixed included) the same way.
 5. The machine choice and sequences go through `kernel.decode.decode` (calendars,
    operators and batches are the decoder's job).
 
-Params (`SolveContext.params`): `K` (ATC look-ahead, default 2.0), `Kc` (default pbar of
-the center), `criticality`, `reopt_rounds` (default 1), `subproblem` (the exact
+Readings [mine]:
+- Delayed precedence: `DisjunctiveGraph.path_lengths` gives L for every pair of the
+  center's ops in one pass; only the pairs of the transitive reduction are kept (a -> c is
+  dropped when a -> b -> c within the center), so every path still orders the sequence and
+  the subproblem stays near-linear in size.
+- Calendar slowdown: in the center subproblem a machine's run is divided by the working
+  share of its calendar span (1 without a calendar), so a machine that works half the time
+  counts as half as fast; the graph keeps the plain runs.
+- `evaluate` (the solver passes its `Scorer` key over `fast_values` of the decoded plan)
+  judges re-optimization by the solver's real objective, calendars included.
+
+Params (`SolveContext.params`): `K` (ATC look-ahead, default 2.0), `K2` (setup factor,
+default 1.0 for every center, tuned on the training bench), `Kc` (default pbar of the
+center), `criticality`, `reopt_rounds` (default 2), `subproblem` (the exact
 branch-and-bound limit in ops, default 10). A bad value raises ValueError.
 
-Deadline: the method is one pass with no anytime plan, like the dispatch rules. Past
-`context.deadline` before every center is fixed it returns UNKNOWN `time_limit`; a deadline
-hit during re-optimization ends re-optimization and keeps the plan built so far.
+Deadline: past `context.deadline` before every center is fixed, the open centers are each
+fixed by their subproblem on the current graph in center-id order, with no criticality
+comparison and no re-optimization (an anytime answer); a deadline hit during
+re-optimization ends it and keeps the plan built so far.
 
 The subproblem solvers live in the helper module `sb_subproblems`, imported at call time
 (D-069 leaf rule): when it is absent the solvers answer UNKNOWN `subsolver_unavailable`.
@@ -41,14 +58,18 @@ from __future__ import annotations
 import functools
 import math
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
+import numpy as np
+import numpy.typing as npt
+
 from twinflow.scheduling.kernel.decode import decode
 from twinflow.scheduling.kernel.graph import DisjunctiveGraph
-from twinflow.scheduling.kernel.index import OpOption, ProblemIndex
-from twinflow.scheduling.kernel.score import fast_values
+from twinflow.scheduling.kernel.index import Calendar, ProblemIndex
+from twinflow.scheduling.kernel.score import Scorer, fast_values
+from twinflow.scheduling.kernel.stats import InstanceStats
 from twinflow.scheduling.model import ObjectiveSpec, Problem, Schedule, ScheduleIssue
 from twinflow.scheduling.objectives import primary_kind
 from twinflow.scheduling.registry import SolverSpec
@@ -59,6 +80,9 @@ if TYPE_CHECKING:
 
 Mode = Literal["makespan", "weighted_tardiness"]
 Criticality = Literal["completion_delta", "subproblem_value"]
+Plan = Mapping[str, tuple[str, ...]]
+Evaluate = Callable[[Mapping[str, str], Plan], tuple[float, ...]]
+"""(op -> machine, machine -> op ids) of a complete plan -> sort key, smaller is better."""
 
 _SUBPROBLEMS = "twinflow.scheduling.algorithms.sb_subproblems"
 _CRITICALITIES: Mapping[str, Criticality] = {
@@ -91,13 +115,14 @@ class SbOutcome:
     """Op -> machine and machine -> op ids (the decoder's input), plus the trace."""
 
     choice: Mapping[str, str]
-    sequences: Mapping[str, tuple[str, ...]]
+    sequences: Plan
     trace: tuple[SbIteration, ...]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class _Settings:
     k: float
+    k2: float
     kc: float | None
     criticality: Criticality
     reopt_rounds: int
@@ -112,9 +137,10 @@ class _Settings:
         kc = params.get("Kc")
         return cls(
             k=_positive(params.get("K", 2.0), "K"),
+            k2=_positive(params.get("K2", 1.0), "K2"),
             kc=None if kc is None else _positive(kc, "Kc"),
             criticality=criticality,
-            reopt_rounds=_count(params.get("reopt_rounds", 1), "reopt_rounds"),
+            reopt_rounds=_count(params.get("reopt_rounds", 2), "reopt_rounds"),
             exact_limit=_count(params.get("subproblem", 10), "subproblem"),
         )
 
@@ -137,21 +163,26 @@ def shifting_bottleneck(
     params: Mapping[str, ParamValue],
     *,
     deadline: float = math.inf,
+    evaluate: Evaluate | None = None,
 ) -> SbOutcome:
     """Run shifting bottleneck on `index` (see the module). `deadline` is a monotonic
-    instant; past it before every center is fixed, TimeoutError."""
-    return _ShiftingBottleneck(index, mode, _Settings.parse(params), deadline).run()
+    instant; `evaluate` scores complete plans for re-optimization (graph objective when
+    None)."""
+    return _ShiftingBottleneck(index, mode, _Settings.parse(params), deadline, evaluate).run()
 
 
 @dataclass(frozen=True, slots=True)
 class _GraphView:
-    """What the subproblems read from one graph: heads, tails, completions."""
+    """What the subproblems read from one graph: heads, tails, completions, sink tails."""
 
     graph: DisjunctiveGraph
     heads: Mapping[str, float]
     tails: Mapping[str, float]
-    job_tails: Mapping[str, Mapping[str, float]]
     completions: Mapping[str, float]
+    sink_tails: npt.NDArray[np.float64]
+    """Row per op position, column per job: q_k(o), -inf off-path (weighted tardiness)."""
+    due_base: npt.NDArray[np.float64]
+    """Per job max(d_k, C_k); nan for a job without a due date (weighted tardiness)."""
 
     @property
     def cmax(self) -> float:
@@ -162,13 +193,20 @@ class _ShiftingBottleneck:
     """The main loop and re-optimization over mutable choice and sequences."""
 
     def __init__(
-        self, index: ProblemIndex, mode: Mode, settings: _Settings, deadline: float
+        self,
+        index: ProblemIndex,
+        mode: Mode,
+        settings: _Settings,
+        deadline: float,
+        evaluate: Evaluate | None,
     ) -> None:
         self._index = index
         self._mode: Mode = mode
         self._settings = settings
         self._deadline = deadline
-        self._choice = {op.id: _shortest_option(op.options) for op in index.ops}
+        self._evaluate = evaluate
+        self._slowdown = {m.id: _calendar_slowdown(m.calendar) for m in index.machines}
+        self._choice = {op.id: self._fastest_option(op.id) for op in index.ops}
         self._prefix: dict[str, tuple[str, ...]] = {}
         self._center_ops: dict[str, list[str]] = {}
         for op in index.ops:
@@ -182,27 +220,67 @@ class _ShiftingBottleneck:
             for center, ops in self._center_ops.items()
         }
         self._sequences: dict[str, tuple[str, ...]] = dict(self._prefix)
+        self._open = set(self._center_ops)
+        self._setup_scale = {c: self._center_setup_scale(c) for c in self._center_ops}
+
+    def _fastest_option(self, op_id: str) -> str:
+        """Shortest run times calendar slowdown, then machine id (options are id-ordered)."""
+        options = self._index.op(op_id).options
+        return min(options, key=lambda o: o.run * self._slowdown[o.machine_id]).machine_id
+
+    def _center_setup_scale(self, center: str) -> float:
+        """K2 sbar_c of the setup factor; inf (factor 1) for makespan or without setups."""
+        if self._mode == "makespan":
+            return math.inf
+        sbar = InstanceStats.for_center(self._index, center, self._index.now).sbar
+        return self._settings.k2 * sbar if sbar > 0.0 else math.inf
 
     def run(self) -> SbOutcome:
-        open_centers = sorted(self._center_ops)
+        self._choose_center_machines()
         fixed: list[str] = []
         trace: list[SbIteration] = []
-        while open_centers:
+        while self._open:
+            if time.monotonic() >= self._deadline:
+                trace += self._complete_open_centers()
+                break
             view = self._view()
-            subproblems = {c: self._subproblem(c, view) for c in open_centers}
-            chosen = min(open_centers, key=lambda c: (-subproblems[c].criticality, c))
-            self._insert(chosen, subproblems[chosen].sequences)
+            subproblems = {c: self._subproblem(c, view) for c in sorted(self._open)}
+            chosen = min(subproblems, key=lambda c: (-subproblems[c].criticality, c))
+            self._fix(chosen, subproblems[chosen].sequences)
             trace.append(SbIteration(chosen, subproblems))
-            open_centers.remove(chosen)
             self._reoptimize(fixed)
             fixed.append(chosen)
+        self._reoptimize(fixed)
         return SbOutcome(dict(self._choice), dict(self._sequences), tuple(trace))
+
+    def _choose_center_machines(self) -> None:
+        """Each multi-machine center takes the machines of its subproblem on the job-arc
+        graph (its arcs are not inserted)."""
+        multi = [c for c in sorted(self._center_ops) if len(self._center_machines[c]) > 1]
+        if not multi:
+            return
+        view = self._view()
+        for center in multi:
+            for machine_id, sequence in self._solve(center, view).sequences.items():
+                self._choice.update(dict.fromkeys(sequence, machine_id))
+
+    def _complete_open_centers(self) -> list[SbIteration]:
+        """Past the deadline: fix each open center by its subproblem, in center-id order."""
+        iterations: list[SbIteration] = []
+        for center in sorted(self._open):
+            result = self._solve(center, self._view())
+            sub = SbSubproblem(dict(result.sequences), result.value, result.value)
+            self._fix(center, sub.sequences)
+            iterations.append(SbIteration(center, {center: sub}))
+        return iterations
+
+    def _fix(self, center: str, sequences: Plan) -> None:
+        self._insert(center, sequences)
+        self._open.discard(center)
 
     # --- one center ------------------------------------------------------------------------
 
     def _subproblem(self, center: str, view: _GraphView) -> SbSubproblem:
-        if time.monotonic() >= self._deadline:
-            raise TimeoutError("shifting bottleneck ran out of time")
         result = self._solve(center, view)
         if self._mode == "makespan" or self._settings.criticality == "subproblem_value":
             criticality = result.value
@@ -219,26 +297,29 @@ class _ShiftingBottleneck:
 
         op_ids = self._center_ops[center]
         duration = {o: self._duration(o) for o in op_ids}
+        makespan = self._mode == "makespan"
         ops = [
             CenterOp(
                 id=o,
                 release=view.heads[o],
-                runs={opt.machine_id: opt.run for opt in self._index.op(o).options},
-                due=view.cmax - view.tails[o] + duration[o]
-                if self._mode == "makespan"
-                else math.inf,
-                dues=self._local_dues(o, duration[o], view) if self._mode != "makespan" else (),
+                runs={
+                    opt.machine_id: opt.run * self._slowdown[opt.machine_id]
+                    for opt in self._index.op(o).options
+                },
+                due=view.cmax - view.tails[o] + duration[o] if makespan else math.inf,
+                dues=() if makespan else self._local_dues(o, duration[o], view),
             )
             for o in op_ids
         ]
         return solve_center_parallel(
             ops,
             self._center_machines[center],
-            self._delayed_precedence(op_ids, duration, view.graph),
+            _delayed_precedence(op_ids, duration, view.graph),
             setup=self._index.setups.seconds,
-            objective="lmax" if self._mode == "makespan" else "weighted_tardiness",
+            objective="lmax" if makespan else "weighted_tardiness",
             K=self._settings.k,
             exact_limit=self._settings.exact_limit,
+            setup_scale=self._setup_scale[center],
         )
 
     def _duration(self, op_id: str) -> float:
@@ -255,31 +336,9 @@ class _ShiftingBottleneck:
         Pinedo p.198: a job already late in G is charged only for the delay this center
         adds, so its local due is measured from C_k, not d_k.
         """
-        return tuple(
-            (
-                job.weight,
-                max(job.due, view.completions[job.id]) - view.job_tails[job.id][op_id] + duration,
-            )
-            for job in self._index.jobs
-            if job.due is not None and op_id in view.job_tails[job.id]
-        )
-
-    @staticmethod
-    def _delayed_precedence(
-        op_ids: Sequence[str], duration: Mapping[str, float], graph: DisjunctiveGraph
-    ) -> list[DelayedPrecedence]:
-        """a -> b with delay L(a, b) - dur(a) for every graph path between center ops."""
-        from twinflow.scheduling.algorithms.sb_subproblems import (  # noqa: PLC0415  # leaf rule
-            DelayedPrecedence,
-        )
-
-        dp: list[DelayedPrecedence] = []
-        for a in op_ids:
-            for b in op_ids:
-                length = None if a == b else graph.longest_path(a, b)
-                if length is not None:
-                    dp.append(DelayedPrecedence(a, b, length - duration[a]))
-        return dp
+        local = view.due_base - view.sink_tails[self._index.pos[op_id]] + duration
+        jobs = self._index.jobs
+        return tuple((jobs[k].weight, float(local[k])) for k in np.flatnonzero(np.isfinite(local)))
 
     def _completion_delta(self, center: str, result: CenterResult, view: _GraphView) -> float:
         """sum_k w_k (C'_k - C_k) exp(-(d_k - C'_k)^+ / Kc) after inserting the center."""
@@ -310,25 +369,37 @@ class _ShiftingBottleneck:
 
     def _view(self) -> _GraphView:
         graph = self._graph()
-        job_tails = (
-            {}
-            if self._mode == "makespan"
-            else {job.id: graph.tails(job.id) for job in self._index.jobs if job.due is not None}
+        completions = graph.completions()
+        heads, tails = graph.heads(), graph.tails()
+        if self._mode == "makespan":
+            empty = np.empty((0, 0))
+            return _GraphView(graph, heads, tails, completions, empty, empty)
+        due_base = np.array(
+            [
+                math.nan if job.due is None else max(job.due, completions.get(job.id, job.due))
+                for job in self._index.jobs
+            ]
         )
-        return _GraphView(graph, graph.heads(), graph.tails(), job_tails, graph.completions())
+        sink_tails = graph.sink_tails(self._index.op_ids)
+        return _GraphView(graph, heads, tails, completions, sink_tails, due_base)
 
-    def _objective(self) -> float:
-        """Cmax of G, or its weighted tardiness for `sb_wt`."""
+    def _objective(self) -> tuple[float, ...]:
+        """The `evaluate` key once every center is fixed, else Cmax of G (its weighted
+        tardiness for `sb_wt`)."""
+        if self._evaluate is not None and not self._open:
+            return self._evaluate(self._choice, self._sequences)
         completions = self._graph().completions()
         if self._mode == "makespan":
-            return max(completions.values(), default=0.0)
-        return sum(
-            job.weight * max(completions[job.id] - job.due, 0.0)
-            for job in self._index.jobs
-            if job.due is not None and job.id in completions
+            return (max(completions.values(), default=0.0),)
+        return (
+            sum(
+                job.weight * max(completions[job.id] - job.due, 0.0)
+                for job in self._index.jobs
+                if job.due is not None and job.id in completions
+            ),
         )
 
-    def _insert(self, center: str, sequences: Mapping[str, tuple[str, ...]]) -> None:
+    def _insert(self, center: str, sequences: Plan) -> None:
         """The center's machine arcs: in-progress prefix, then the subproblem's sequence."""
         for machine_id in self._center_machines[center]:
             sequence = sequences.get(machine_id, ())
@@ -375,13 +446,44 @@ class _ShiftingBottleneck:
         self._remove(center)
         result = self._solve(center, self._view())
         self._insert(center, result.sequences)
-        if self._objective() > before + _EPS:
+        if _rises(self._objective(), before):
             self._restore(center, saved)
 
 
-def _shortest_option(options: Sequence[OpOption]) -> str:
-    """The provisional machine: shortest run, then machine id (options are id-ordered)."""
-    return min(options, key=lambda o: o.run).machine_id
+def _rises(after: tuple[float, ...], before: tuple[float, ...]) -> bool:
+    """True when `after` sorts after `before` beyond float noise (a tie keeps the new arcs)."""
+    for a, b in zip(after, before, strict=True):
+        if abs(a - b) > _EPS:
+            return a > b
+    return False
+
+
+def _delayed_precedence(
+    op_ids: Sequence[str], duration: Mapping[str, float], graph: DisjunctiveGraph
+) -> list[DelayedPrecedence]:
+    """a -> b with delay L(a, b) - dur(a) for the graph paths between center ops, kept only
+    on the transitive reduction among them (see the module)."""
+    from twinflow.scheduling.algorithms.sb_subproblems import (  # noqa: PLC0415  # leaf rule
+        DelayedPrecedence,
+    )
+
+    lengths = graph.path_lengths(op_ids)
+    reach = np.isfinite(lengths)
+    hops = reach.astype(np.float32)
+    direct = reach & ((hops @ hops) == 0.0)
+    return [
+        DelayedPrecedence(op_ids[i], op_ids[j], float(lengths[i, j]) - duration[op_ids[i]])
+        for i, j in zip(*np.nonzero(direct), strict=True)
+    ]
+
+
+def _calendar_slowdown(calendar: Calendar) -> float:
+    """Span over working seconds of a calendar (first start to last end); 1 without one."""
+    if not calendar:
+        return 1.0
+    working = math.fsum(end - start for start, end in calendar)
+    span = max(end for _, end in calendar) - min(start for start, _ in calendar)
+    return span / working if working > 0.0 else 1.0
 
 
 # --- solver ------------------------------------------------------------------------------------
@@ -389,6 +491,21 @@ def _shortest_option(options: Sequence[OpOption]) -> str:
 
 def _issue(code: str, message: str) -> ScheduleIssue:
     return ScheduleIssue(code=code, path="solver", message=message)
+
+
+def _decoded_key(index: ProblemIndex, objective: ObjectiveSpec, context: SolveContext) -> Evaluate:
+    """The solver's real objective of a plan: `Scorer` key over `fast_values` of its decode
+    (infinity when it does not decode)."""
+    scorer = Scorer(objective, None)
+
+    def key(choice: Mapping[str, str], sequences: Plan) -> tuple[float, ...]:
+        decoded = decode(index, choice, sequences)
+        if isinstance(decoded, ScheduleIssue):
+            return (math.inf,)
+        values = fast_values(index, decoded, context.previous_plan, context.churn_tolerance)
+        return scorer.key(values)
+
+    return key
 
 
 class ShiftingBottleneckSolver:
@@ -422,11 +539,11 @@ class ShiftingBottleneckSolver:
         index = ProblemIndex.build(problem)
         try:
             outcome = shifting_bottleneck(
-                index, self._mode, context.params, deadline=context.deadline
-            )
-        except TimeoutError:
-            return self._unknown(
-                _issue("time_limit", "shifting bottleneck ran out of time"), started
+                index,
+                self._mode,
+                context.params,
+                deadline=context.deadline,
+                evaluate=_decoded_key(index, objective, context),
             )
         except ModuleNotFoundError as error:
             if error.name != _SUBPROBLEMS:

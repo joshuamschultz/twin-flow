@@ -11,7 +11,9 @@ harness hands it. Tests that need the real rules skip until they are registered.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
+import importlib.util
 import math
 from collections import Counter
 from collections.abc import Callable
@@ -23,14 +25,18 @@ from oracle_math import objective_values
 
 from bench.gates import (
     HELD_OUT_BENCH,
+    MAKESPAN_BENCH,
+    MAKESPAN_TERMS,
     RULES,
     Bench,
     GateVerdict,
+    Params,
     baseline_table,
     beats_baselines,
     bench_profile,
     bench_score,
     format_baseline_table,
+    format_verdict,
     judge,
     reference_values,
     score,
@@ -74,6 +80,9 @@ def _rules_registered() -> bool:
 
 needs_rules = pytest.mark.skipif(
     not _rules_registered(), reason=f"dispatch rules {RULES} are not registered yet"
+)
+needs_ortools = pytest.mark.skipif(
+    importlib.util.find_spec("ortools") is None, reason="ortools (scheduling extra) is absent"
 )
 
 
@@ -602,3 +611,130 @@ def test_a_method_returning_the_real_edd_schedule_does_not_beat_the_held_out_bas
     verdict = beats_baselines(_factory(Scripted(edd, "fake_real_edd")))
     assert not verdict.passed
     assert verdict.wins == (0,)
+
+
+# --- method params and the makespan bench (harness extension for T-133, T-143) ----------------
+
+
+def test_params_reach_the_solver_as_its_context_params() -> None:
+    seen: list[dict[str, object]] = []
+
+    def record(problem: Problem, objective: ObjectiveSpec, context: SolveContext) -> Schedule:
+        seen.append(dict(context.params))
+        return _edd_answer(problem, objective, context)
+
+    method = _factory(Scripted(record, "fake_params"))
+    score(method, 0, bench=TINY_BENCH, params={"flexibility": True, "K1": 0.5})
+    score(method, 0, bench=TINY_BENCH)
+
+    assert seen == [{"flexibility": True, "K1": 0.5}, {}]
+
+
+def test_beats_baselines_and_seed_stable_pass_params_on_every_run() -> None:
+    seen: list[dict[str, object]] = []
+
+    def record(problem: Problem, objective: ObjectiveSpec, context: SolveContext) -> Schedule:
+        seen.append(dict(context.params))
+        return _edd_answer(problem, objective, context)
+
+    method = _factory(Scripted(record, "fake_params_all"))
+    beats_baselines(method, bench=TINY_BENCH, params={"mode": "active"})
+    seed_stable(method, bench=TINY_BENCH, params={"mode": "active"})
+
+    assert len(seen) == len(TINY_SEEDS) + 2 * len(TINY_SEEDS)
+    assert all(params == {"mode": "active"} for params in seen), seen
+
+
+def test_the_makespan_bench_scores_makespan_normalized_by_the_reference_rule() -> None:
+    bench = dataclasses.replace(TINY_BENCH, terms=MAKESPAN_TERMS)
+    makespan = reference_values(bench, 0)[ObjectiveKind.MAKESPAN]
+    assert makespan >= 1.0
+
+    assert score(TINY_RULES[1][1], 0, bench=bench) == pytest.approx(1.0)
+    assert bench_profile(reference_values(bench, 0), bench.terms).terms[0].scale == makespan
+    assert MAKESPAN_BENCH.instance_seeds == HELD_OUT_SEEDS
+    assert MAKESPAN_BENCH.terms == ((ObjectiveKind.MAKESPAN, 1.0),)
+
+
+def test_the_edd_copy_scores_1_on_the_makespan_bench_and_wins_nothing() -> None:
+    bench = dataclasses.replace(TINY_BENCH, terms=MAKESPAN_TERMS)
+    verdict = beats_baselines(EDD_COPY, bench=bench)
+    assert verdict.seed_means == pytest.approx((1.0,))
+    assert verdict.wins == (0,) and not verdict.passed
+
+
+def test_the_makespan_bench_hands_the_method_a_makespan_objective() -> None:
+    seen: list[ObjectiveSpec] = []
+
+    def record(problem: Problem, objective: ObjectiveSpec, context: SolveContext) -> Schedule:
+        seen.append(objective)
+        return _edd_answer(problem, objective, context)
+
+    bench = dataclasses.replace(TINY_BENCH, terms=MAKESPAN_TERMS)
+    score(_factory(Scripted(record, "fake_makespan_recorder")), 2, bench=bench)
+    (spec,) = seen
+    assert isinstance(spec, WeightedSum)
+    assert [(t.kind, t.weight) for t in spec.terms] == [(ObjectiveKind.MAKESPAN, 1.0)]
+
+
+def test_format_verdict_names_the_method_mean_wins_and_cv() -> None:
+    verdict = judge([(1.0, 1.0, 1.1)], TABLE, required_wins=2)
+    row = format_verdict("atcs", verdict, 3)
+    assert row.startswith("atcs")
+    assert "1.0333" in row and "2/3" in row and "cv 0.0000" in row and row.endswith("PASS")
+
+
+# --- the method gates (T-133, T-139, T-143; REQ-092, REQ-101, REQ-104, REQ-125) -------------
+
+
+@dataclass(frozen=True)
+class GateCase:
+    """One gate row: a registry method, its params and the bench it is judged on."""
+
+    label: str
+    method: str
+    params: Params | None = None
+    bench: Bench = HELD_OUT_BENCH
+    seeds: tuple[int, ...] = (0,)
+
+
+ATCS_EXTENDED: Params = {"flexibility": True, "suitability": True, "macro_jobs": True}
+CPSAT_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=5.0)  # T-139: 5 s each
+
+GATE_CASES = (
+    pytest.param(GateCase("atcs", "atcs"), id="atcs"),
+    pytest.param(GateCase("atcs+flex+suit+macro", "atcs", ATCS_EXTENDED), id="atcs-extended"),
+    pytest.param(
+        GateCase("ortools (5 s)", "ortools", bench=CPSAT_BENCH), id="ortools", marks=needs_ortools
+    ),
+    pytest.param(GateCase("sb_wt", "sb_wt"), id="sb_wt"),
+    # sb_makespan optimizes makespan (Pinedo Alg 7.2.1); the orchestrator ruled the D-083
+    # bench profile (weighted tardiness + 0.2 x setup) out of reach for it, so it is gated on
+    # the same instances scored by makespan (recorded deviation, T-143).
+    pytest.param(
+        GateCase("sb_makespan (makespan bench)", "sb_makespan", bench=MAKESPAN_BENCH),
+        id="sb_makespan",
+    ),
+)
+"""A later method adds one `pytest.param(GateCase(...))` row."""
+
+
+def _gate(case: GateCase) -> GateVerdict:
+    verdict = beats_baselines(case.method, case.seeds, bench=case.bench, params=case.params)
+    print("\n" + format_verdict(case.label, verdict, len(case.bench.instance_seeds)))
+    return verdict
+
+
+@pytest.mark.slow
+@needs_rules
+@pytest.mark.parametrize("case", GATE_CASES)
+def test_method_beats_fifo_edd_and_spt_on_the_held_out_bench(case: GateCase) -> None:
+    verdict = _gate(case)
+    assert verdict.passed, (case.label, verdict.failures, verdict.rule_means)
+
+
+@pytest.mark.slow
+@needs_rules
+@pytest.mark.parametrize("case", GATE_CASES)
+def test_method_gives_identical_output_for_seeds_0_and_1(case: GateCase) -> None:
+    assert seed_stable(case.method, bench=case.bench, params=case.params), case.label

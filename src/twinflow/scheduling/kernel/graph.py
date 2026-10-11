@@ -36,6 +36,9 @@ import math
 from collections.abc import Iterator, Mapping, Sequence, Set
 from dataclasses import dataclass
 
+import numpy as np
+import numpy.typing as npt
+
 from twinflow.scheduling.kernel.index import OpData, OpOption, ProblemIndex
 from twinflow.scheduling.seam import Feature
 
@@ -219,6 +222,42 @@ class DisjunctiveGraph:
                 if self._rank[y] <= last and length > dist.get(y, -math.inf):
                     dist[y] = length
         return dist.get(target)
+
+    def path_lengths(self, op_ids: Sequence[str]) -> npt.NDArray[np.float64]:
+        """L[i, j] = longest op_ids[i] -> op_ids[j] path, -inf when none (and on the diagonal).
+
+        One forward pass over the topological order from the first source, each node holding
+        a row of distances from every source, instead of one search per pair.
+        """
+        sources = [self._node(op_id) for op_id in op_ids]
+        dist = np.full((len(self._index.ops), len(sources)), -np.inf)
+        live = [False] * len(self._index.ops)
+        for column, p in enumerate(sources):
+            dist[p, column] = 0.0
+            live[p] = True
+        first = min((self._rank[p] for p in sources), default=len(self._order))
+        for x in self._order[first:]:
+            if not live[x]:
+                continue
+            row = dist[x]
+            for y, weight in self._out_edges(x):
+                np.maximum(dist[y], row + weight, out=dist[y])
+                live[y] = True
+        lengths = dist[sources].T.copy()  # row = source, column = target
+        np.fill_diagonal(lengths, -np.inf)
+        return lengths
+
+    def sink_tails(self, op_ids: Sequence[str]) -> npt.NDArray[np.float64]:
+        """Q[i, k] = `tails(job k)[op_ids[i]]` for job k = `index.jobs[k]`, -inf when the op
+        has no path to V_k: one backward pass for every job sink at once."""
+        rows = [self._node(op_id) for op_id in op_ids]
+        tail = np.full((len(self._index.ops), len(self._index.jobs)), -np.inf)
+        for x in reversed(self._order):
+            row = tail[x]
+            row[self._index.ops[x].job_pos] = self._dur[x]
+            for y, weight in self._out_edges(x):
+                np.maximum(row, tail[y] + weight, out=row)
+        return tail[rows]
 
     # --- incremental move ------------------------------------------------------------------
 
