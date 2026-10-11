@@ -30,6 +30,8 @@ Topic = Literal[
 ]
 
 Ident = Annotated[str, Field(min_length=1, max_length=200)]
+RecordRef = Annotated[str, Field(min_length=1, max_length=200, pattern=r"^[^/\\]+$")]
+"""An id or key of the simulation tools: no `/` or `\\`, so never a URL or a path (D-109)."""
 _MAX_CONTENT = 5_242_880
 _MAX_SEED = 4_294_967_295
 _DIGEST_PATTERN = r"^[0-9a-f]{64}$"
@@ -167,7 +169,7 @@ class QueryEvidenceInput(ToolInput):
     """
 
     job_id: Ident | None = None
-    simulation_id: Ident | None = None
+    simulation_id: RecordRef | None = None
     topic: Topic
     entity_id: str | None = Field(default=None, max_length=256)
     offset: int = Field(default=0, ge=0)
@@ -245,7 +247,7 @@ class ComparePlansInput(ToolInput):
     """`simulation_ids`, when given, names one stored simulation per plan, same order."""
 
     plan_ids: tuple[str, ...] = Field(min_length=2, max_length=10)
-    simulation_ids: tuple[Ident, ...] | None = Field(default=None, max_length=10)
+    simulation_ids: tuple[RecordRef, ...] | None = Field(default=None, max_length=10)
 
     @model_validator(mode="after")
     def _one_simulation_per_plan(self) -> ComparePlansInput:
@@ -261,7 +263,7 @@ class _SimulateSettings(ToolInput):
     by the planning service, and the budget is clamped to the service cap.
     """
 
-    request_key: Ident
+    request_key: RecordRef
     reps: int | None = Field(default=None, ge=1, le=1000)
     seed: int = Field(default=42, ge=0, le=_MAX_SEED)
     time_budget_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
@@ -269,12 +271,12 @@ class _SimulateSettings(ToolInput):
 
 
 class SimulateInput(_SimulateSettings):
-    plan_id: Ident
+    plan_id: RecordRef
     baseline: bool = False
 
 
 class SimulatePortfolioInput(_SimulateSettings):
-    portfolio_id: Ident
+    portfolio_id: RecordRef
     baseline: bool = True
 
 

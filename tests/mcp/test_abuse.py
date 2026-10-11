@@ -1116,6 +1116,474 @@ def test_replayed_older_signed_active_pointer_is_artifact_signature_invalid(
     assert _record_counts(service) == before
 
 
+# --- plan simulation (TF-004 REQ-143, D-087, D-104, D-105, D-109) --------------------------------
+
+SIMULATE_CAP = 100  # min(policy max_replications default 100, service default 200)
+POLICY_BUDGET_SECONDS = 60.0  # the `[simulation]` default, below the 120 s service cap
+STORM_TOML = (
+    PROFILE_TOML
+    + '\n[simulation]\ndistribution_source = "profile"\nreplications = 2\n\n'
+    + "[[simulation.breakdowns]]\nmtbf_seconds = 60\n"
+    + 'repair = { kind = "deterministic", value = 1.0 }\n\n'
+    + "".join(
+        f'[[simulation.outages]]\nmachine_id = "{machine}"\nstart = 0\nduration = 2000000\n\n'
+        for machine in ("M1", "M2")
+    )
+)
+"""An outage storm on the 4-operation tiny shop: both machines are out for 2e6 s (inside the
+30-day censor time) while a failure every ~60 s keeps firing, so 50 x 4 + 10,000 events run
+out long before any operation can start."""
+URL_OR_PATH_VALUES = ("http://169.254.169.254/latest/meta-data/", "/etc/passwd")
+
+
+@dataclass(frozen=True)
+class _Seeded:
+    problem_id: str
+    portfolio_id: str
+    plan_id: str
+
+
+async def _seed_plan(session: Session, profile_toml: str = PROFILE_TOML) -> _Seeded:
+    """Put `profile_toml`, build the tiny shop and solve it; one verified plan."""
+    await session.call("put_planning_profile", {"profile_toml": profile_toml})
+    built = await session.call("build_problem_from_erp", {"snapshot": _shop()})
+    assert built["status"] == "ready", built
+    solved = await session.call(
+        "solve_portfolio", {"problem_id": built["problem_id"], "request_key": "seed-solve"}
+    )
+    verified = [row["plan_id"] for row in solved["statuses"] if row["verified"]]
+    assert verified, solved
+    return _Seeded(str(built["problem_id"]), str(solved["portfolio_id"]), str(verified[0]))
+
+
+def _seeded(service: RunningService, profile_toml: str = PROFILE_TOML) -> _Seeded:
+    async def body(session: Session) -> _Seeded:
+        return await _seed_plan(session, profile_toml)
+
+    return _session(service, "planner", body)
+
+
+def _simulate_as(
+    service: RunningService, caller_id: str, arguments: dict[str, Any]
+) -> dict[str, Any]:
+    """`simulate_plan` as `caller_id`: the result, or the error payload (`is_error` set)."""
+
+    async def body(session: Session) -> dict[str, Any]:
+        result = await session.raw("simulate_plan", arguments)
+        payload = _payload(result)
+        return {**payload, "is_error": bool(result.is_error)}
+
+    return _session(service, caller_id, body)
+
+
+def _simulation_rows(service: RunningService) -> list[dict[str, Any]]:
+    uri = f"file:{_database(service)}?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as db:
+        rows = db.execute("SELECT body FROM records WHERE kind = 'simulations'").fetchall()
+    return [json.loads(row[0]) for row in rows]
+
+
+def _issue_codes(result: dict[str, Any]) -> list[str]:
+    return [str(issue["code"]) for issue in result["issues"]]
+
+
+def test_simulating_a_tampered_plan_record_is_blocked_plan_unverified_and_stores_nothing(
+    service: RunningService,
+) -> None:
+    seeded = _seeded(service)
+    stored = _stored(service, "plans", seeded.plan_id)
+    first = stored["assignments"][0]
+    first["end"] = first["start"] + 1.0  # an operation that no longer fits its own duration
+    _overwrite(service, "plans", seeded.plan_id, stored)
+    before = _record_counts(service)
+
+    result = _simulate_as(
+        service, "planner", {"plan_id": seeded.plan_id, "request_key": "tampered"}
+    )
+
+    assert result["is_error"] is False, result
+    assert result["status"] == "blocked", result
+    assert result["simulation_id"] is None
+    assert _issue_codes(result)[0] == "plan_unverified", result
+    assert _record_counts(service) == before
+    assert _simulation_rows(service) == []
+
+
+def test_simulating_a_plan_retargeted_at_another_problem_is_blocked_and_stores_nothing(
+    service: RunningService,
+) -> None:
+    seeded = _seeded(service)
+
+    async def other(session: Session) -> dict[str, Any]:
+        snapshot = _shop()
+        snapshot["production_orders"] = snapshot["production_orders"][:1]
+        built = await session.call("build_problem_from_erp", {"snapshot": snapshot})
+        assert built["status"] == "ready", built
+        return built
+
+    other_problem = _session(service, "planner", other)["problem_id"]
+    assert other_problem != seeded.problem_id
+    other_digest = _stored(service, "problems", other_problem)["problem_digest"]
+    stored = _stored(service, "plans", seeded.plan_id)
+    retargeted = {**stored, "problem_id": other_problem, "problem_digest": other_digest}
+    _overwrite(service, "plans", seeded.plan_id, retargeted)
+    before = _record_counts(service)
+
+    result = _simulate_as(service, "planner", {"plan_id": seeded.plan_id, "request_key": "other"})
+
+    assert result["is_error"] is False, result
+    assert result["status"] == "blocked", result
+    assert _issue_codes(result)[0] == "plan_unverified", result
+    assert _record_counts(service) == before
+    assert _simulation_rows(service) == []
+
+
+def test_reps_above_the_replication_cap_is_size_limit_and_stores_nothing(
+    service: RunningService,
+) -> None:
+    seeded = _seeded(service)
+    before = _record_counts(service)
+
+    error = _simulate_as(
+        service,
+        "planner",
+        {"plan_id": seeded.plan_id, "request_key": "too-many", "reps": SIMULATE_CAP + 1},
+    )
+
+    assert error["is_error"] is True, error
+    assert error["code"] == "size_limit", error
+    assert _record_counts(service) == before
+    assert _audit_rows(service)[-1] == ("planner", "simulate_plan", "error:size_limit")
+
+
+def test_a_budget_above_the_caps_is_clamped_and_the_result_says_so(
+    service: RunningService,
+) -> None:
+    seeded = _seeded(service)
+
+    result = _simulate_as(
+        service,
+        "planner",
+        {"plan_id": seeded.plan_id, "request_key": "long", "time_budget_seconds": 10_000.0},
+    )
+
+    assert result["is_error"] is False, result
+    assert result["status"] in ("completed", "truncated"), result
+    clamped = [issue for issue in result["issues"] if issue["code"] == "budget_clamped"]
+    assert len(clamped) == 1, result["issues"]
+    assert "60" in clamped[0]["message"] and "10000" in clamped[0]["message"], clamped
+    [record] = _simulation_rows(service)
+    assert record["budget_seconds"] == POLICY_BUDGET_SECONDS
+
+
+def test_a_budget_within_the_caps_is_not_reported_as_clamped(service: RunningService) -> None:
+    seeded = _seeded(service)
+
+    result = _simulate_as(
+        service,
+        "planner",
+        {"plan_id": seeded.plan_id, "request_key": "short", "time_budget_seconds": 30.0},
+    )
+
+    assert result["is_error"] is False, result
+    assert "budget_clamped" not in _issue_codes(result)
+    [record] = _simulation_rows(service)
+    assert record["budget_seconds"] == 30.0
+
+
+def test_simulating_under_a_tampered_profile_is_artifact_signature_invalid_and_stores_nothing(
+    service: RunningService,
+) -> None:
+    seeded = _seeded(service)
+    stored = _stored(service, "planning_profiles", "00000001")
+    tampered = stored["payload"].replace('"rush_class":2', '"rush_class":4')
+    assert tampered != stored["payload"], stored["payload"]
+    _overwrite(service, "planning_profiles", "00000001", {**stored, "payload": tampered})
+    before = _record_counts(service)
+
+    error = _simulate_as(
+        service, "planner", {"plan_id": seeded.plan_id, "request_key": "after-tamper"}
+    )
+
+    assert error["is_error"] is True, error
+    assert error["code"] == "artifact_signature_invalid", error
+    assert _record_counts(service) == before
+
+
+def _rules(count: int, distribution: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"distribution": distribution} for _ in range(count)]
+
+
+_LOGNORMAL = {"kind": "lognormal", "mean": 1.0, "cv": 0.15}
+_HOSTILE_POLICIES = {
+    "1001 run factor rules": {"run_factors": _rules(1_001, _LOGNORMAL)},
+    "1001 breakdown rules": {
+        "breakdowns": [{"mtbf_seconds": 3600, "repair": {"kind": "deterministic", "value": 60.0}}]
+        * 1_001
+    },
+    "10001 empirical samples": {
+        "setup_factors": _rules(1, {"kind": "empirical", "samples": [1.0] * 10_001})
+    },
+    "mtbf 59 seconds": {
+        "breakdowns": [{"mtbf_seconds": 59, "repair": {"kind": "deterministic", "value": 60.0}}]
+    },
+}
+
+
+@pytest.mark.parametrize("case", sorted(_HOSTILE_POLICIES))
+def test_a_hostile_simulation_table_is_refused_by_put_planning_profile_and_stores_nothing(
+    service: RunningService, case: str
+) -> None:
+    profile = tiny_profile().model_dump(mode="json")
+    profile["simulation"] = {"distribution_source": "profile", **_HOSTILE_POLICIES[case]}
+    before = _record_counts(service)
+
+    async def body(session: Session) -> dict[str, Any]:
+        return await session.error("put_planning_profile", {"profile": profile})
+
+    error = _session(service, "planner", body)
+
+    assert error["code"] == "invalid_input", error
+    assert error["fields"] and all(f.startswith("profile.simulation.") for f in error["fields"])
+    assert _record_counts(service) == before
+    assert _audit_rows(service)[-1] == ("planner", "put_planning_profile", "error:invalid_input")
+
+
+def test_the_limits_just_inside_the_bounds_are_accepted(service: RunningService) -> None:
+    profile = tiny_profile().model_dump(mode="json")
+    profile["simulation"] = {
+        "distribution_source": "profile",
+        "run_factors": _rules(1_000, _LOGNORMAL),
+        "setup_factors": _rules(1, {"kind": "empirical", "samples": [1.0] * 10_000}),
+        "breakdowns": [{"mtbf_seconds": 60, "repair": {"kind": "deterministic", "value": 60.0}}],
+    }
+
+    async def body(session: Session) -> dict[str, Any]:
+        return await session.call("put_planning_profile", {"profile": profile})
+
+    _session(service, "planner", body)
+
+    assert _record_counts(service)["planning_profiles"] == 1
+
+
+def test_nan_in_a_toml_distribution_is_refused_and_stores_nothing(service: RunningService) -> None:
+    toml = (
+        PROFILE_TOML
+        + '\n[simulation]\ndistribution_source = "profile"\n\n[[simulation.run_factors]]\n'
+        + 'distribution = { kind = "lognormal", mean = nan, cv = 0.15 }\n'
+    )
+    before = _record_counts(service)
+
+    async def body(session: Session) -> dict[str, Any]:
+        return await session.error("put_planning_profile", {"profile_toml": toml})
+
+    error = _session(service, "planner", body)
+
+    assert error["code"] == "invalid_input", error
+    assert _record_counts(service) == before
+
+
+def _nan_profile_json() -> str:
+    """A `put_planning_profile` profile whose lognormal mean is the JSON token `NaN`."""
+    profile = tiny_profile().model_dump(mode="json")
+    profile["simulation"] = {
+        "distribution_source": "profile",
+        "run_factors": [{"distribution": {"kind": "lognormal", "mean": "@NAN@", "cv": 0.15}}],
+    }
+    return json.dumps(profile).replace('"@NAN@"', "NaN")
+
+
+def test_json_nan_in_a_distribution_is_refused_at_the_mcp_boundary(
+    service: RunningService,
+) -> None:
+    before = _record_counts(service)
+    body = (
+        '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":'
+        '"put_planning_profile","arguments":{"profile":' + _nan_profile_json() + "}}}"
+    )
+    assert "NaN" in body
+
+    response = _http(
+        "POST",
+        service.mcp_url,
+        content=body.encode(),
+        headers={**JSON_RPC_HEADERS, **service.bearer("planner")},
+    )
+
+    assert response.status_code == 200, response.text[:300]
+    result = response.json()["result"]
+    assert result["isError"] is True, result
+    refusal = result["structuredContent"]
+    assert refusal["code"] == "invalid_input", refusal
+    assert refusal["fields"] == ["profile.simulation.run_factors.0.distribution.lognormal.mean"]
+    assert _record_counts(service) == before
+
+
+def test_json_nan_in_a_distribution_is_refused_at_the_rest_boundary(
+    service: RunningService,
+) -> None:
+    before = _record_counts(service)
+
+    response = _http(
+        "PUT",
+        service.url + "/api/workspace/planning-profile",
+        content=('{"profile":' + _nan_profile_json() + "}").encode(),
+        headers={"Content-Type": "application/json", **service.bearer("planner")},
+    )
+
+    _assert_refusal_body(response, 422, "invalid_input")
+    assert _record_counts(service) == before
+
+
+def _simulate_field_cases() -> list[tuple[str, str, str]]:
+    fields = (
+        ("simulate_plan", "plan_id"),
+        ("simulate_plan", "request_key"),
+        ("simulate_plan", "profile_digest"),
+        ("simulate_portfolio", "portfolio_id"),
+        ("simulate_portfolio", "request_key"),
+        ("query_evidence", "simulation_id"),
+        ("compare_plans", "simulation_ids"),
+    )
+    return [(tool, name, value) for tool, name in fields for value in URL_OR_PATH_VALUES]
+
+
+def _arguments(tool: str, seeded: _Seeded, field_name: str, value: str) -> dict[str, Any]:
+    """Valid arguments for `tool`, with `field_name` set to the URL or path `value`."""
+    valid: dict[str, dict[str, Any]] = {
+        "simulate_plan": {"plan_id": seeded.plan_id, "request_key": "url-probe"},
+        "simulate_portfolio": {"portfolio_id": seeded.portfolio_id, "request_key": "url-probe"},
+        "query_evidence": {"simulation_id": "sim-" + "0" * 32, "topic": "schedule"},
+        "compare_plans": {
+            "plan_ids": [seeded.plan_id, seeded.plan_id],
+            "simulation_ids": ["sim-" + "0" * 32] * 2,
+        },
+    }
+    arguments = dict(valid[tool])
+    arguments[field_name] = [value, value] if field_name == "simulation_ids" else value
+    return arguments
+
+
+@pytest.mark.parametrize(("tool", "field_name", "value"), _simulate_field_cases())
+def test_a_url_or_path_in_any_simulate_field_is_invalid_input_and_stores_nothing(
+    service: RunningService, tool: str, field_name: str, value: str
+) -> None:
+    seeded = _seeded(service)
+    before = _record_counts(service)
+
+    async def body(session: Session) -> dict[str, Any]:
+        return await session.error(tool, _arguments(tool, seeded, field_name, value))
+
+    error = _session(service, "planner", body)
+
+    assert error["code"] == "invalid_input", error
+    assert value not in json.dumps(error)
+    assert _record_counts(service) == before
+    assert _simulation_rows(service) == []
+
+
+@pytest.mark.parametrize(
+    "simulation_id", ["../workspace.sqlite3", "..\\..\\workspace.sqlite3", "sim-1/../../etc"]
+)
+def test_a_simulation_id_that_climbs_directories_is_invalid_input(
+    service: RunningService, simulation_id: str
+) -> None:
+    before = _record_counts(service)
+
+    async def body(session: Session) -> dict[str, Any]:
+        return await session.error(
+            "query_evidence", {"simulation_id": simulation_id, "topic": "schedule"}
+        )
+
+    error = _session(service, "reader", body)
+
+    assert error["code"] == "invalid_input", error
+    assert simulation_id not in json.dumps(error)
+    assert _record_counts(service) == before
+
+
+def test_evidence_limit_1001_is_invalid_input(service: RunningService) -> None:
+    seeded = _seeded(service)
+    simulated = _simulate_as(
+        service, "planner", {"plan_id": seeded.plan_id, "request_key": "for-evidence"}
+    )
+    assert simulated["is_error"] is False, simulated
+
+    async def body(session: Session) -> list[dict[str, Any]]:
+        arguments = {"simulation_id": simulated["simulation_id"], "topic": "schedule"}
+        return [
+            await session.error("query_evidence", {**arguments, "limit": 1_001}),
+            await session.call("query_evidence", {**arguments, "limit": 1_000}),
+        ]
+
+    refused, served = _session(service, "reader", body)
+
+    assert refused["code"] == "invalid_input", refused
+    assert served["simulation_id"] == simulated["simulation_id"]
+
+
+def test_a_simulate_key_replayed_with_other_reps_is_idempotency_conflict(
+    service: RunningService,
+) -> None:
+    seeded = _seeded(service)
+    first = {"plan_id": seeded.plan_id, "request_key": "sim-key", "reps": 2}
+    stored = _simulate_as(service, "planner", first)
+    assert stored["is_error"] is False, stored
+    before = _record_counts(service)
+
+    conflict = _simulate_as(service, "planner", {**first, "reps": 3})
+    replay = _simulate_as(service, "planner", first)
+
+    assert conflict["is_error"] is True and conflict["code"] == "idempotency_conflict", conflict
+    assert replay["simulation_id"] == stored["simulation_id"]
+    assert _record_counts(service) == before
+    assert _audit_rows(service)[-2] == ("planner", "simulate_plan", "error:idempotency_conflict")
+
+
+def test_another_callers_simulate_key_never_matches(service: RunningService) -> None:
+    seeded = _seeded(service)
+    arguments = {"plan_id": seeded.plan_id, "request_key": "shared-sim-key"}
+
+    mine = _simulate_as(service, "planner", arguments)
+    theirs = _simulate_as(service, "planner_b", arguments)
+    theirs_conflict = _simulate_as(service, "planner_b", {**arguments, "seed": 7})
+    mine_replay = _simulate_as(service, "planner", arguments)
+
+    assert mine["is_error"] is False and theirs["is_error"] is False, (mine, theirs)
+    assert theirs["simulation_id"] != mine["simulation_id"]
+    assert theirs_conflict["code"] == "idempotency_conflict", theirs_conflict
+    assert mine_replay["simulation_id"] == mine["simulation_id"]
+    assert len(_simulation_rows(service)) == 2
+
+
+def test_an_outage_storm_breaching_the_event_cap_ends_event_limit_and_is_reported(
+    service: RunningService,
+) -> None:
+    seeded = _seeded(service, STORM_TOML)
+
+    result = _simulate_as(service, "planner", {"plan_id": seeded.plan_id, "request_key": "storm"})
+
+    assert result["is_error"] is False, result
+    assert result["status"] in ("completed", "truncated"), result
+    limited = [issue for issue in result["issues"] if issue["code"] == "event_limit"]
+    assert len(limited) == 1, result["issues"]
+    assert "2 of 2 replication" in limited[0]["message"], limited
+    [record] = _simulation_rows(service)
+    assert [rep["termination"] for rep in record["per_rep"]] == ["event_limit"] * 2
+    assert record["summary"]["metrics"]["censored_jobs"]["mean"] == 2.0
+
+
+def test_a_quiet_simulation_reports_no_event_limit(service: RunningService) -> None:
+    seeded = _seeded(service)
+
+    result = _simulate_as(service, "planner", {"plan_id": seeded.plan_id, "request_key": "quiet"})
+
+    assert result["is_error"] is False, result
+    assert "event_limit" not in _issue_codes(result)
+    [record] = _simulation_rows(service)
+    assert {rep["termination"] for rep in record["per_rep"]} == {"completed"}
+
+
 # --- the production entry point's access log (REQ-170) -------------------------------------------
 
 

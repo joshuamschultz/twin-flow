@@ -188,13 +188,13 @@ class Simulator:
         setup = self._plan_setup(plan, request, artifacts)
         rule = setup.policy.baseline_rule if request.baseline else None
         candidate = engine.candidate(plan.plan_id, plan.compiled, plan.schedule)
-        result, context = self._evaluate(engine, [candidate], setup, request, rule)
+        result, context, run_issues = self._evaluate(engine, [candidate], setup, request, rule)
         rows, summaries, baseline = _rows(result, context, {plan_id: plan.schedule}, rule, {})
         outcome = SimulateResult(
             plan_id=plan_id,
             status=result.status,
             simulation_id=summaries[0].simulation_id,
-            issues=(),
+            issues=run_issues,
             summary=summaries[0],
             baseline=baseline,
         )
@@ -217,7 +217,9 @@ class Simulator:
         if not plans:
             return None, [], _blocked_portfolio(portfolio_id, request.seed, issues)
         rule = setup.policy.baseline_rule if request.baseline else None
-        result, context = self._evaluate(engine, _inputs(engine, plans), setup, request, rule)
+        result, context, run_issues = self._evaluate(
+            engine, _inputs(engine, plans), setup, request, rule
+        )
         evaluation_id = new_evaluation_id()
         schedules = {plan.plan_id: plan.schedule for plan in plans}
         link = {"evaluation_id": evaluation_id}
@@ -231,7 +233,7 @@ class Simulator:
             candidates=summaries,
             baseline=baseline,
             ranking=result.ranking,
-            issues=tuple(issues),
+            issues=(*issues, *run_issues),
         )
         ids = {str(s.plan_id): s.simulation_id for s in summaries}
         base_id = baseline.simulation_id if baseline is not None else None
@@ -318,8 +320,9 @@ class Simulator:
         setup: _Setup,
         request: SimulationRequest,
         baseline_rule: str | None,
-    ) -> tuple[EvaluationResult, SimulationContext]:
-        """`evaluate_candidates` on the runner; the result and its record context."""
+    ) -> tuple[EvaluationResult, SimulationContext, tuple[ScheduleIssue, ...]]:
+        """`evaluate_candidates` on the runner; the result, its record context and the
+        issues of the run (a clamped budget, replications stopped at the event cap)."""
         run = self._run_settings(setup.policy, request)
 
         def evaluate() -> EvaluationResult:
@@ -347,7 +350,8 @@ class Simulator:
             result.status,
             result.replications,
         )
-        return result, _context(setup, request.seed, run.budget_seconds)
+        issues = (*_budget_issues(request, run), *_event_limit_issues(result))
+        return result, _context(setup, request.seed, run.budget_seconds), issues
 
     def _get(self, kind: str, record_id: str) -> dict[str, Any]:
         try:
@@ -437,6 +441,32 @@ def _signed_policy(
             "A signed artifact failed verification", code="artifact_signature_invalid"
         ) from None
     return profile.simulation
+
+
+def _budget_issues(request: SimulationRequest, run: _RunSettings) -> tuple[ScheduleIssue, ...]:
+    """`budget_clamped` when the requested budget was above the policy or service cap."""
+    requested = request.time_budget_seconds
+    if requested is None or requested <= run.budget_seconds:
+        return ()
+    message = (
+        f"time_budget_seconds {requested:g} was clamped to {run.budget_seconds:g} "
+        "(the policy and service caps)"
+    )
+    return (ScheduleIssue(code="budget_clamped", path="$.time_budget_seconds", message=message),)
+
+
+def _event_limit_issues(result: EvaluationResult) -> tuple[ScheduleIssue, ...]:
+    """`event_limit` when any replication stopped at its event cap (REQ-143, D-109)."""
+    evaluations = [*result.candidates, *([result.baseline] if result.baseline else [])]
+    runs = [run for evaluation in evaluations for run in evaluation.runs]
+    stopped = sum(1 for run in runs if run.termination == "event_limit")
+    if not stopped:
+        return ()
+    message = (
+        f"{stopped} of {len(runs)} replication runs stopped at the event cap "
+        "(50 events per operation plus 10,000); their unfinished operations are censored"
+    )
+    return (ScheduleIssue(code="event_limit", path="$.summary", message=message),)
 
 
 def _context(setup: _Setup, seed: int, budget_seconds: float) -> SimulationContext:

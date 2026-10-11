@@ -148,13 +148,15 @@ def simulation_row(
 
 
 def _per_rep(evaluation: CandidateEvaluation) -> list[dict[str, Any]]:
+    """Each replication's metrics, objective values and how its run ended (D-109)."""
     return [
         {
             "rep": rep,
+            "termination": run.termination,
             "metrics": values.metric_values(),
             "objective_values": {str(k): float(v) for k, v in values.objective_values.items()},
         }
-        for rep, values in enumerate(evaluation.per_rep)
+        for rep, (values, run) in enumerate(zip(evaluation.per_rep, evaluation.runs, strict=True))
     ]
 
 
