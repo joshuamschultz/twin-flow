@@ -9,7 +9,7 @@
   "extractor_version": "1",
   "generation": "seed-7"
  },
- "digest": "9f95807427227f24aeec88469b5d6ded52c9a80dfceb0429603f076539910652",
+ "digest": "41c668833b183267129fd23a8841d850ced3558cd4d8869aa341a8e5a4dada73",
  "source_issues": [],
  "items": [
   {
@@ -1197,6 +1197,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.014,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-001",
+         "A",
+         "0040",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -1436,6 +1453,23 @@
          "A",
          "0030",
          "grind-1"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 0.992,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-002",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -1786,6 +1820,23 @@
          "A",
          "0040",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.373,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-003",
+         "A",
+         "0040",
+         "form-1"
         ]
        }
       }
@@ -2956,6 +3007,23 @@
          "grind-1"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.042,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-008",
+         "A",
+         "0040",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -3195,6 +3263,23 @@
          "A",
          "0030",
          "grind-1"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.026,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-009",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -3704,6 +3789,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.879,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-011",
+         "A",
+         "0030",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -3952,6 +4054,23 @@
          "A",
          "0040",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.134,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-012",
+         "A",
+         "0040",
+         "form-1"
         ]
        }
       }
@@ -4422,6 +4541,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.733,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-014",
+         "A",
+         "0030",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -4727,6 +4863,23 @@
          "A",
          "0030",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.779,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-015",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -6961,6 +7114,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.879,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-011",
+         "A",
+         "0030",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -7564,6 +7734,23 @@
          "A",
          "0030",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.733,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-014",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -8557,6 +8744,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.879,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-011",
+         "A",
+         "0030",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -9170,6 +9374,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.373,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-003",
+         "A",
+         "0040",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -9570,6 +9791,23 @@
          "A",
          "0040",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.373,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-003",
+         "A",
+         "0040",
+         "form-1"
         ]
        }
       }
@@ -10176,7 +10414,7 @@
      "qty_complete": 559.0,
      "qty_scrapped": 5.0,
      "qty_remaining": 1286.0,
-     "current_machine_id": "form-1",
+     "current_machine_id": null,
      "actual_start": "2026-10-12T00:00:00-05:00"
     },
     {
@@ -10786,7 +11024,7 @@
      "qty_complete": 425.0,
      "qty_scrapped": 0.0,
      "qty_remaining": 475.0,
-     "current_machine_id": "form-2",
+     "current_machine_id": null,
      "actual_start": "2026-10-12T01:00:00-05:00"
     },
     {
@@ -10874,6 +11112,23 @@
          "A",
          "0040",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.014,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-001",
+         "A",
+         "0040",
+         "form-1"
         ]
        }
       }
@@ -11180,6 +11435,23 @@
          "A",
          "0030",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.779,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-015",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -11537,6 +11809,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.373,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-003",
+         "A",
+         "0040",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -11619,7 +11908,7 @@
        "machine_id": "pack-1",
        "setup_seconds": 300.0,
        "run_seconds_per_unit": 0.203,
-       "fixed_run_seconds": 0.0,
+       "fixed_run_seconds": 36000.0,
        "preference": 0,
        "lineage": {
         "table": "operation_option",
@@ -11888,6 +12177,23 @@
          "A",
          "0030",
          "grind-1"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.026,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-009",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -12584,6 +12890,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.373,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-003",
+         "A",
+         "0040",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -12950,6 +13273,23 @@
          "A",
          "0040",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.014,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-001",
+         "A",
+         "0040",
+         "form-1"
         ]
        }
       }
@@ -13516,6 +13856,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.779,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-015",
+         "A",
+         "0030",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -14076,6 +14433,23 @@
          "A",
          "0030",
          "grind-1"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.026,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-009",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -15007,6 +15381,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.014,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-001",
+         "A",
+         "0040",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -15328,6 +15719,23 @@
          "grind-2"
         ]
        }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.134,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-012",
+         "A",
+         "0040",
+         "form-1"
+        ]
+       }
       }
      ],
      "setup_params": {
@@ -15598,6 +16006,23 @@
          "A",
          "0030",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.879,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-011",
+         "A",
+         "0030",
+         "form-1"
         ]
        }
       }
@@ -15919,6 +16344,23 @@
          "A",
          "0040",
          "grind-2"
+        ]
+       }
+      },
+      {
+       "work_center_id": "form",
+       "machine_id": "form-1",
+       "setup_seconds": 900.0,
+       "run_seconds_per_unit": 1.134,
+       "fixed_run_seconds": 0.0,
+       "preference": 2,
+       "lineage": {
+        "table": "operation_option",
+        "key": [
+         "SPR-012",
+         "A",
+         "0040",
+         "form-1"
         ]
        }
       }

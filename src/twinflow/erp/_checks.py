@@ -63,6 +63,14 @@ RULES: dict[str, tuple[Severity, str]] = {
         "soft",
         "in-process operation names no machine; its most preferred active machine is assumed",
     ),
+    "in_progress_machine_unknown": (
+        "soft",
+        "in-process operation has no free machine to be running on; it is planned from now",
+    ),
+    "release_after_horizon": (
+        "soft",
+        "order releases, or its material arrives, at or after the horizon end; the job is held",
+    ),
     "outside_process_last": (
         "soft",
         "outside operation ends the route; its lead time is taken off the due date",

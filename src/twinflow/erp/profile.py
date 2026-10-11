@@ -22,6 +22,9 @@ ERP_TABLE = "erp"
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
+ShiftCrossing = Literal["forbid", "pause", "finish_unattended"]
+"""TF-002 `Operation.shift_crossing` values the builder may emit."""
+
 
 class ProfileError(ValueError):
     """A planning profile could not be parsed or validated; the message names the key path."""
@@ -34,7 +37,11 @@ class _Frozen(BaseModel):
 
 
 class ErpPolicy(_Frozen):
-    """How ERP records map onto a scheduling problem (COMP-113, COMP-126)."""
+    """How ERP records map onto a scheduling problem (COMP-113, COMP-126).
+
+    `shift_crossing_default` applies to every built op, `batch_shift_crossing` to ops with a
+    `BatchSpec` (an oven load runs on unattended once started) (TF-005 builder-gap ruling).
+    """
 
     class_weights: dict[Id, WeightClass] = Field(default_factory=dict)
     default_class: WeightClass = 1
@@ -48,6 +55,8 @@ class ErpPolicy(_Frozen):
     setup_family_param: Id | None = None
     setup_functions: dict[Id, SetupFunction] = Field(default_factory=dict)
     use_overtime: StrictBool = True
+    shift_crossing_default: ShiftCrossing = "pause"
+    batch_shift_crossing: ShiftCrossing = "finish_unattended"
 
 
 class PlanningProfile(_Frozen):

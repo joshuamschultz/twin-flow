@@ -4,14 +4,20 @@ Shared by production-order jobs and rush jobs, so both follow one set of rules:
 
 * options (step 4): a machine-level ERP option gives one `ProcessingOption`; a
   work-center-level option gives one per ACTIVE machine of that center; times divide by the
-  machine's efficiency; the ERP setup is added to `fixed_seconds` unless the work center has
-  a profile setup function (D-124); `preference_cost = preference * penalty`. When two ERP
-  options reach one machine the cheapest wins, so option order never matters;
+  machine's efficiency; the ERP setup is added to `fixed_seconds` unless the MACHINE's own
+  work center has a profile setup function (D-124; that is the function TF-002 applies);
+  `preference_cost = preference * penalty`. An ERP option on a substitute center sets
+  `ProcessingOption.work_center_id` to that center (None when it is the op's center). When
+  two ERP options reach one machine the cheapest wins, so option order never matters;
 * precedence (step 5, D-123): `walk_route` links each in-plant op to the previous one with
   `min_lag = move + queue + outside lead between`; outside lead before the first in-plant op
   shifts the release, outside lead after the last shifts the due date;
-* status (step 6): an in-process op runs on its machine (or the inferred most preferred
-  active one) for `qty_remaining * unit_seconds`;
+* status (step 6): an in-process op runs on its machine (or an inferred free one, see
+  `_jobs.running_machines`) for `qty_remaining * unit_seconds`, with no operator needs (its
+  crew is already committed);
+* shift crossing and crews (TF-005 ruling): a batch op (one with a `BatchSpec`) takes
+  `batch_shift_crossing`, every other op `shift_crossing_default`; a `finish_unattended`
+  op holds its crew for the setup phase only, any other op for setup and run;
 * batch lots (orchestrator ruling, SDD deviation): a batch op whose lot exceeds its
   `BatchSpec.capacity` gets no `batch_family`, so it runs alone for its full time.
 """
@@ -22,7 +28,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from twinflow.erp.profile import ErpPolicy
+from twinflow.erp.profile import ErpPolicy, ShiftCrossing
 from twinflow.erp.schema import ErpSnapshot, Machine, OperationOption, RoutingOperation
 from twinflow.scheduling.model import (
     Operation,
@@ -37,9 +43,9 @@ __all__ = [
     "RouteWalk",
     "ShopIndex",
     "build_shop_index",
-    "infer_machine",
     "lot_fits_batch",
     "make_operation",
+    "preferred_machines",
     "processing_options",
     "walk_route",
 ]
@@ -93,25 +99,25 @@ def build_shop_index(snapshot: ErpSnapshot, policy: ErpPolicy) -> ShopIndex:
 
 def processing_options(op: RoutingOperation, shop: ShopIndex) -> tuple[ProcessingOption, ...]:
     """Expand the op's ERP options onto active machines, one option per machine, by id."""
-    with_setup = op.work_center_id not in shop.setup_centers
     best: dict[str, ProcessingOption] = {}
     for option in op.options:
+        substitute = None if option.work_center_id == op.work_center_id else option.work_center_id
         for machine in _targets(option, shop):
-            candidate = _processing_option(option, machine, with_setup, shop.penalty)
+            with_setup = machine.work_center_id not in shop.setup_centers
+            candidate = _processing_option(option, machine, with_setup, shop.penalty, substitute)
             current = best.get(machine.id)
             if current is None or _cost(candidate) < _cost(current):
                 best[machine.id] = candidate
     return tuple(best[machine_id] for machine_id in sorted(best))
 
 
-def infer_machine(op: RoutingOperation, shop: ShopIndex) -> str | None:
-    """The lowest-preference option's active machine (a center's first active by id)."""
+def preferred_machines(op: RoutingOperation, shop: ShopIndex) -> tuple[str, ...]:
+    """The op's active option machines, most preferred first (a center option: by id)."""
     ranked = sorted(op.options, key=lambda o: (o.preference, o.machine_id or "", o.work_center_id))
+    found: dict[str, None] = {}
     for option in ranked:
-        targets = _targets(option, shop)
-        if targets:
-            return targets[0].id
-    return None
+        found.update(dict.fromkeys(machine.id for machine in _targets(option, shop)))
+    return tuple(found)
 
 
 def walk_route(operations: Iterable[RoutingOperation]) -> RouteWalk:
@@ -159,11 +165,7 @@ def make_operation(
         if step.predecessor is None
         else (Precedence(operation_id=f"{job_id}:{step.predecessor}", min_lag=step.lag),)
     )
-    needs = (
-        ()
-        if op.crew is None
-        else (OperatorNeed(pool_id=op.crew.labor_pool_id, quantity=op.crew.size, phase="both"),)
-    )
+    crossing = policy.shift_crossing_default if op.batch is None else policy.batch_shift_crossing
     return Operation(
         id=f"{job_id}:{op.op_id}",
         work_center_id=op.work_center_id,
@@ -174,8 +176,24 @@ def make_operation(
         setup_params=dict(op.setup_params),
         setup_family=family,
         batch_family=(family or batch_default) if lot_fits_batch(op, quantity) else None,
-        operator_needs=needs,
+        operator_needs=_operator_needs(op, crossing, status),
+        shift_crossing=crossing,
         status=status,
+    )
+
+
+def _operator_needs(
+    op: RoutingOperation, crossing: ShiftCrossing, status: OperationStatus
+) -> tuple[OperatorNeed, ...]:
+    """The op's crew; none while running, the setup phase only when it finishes unattended."""
+    if op.crew is None or status.state == "in_progress":
+        return ()
+    return (
+        OperatorNeed(
+            pool_id=op.crew.labor_pool_id,
+            quantity=op.crew.size,
+            phase="setup" if crossing == "finish_unattended" else "both",
+        ),
     )
 
 
@@ -193,7 +211,11 @@ def _targets(option: OperationOption, shop: ShopIndex) -> tuple[Machine, ...]:
 
 
 def _processing_option(
-    option: OperationOption, machine: Machine, with_setup: bool, penalty: float
+    option: OperationOption,
+    machine: Machine,
+    with_setup: bool,
+    penalty: float,
+    substitute: str | None,
 ) -> ProcessingOption:
     setup = option.setup_seconds if with_setup else 0.0
     return ProcessingOption(
@@ -201,6 +223,7 @@ def _processing_option(
         fixed_seconds=(option.fixed_run_seconds + setup) / machine.efficiency,
         unit_seconds=option.run_seconds_per_unit / machine.efficiency,
         preference_cost=option.preference * penalty,
+        work_center_id=substitute,
     )
 
 

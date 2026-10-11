@@ -6,7 +6,8 @@ machines) from `np.random.default_rng(seed)`. Seeds rotate through three shapes:
 - seed % 3 == 0: inside CP-SAT's capabilities (no setups, batching, pause, overlap or
   detached setup), integer times and a makespan or max-lateness objective, so CP-SAT runs;
 - otherwise: every feature the baseline supports, including the three setup term kinds
-  (abs_diff, mismatch, family matrix), batching, pause and transfer-lot overlap.
+  (abs_diff, mismatch, family matrix), batching, pause, finish_unattended and
+  transfer-lot overlap.
 
 A few seeds (seed % 20 == 13) add a restart rule, which no solver declares (expect
 `unsupported_feature`). Overrides of every kind and a frozen zone with a previous plan
@@ -159,8 +160,14 @@ class _RequestBuilder:
             "setup_params": {"w": float(_int(rng, 0, 5)), "c": _pick(rng, "xy")},
             "setup_family": _pick(rng, SETUP_FAMILIES),
             "setup_detached": _chance(rng, 0.3),
-            "shift_crossing": "pause" if _chance(rng, 0.25) else "forbid",
+            "shift_crossing": self._shift_crossing(),
         }
+
+    def _shift_crossing(self) -> str:
+        """forbid 75 %; else pause, or finish_unattended (TF-005 ruling) 40 % of those."""
+        if not _chance(self.rng, 0.25):
+            return "forbid"
+        return "finish_unattended" if _chance(self.rng, 0.4) else "pause"
 
     def _option(self, machine_id: str) -> dict[str, Any]:
         return {
@@ -186,7 +193,8 @@ class _RequestBuilder:
             link["min_lag"] = float(_int(rng, 1, 10))
         if _chance(rng, 0.2):
             link["max_lag"] = link.get("min_lag", 0.0) + float(_int(rng, 50, 300))
-        both_forbid = "pause" not in (pred.get("shift_crossing"), succ.get("shift_crossing"))
+        crossings = {pred.get("shift_crossing", "forbid"), succ.get("shift_crossing", "forbid")}
+        both_forbid = crossings == {"forbid"}
         if self.shape.rich and both_forbid and _chance(rng, 0.25):
             link["overlap_quantity"] = float(_int(rng, 1, int(pred["quantity"])))
         return link

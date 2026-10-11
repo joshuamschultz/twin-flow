@@ -8,6 +8,15 @@ calendars, three wire families x three diameters, and orders in every status.
 `small_shop()` is the clean fixture: it carries only SDD *soft* issues, each placed on
 purpose (`unknown_priority_class`, `no_due_date`, `po_past_due`, `material_short`,
 `in_process_machine_inferred`, `inactive_machine_option`) and no hard issue.
+
+Builder-gap elements (Western Spring 600-order snapshot findings):
+* every grind op lists a substitute-center alternate: an option on `form-1` whose own
+  `work_center_id` is `form` (the op stays a grind op), least preferred;
+* three in-process ops name no machine: the `machine_inferred` one, plus two
+  `inferred_spread` ops that land on one center (form in the small shop) with the same
+  most-preferred machine, so the builder must spread them onto distinct machines;
+* the `long_run` order's last op runs 10 h, longer than any 8.5 h shift, so it only fits
+  when the operation may cross shifts (the ERP default `pause`).
 `dst_variant()` is the same shop two weeks later, so a 14-day horizon crosses the
 2026-11-01 fall-back in America/Chicago. `scaled_shop()` is the 600-order performance shape.
 
@@ -25,8 +34,13 @@ Resolved SDD gaps (documented so later tests do not guess):
 * The shortage misses total open demand by half the smallest requirement, so exactly one
   requirement is uncovered whatever order COMP-115 allocates in.
 * Machines are unary (TF-002 rejects two in-progress ops on one machine), so each in-process
-  op, including the one whose machine the builder infers, runs on its own machine. In the
+  op, including the ones whose machine the builder infers, runs on its own machine. In the
   scaled shop the in-process orders outnumber the machines; the rest wait between ops.
+* An `inferred_spread` op reserves its machine like an explicit op does (most preferred
+  machine not yet running), it just does not write `current_machine_id`. Orders are made in
+  order-id order with one in-process op each and later explicit ops avoid reserved machines,
+  so the builder's assignment (explicit claims first, then inferred ops by order id and op
+  sequence, each taking its most preferred free option machine) gives back the reservation.
 """
 
 from __future__ import annotations
@@ -126,6 +140,14 @@ SLOW_MACHINE = "grind-2"  # efficiency 0.9
 INACTIVE_MACHINE = "form-3"
 OVERTIME_CENTER = "form"
 OVERTIME_MACHINE = "form-2"
+# Substitute-center alternate on grind ops: a form machine that can also grind.
+SUBSTITUTE_CENTER = "form"
+SUBSTITUTE_MACHINE = "form-1"
+SUBSTITUTE_RATE_FACTOR = 1.5
+# 10 h of fixed run: longer than the 8.5 h day shift, the longest shift outside the oven.
+LONG_RUN_SECONDS = 36_000.0
+# In-process roles whose op names no current machine in the ERP.
+INFERRED_ROLES = frozenset({"machine_inferred", "inferred_spread"})
 
 
 @dataclass(frozen=True)
@@ -474,12 +496,15 @@ def _route_operations(
                 )
             )
             continue
+        options = _options(rng, item_id, op_id, kind, speed, by_center[kind])
+        if kind == "grind":
+            options = (*options, _substitute_option(item_id, op_id, speed, len(options)))
         ops.append(
             RoutingOperation(
                 op_id=op_id,
                 sequence=(position + 1) * 10,
                 work_center_id=kind,
-                options=_options(rng, item_id, op_id, kind, speed, by_center[kind]),
+                options=options,
                 setup_params=_setup_params(kind, wire),
                 crew=CrewNeed(labor_pool_id=INSPECTORS, size=1) if kind == "inspect" else None,
                 batch=OVEN_BATCH if kind == "oven" else None,
@@ -519,6 +544,15 @@ def _options(
     return tuple(
         _option(item_id, op_id, kind, m.id, setup, round(rate * (1 + 0.12 * rank), 3), fixed, rank)
         for rank, m in enumerate(chosen)
+    )
+
+
+def _substitute_option(item_id: str, op_id: str, speed: float, preference: int) -> OperationOption:
+    """A grind op's least preferred alternate on a machine of another (substitute) center."""
+    _, base_rate, setup = CENTERS["grind"]
+    rate = round(base_rate * speed * SUBSTITUTE_RATE_FACTOR, 3)
+    return _option(
+        item_id, op_id, SUBSTITUTE_CENTER, SUBSTITUTE_MACHINE, setup, rate, 0.0, preference
     )
 
 
@@ -572,9 +606,9 @@ def _statuses(rng: random.Random, count: int) -> list[str]:
 def _roles(statuses: list[str]) -> dict[int, str]:
     """Give the first orders of some statuses a scenario role (see the module docstring)."""
     wanted = {
-        "planned": ("no_due_date", "stock", "requested_only", "rush"),
+        "planned": ("no_due_date", "stock", "requested_only", "rush", "long_run"),
         "released": ("hold_flag", "rush", "unmapped_customer"),
-        "in_process": ("on_machine", "machine_inferred"),
+        "in_process": ("inferred_spread", "machine_inferred", "inferred_spread"),
     }
     roles: dict[int, str] = {}
     for status, names in wanted.items():
@@ -685,14 +719,19 @@ def _order_operations(
         current = None
         actual_start = None
         if progress["status"] == "in_process":
-            if role != "machine_inferred" and slot is not None:
+            if role not in INFERRED_ROLES and slot is not None:
                 current = slot[1]
             actual_start = as_of - dt.timedelta(hours=rng.randint(1, 6))
+        options = template.options
+        if role == "long_run" and position == len(part.routing.operations) - 1:
+            options = tuple(
+                o.model_copy(update={"fixed_run_seconds": LONG_RUN_SECONDS}) for o in options
+            )
         fields = template.model_dump(exclude={"lineage", "options", "outside", "crew", "batch"})
         ops.append(
             OrderOperation(
                 **fields,
-                options=template.options,
+                options=options,
                 outside=template.outside,
                 crew=template.crew,
                 batch=template.batch,
@@ -745,9 +784,10 @@ def _running_slot(
 
     A unary machine runs one op at a time, so every in-process op gets its own machine. The
     first op (coiling) is the last resort, when every later op's machine is busy. The
-    `machine_inferred` op has no current machine in the ERP; its machine is the one the
-    builder infers (most preferred active option; a work-center option resolves to the
-    center's first active machine by id), and that machine must be free too.
+    `machine_inferred` op has no current machine in the ERP; its machine is its most
+    preferred active option (a work-center option resolves to the center's first active
+    machine by id), and that machine must be free too. An `inferred_spread` op reserves a
+    free machine like an explicit op (see the module docstring).
     """
     positions = [*range(1, len(ops)), 0]
     for position in positions:

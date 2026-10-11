@@ -350,8 +350,33 @@ def _length_issues(index: _Index, p: _Placement) -> Iterator[ScheduleIssue]:
     setup = index.setups.seconds(p.machine.id, p.predecessor, p.operation.id)
     if p.operation.shift_crossing == "pause":
         yield from _pause_issues(index, p, setup)
+    elif p.operation.shift_crossing == "finish_unattended":
+        yield from _unattended_issues(index, p, setup)
     else:
         yield from _forbid_issues(index, p, setup)
+
+
+def _phase_length_issues(p: _Placement, setup: float) -> Iterator[ScheduleIssue]:
+    """`duration` and `setup`: end - setup_end = r and setup_end - start = setup."""
+    a, op_id = p.assignment, p.operation.id
+    if not _close(a.end - a.setup_end, p.run_seconds):
+        message = f"{op_id}: run {a.end - a.setup_end:g} s, expected {p.run_seconds:g} s"
+        yield _issue("duration", op_id, message)
+    if not _close(a.setup_end - a.start, setup):
+        message = f"{op_id}: setup {a.setup_end - a.start:g} s, expected {setup:g} s"
+        yield _issue("setup", op_id, message)
+
+
+def _unattended_issues(index: _Index, p: _Placement, setup: float) -> Iterator[ScheduleIssue]:
+    """`finish_unattended`: start is a working instant of the effective calendar, then
+    setup and run continue uninterrupted (the calendar end is ignored)."""
+    yield from _phase_length_issues(p, setup)
+    a, op_id = p.assignment, p.operation.id
+    calendar = index.effective_calendar(p.machine, p.operation)
+    working = calendar_math.next_working(calendar, a.start)
+    if working is None or not _close(working, a.start):
+        message = f"{op_id}: start {a.start:g} is not a working instant of its calendar"
+        yield _issue("calendar", op_id, message)
 
 
 def _forbid_issues(index: _Index, p: _Placement, setup: float) -> Iterator[ScheduleIssue]:
@@ -361,12 +386,7 @@ def _forbid_issues(index: _Index, p: _Placement, setup: float) -> Iterator[Sched
     `operator_calendar` (the effective calendar is their intersection).
     """
     a, op_id = p.assignment, p.operation.id
-    if not _close(a.end - a.setup_end, p.run_seconds):
-        message = f"{op_id}: run {a.end - a.setup_end:g} s, expected {p.run_seconds:g} s"
-        yield _issue("duration", op_id, message)
-    if not _close(a.setup_end - a.start, setup):
-        message = f"{op_id}: setup {a.setup_end - a.start:g} s, expected {setup:g} s"
-        yield _issue("setup", op_id, message)
+    yield from _phase_length_issues(p, setup)
     if not calendar_math.fits_within(index.calendar_of(p.machine.calendar_id), a.start, a.end):
         message = f"{op_id}: [{a.start:g}, {a.end:g}) leaves machine {p.machine.id}'s calendar"
         yield _issue("calendar", op_id, message)

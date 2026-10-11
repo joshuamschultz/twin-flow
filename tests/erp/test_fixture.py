@@ -520,7 +520,7 @@ def test_census_in_process_operation_with_and_without_current_machine(
     with_machine = [op for op in in_process if op.current_machine_id is not None]
     without = [op for op in in_process if op.current_machine_id is None]
     assert with_machine
-    assert len(without) == 1
+    assert len(without) == 3  # machine_inferred plus the two inferred_spread ops
     for op in in_process:
         assert 0 < op.qty_complete < op.qty_to_produce
         assert 0 < op.qty_remaining < op.qty_to_produce
@@ -531,21 +531,50 @@ def test_census_in_process_operation_with_and_without_current_machine(
         assert current.active and current.work_center_id == op.work_center_id
 
 
-def _inferred_machine(snap: ErpSnapshot, op: RoutingOperation) -> str | None:
-    """The builder's inference: most preferred active option; a center option -> first by id."""
+def _option_rank(option: OperationOption) -> tuple[int, str, str]:
+    return (option.preference, option.machine_id or "", option.work_center_id)
+
+
+def _preference_machines(snap: ErpSnapshot, op: RoutingOperation) -> list[str]:
+    """The op's active option machines, most preferred first (a center option: by id)."""
     machines = machines_by_id(snap)
-    for option in sorted(op.options, key=lambda o: o.preference):
-        if option.machine_id is not None and machines[option.machine_id].active:
-            return option.machine_id
-        if option.machine_id is None:
-            center = sorted(
+    ranked: list[str] = []
+    for option in sorted(op.options, key=_option_rank):
+        if option.machine_id is not None:
+            found = [option.machine_id] if machines[option.machine_id].active else []
+        else:
+            found = sorted(
                 m.id
                 for m in snap.machines
                 if m.work_center_id == option.work_center_id and m.active
             )
-            if center:
-                return center[0]
-    return None
+        ranked.extend(m for m in found if m not in ranked)
+    return ranked
+
+
+def _naive_inferred_machine(snap: ErpSnapshot, op: RoutingOperation) -> str | None:
+    """The pre-ruling inference: the most preferred active machine, ignoring other ops."""
+    ranked = _preference_machines(snap, op)
+    return ranked[0] if ranked else None
+
+
+def _running_machines(snap: ErpSnapshot) -> dict[tuple[str, str], str | None]:
+    """The ruled assignment: explicit machines claim first, then ops without one, by order id
+    and op sequence, each take their most preferred free option machine (None: none free)."""
+    in_process = sorted(
+        ((order, op) for order, op in order_ops(snap) if op.status == "in_process"),
+        key=lambda pair: (pair[0].id, pair[1].sequence),
+    )
+    held = {op.current_machine_id for _, op in in_process if op.current_machine_id is not None}
+    running: dict[tuple[str, str], str | None] = {}
+    for order, op in in_process:
+        if op.current_machine_id is not None:
+            running[(order.id, op.op_id)] = op.current_machine_id
+            continue
+        free = [m for m in _preference_machines(snap, op) if m not in held]
+        running[(order.id, op.op_id)] = free[0] if free else None
+        held.update(free[:1])
+    return running
 
 
 @pytest.mark.parametrize("make", [small_shop, dst_variant, scaled_shop])
@@ -553,14 +582,78 @@ def test_census_at_most_one_in_process_op_per_machine_including_inferred(
     make: Callable[[], ErpSnapshot],
 ) -> None:
     snap = make()
-    running = [
-        op.current_machine_id or _inferred_machine(snap, op)
-        for _, op in order_ops(snap)
-        if op.status == "in_process"
-    ]
-    assert running and None not in running
+    running = list(_running_machines(snap).values())
+    assert running and None not in running  # no in-process op is left without a machine
     duplicates = {m: n for m, n in Counter(running).items() if n > 1}
     assert duplicates == {}
+
+
+@pytest.mark.parametrize("make", [small_shop, dst_variant])
+def test_census_two_inferred_in_process_ops_on_one_center_need_spreading(
+    make: Callable[[], ErpSnapshot],
+) -> None:
+    snap = make()
+    without = [
+        (order, op)
+        for order, op in order_ops(snap)
+        if op.status == "in_process" and op.current_machine_id is None
+    ]
+    by_center = Counter(op.work_center_id for _, op in without)
+    (center,) = [c for c, n in by_center.items() if n >= 2]
+    pair = [(order, op) for order, op in without if op.work_center_id == center]
+    assert len(pair) == 2
+    # Each one alone would pick the same machine, so only spreading keeps them apart.
+    naive = {_naive_inferred_machine(snap, op) for _, op in pair}
+    assert len(naive) == 1 and None not in naive
+    running = _running_machines(snap)
+    spread = {running[(order.id, op.op_id)] for order, op in pair}
+    assert len(spread) == 2 and None not in spread
+
+
+def test_census_substitute_center_option_on_an_open_op(shop: ErpSnapshot) -> None:
+    machines = machines_by_id(shop)
+    substitutes = [
+        (op, option)
+        for order, op in order_ops(shop)
+        if order.status in OPEN_STATUSES and op.status not in {"complete", "cancelled"}
+        for option in op.options
+        if option.work_center_id != op.work_center_id
+    ]
+    assert substitutes
+    for op, option in substitutes:
+        assert option.machine_id is not None
+        machine = machines[option.machine_id]
+        assert machine.active
+        assert machine.work_center_id == option.work_center_id != op.work_center_id
+        assert option.preference > min(o.preference for o in op.options)
+    assert any(op.work_center_id == "grind" for op, _ in substitutes)
+
+
+# The longest shift outside the round-the-clock oven calendar: the 07:00-15:30 day shift.
+LONGEST_SHIFT_SECONDS = 8.5 * 3_600
+
+
+def test_census_one_open_op_runs_longer_than_any_shift(shop: ErpSnapshot) -> None:
+    def shortest_run(op: OrderOperation) -> float:
+        return min(
+            o.setup_seconds + o.fixed_run_seconds + op.qty_remaining * o.run_seconds_per_unit
+            for o in op.options
+        )
+
+    long_ops = [
+        (order, op)
+        for order, op in order_ops(shop)
+        if order.status in OPEN_STATUSES
+        and op.status not in {"complete", "cancelled"}
+        and op.outside is None
+        and op.batch is None
+        and shortest_run(op) > LONGEST_SHIFT_SECONDS
+    ]
+    assert len(long_ops) == 1
+    order, op = long_ops[0]
+    assert order.status == "planned" and not order.hold
+    calendars = {w.id: w.calendar_id for w in shop.work_centers}
+    assert calendars[op.work_center_id] != "24x5"
 
 
 @pytest.mark.parametrize("make", [small_shop, dst_variant, scaled_shop])

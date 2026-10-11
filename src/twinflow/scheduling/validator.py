@@ -388,8 +388,10 @@ def _operation_references(index: _Index, path: str, op: Operation) -> Iterator[S
         link_path = f"{path}.predecessors[{k}].operation_id"
         yield from _missing(index.op_by_id, link.operation_id, link_path, "operation")
     for k, option in enumerate(op.options):
-        option_path = f"{path}.options[{k}].machine_id"
-        yield from _missing(index.machines, option.machine_id, option_path, "machine")
+        base = f"{path}.options[{k}]"
+        yield from _missing(index.machines, option.machine_id, f"{base}.machine_id", "machine")
+        center_path = f"{base}.work_center_id"
+        yield from _missing(index.work_centers, option.work_center_id, center_path, "work center")
     for k, need in enumerate(op.operator_needs):
         need_path = f"{path}.operator_needs[{k}].pool_id"
         yield from _missing(index.pools, need.pool_id, need_path, "operator pool")
@@ -402,13 +404,15 @@ def _operation_references(index: _Index, path: str, op: Operation) -> Iterator[S
 def _options_outside_work_center(
     index: _Index, path: str, op: Operation
 ) -> Iterator[ScheduleIssue]:
+    """Each option machine must sit in the option's center (None = the op's center)."""
     for k, option in enumerate(op.options):
         machine = index.machines.get(option.machine_id)
-        if machine is not None and machine.work_center_id != op.work_center_id:
+        center = option.work_center_id or op.work_center_id
+        if machine is not None and machine.work_center_id != center:
             yield _issue(
                 "option_outside_work_center",
                 f"{path}.options[{k}].machine_id",
-                f"machine {machine.id} is not in work center {op.work_center_id}",
+                f"machine {machine.id} is not in work center {center}",
             )
 
 
@@ -437,10 +441,13 @@ def _overlaps(index: _Index, path: str, op: Operation) -> Iterator[ScheduleIssue
 
 
 def _overlap_problem(link: Precedence, op: Operation, predecessor: Operation | None) -> str | None:
-    """Why a transfer-lot overlap is invalid: both ops must be `forbid`, q <= the lot (D-061)."""
+    """Why a transfer-lot overlap is invalid: both ops must be `forbid`, q <= the lot (D-061).
+
+    `finish_unattended` is treated like `pause`: neither is a plain contiguous run.
+    """
     if link.overlap_quantity is None or predecessor is None:
         return None
-    if "pause" in (op.shift_crossing, predecessor.shift_crossing):
+    if {op.shift_crossing, predecessor.shift_crossing} != {"forbid"}:
         return f"overlap from {predecessor.id} needs shift_crossing forbid on both operations"
     if link.overlap_quantity > predecessor.quantity:
         return f"overlap_quantity exceeds the lot of {predecessor.id}"

@@ -66,12 +66,19 @@ class ObjectiveKind(StrEnum):
 
 
 class ProcessingOption(_Contract):
-    """One eligible machine for an operation; run seconds = fixed + quantity * unit (D-061)."""
+    """One eligible machine for an operation; run seconds = fixed + quantity * unit (D-061).
+
+    `work_center_id` None means the operation's own center. A value names a substitute
+    center (a cross-center alternate): the machine must then belong to that center, while
+    `Operation.work_center_id` stays the primary center. Setups are always keyed by the
+    chosen machine's own center.
+    """
 
     machine_id: Id
     fixed_seconds: NonNegFloat
     unit_seconds: NonNegFloat
     preference_cost: NonNegFloat
+    work_center_id: Id | None = None
 
 
 class Precedence(_Contract):
@@ -123,7 +130,9 @@ class Operation(_Contract):
     Setup is the first phase of the operation, not a separate task (D-063): the machine is
     busy on `[start, end)` and `setup_detached` chooses whether material must be present
     from `start` (false) or only from `setup_end` (true). `shift_crossing` says whether
-    the operation must fit inside one working interval or may pause over breaks (D-065).
+    the operation must fit inside one working interval (`forbid`), may pause over breaks
+    (`pause`, D-065), or must only start inside working time and then runs on unattended,
+    ignoring the calendar end (`finish_unattended`, e.g. an oven load).
     """
 
     id: Id
@@ -137,7 +146,7 @@ class Operation(_Contract):
     batch_family: Id | None = None
     setup_detached: StrictBool = False
     operator_needs: tuple[OperatorNeed, ...] = ()
-    shift_crossing: Literal["forbid", "pause"] = "forbid"
+    shift_crossing: Literal["forbid", "pause", "finish_unattended"] = "forbid"
     pin: Pin | None = None
     status: OperationStatus = OperationStatus()
 

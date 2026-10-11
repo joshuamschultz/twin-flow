@@ -57,7 +57,12 @@ OvertimePiece = tuple[float, float, float]
 
 def horizon_end(as_of: dt.datetime, days: int) -> dt.datetime:
     """`days` real elapsed days after `as_of` (in UTC, so a DST change never stretches it)."""
-    return as_of.astimezone(dt.UTC) + dt.timedelta(days=days)
+    return as_of.astimezone(dt.UTC) + dt.timedelta(seconds=horizon_seconds(days))
+
+
+def horizon_seconds(days: int) -> float:
+    """The horizon length in real elapsed seconds from `as_of` (`horizon_end - as_of`)."""
+    return dt.timedelta(days=days).total_seconds()
 
 
 def expand(

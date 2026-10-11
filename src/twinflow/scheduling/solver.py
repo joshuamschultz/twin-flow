@@ -60,6 +60,7 @@ class Feature(StrEnum):
     PINS = "pins"
     IN_PROGRESS = "in_progress"
     MACHINE_STATE = "machine_state"
+    UNATTENDED = "unattended"
 
 
 class Solver(Protocol):
@@ -99,6 +100,7 @@ def problem_features(problem: Problem) -> frozenset[Feature]:
       draws operators from.
     - pause / operators / pins / in_progress: an operation with `shift_crossing` pause,
       operator needs, a pin, or state `in_progress`.
+    - unattended: an operation with `shift_crossing` finish_unattended.
     - batching: an operation with a `batch_family`. A batch machine alone is not batching:
       operations without a family run on it one at a time.
     - restart: a machine with a restart rule.
@@ -126,6 +128,7 @@ def _operation_features(op: Operation, table: SetupTable) -> set[Feature]:
         Feature.SETUPS: has_setup,
         Feature.DETACHED_SETUP: op.setup_detached and has_setup,
         Feature.PAUSE: op.shift_crossing == "pause",
+        Feature.UNATTENDED: op.shift_crossing == "finish_unattended",
         Feature.OPERATORS: bool(op.operator_needs),
         Feature.BATCHING: op.batch_family is not None,
         Feature.PINS: op.pin is not None,

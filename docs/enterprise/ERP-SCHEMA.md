@@ -158,7 +158,7 @@ A standard routing step; at least one option unless it is an outside process.
 
 ### `OperationOption`
 
-One way to run an operation; `machine_id` None means any active machine of the center.
+One way to run an operation; `machine_id` None means any active machine of the center. A `work_center_id` other than the operation's own names a substitute center (a cross-center alternate): the option then runs on that center's machines, and a named `machine_id` must belong to it.
 
 | Field | Type | Required |
 |---|---|---|
@@ -461,7 +461,7 @@ On-hand quantity of an item, optionally per site.
 
 - `ProductionOrder.operations` needs at least one operation, and each `op_id` in an order must be unique.
 - A `RoutingOperation` or `OrderOperation` needs at least one `options` entry unless it has `outside`. An outside operation uses no plant machine.
-- An `OperationOption` with `machine_id` null means any active machine of its work center. `preference` 0 is the primary option, 1 and up are alternates. The builder adds `alternate_penalty_seconds` from the profile when an alternate is used.
+- An `OperationOption` with `machine_id` null means any active machine of its work center. `preference` 0 is the primary option, 1 and up are alternates. The builder adds `alternate_penalty_seconds` from the profile when an alternate is used. An option may sit on another work center than its operation (a substitute center); the operation keeps its own center as the primary one, and a substitute machine takes its own center's setup function.
 - `OrderOperation` extends `RoutingOperation` with progress on the floor. `qty_remaining` must not exceed `qty_to_produce`.
 - A machine's `overtime` replaces its work center's overtime. `cost_multiplier` is at least 1 (1.5 for time and a half).
 - `SalesLink.line_nbr` is text, because it is a key part. `SalesOrderLine.line_nbr` is an integer. Twinflow compares the two through text, so `"10"` links to line 10.
@@ -502,6 +502,8 @@ The validator returns every issue it finds, not the first one. Issues are sorted
 | `qty_inconsistent` | soft | validator | qty_complete plus qty_scrapped exceeds qty_to_produce |
 | `inactive_machine_option` | soft | validator | some options of this open operation are inactive |
 | `in_process_machine_inferred` | soft | builder | in-process operation names no machine; its most preferred active machine is assumed |
+| `in_progress_machine_unknown` | soft | builder | in-process operation has no free machine to be running on; it is planned from now |
+| `release_after_horizon` | soft | builder | order releases, or its material arrives, at or after the horizon end; the job is held |
 | `outside_process_last` | soft | builder | outside operation ends the route; its lead time is taken off the due date |
 | `batch_lot_exceeds_capacity` | soft | builder | batch lot is larger than the batch capacity; it runs alone instead of batched |
 | `no_routing` | hard | builder | no standard routing of this item matches the request |
@@ -520,12 +522,29 @@ Codes in `source_issues` are the mapper's own. They are copied into the report w
 
 All open batch operations on one work center must use the same capacity. A different capacity is the hard issue `batch_capacity_conflict`.
 
+## In-process operations (running-machine rule)
+
+An `in_process` operation runs on its `current_machine_id` from the start of the plan for `qty_remaining` times its run time, and needs no operators (its crew is already at work). Named machines claim first, in order id then operation sequence order. An operation with no usable named machine, or whose machine an earlier operation already holds, takes its most preferred active option machine that no other running operation holds (soft `in_process_machine_inferred`). When every option machine is taken, the operation is planned from now like a pending one (soft `in_progress_machine_unknown`). One machine never runs two operations at once.
+
+## Shift crossing (planning profile)
+
+Each built operation gets a shift-crossing rule from the `[erp]` table of the planning profile:
+
+| Key | Default | Applies to |
+|---|---|---|
+| `shift_crossing_default` | `"pause"` | every operation without a `BatchSpec` |
+| `batch_shift_crossing` | `"finish_unattended"` | every operation with a `BatchSpec`, whether or not its lot fits the capacity |
+
+The values are `"forbid"` (the operation must fit inside one working interval), `"pause"` (setup and run stop at a break and go on in the next shift) and `"finish_unattended"` (the operation must start inside working time, then runs on to its end past the shift end, as an oven load does). A crew on a finish-unattended operation is needed for the setup only. Rush orders follow the same keys.
+
+An order whose release (its `release_date`, outside lead before its first operation, or material readiness) is at or after the end of the planning horizon cannot be placed. The builder holds that job and raises the soft issue `release_after_horizon`, so the rest of the plan still solves.
+
 ## Mapping guidance
 
 1. **Start from the ERP's own facts, not its schedule.** Planned start and end dates from the ERP are not inputs. Send `release_date` only for a firm release, and `due_date` as the ERP due date.
 2. **Put operations inside the order.** Build each order's operations from its operation rows, sorted by operation id. Send standard `Routing` records only for new orders (rush orders use them).
 3. **Use seconds.** Change setup, run, queue and move times to seconds in the mapper. Run time is seconds per unit of the order quantity.
-4. **Model alternates as options.** Option 0 is the primary work center or machine. Each substitute is another option with the next `preference`.
+4. **Model alternates as options.** Option 0 is the primary work center or machine. Each substitute is another option with the next `preference`. A substitute on another work center sets that center as the option's `work_center_id`.
 5. **Send calendars as window lists.** One window per shift, one calendar per work center or machine. Closed days and short days are `CalendarException` records.
 6. **Send overtime separately.** Put overtime windows with a `cost_multiplier` on the work center or machine. Set `use_overtime = false` in the profile to ignore them.
 7. **Keep lineage.** Use the ERP table name and the key parts of the row. Without it an issue cannot point to its row.

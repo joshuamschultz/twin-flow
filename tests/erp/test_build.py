@@ -33,9 +33,12 @@ Contract pinned here (the implementation follows these tests):
   default `OperationStatus()`; `complete` / `cancelled` ops are NOT emitted (SDD COMP-116 step
   4 "skip", REQ-153 "one Operation per not-done operation") and are counted in
   `counts["done_operations"]` (done ops of built jobs only; closed orders count nothing).
-* Machine inference (PINNED): an in_process op with no current machine runs on the machine of
-  its lowest-`preference` option whose machine is active; a work-center-level option resolves
-  to that center's first active machine by id. Soft `in_process_machine_inferred`.
+* Machine inference (PINNED, revised by the TF-005 builder-gap ruling): explicit current
+  machines claim first; then each in_process op with no current machine, in (order id, op
+  sequence) order, runs on its most preferred active option machine (lowest `preference`; a
+  work-center-level option resolves to that center's active machines by id) that no other
+  in-process op holds. Soft `in_process_machine_inferred`. The overflow case (no free
+  machine) is tested in `test_builder_gaps.py`.
 * Precedence (D-123): each emitted op links to the previous EMITTED in-plant op (done and
   outside ops are not emitted) with `min_lag = predecessor.move_seconds +
   successor.queue_seconds + sum(lead_seconds of outside ops between)`. An op with no
@@ -302,20 +305,53 @@ def expected_options(
     return result
 
 
-def inferred_machine(snapshot: ErpSnapshot, op: OrderOperation) -> str:
+def inferred_machine(snapshot: ErpSnapshot, order: ProductionOrder, op: OrderOperation) -> str:
+    """The machine the ruled assignment gives an in_process op without a current machine."""
+    machine = running_assignment(snapshot)[(order.id, op.op_id)]
+    if machine is None:
+        raise AssertionError("fixture in_process op has no free option machine")
+    return machine
+
+
+def running_assignment(snapshot: ErpSnapshot) -> dict[tuple[str, str], str | None]:
+    """Explicit machines claim first; then inferred ops by (order id, sequence) take their
+    most preferred active option machine that no other in-process op holds."""
     machines = {m.id: m for m in snapshot.machines}
-    for option in sorted(op.options, key=lambda o: o.preference):
-        if option.machine_id is not None and machines[option.machine_id].active:
-            return option.machine_id
-        if option.machine_id is None:
-            active = sorted(
-                m.id
-                for m in snapshot.machines
-                if m.work_center_id == option.work_center_id and m.active
-            )
-            if active:
-                return active[0]
-    raise AssertionError("fixture op has no active option")
+
+    def ranked(op: OrderOperation) -> list[str]:
+        found: list[str] = []
+        key = lambda o: (o.preference, o.machine_id or "", o.work_center_id)  # noqa: E731
+        for option in sorted(op.options, key=key):
+            if option.machine_id is not None:
+                targets = [option.machine_id] if machines[option.machine_id].active else []
+            else:
+                targets = sorted(
+                    m.id
+                    for m in snapshot.machines
+                    if m.work_center_id == option.work_center_id and m.active
+                )
+            found.extend(t for t in targets if t not in found)
+        return found
+
+    running = sorted(
+        (
+            (order, op)
+            for order in open_orders(snapshot)
+            for op in internal_ops(order)
+            if op.status == "in_process"
+        ),
+        key=lambda pair: (pair[0].id, pair[1].sequence),
+    )
+    held = {op.current_machine_id for _, op in running if op.current_machine_id is not None}
+    result: dict[tuple[str, str], str | None] = {}
+    for order, op in running:
+        if op.current_machine_id is not None:
+            result[(order.id, op.op_id)] = op.current_machine_id
+            continue
+        free = [m for m in ranked(op) if m not in held]
+        result[(order.id, op.op_id)] = free[0] if free else None
+        held.update(free[:1])
+    return result
 
 
 def jobs_order(jobs: Iterable[Job]) -> list[str]:
@@ -1235,7 +1271,7 @@ def test_build_in_process_op_is_in_progress_on_its_machine_with_remaining(
     ]
     assert running
     for order, op in running:
-        machine_id = op.current_machine_id or inferred_machine(shop, op)
+        machine_id = op.current_machine_id or inferred_machine(shop, order, op)
         unit = expected_options(shop, op, base_profile().erp)[machine_id][1]
         status = ops[op_id(order, op)].status
         assert status.state == "in_progress"
@@ -1263,7 +1299,9 @@ def test_build_in_process_without_machine_infers_most_preferred_with_soft_issue(
     ]
     assert inferred
     for order, op in inferred:
-        assert ops_by_id(request)[op_id(order, op)].status.machine_id == inferred_machine(shop, op)
+        assert ops_by_id(request)[op_id(order, op)].status.machine_id == inferred_machine(
+            shop, order, op
+        )
     issues = [i for i in built.issues if i.code == "in_process_machine_inferred"]
     assert {(i.severity, i.lineage) for i in issues} == {("soft", op.lineage) for _, op in inferred}
 
@@ -1277,7 +1315,7 @@ def test_build_running_machine_available_from_is_end_of_its_op(
         for op in internal_ops(order):
             if op.status != "in_process":
                 continue
-            machine_id = op.current_machine_id or inferred_machine(shop, op)
+            machine_id = op.current_machine_id or inferred_machine(shop, order, op)
             assert machine_id not in ends, "fixture: one running op per unary machine"
             ends[machine_id] = op.qty_remaining * expected_options(shop, op, erp)[machine_id][1]
     assert len(ends) >= 2

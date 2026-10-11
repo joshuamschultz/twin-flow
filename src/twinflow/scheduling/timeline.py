@@ -22,7 +22,8 @@ operation or one batch at a time (D-062).
 - calendar (D-065) on the operation's effective calendar (see ``effective_calendar``):
   ``forbid`` puts ``[start, end)`` inside one working run; ``pause`` sets
   ``setup_end = finish_after_work(start, setup)`` and
-  ``end = finish_after_work(start, setup + run)``.
+  ``end = finish_after_work(start, setup + run)``; ``finish_unattended`` needs ``start``
+  in working time, then ``setup_end = start + setup`` and ``end = setup_end + run``.
 
 Batch machines (``batch_capacity`` set): an operation with a ``batch_family`` first tries
 to join an open batch of that family; all members share ``start``, ``setup_end`` and
@@ -57,7 +58,7 @@ from twinflow.scheduling.calendar_math import (
 )
 from twinflow.scheduling.setups import SetupTable
 
-ShiftCrossing: TypeAlias = Literal["forbid", "pause"]
+ShiftCrossing: TypeAlias = Literal["forbid", "pause", "finish_unattended"]
 Phase: TypeAlias = Literal["setup", "run", "both"]
 
 
@@ -131,9 +132,12 @@ def _occupation_times(
     """``(setup_end, end)`` from ``start``; None when the calendar does not allow it.
 
     For ``pause`` None means the calendar ran out; for ``forbid`` it means the occupation
-    does not fit in the working run that holds ``start``.
+    does not fit in the working run that holds ``start``. ``finish_unattended`` only needs
+    ``start`` in working time (the caller's ``next_working`` gives that), then runs on.
     """
     calendar = request.calendar
+    if request.shift_crossing == "finish_unattended":
+        return start + setup, start + setup + request.run_seconds
     if request.shift_crossing == "pause":
         setup_end = finish_after_work(calendar, start, setup)
         end = finish_after_work(calendar, start, setup + request.run_seconds)

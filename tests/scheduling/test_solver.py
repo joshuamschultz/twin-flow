@@ -170,6 +170,10 @@ SINGLE_FEATURE_PROBLEMS: dict[Feature, tuple[Problem, frozenset[Feature]]] = {
         frozenset({Feature.CALENDARS}),
     ),
     Feature.PAUSE: (_problem((_op("A", shift_crossing="pause"),)), frozenset({Feature.PAUSE})),
+    Feature.UNATTENDED: (
+        _problem((_op("A", shift_crossing="finish_unattended"),)),
+        frozenset({Feature.UNATTENDED}),
+    ),
     Feature.OPERATORS: (
         _problem((_op("A", operator_needs=NEED),), operator_pools=({"id": "P", "size": 1},)),
         frozenset({Feature.OPERATORS}),

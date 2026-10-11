@@ -32,7 +32,7 @@ from typing import Any, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, ValidationError
 
 from twinflow.erp._checks import issue
-from twinflow.erp._jobs import JobHead, build_job, job_heads, jobs_order
+from twinflow.erp._jobs import JobHead, build_job, job_heads, jobs_order, running_machines
 from twinflow.erp._machine_calendars import machine_calendars
 from twinflow.erp._operations import (
     ShopIndex,
@@ -174,10 +174,11 @@ def _build(
     shop = build_shop_index(snapshot, policy)
     heads = job_heads(snapshot, policy)
     plan = material_ready_times(snapshot, jobs_order(heads), policy)
+    running = running_machines(heads, shop)
     jobs: list[Job] = []
     builder_issues: list[ErpIssue] = []
     for head in heads:
-        job, op_issues = build_job(head, plan, shop, policy)
+        job, op_issues = build_job(head, plan, shop, policy, running)
         jobs.append(job)
         builder_issues.extend((*head.issues, *op_issues))
     problem = _problem(snapshot, profile, digests, jobs, heads, shop)

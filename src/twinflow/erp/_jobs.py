@@ -8,7 +8,16 @@ Two passes, because material readiness (COMP-115) needs the job priority order f
    `promised_ship` (start of the promised date), the release floor (start of the release
    date and the leading outside lead, never below 0), the hold flag and the route walk.
 2. `build_job` turns a head into a TF-002 `Job` with the material plan: op ready time =
-   max(own queue, material ready), release = max(floor, material ready for the order).
+   max(own queue, material ready), release = max(floor, material ready for the order). A
+   release (or an op's material ready time) at or after the horizon end holds the job
+   (soft `release_after_horizon`), since no calendar has working time there.
+
+`running_machines` gives every in-process op its machine across ALL jobs (TF-005 ruling):
+explicit current machines claim first, in (order id, op sequence) order; an op whose machine
+is unusable or already claimed falls through to inference, which in the same order gives
+each op its most preferred active option machine not yet held (soft
+`in_process_machine_inferred`). With none free the op is pending from now (soft
+`in_progress_machine_unknown`). No machine ever holds two in-progress ops.
 
 Times are real elapsed seconds from `as_of` (DST-safe, via `start_of_day_seconds`).
 """
@@ -31,12 +40,13 @@ from twinflow.erp._operations import (
     RouteStep,
     RouteWalk,
     ShopIndex,
-    infer_machine,
     lot_fits_batch,
     make_operation,
+    preferred_machines,
     processing_options,
     walk_route,
 )
+from twinflow.erp.calendars import horizon_seconds
 from twinflow.erp.issues import ErpIssue
 from twinflow.erp.materials import MaterialPlan, start_of_day_seconds
 from twinflow.erp.profile import ErpPolicy
@@ -49,7 +59,10 @@ from twinflow.scheduling.model import (
     WeightClass,
 )
 
-__all__ = ["JobHead", "build_job", "job_heads", "jobs_order"]
+__all__ = ["JobHead", "RunningMachines", "build_job", "job_heads", "jobs_order", "running_machines"]
+
+RunningMachines = dict[tuple[str, str], str | None]
+"""(order id, op id) of each in-process op -> its running machine (None: none free)."""
 
 _ONE_DAY = dt.timedelta(days=1)
 
@@ -108,33 +121,73 @@ def jobs_order(heads: list[JobHead]) -> list[str]:
     return [head.order.id for head in sorted(heads, key=key)]
 
 
+def running_machines(heads: list[JobHead], shop: ShopIndex) -> RunningMachines:
+    """The running machine of every in-process in-plant op (see the module docstring)."""
+    running = sorted(
+        (
+            (head.order.id, op)
+            for head in heads
+            for op in head.order.operations
+            if op.status == "in_process" and op.outside is None
+        ),
+        key=lambda pair: (pair[0], pair[1].sequence, pair[1].op_id),
+    )
+    ranked = {(order_id, op.op_id): preferred_machines(op, shop) for order_id, op in running}
+    result: RunningMachines = {}
+    for order_id, op in running:
+        machine = op.current_machine_id
+        if machine in ranked[(order_id, op.op_id)] and machine not in result.values():
+            result[(order_id, op.op_id)] = machine
+    for order_id, op in running:
+        key = (order_id, op.op_id)
+        if key not in result:
+            held = set(result.values())
+            result[key] = next((m for m in ranked[key] if m not in held), None)
+    return result
+
+
 def build_job(
-    head: JobHead, plan: MaterialPlan, shop: ShopIndex, policy: ErpPolicy
+    head: JobHead,
+    plan: MaterialPlan,
+    shop: ShopIndex,
+    policy: ErpPolicy,
+    running: RunningMachines,
 ) -> tuple[Job, tuple[ErpIssue, ...]]:
     """The TF-002 job of one head plus its per-operation builder issues."""
     order = head.order
     operations: list[Operation] = []
     issues: list[ErpIssue] = []
-    op_paths = {op.op_id: f"{head.path}.operations[{j}]" for j, op in enumerate(order.operations)}
+    by_id = {op.op_id: (j, op) for j, op in enumerate(order.operations)}
     for step in head.walk.steps:
-        operation, inferred = _order_operation(order, step, plan, shop, policy)
+        j, op = by_id[step.op.op_id]
+        operation = _order_operation(order, op, step, plan, shop, policy, running)
         operations.append(operation)
-        path = op_paths[step.op.op_id]
-        if inferred:
-            issues.append(issue("in_process_machine_inferred", path, step.op.lineage))
-        if step.op.batch is not None and not lot_fits_batch(step.op, operation.quantity):
-            issues.append(issue("batch_lot_exceeds_capacity", f"{path}.batch", step.op.lineage))
-    held = head.held or order.id in plan.held_orders
+        issues.extend(_operation_issues(op, operation, f"{head.path}.operations[{j}]"))
+    release = max(head.release_floor, plan.ready.get((order.id, None), 0.0))
+    starts = (release, *(operation.ready_time for operation in operations))
+    late = max(starts) >= horizon_seconds(policy.horizon_days)
+    if late:
+        issues.append(issue("release_after_horizon", head.path, order.lineage))
     job = Job(
         id=order.id,
         weight_class=head.weight_class,
-        release=max(head.release_floor, plan.ready.get((order.id, None), 0.0)),
+        release=release,
         due=head.due,
         promised_ship=head.promised_ship,
-        status="held" if held else "open",
+        status="held" if late or head.held or order.id in plan.held_orders else "open",
         operations=tuple(operations),
     )
     return job, tuple(issues)
+
+
+def _operation_issues(op: OrderOperation, operation: Operation, path: str) -> Iterator[ErpIssue]:
+    """Builder issues of one built op: its running machine and its batch lot."""
+    if op.status == "in_process" and operation.status.state != "in_progress":
+        yield issue("in_progress_machine_unknown", path, op.lineage)
+    elif op.status == "in_process" and operation.status.machine_id != op.current_machine_id:
+        yield issue("in_process_machine_inferred", path, op.lineage)
+    if op.batch is not None and not lot_fits_batch(op, operation.quantity):
+        yield issue("batch_lot_exceeds_capacity", f"{path}.batch", op.lineage)
 
 
 def _dates(snapshot: ErpSnapshot, policy: ErpPolicy) -> _Dates:
@@ -223,46 +276,34 @@ def _head_issues(
 
 def _order_operation(
     order: ProductionOrder,
+    op: OrderOperation,
     step: RouteStep,
     plan: MaterialPlan,
     shop: ShopIndex,
     policy: ErpPolicy,
-) -> tuple[Operation, bool]:
-    """One built op and whether its running machine had to be inferred."""
-    op = next(found for found in order.operations if found.op_id == step.op.op_id)
+    running: RunningMachines,
+) -> Operation:
+    """One built op of an order (`op` is the order operation of `step`)."""
     options = processing_options(op, shop)
-    status, inferred = _status(op, options, shop)
     material = plan.ready.get((order.id, op.op_id), 0.0)
-    operation = make_operation(
+    return make_operation(
         order.id,
         step,
         options,
         quantity=op.qty_remaining,
         batch_default=order.item_id,
         ready_time=max(step.queue, material),
-        status=status,
+        status=_status(op, options, running.get((order.id, op.op_id))),
         policy=policy,
     )
-    return operation, inferred
 
 
 def _status(
-    op: OrderOperation, options: tuple[ProcessingOption, ...], shop: ShopIndex
-) -> tuple[OperationStatus, bool]:
-    """Pending (default) or in progress on its machine with the remaining run time.
-
-    A missing (or unusable) current machine is inferred (REQ-157) and flagged.
-    """
-    if op.status != "in_process":
-        return OperationStatus(), False
+    op: OrderOperation, options: tuple[ProcessingOption, ...], machine_id: str | None
+) -> OperationStatus:
+    """Pending (default), or in progress on `machine_id` with the remaining run time."""
+    if machine_id is None:
+        return OperationStatus()
     units = {o.machine_id: o.unit_seconds for o in options}
-    machine_id = op.current_machine_id
-    inferred = machine_id not in units
-    if inferred:
-        machine_id = infer_machine(op, shop)
-    if machine_id is None or machine_id not in units:
-        return OperationStatus(), inferred
     remaining = op.qty_remaining * units[machine_id]
-    return OperationStatus(
-        state="in_progress", machine_id=machine_id, remaining_seconds=remaining
-    ), inferred
+    return OperationStatus(state="in_progress", machine_id=machine_id, remaining_seconds=remaining)
