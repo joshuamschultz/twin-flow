@@ -7,6 +7,8 @@ its gate never opened, which in a record means unfinished predecessors: `"preced
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from twinflow.execution import metrics
 from twinflow.execution.metrics import OpRecord
 
@@ -56,3 +58,19 @@ def test_latest_after_start_constraint_ties_go_to_the_earlier_wait_stage() -> No
 def test_no_constraint_time_at_all_means_the_gate_never_opened() -> None:
     # A never-started op whose predecessor never finished: every time is None.
     assert metrics.slip_cause(_late()) == "precedence"
+
+
+def test_never_started_op_whose_gate_opened_waited_for_its_machine() -> None:
+    # Refinement (T-184): the op never started (start = setup_end = end = T_c, censored, no
+    # drawn work) and its machine never reached it (machine_free_time None), but its gate
+    # opened at 15, before T_c. The gate did not bind; the machine did.
+    record = replace(
+        _late(gate_time=15.0),
+        start=100.0,
+        setup_end=100.0,
+        end=100.0,
+        run_seconds=0.0,
+        censored=True,
+    )
+
+    assert metrics.slip_cause(record) == "machine"

@@ -158,23 +158,37 @@ def slip_cause(record: OpRecord) -> str | None:
     earlier wait stage (`_CAUSE_FIELDS` order). Gap rule (orchestrator decision): when no
     constraint time is at or before the start, the latest constraint time it has gives the
     cause; with no constraint time at all the gate never opened, which in a record means
-    unfinished predecessors, so the cause is `"precedence"`.
+    unfinished predecessors, so the cause is `"precedence"`. Refinement (T-184): an op that
+    never started (its start is the censoring time) and whose gate opened was not held by
+    its gate, so the gate is no candidate; with no other constraint time its machine never
+    reached it, so the cause is `"machine"`.
     """
     if record.planned_start is None:
         return None
     if record.start <= record.planned_start + SLIP_TOLERANCE:
         return "none"
-    times = [
-        (cause, time)
-        for cause, name in _CAUSE_FIELDS
-        if (time := getattr(record, name)) is not None
-    ]
+    fields: tuple[tuple[str, str], ...] = _CAUSE_FIELDS
+    if _never_started(record) and record.gate_time is not None:
+        fields = tuple(field for field in _CAUSE_FIELDS if field[1] != "gate_time")
+        if all(getattr(record, name) is None for _, name in fields):
+            return "machine"
+    times = [(cause, time) for cause, name in fields if (time := getattr(record, name)) is not None]
     binding = [(cause, time) for cause, time in times if time <= record.start + SLIP_TOLERANCE]
     candidates = binding or times
     if not candidates:
         return "precedence"
     latest = max(time for _, time in candidates)
     return next(cause for cause, time in candidates if time >= latest - SLIP_TOLERANCE)
+
+
+def _never_started(record: OpRecord) -> bool:
+    """A censored record with no elapsed and no drawn time: no machine started it."""
+    return (
+        record.censored
+        and record.start == record.setup_end == record.end
+        and record.setup_seconds == 0.0
+        and record.run_seconds == 0.0
+    )
 
 
 def with_slip_causes(records: Iterable[OpRecord]) -> tuple[OpRecord, ...]:
