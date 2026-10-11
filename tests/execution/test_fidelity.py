@@ -61,19 +61,7 @@ from twinflow.scheduling import Feature, problem_features
 
 SEEDS = range(20)
 FIDELITY_TOLERANCE = 1e-6
-PENDING_GROUPS = frozenset(
-    {
-        "core",
-        "calendars",
-        "setups",
-        "operators",
-        "batches",
-        "precedence",
-        "state",
-        "restart",
-        "mixed",
-    }
-)
+PENDING_GROUPS: frozenset[str] = frozenset()
 """Each green task removes its group; T-179 leaves this empty."""
 
 TF003_SKIP = "TF-003 portfolio api not installed yet"
@@ -167,7 +155,6 @@ def test_restart_generator_produces_verified_tf003_plans() -> None:
 def _execute(plan: GeneratedPlan) -> Any:
     """Run `plan` deterministically under plan control (the contract in the docstring)."""
     from twinflow.execution.engine import Limits, PlanControl, RepDraws, execute
-
     from twinflow.execution.shop import build_shop
     from twinflow.execution.sources import DeterministicSource
 
