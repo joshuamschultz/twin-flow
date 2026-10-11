@@ -37,15 +37,13 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
-import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Any
 
 import pytest
-from bench.gates import beats_baselines, format_verdict
-from bench.hmlv import HELD_OUT_SEEDS, TRAINING_SEEDS, hmlv_instance, scale_instance
+from bench.hmlv import TRAINING_SEEDS, hmlv_instance
 from kernel_cases import compile_request, load_request, machine, op, request_from
 from oracle import brute_force
 from oracle_math import objective_values
@@ -76,7 +74,6 @@ TINY_WEIGHT = 1e-6  # DEV-8: job 1's book weight 0
 NAIVE_BOOK_VALUE = 5.0  # p.402: the decomposition at the 4|5 cut, solved window by window
 WINDOW_1 = ("1-1", "2-1", "3-1", "4-1")
 WINDOW_2 = ("5-1", "6-1", "7-1", "8-1", "9-1")
-SCALE_BUDGET_SECONDS = 60.0
 
 needs_ortools = pytest.mark.skipif(
     importlib.util.find_spec("ortools") is None, reason="ortools (scheduling extra) is absent"
@@ -524,25 +521,7 @@ def test_one_window_when_min_jobs_exceeds_the_job_count() -> None:
     assert len(result.schedule.assignments) == 9
 
 
-# --- gates and scale (slow, T-152) -----------------------------------------------------------
-
-
-@pytest.mark.slow
-def test_rolling_horizon_600x8_verifies_within_60_seconds() -> None:
-    request = scale_instance(0)
-    started = time.perf_counter()
-    result = solve(request, solver=get_solver(NAME), budget_seconds=SCALE_BUDGET_SECONDS)
-    elapsed = time.perf_counter() - started
-    assert result.verified, (result.schedule.status, _codes(result))
-    assert len(result.schedule.assignments) == 600 * 8
-    assert elapsed < SCALE_BUDGET_SECONDS, f"rolling_horizon took {elapsed:.2f} s"
-
-
-@pytest.mark.slow
-def test_rolling_horizon_beats_baselines() -> None:
-    verdict = beats_baselines(NAME)
-    print("\n" + format_verdict(NAME, verdict, len(HELD_OUT_SEEDS)))
-    assert verdict.passed, verdict.failures
+# --- window solver (slow, T-152; the gate and 600 x 8 rows live in bench/) ---------------------
 
 
 @pytest.mark.slow

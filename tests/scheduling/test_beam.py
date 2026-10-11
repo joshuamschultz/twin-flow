@@ -37,8 +37,6 @@ from types import ModuleType
 from typing import Any
 
 import pytest
-from bench.gates import beats_baselines, format_verdict
-from bench.hmlv import HELD_OUT_SEEDS, scale_instance
 from generators import random_request
 from kernel_cases import compile_request, load_request
 
@@ -53,7 +51,6 @@ LEVEL_1 = {("1-1",): 408.0, ("2-1",): 436.0, ("3-1",): 814.0, ("4-1",): 440.0}
 KEPT_1 = {("1-1",), ("2-1",)}
 BEST_SEQUENCE = ("1-1", "4-1", "2-1", "3-1")
 ROOT_ATC_SEQUENCE = ("4-1", "1-1", "2-1", "3-1")  # ATC K=5 from the root, T-131: 440
-SCALE_BUDGET_SECONDS = 30.0
 
 
 def _beam() -> ModuleType:
@@ -234,24 +231,3 @@ def test_beam_verifies_or_names_its_issue_on_generated_problems(seed: int) -> No
         assert result.verified, (seed, result.issues)
     else:
         assert codes, seed
-
-
-# --- gates (slow) ---------------------------------------------------------------------------------
-
-
-@pytest.mark.slow
-def test_beam_beats_baselines() -> None:
-    verdict = beats_baselines("beam")
-    print("\n" + format_verdict("beam", verdict, len(HELD_OUT_SEEDS)))
-    assert verdict.passed, verdict.failures
-
-
-@pytest.mark.slow
-def test_beam_respects_its_30_second_budget_on_600x8() -> None:
-    request = scale_instance(0)
-    started = time.perf_counter()
-    result = solve(request, solver=get_solver("beam"), budget_seconds=SCALE_BUDGET_SECONDS)
-    elapsed = time.perf_counter() - started
-    assert result.verified, (result.schedule.status, [i.code for i in result.issues])
-    assert len(result.schedule.assignments) == 600 * 8
-    assert elapsed < SCALE_BUDGET_SECONDS, f"beam took {elapsed:.2f} s"

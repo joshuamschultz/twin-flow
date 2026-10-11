@@ -21,14 +21,11 @@ Every run goes through `solve(request, solver=get(name))`, so each plan is also 
 
 from __future__ import annotations
 
-import time
 from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from bench.gates import beats_baselines, format_verdict
-from bench.hmlv import HELD_OUT_SEEDS, scale_instance
 from generators import random_request
 from kernel_cases import compile_request, load_request, machine, op, request_from, without_features
 
@@ -47,7 +44,6 @@ EPS = 1e-6
 ACTIVE_SEEDS = range(50)
 MIN_ACTIVE_CHECKED = 40
 ACTIVE_STRIP = ("calendars", "pause", "operators", "batching", "restart")
-SCALE_BUDGET_SECONDS = 15.0
 
 
 # --- helpers ---------------------------------------------------------------------------------
@@ -493,27 +489,3 @@ def test_backward_load_verifies_or_names_its_issue_on_generated_problems(seed: i
         assert result.verified, (seed, result.issues)
     else:
         assert codes, seed
-
-
-# --- gates (slow) ---------------------------------------------------------------------------------
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize("name", NAMES)
-def test_construction_beats_baselines_with_atcs(name: str) -> None:
-    verdict = beats_baselines(name, params={"rule": "atcs"})
-    print("\n" + format_verdict(f"{name} (rule atcs)", verdict, len(HELD_OUT_SEEDS)))
-    assert verdict.passed, verdict.failures
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize("name", NAMES)
-def test_construction_verifies_600x8_within_15_seconds(name: str) -> None:
-    request = _with_params(scale_instance(0), name, {"rule": "atcs"})
-    solver = get_solver(name)
-    started = time.perf_counter()
-    result = solve(request, solver=solver, budget_seconds=SCALE_BUDGET_SECONDS)
-    elapsed = time.perf_counter() - started
-    assert result.verified, (name, result.schedule.status, [i.code for i in result.issues])
-    assert len(result.schedule.assignments) == 600 * 8
-    assert elapsed < SCALE_BUDGET_SECONDS, f"{name} took {elapsed:.2f} s"

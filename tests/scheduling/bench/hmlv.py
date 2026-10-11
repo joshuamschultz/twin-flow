@@ -26,7 +26,8 @@ Training seeds are 0-19 and held-out seeds 100-129 (D-083). `tiny_instance` is t
 2 ops x 2 centers x 2 machines mode without calendars that the brute-force oracle can solve.
 `scale_instance` is the 600 jobs x 8 ops problem built with `hmlv_instance` (the TF-002
 `generators.scale_request` has one work center and one shared due date, so it has no
-tardiness to trade against setups).
+tardiness to trade against setups). `flow_line_instance` is the default shape as a flow line
+over 5 centers (five_phase's bench, DEV-19) and `scale_flow_line_instance` its 600 x 8 size.
 """
 
 from __future__ import annotations
@@ -50,6 +51,7 @@ MIN_SPEED, MAX_SPEED = 0.8, 1.25
 MAX_OPTIONS = 3
 MAX_PREFERENCE_COST = 3
 SHIFT_SECONDS, SHIFT_WORKING_SECONDS = 3600.0, 3000.0
+FLOW_LINE_CENTERS = 5
 SETUP_FUNCTION = "S"
 CALENDAR = "SHIFTS"
 
@@ -227,3 +229,15 @@ def tiny_instance(seed: int) -> SolveRequest:
 def scale_instance(seed: int = 0) -> SolveRequest:
     """600 jobs x 8 ops on 8 centers of 5 machines (T-111 size, HMLV data)."""
     return hmlv_instance(seed, jobs=600, ops_per_job=8, centers=8, machines_per_center=5)
+
+
+def flow_line_instance(seed: int) -> SolveRequest:
+    """A flow-line HMLV instance: op k of every job at center k (5 ops over 5 centers)."""
+    return hmlv_instance(seed, centers=FLOW_LINE_CENTERS, flow_line=True)
+
+
+def scale_flow_line_instance(seed: int = 0) -> SolveRequest:
+    """600 jobs x 8 ops as a flow line over 8 centers of 5 machines (five_phase's 600 x 8)."""
+    return hmlv_instance(
+        seed, jobs=600, ops_per_job=8, centers=8, machines_per_center=5, flow_line=True
+    )

@@ -23,15 +23,18 @@ import pytest
 from oracle import SequenceDeadlock, all_sequences, semi_active
 from oracle_math import objective_values
 
+from bench import gates
 from bench.gates import (
+    BENCH_PORTFOLIO,
+    FLOW_LINE_BENCH,
     GATE_SEEDS,
     HELD_OUT_BENCH,
     MAKESPAN_BENCH,
     MAKESPAN_TERMS,
+    MAX_CV,
     RULES,
     Bench,
     GateVerdict,
-    Params,
     baseline_table,
     beats_baselines,
     bench_profile,
@@ -51,7 +54,7 @@ from bench.hmlv import (
     scale_instance,
     tiny_instance,
 )
-from twinflow.scheduling import is_registered_solver
+from twinflow.scheduling import available_solvers, is_registered_solver, solve_portfolio
 from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.model import (
     AbsDiffTerm,
@@ -642,7 +645,8 @@ def test_beats_baselines_and_seed_stable_pass_params_on_every_run() -> None:
     beats_baselines(method, bench=TINY_BENCH, params={"mode": "active"})
     seed_stable(method, bench=TINY_BENCH, params={"mode": "active"})
 
-    assert len(seen) == len(TINY_SEEDS) + 2 * len(TINY_SEEDS)
+    # seed 0 on every instance, then seed 1 on the stability instances (seed 0 is reused)
+    assert len(seen) == len(TINY_SEEDS) + len(TINY_SEEDS)
     assert all(params == {"mode": "active"} for params in seen), seen
 
 
@@ -678,6 +682,161 @@ def test_the_makespan_bench_hands_the_method_a_makespan_objective() -> None:
     assert [(t.kind, t.weight) for t in spec.terms] == [(ObjectiveKind.MAKESPAN, 1.0)]
 
 
+def _recorder(label: str, seen: list[tuple[int, int]]) -> Callable[[], Solver]:
+    """A deterministic EDD copy that records (instance size marker, seed) per run."""
+
+    def record(problem: Problem, objective: ObjectiveSpec, context: SolveContext) -> Schedule:
+        seen.append((len(problem.jobs), context.seed))
+        return _edd_answer(problem, objective, context)
+
+    return _factory(Scripted(record, label))
+
+
+# --- session run cache, portfolio method, D-083 seed policy and the table (T-166) -----------
+
+
+def test_each_instance_run_happens_once_per_session_and_is_reused() -> None:
+    seen: list[tuple[int, int]] = []
+    method = _recorder("fake_cached", seen)
+
+    first = beats_baselines(method, bench=TINY_BENCH)
+    again = beats_baselines(method, bench=TINY_BENCH)
+    assert seed_stable(method, bench=TINY_BENCH)
+    score(method, TINY_SEEDS[0], bench=TINY_BENCH)
+
+    assert again == first
+    # seed 0 on every instance once; seed 1 only for the stability instances
+    assert sorted(s for _, s in seen) == [0] * len(TINY_SEEDS) + [1] * len(TINY_SEEDS)
+
+
+def test_the_run_cache_keys_on_params_seed_and_bench() -> None:
+    seen: list[tuple[int, int]] = []
+    method = _recorder("fake_keyed", seen)
+    other_bench = dataclasses.replace(TINY_BENCH, budget_seconds=3.0)
+
+    score(method, 0, bench=TINY_BENCH)
+    score(method, 0, bench=TINY_BENCH, params={"mode": "a"})
+    score(method, 0, bench=TINY_BENCH, params={"mode": "b"})
+    score(method, 0, 2, bench=TINY_BENCH)
+    score(method, 0, bench=other_bench)
+    score(method, 0, bench=TINY_BENCH, params={"mode": "a"})
+
+    assert len(seen) == 5
+
+
+def test_portfolio_method_scores_the_recommended_candidate() -> None:
+    portfolio = gates.Portfolio(("edd", "atcs"))
+    spec = bench_profile(reference_values(TINY_BENCH, 0))
+    request = tiny_instance(0)
+    request = request.model_copy(
+        update={"profile": request.profile.model_copy(update={"objective": spec})}
+    )
+    direct = solve_portfolio(
+        request, budget_seconds=TINY_BENCH.budget_seconds, seed=0, pipelines=portfolio.pipelines
+    )
+    recommended = next(c for c in direct.candidates if c.id == direct.recommended)
+
+    got = score(portfolio, 0, bench=TINY_BENCH)
+
+    assert got == pytest.approx(bench_score(spec, recommended.objective_values))
+    assert got <= min(score("edd", 0, bench=TINY_BENCH), score("atcs", 0, bench=TINY_BENCH))
+
+
+def test_portfolio_without_a_verified_candidate_scores_infinity() -> None:
+    assert score(gates.Portfolio(("no_such_solver",)), 0, bench=TINY_BENCH) == math.inf
+
+
+def test_portfolio_runs_with_its_worker_count() -> None:
+    assert gates.Portfolio(("edd",)).workers == 1
+    assert gates.Portfolio(("edd",), workers=2).label == "portfolio"
+
+
+@pytest.mark.parametrize(
+    ("method", "deterministic"),
+    [
+        ("atcs", True),
+        ("tabu", True),
+        ("sa", False),
+    ],
+)
+def test_d083_seed_policy_follows_the_registry_deterministic_flag(
+    method: str, deterministic: bool
+) -> None:
+    assert gates.is_deterministic(method) is deterministic
+    assert gates.gate_seeds(method) == ((0,) if deterministic else GATE_SEEDS)
+
+
+def test_a_portfolio_is_stochastic_with_a_stochastic_stage_or_several_workers() -> None:
+    assert not gates.is_deterministic(gates.Portfolio(("atcs", "atcs->sa")))
+    assert not gates.is_deterministic(gates.Portfolio(("atcs",), workers=2))
+    assert gates.is_deterministic(gates.Portfolio(("atcs", "atcs->tabu", "edd")))
+    assert gates.gate_seeds(gates.Portfolio(("atcs", "atcs->sa"))) == GATE_SEEDS
+
+
+def test_method_family_is_the_registry_family_or_portfolio() -> None:
+    assert gates.method_family("atcs") == "composite"
+    assert gates.method_family("gt_active") == "construction"
+    assert gates.method_family("sa") == "improvement"
+    assert gates.method_family(gates.Portfolio(("atcs",))) == "portfolio"
+
+
+def test_gate_report_of_a_deterministic_method_runs_seed_0_and_the_stability_check() -> None:
+    case = gates.GateCase("oracle", ORACLE_BEST, bench=TINY_BENCH, deterministic=True)
+    report = gates.gate_report(case)
+    assert report.verdict.passed and report.verdict.seed_means and len(report.verdict.wins) == 1
+    assert report.stable is True
+    assert report.passed
+
+
+def test_gate_report_fails_a_deterministic_method_whose_output_depends_on_the_seed() -> None:
+    method = _factory(Scripted(_seeded_order, "fake_seeded_report"))
+    case = gates.GateCase("seeded", method, bench=TINY_BENCH, deterministic=True)
+    report = gates.gate_report(case)
+    assert report.stable is False
+    assert not report.passed
+
+
+def test_gate_report_of_a_stochastic_method_runs_seeds_0_to_4_and_skips_the_identity_check() -> (
+    None
+):
+    seen: list[tuple[int, int]] = []
+    case = gates.GateCase(
+        "stochastic", _recorder("fake_stochastic", seen), bench=TINY_BENCH, deterministic=False
+    )
+    report = gates.gate_report(case)
+    assert len(report.verdict.seed_means) == len(GATE_SEEDS)
+    assert report.stable is None
+    assert sorted({s for _, s in seen}) == list(GATE_SEEDS)
+
+
+def test_gate_report_is_computed_once_per_case() -> None:
+    case = gates.GateCase("oracle-once", ORACLE_BEST, bench=TINY_BENCH, deterministic=True)
+    assert gates.gate_report(case) is gates.gate_report(case)
+
+
+def test_gate_table_has_one_row_per_method_and_reference_rows_marked_not_gated() -> None:
+    passing = gates.gate_report(
+        gates.GateCase("oracle", ORACLE_BEST, bench=TINY_BENCH, deterministic=True)
+    )
+    failing = gates.gate_report(
+        gates.GateCase("edd-copy", EDD_COPY, bench=TINY_BENCH, deterministic=True)
+    )
+    reference = gates.reference_row("fifo", TINY_RULES[0][1], bench=TINY_BENCH)
+
+    text = gates.format_gate_table([passing, failing], [reference])
+    lines = text.splitlines()
+
+    header = lines[0].split()
+    assert header[:2] == ["method", "family"]
+    assert {"mean", "wins", "cv", "verdict"} <= set(header)
+    oracle_row = next(line for line in lines if line.startswith("oracle"))
+    edd_row = next(line for line in lines if line.startswith("edd-copy"))
+    fifo_row = next(line for line in lines if line.startswith("fifo"))
+    assert oracle_row.endswith("PASS") and "/3" in oracle_row
+    assert edd_row.endswith("FAIL") and "0/3" in edd_row
+    assert fifo_row.endswith("reference")
+
+
 def test_format_verdict_names_the_method_mean_wins_and_cv() -> None:
     verdict = judge([(1.0, 1.0, 1.1)], TABLE, required_wins=2)
     row = format_verdict("atcs", verdict, 3)
@@ -685,66 +844,133 @@ def test_format_verdict_names_the_method_mean_wins_and_cv() -> None:
     assert "1.0333" in row and "2/3" in row and "cv 0.0000" in row and row.endswith("PASS")
 
 
-# --- the method gates (T-133, T-139, T-143; REQ-092, REQ-101, REQ-104, REQ-125) -------------
+# --- the gate table (T-166; T-133, T-139, T-143, T-147..T-152; REQ-125, D-083) ---------------
+#
+# Every gated family runs on the 30 held-out instances once per session (`gates.gate_report`
+# is cached and so is every run): the gate verdict, the seed check and the printed table read
+# the same runs. D-083: a method registered deterministic runs seed 0 plus the identical-output
+# check for seeds 0 and 1 on 3 instances; a stochastic one (sa) runs seeds 0-4 with CV <= 0.05.
+# Anytime methods get the smallest per-instance budget that passed reliably on the TRAINING
+# seeds (measured, T-166): beam stops at its deadline, so its budget sets its answer and its
+# seeds 0/1 identity check depends on the clock (2 of 20 training instances differed); tabu
+# (iteration limit 30), rolling_horizon (atcs->tabu windows), CP-SAT at 3 s and the portfolio
+# finish before their deadline, so their output does not depend on the clock.
 
+ATCS_EXTENDED = (("flexibility", True), ("suitability", True), ("macro_jobs", True))
+RULE_ATCS = (("rule", "atcs"),)
+CPSAT_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=3.0)
+TABU_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=2.0)
+SA_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=0.5)
+BEAM_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=1.0)
+PORTFOLIO_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=30.0)
 
-@dataclass(frozen=True)
-class GateCase:
-    """One gate row: a registry method, its params and the bench it is judged on."""
-
-    label: str
-    method: str
-    params: Params | None = None
-    bench: Bench = HELD_OUT_BENCH
-    seeds: tuple[int, ...] = (0,)
-
-
-ATCS_EXTENDED: Params = {"flexibility": True, "suitability": True, "macro_jobs": True}
-CPSAT_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=5.0)  # T-139: 5 s each
-LOCAL_SEARCH_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=2.0)  # T-147, T-148
-
+GateCase = gates.GateCase
 GATE_CASES = (
+    # composite
+    pytest.param(GateCase("atc", "atc"), id="atc"),
     pytest.param(GateCase("atcs", "atcs"), id="atcs"),
     pytest.param(GateCase("atcs+flex+suit+macro", "atcs", ATCS_EXTENDED), id="atcs-extended"),
+    # construction (rule atcs, DEV-23)
+    pytest.param(GateCase("gt_active (rule atcs)", "gt_active", RULE_ATCS), id="gt_active"),
     pytest.param(
-        GateCase("ortools (5 s)", "ortools", bench=CPSAT_BENCH), id="ortools", marks=needs_ortools
+        GateCase("forward_load (rule atcs)", "forward_load", RULE_ATCS), id="forward_load"
     ),
+    pytest.param(
+        GateCase("backward_load (rule atcs)", "backward_load", RULE_ATCS), id="backward_load"
+    ),
+    # decomposition
     pytest.param(GateCase("sb_wt", "sb_wt"), id="sb_wt"),
-    # sb_makespan optimizes makespan (Pinedo Alg 7.2.1); the orchestrator ruled the D-083
-    # bench profile (weighted tardiness + 0.2 x setup) out of reach for it, so it is gated on
-    # the same instances scored by makespan (recorded deviation, T-143).
+    # sb_makespan optimizes makespan (Pinedo Alg 7.2.1): gated on the makespan bench (DEV-17)
     pytest.param(
         GateCase("sb_makespan (makespan bench)", "sb_makespan", bench=MAKESPAN_BENCH),
         id="sb_makespan",
     ),
-    pytest.param(GateCase("tabu (2 s)", "tabu", bench=LOCAL_SEARCH_BENCH), id="tabu"),
-    # sa is stochastic: judged over GATE_SEEDS, so the verdict's CV <= 0.05 is its seed check
     pytest.param(
-        GateCase("sa (2 s, seeds 0-4)", "sa", bench=LOCAL_SEARCH_BENCH, seeds=GATE_SEEDS), id="sa"
+        GateCase("five_phase (flow-line bench)", "five_phase", bench=FLOW_LINE_BENCH),
+        id="five_phase",
+    ),
+    pytest.param(GateCase("rolling_horizon", "rolling_horizon"), id="rolling_horizon"),
+    # exact
+    pytest.param(
+        GateCase("ortools (3 s)", "ortools", bench=CPSAT_BENCH), id="ortools", marks=needs_ortools
+    ),
+    # improvement
+    pytest.param(GateCase("tabu (2 s)", "tabu", bench=TABU_BENCH), id="tabu"),
+    pytest.param(GateCase("sa (0.5 s, seeds 0-4)", "sa", bench=SA_BENCH), id="sa"),
+    pytest.param(GateCase("beam (1 s)", "beam", bench=BEAM_BENCH), id="beam"),
+    # portfolio
+    pytest.param(
+        GateCase("portfolio (30 s)", BENCH_PORTFOLIO, bench=PORTFOLIO_BENCH), id="portfolio"
     ),
 )
 """A later method adds one `pytest.param(GateCase(...))` row."""
 
-DETERMINISTIC_GATE_CASES = tuple(p for p in GATE_CASES if p.values[0].seeds == (0,))
-"""Single-seed rows; a stochastic row (several seeds) is not expected to repeat across seeds."""
+GATED_FAMILIES = {"composite", "construction", "decomposition", "exact", "improvement", "portfolio"}
+UNGATED_FAMILIES = {"dispatch", "baseline", "reactive"}
+"""Elementary rules are the comparison set (reference rows); the baseline is the TF-002
+fallback; reactive methods (rush_insert, reschedule) need a previous plan, which the bench
+instances do not have: they are timed in `test_runtime.py` and reached through the portfolio
+API."""
 
 
-def _gate(case: GateCase) -> GateVerdict:
-    verdict = beats_baselines(case.method, case.seeds, bench=case.bench, params=case.params)
-    print("\n" + format_verdict(case.label, verdict, len(case.bench.instance_seeds)))
-    return verdict
+def _cases() -> list[gates.GateCase]:
+    has_ortools = importlib.util.find_spec("ortools") is not None
+    return [p.values[0] for p in GATE_CASES if has_ortools or p.id != "ortools"]  # type: ignore[misc]  # ParameterSet.values is a tuple of objects
+
+
+def _report(case: gates.GateCase) -> gates.GateReport:
+    report = gates.gate_report(case)
+    print("\n" + gates.format_gate_table([report], []).splitlines()[1])
+    return report
 
 
 @pytest.mark.slow
 @needs_rules
 @pytest.mark.parametrize("case", GATE_CASES)
-def test_method_beats_fifo_edd_and_spt_on_the_held_out_bench(case: GateCase) -> None:
-    verdict = _gate(case)
+def test_method_beats_fifo_edd_and_spt_on_the_held_out_bench(case: gates.GateCase) -> None:
+    verdict = _report(case).verdict
     assert verdict.passed, (case.label, verdict.failures, verdict.rule_means)
 
 
 @pytest.mark.slow
 @needs_rules
-@pytest.mark.parametrize("case", DETERMINISTIC_GATE_CASES)
-def test_method_gives_identical_output_for_seeds_0_and_1(case: GateCase) -> None:
-    assert seed_stable(case.method, bench=case.bench, params=case.params), case.label
+@pytest.mark.parametrize("case", GATE_CASES)
+def test_method_meets_the_d083_seed_check(case: gates.GateCase) -> None:
+    report = _report(case)
+    if report.stable is None:
+        assert len(report.verdict.seed_means) == len(GATE_SEEDS), case.label
+        assert report.verdict.cv <= MAX_CV, (case.label, report.verdict.cv)
+    else:
+        assert report.stable, f"{case.label}: seeds 0 and 1 give different output"
+
+
+def test_every_registered_method_outside_the_exempt_families_has_a_gate_row() -> None:
+    gated = {case.method for case in _cases()}
+    for info in available_solvers():
+        if info.family in UNGATED_FAMILIES:
+            continue
+        if info.name == "ortools" and importlib.util.find_spec("ortools") is None:
+            continue
+        assert info.family in GATED_FAMILIES, info
+        assert info.name in gated, f"{info.name} ({info.family}) has no gate row"
+
+
+def test_the_bench_portfolio_is_deterministic_and_registry_named() -> None:
+    names = {info.name for info in available_solvers()}
+    stages = {s for pipeline in BENCH_PORTFOLIO.pipelines for s in pipeline.split("->")}
+    assert stages <= names, stages - names
+    assert gates.is_deterministic(BENCH_PORTFOLIO)
+    assert BENCH_PORTFOLIO.workers == 1
+
+
+@pytest.mark.slow
+@needs_rules
+def test_print_the_gate_table_over_every_gated_family() -> None:
+    reports = [gates.gate_report(case) for case in _cases()]
+    rules = [info.name for info in available_solvers() if info.family == "dispatch"]
+    references = [gates.reference_row(rule, rule) for rule in rules]
+    print("\nD-083 gate table: 30 held-out HMLV instances, wins vs best of FIFO/EDD/SPT")
+    print(gates.format_gate_table(reports, references))
+    assert {r.family for r in reports} == GATED_FAMILIES
+    failed = [(r.case.label, r.verdict.failures, r.stable) for r in reports if not r.passed]
+    assert not failed, failed

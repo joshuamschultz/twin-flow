@@ -32,14 +32,12 @@ from __future__ import annotations
 import importlib
 import itertools
 import math
-import time
 from collections.abc import Mapping, Sequence
 from types import ModuleType
 from typing import Any
 
 import pytest
-from bench.gates import Bench, beats_baselines
-from bench.hmlv import HELD_OUT_SEEDS, TRAINING_SEEDS, hmlv_instance
+from bench.hmlv import TRAINING_SEEDS, flow_line_instance
 from generators import random_request
 from kernel_cases import (
     BOOK_16_4_1_WEIGHTED_TARDINESS,
@@ -65,8 +63,6 @@ NAME = "five_phase"
 WT = ObjectiveKind.WEIGHTED_TARDINESS
 WT_OBJECTIVE = {"mode": "lexicographic", "levels": [{"kind": "weighted_tardiness"}]}
 TOL = 1e-6
-SCALE_LIMIT_SECONDS = 20.0
-FLOW_LINE_CENTERS = 5
 
 
 # --- helpers ---------------------------------------------------------------------------------
@@ -117,15 +113,6 @@ def _swapped(sequence: Sequence[str], k: int) -> tuple[str, ...]:
 
 def _as_tuples(sequences: Mapping[str, Sequence[str]]) -> dict[str, tuple[str, ...]]:
     return {m: tuple(seq) for m, seq in sequences.items()}
-
-
-def _flow_line(seed: int) -> SolveRequest:
-    """A flow-line HMLV instance: op k of every job at center k (5 ops over 5 centers)."""
-    return hmlv_instance(seed, centers=FLOW_LINE_CENTERS, flow_line=True)
-
-
-FLOW_LINE_BENCH = Bench(instance=_flow_line, instance_seeds=HELD_OUT_SEEDS)
-"""D-083 held-out seeds on flow-line instances; local to this file (gates.py is shared)."""
 
 
 def _job(job_id: str, ops: list[dict[str, Any]], **fields: Any) -> dict[str, Any]:
@@ -387,7 +374,7 @@ def test_swap_pass_never_raises_weighted_tardiness_on_any_order_of_the_crafted_c
 
 @pytest.mark.parametrize("seed", TRAINING_SEEDS)
 def test_swap_pass_on_flow_line_hmlv_never_raises_weighted_tardiness(seed: int) -> None:
-    request = _flow_line(seed)
+    request = flow_line_instance(seed)
     index = _index(request)
     module = _module()
     plan = _run("edd", request).schedule
@@ -480,38 +467,3 @@ def test_five_phase_on_generated_problems_keeps_the_contract(seed: int) -> None:
         assert len(ops) == len(set(ops)), seed
     else:
         assert result.schedule.issues or result.issues, seed
-
-
-# --- gates -----------------------------------------------------------------------------------
-
-
-@pytest.mark.slow
-def test_five_phase_beats_baselines_on_flow_line_hmlv() -> None:
-    _module()
-
-    verdict = beats_baselines(NAME, bench=FLOW_LINE_BENCH)
-
-    print(
-        f"\nfive_phase flow-line: means {verdict.seed_means}, wins {verdict.wins}/"
-        f"{len(FLOW_LINE_BENCH.instance_seeds)} (need {verdict.required_wins}), "
-        f"rules {dict(verdict.rule_means)}"
-    )
-    assert verdict.passed, verdict.failures
-
-
-@pytest.mark.slow
-def test_600_by_8_flow_line_verifies_under_20_seconds() -> None:
-    _module()
-    request = hmlv_instance(
-        0, jobs=600, ops_per_job=8, centers=8, machines_per_center=5, flow_line=True
-    )
-
-    started = time.perf_counter()
-    result = solve(request, solver=get_solver(NAME), budget_seconds=SCALE_LIMIT_SECONDS)
-    elapsed = time.perf_counter() - started
-
-    print(f"\n600x8 flow line five_phase: {elapsed:.2f} s wall")
-    assert result.schedule.status == "FEASIBLE", result.issues
-    assert result.verified, result.issues
-    assert len(result.schedule.assignments) == 600 * 8
-    assert elapsed < SCALE_LIMIT_SECONDS, f"600x8 five_phase took {elapsed:.2f} s"
