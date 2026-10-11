@@ -798,8 +798,11 @@ def test_flood_of_200_calls_is_rate_limited_while_another_caller_is_served(
     tmp_path: Path,
 ) -> None:
     tokens = {"flooder": ["read"], "bystander": ["read"]}
+    # One token a minute: the bucket cannot refill between the flood and the REST call. At
+    # 120 a minute a token came back every 0.5 s, so a slow bystander session let the REST
+    # call through (409, no profile) instead of 429.
     with running_service(
-        tmp_path, tokens=tokens, settings_overrides={"calls_per_minute": 120}
+        tmp_path, tokens=tokens, settings_overrides={"calls_per_minute": 1}
     ) as running:
         CORPUS.remember_service(running)
 
