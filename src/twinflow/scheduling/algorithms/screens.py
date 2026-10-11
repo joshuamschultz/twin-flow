@@ -61,7 +61,7 @@ def on_time_screen(compiled: CompiledProblem, work_center_id: str | None = None)
     if center not in index.center_machines:
         raise ValueError(f"unknown work center {center!r}")
     jobs = _screen_jobs(index, center)
-    on_time = _moore_hodgson(jobs)
+    on_time = _moore_hodgson(jobs, index.now)
     late = tuple(job.job_id for job in jobs if job.job_id not in on_time)
     kept = tuple(job.job_id for job in jobs if job.job_id in on_time)
     return OnTimeScreen(work_center_id=center, on_time=kept, late=late)
@@ -108,10 +108,10 @@ def _screen_jobs(index: ProblemIndex, center: str) -> list[_ScreenJob]:
     return sorted(jobs, key=lambda job: (job.due, job.order))
 
 
-def _moore_hodgson(jobs: list[_ScreenJob]) -> set[str]:
-    """Job ids of the on-time set (Alg 3.3.1); `jobs` in EDD order."""
+def _moore_hodgson(jobs: list[_ScreenJob], now: float) -> set[str]:
+    """Job ids of the on-time set (Alg 3.3.1) from `now` (dues are absolute), jobs in EDD order."""
     longest: list[tuple[float, int, str]] = []  # max-heap by (p, EDD rank)
-    completion = 0.0
+    completion = now
     for rank, job in enumerate(jobs):
         heapq.heappush(longest, (-job.processing, -rank, job.job_id))
         completion += job.processing

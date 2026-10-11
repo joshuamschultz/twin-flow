@@ -93,6 +93,23 @@ def test_on_time_screen_example_3_3_3_on_time_3_4_5_late_1_2(center: str | None)
     assert tuple(screen.late) == ("1", "2")
 
 
+def test_on_time_screen_counts_from_now_not_from_zero() -> None:
+    # Example 3.3.3 shifted by now = 1000 (dues + 1000): due dates are absolute times, so
+    # the screen must give the book's answer, not call every job on time.
+    shifted = load_request("pinedo_3_3_3")
+    problem = shifted.problem
+    jobs = tuple(
+        job.model_copy(update={"due": job.due + 1000.0 if job.due is not None else None})
+        for job in problem.jobs
+    )
+    request = shifted.model_copy(
+        update={"problem": problem.model_copy(update={"now": 1000.0, "jobs": jobs})}
+    )
+    screen = _leaf().on_time_screen(compile_request(request), "WC-M1")
+    assert tuple(screen.on_time) == ("3", "4", "5")
+    assert tuple(screen.late) == ("1", "2")
+
+
 # --- multi-machine center ---------------------------------------------------------------------
 
 
