@@ -56,7 +56,7 @@ from twinflow.scheduling.kernel.dispatch import (
     dispatch_schedule,
 )
 from twinflow.scheduling.kernel.index import DEFAULT_PHI, OpData, ProblemIndex
-from twinflow.scheduling.kernel.stats import InstanceStats
+from twinflow.scheduling.kernel.stats import InstanceStats, atcs_k, clamp_k
 from twinflow.scheduling.model import AtcsRun, ObjectiveSpec, Problem, Schedule, ScheduleIssue
 from twinflow.scheduling.registry import RuleSpec, SolverSpec
 from twinflow.scheduling.seam import Feature, ParamValue, SolveContext
@@ -66,8 +66,6 @@ KLookup = Callable[[float, float, float, int], tuple[float, float]]
 
 KSource = Literal["formula", "table", "explicit"]
 
-K1_RANGE = (0.5, 10.0)
-K2_RANGE = (0.05, 10.0)
 FLEXIBILITY_BETA = 0.5
 
 _BOOL_PARAMS = ("flexibility", "suitability", "macro_jobs")
@@ -75,14 +73,7 @@ _NUMBER_PARAMS = ("K1", "K2", "phi", "merge_window")
 _KNOWN_PARAMS = frozenset((*_BOOL_PARAMS, *_NUMBER_PARAMS, "mode"))
 
 
-# --- factors (public: pinned by the tests and reused by learning) --------------------------
-
-
-def atcs_k(tau: float, R: float, eta: float) -> tuple[float, float]:  # noqa: N803
-    """(K1, K2) by Pinedo p.376, clamped; K2 is finite for eta 0 (setup factor 1 there)."""
-    k1 = 4.5 + R if R <= 0.5 else 6.0 - 2.0 * R
-    k2 = tau / (2.0 * math.sqrt(eta)) if eta > 0 else K2_RANGE[1]
-    return _clamp(k1, K1_RANGE), _clamp(k2, K2_RANGE)
+# --- factors (public: pinned by the tests; the K formula `atcs_k` is in kernel.stats) -------
 
 
 def flexibility_factor(eligible: int, m: int) -> float:
@@ -93,10 +84,6 @@ def flexibility_factor(eligible: int, m: int) -> float:
 def suitability_factor(preference_cost: float, prefbar: float) -> float:
     """exp(-preference_cost / prefbar) (K3 = 1); 1 when prefbar is 0."""
     return math.exp(-preference_cost / prefbar) if prefbar > 0 else 1.0
-
-
-def _clamp(value: float, bounds: tuple[float, float]) -> float:
-    return min(max(value, bounds[0]), bounds[1])
 
 
 # --- settings --------------------------------------------------------------------------------
@@ -198,7 +185,7 @@ def _choose_k(
     source: KSource = "explicit" if explicit else "table" if k_lookup is not None else "formula"
     k1 = settings.k1 if settings.k1 is not None else k1
     k2 = settings.k2 if settings.k2 is not None else k2
-    return _clamp(k1, K1_RANGE), _clamp(k2, K2_RANGE), source
+    return (*clamp_k(k1, k2), source)
 
 
 def _mean_preference(index: ProblemIndex, machines: set[str]) -> float:

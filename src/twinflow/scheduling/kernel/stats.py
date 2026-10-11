@@ -17,6 +17,10 @@ previous op id, next op id). With more than `MAX_SETUP_PAIRS` pairs, every `stri
 is used, stride = ceil(total / MAX_SETUP_PAIRS), starting at the first. The k-th pair is
 computed arithmetically, so the list is never built (it is quadratic in |P|) and the result
 does not depend on input order.
+
+`atcs_k(tau, R, eta)` is the p.376 K formula with its clamps (`K1_RANGE`, `K2_RANGE`); it
+lives here, beside the statistics it reads, so `algorithms/atcs.py` and the K-table seed in
+`learning/` share one copy without one importing the other (D-069, D-082).
 """
 
 from __future__ import annotations
@@ -27,6 +31,20 @@ from dataclasses import dataclass
 from twinflow.scheduling.kernel.index import OpData, ProblemIndex
 
 MAX_SETUP_PAIRS = 20_000
+K1_RANGE = (0.5, 10.0)
+K2_RANGE = (0.05, 10.0)
+
+
+def atcs_k(tau: float, R: float, eta: float) -> tuple[float, float]:  # noqa: N803
+    """(K1, K2) by Pinedo p.376, clamped; K2 is finite for eta 0 (setup factor 1 there)."""
+    k1 = 4.5 + R if R <= 0.5 else 6.0 - 2.0 * R
+    k2 = tau / (2.0 * math.sqrt(eta)) if eta > 0 else K2_RANGE[1]
+    return clamp_k(k1, k2)
+
+
+def clamp_k(k1: float, k2: float) -> tuple[float, float]:
+    """K1 into `K1_RANGE`, K2 into `K2_RANGE`."""
+    return min(max(k1, K1_RANGE[0]), K1_RANGE[1]), min(max(k2, K2_RANGE[0]), K2_RANGE[1])
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

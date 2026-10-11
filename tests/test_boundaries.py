@@ -234,3 +234,50 @@ def test_kernel_import_rule_rejects_solver_baseline_and_algorithms() -> None:
     assert not _kernel_import_allowed("ortools")
     assert _kernel_import_allowed("twinflow.scheduling.kernel.index")
     assert _kernel_import_allowed("numpy.typing")
+
+
+LEARNING = SCHEDULING / "learning"
+# D-082 + T-163/T-164: K learning sees the kernel, the model, the registry (ATCS by name at
+# call time), the solve facade and itself; never an algorithm module.
+_LEARNING_ALLOWED = tuple(
+    f"twinflow.scheduling.{name}" for name in ("kernel", "model", "registry", "solver", "learning")
+)
+_LEARNING_THIRD_PARTY = frozenset({"pydantic"})
+
+
+def _learning_import_allowed(name: str) -> bool:
+    root = name.split(".")[0]
+    if root != "twinflow":
+        return root in sys.stdlib_module_names or root in _LEARNING_THIRD_PARTY
+    if name in ("twinflow", "twinflow.scheduling"):
+        return True
+    return any(name == p or name.startswith(p + ".") for p in _LEARNING_ALLOWED)
+
+
+def test_learning_package_exists() -> None:
+    assert (LEARNING / "__init__.py").is_file()
+    assert (LEARNING / "ktable.py").is_file()
+    assert (LEARNING / "perturb.py").is_file()
+
+
+def test_learning_imports_only_kernel_model_registry_solver_stdlib_and_pydantic() -> None:
+    files = sorted(LEARNING.rglob("*.py"))
+    offenders = [
+        f"{path.relative_to(ROOT)}:{line} -> {name}"
+        for path in files
+        for line, name in _absolute_imports(path)
+        if not _learning_import_allowed(name)
+    ]
+    leaf_imports = [o for p in files for o in _algorithm_module_imports(p)]
+    assert files, "learning/ has no modules"
+    assert offenders == [], "learning imports outside its rule:\n" + "\n".join(offenders)
+    assert leaf_imports == [], leaf_imports
+
+
+def test_learning_import_rule_rejects_algorithm_modules_and_portfolio() -> None:
+    assert not _learning_import_allowed("twinflow.scheduling.algorithms.atcs")
+    assert not _learning_import_allowed("twinflow.scheduling.algorithms")
+    assert not _learning_import_allowed("twinflow.scheduling.portfolio")
+    assert not _learning_import_allowed("ortools")
+    assert _learning_import_allowed("twinflow.scheduling.kernel.stats")
+    assert _learning_import_allowed("twinflow.scheduling.registry")
