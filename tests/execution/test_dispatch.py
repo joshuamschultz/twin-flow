@@ -614,6 +614,26 @@ def test_dispatch_unknown_rule_raises_value_error(rule: str) -> None:
         _dispatch_control(rule).sequencer(shop, env)
 
 
+def test_every_shared_dispatch_name_has_a_key() -> None:
+    from twinflow.execution import _dispatch
+
+    assert set(_dispatch.RULES) == set(DISPATCH_NAMES)
+
+
+def test_a_rule_added_to_dispatch_names_without_a_key_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A new shared rule name must not silently run as another rule's key.
+    from twinflow.execution import _dispatch
+
+    monkeypatch.setattr(_dispatch, "DISPATCH_NAMES", (*DISPATCH_NAMES, "slack"))
+    shop = build_shop(_queue())
+    env = simpy.Environment(initial_time=shop.now)
+
+    with pytest.raises(ValueError, match="rule|dispatch"):
+        _dispatch_control("slack").sequencer(shop, env)
+
+
 @pytest.mark.parametrize("rule", DISPATCH_NAMES)
 def test_dispatch_known_rule_builds_a_sequencer_over_every_machine(rule: str) -> None:
     shop = build_shop(apply_overrides(request([], TWO_MACHINES_REVERSED, [{"id": "W"}])))

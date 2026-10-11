@@ -41,6 +41,9 @@ from twinflow.scheduling.verifier import TOLERANCE
 Key = tuple[float, str]
 """Rule value, then operation id: the total order of a pick."""
 
+RULES = ("fifo", "edd", "spt", "critical_ratio")
+"""The rules this module has a key for; a shared rule name without one is refused."""
+
 
 class DispatchControl:
     """Dispatch control by one rule of `twinflow.policy.DISPATCH_NAMES` (D-102).
@@ -50,7 +53,7 @@ class DispatchControl:
     """
 
     def __init__(self, rule: str) -> None:
-        if rule not in DISPATCH_NAMES:
+        if rule not in DISPATCH_NAMES or rule not in RULES:
             raise ValueError(f"unknown dispatch rule {rule!r}; expected one of {DISPATCH_NAMES}")
         self.rule = rule
 
