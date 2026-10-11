@@ -204,10 +204,11 @@ def simulation_comparison(
         }
         for record in records[1:]
     }
-    means = {str(record["plan_id"]): _mean_objectives(record) for record in records}
+    common = set.intersection(*({int(rep["rep"]) for rep in r["per_rep"]} for r in records))
+    means = {str(record["plan_id"]): _mean_objectives(record, common) for record in records}
     return SimulationComparison(
         seed=int(reference["seed"]),
-        replications=min(int(record["replications"]) for record in records),
+        replications=len(common),
         reference_plan_id=str(reference["plan_id"]),
         deltas=deltas,
         ranking=tuple(rank(means, objective)),
@@ -233,8 +234,10 @@ def _metric(record: Mapping[str, Any], metric: str) -> dict[int, float]:
     return {int(rep["rep"]): float(rep["metrics"][metric]) for rep in record["per_rep"]}
 
 
-def _mean_objectives(record: Mapping[str, Any]) -> dict[ObjectiveKind, float]:
-    reps = record["per_rep"]
+def _mean_objectives(record: Mapping[str, Any], common: set[int]) -> dict[ObjectiveKind, float]:
+    """Mean objective values over the replications every compared simulation has, the same
+    replications the paired deltas use, so a truncated simulation cannot flip the ranking."""
+    reps = [rep for rep in record["per_rep"] if int(rep["rep"]) in common]
     return {
         ObjectiveKind(kind): statistics.fmean(float(rep["objective_values"][kind]) for rep in reps)
         for kind in reps[0]["objective_values"]

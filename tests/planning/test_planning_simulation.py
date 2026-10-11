@@ -1218,6 +1218,44 @@ def test_compare_plans_with_simulations_gives_paired_deltas_and_simulated_rankin
     assert block["ranking"] == rank(means, tiny_profile().scheduling.objective)
 
 
+def test_compare_plans_ranks_on_the_common_replications_the_deltas_use() -> None:
+    # A truncated simulation has fewer reps. On the common reps 0 and 1, A (10) beats B (20)
+    # and the delta says so; A's rep 2 (100) must not flip the ranking.
+    from twinflow.application._simulation_records import simulation_comparison
+    from twinflow.scheduling.model import Lexicographic, LexicographicLevel, ObjectiveKind
+
+    wt = ObjectiveKind.WEIGHTED_TARDINESS
+
+    def record(plan_id: str, values: list[float]) -> dict[str, Any]:
+        per_rep = [
+            {"rep": r, "metrics": {"weighted_tardiness": v}, "objective_values": {wt.value: v}}
+            for r, v in enumerate(values)
+        ]
+        return {
+            "id": f"sim-{plan_id}",
+            "kind": "plan",
+            "plan_id": plan_id,
+            "seed": 42,
+            "policy_digest": "p",
+            "source": {"name": "profile", "digest": "s"},
+            "confidence_level": 0.9,
+            "replications": len(values),
+            "per_rep": per_rep,
+        }
+
+    objective = Lexicographic(levels=(LexicographicLevel(kind=wt),))
+    block = simulation_comparison(
+        ("A", "B"),
+        [record("A", [10.0, 10.0, 100.0]), record("B", [20.0, 20.0])],
+        objective,
+        paired_delta,
+    )
+
+    assert block.replications == 2
+    assert block.deltas["B"]["weighted_tardiness"].mean_difference == 10.0
+    assert block.ranking == ("A", "B")
+
+
 def test_compare_plans_reads_only(
     workspace: Workspace, two_plans: tuple[PlanningService, str, str]
 ) -> None:
