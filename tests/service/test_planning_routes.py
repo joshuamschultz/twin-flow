@@ -13,6 +13,7 @@ Contract pinned here:
   `GET /plans/{plan_id}?offset&limit&job_id` [get_plan], `GET /portfolios/{portfolio_id}/menu`
   [get_pareto_menu], `POST /plans/{plan_id}/explain` [explain_plan], `POST /plans/compare`
   [compare_plans], `POST /plans/{plan_id}/simulate` [simulate_plan],
+  `POST /portfolios/{portfolio_id}/simulate` [simulate_portfolio] (TF-004 REQ-140),
   `GET|PUT /planning-profile` [get_planning_profile | put_planning_profile],
   `GET|PUT /k-table` [get_k_table | put_k_table].
 * Request body = exactly the tool's `input_model` class (INCLUDING any id field); the 200
@@ -37,7 +38,10 @@ Contract pinned here:
   `resolve_with_overrides(plan_id, *, overrides, request_key, ...)`,
   `insert_rush_order(plan_id, *, rush, request_key, ...)`, `get_plan(plan_id, offset=0,
   limit=100, job_id=None)`, `get_pareto_menu(portfolio_id)`, `explain_plan(plan_id,
-  job_ids=None)`, `compare_plans(plan_ids)`, `simulate_plan(plan_id, *, request_key, ...)`,
+  job_ids=None)`, `compare_plans(plan_ids, simulation_ids=None)`,
+  `simulate_plan(plan_id, *, request_key, reps=None, seed=42, time_budget_seconds=None,
+  baseline=False, profile_digest=None)`, `simulate_portfolio(portfolio_id, *, request_key,
+  reps=None, seed=42, time_budget_seconds=None, baseline=True, profile_digest=None)`,
   `get_planning_profile()`, `put_planning_profile(*, profile_toml=None, profile=None)`,
   `get_k_table()`, `put_k_table(table)`. Each returns the decoded JSON object; a refusal
   raises `TwinflowError(status, detail)` whose `str()` is the JSON error body.
@@ -106,6 +110,7 @@ ROUTES: tuple[tuple[str, str, str], ...] = (
     ("post", "/plans/{plan_id}/explain", "explain_plan"),
     ("post", "/plans/compare", "compare_plans"),
     ("post", "/plans/{plan_id}/simulate", "simulate_plan"),
+    ("post", "/portfolios/{portfolio_id}/simulate", "simulate_portfolio"),
     ("get", "/planning-profile", "get_planning_profile"),
     ("put", "/planning-profile", "put_planning_profile"),
     ("get", "/k-table", "get_k_table"),
@@ -397,6 +402,13 @@ def test_every_route_call_writes_exactly_one_audit_row_naming_its_tool(rest: Res
             None,
             "simulate_plan",
         ),
+        (
+            "post",
+            f"/portfolios/{rest.ids['portfolio']}/simulate",
+            {"portfolio_id": rest.ids["portfolio"], "request_key": "audit-sim-pf"},
+            None,
+            "simulate_portfolio",
+        ),
         ("get", "/planning-profile", None, None, "get_planning_profile"),
         ("put", "/planning-profile", {"profile_toml": PROFILE_TOML}, None, "put_planning_profile"),
         ("get", "/k-table", None, None, "get_k_table"),
@@ -558,7 +570,21 @@ def test_sdk_methods_round_trip_the_planning_flow_through_the_app(rest: Rest) ->
     )
     _valid("insert_rush_order", sdk.insert_rush_order(plan_id, rush=_rush(), request_key="sdk-r"))
     simulated = _valid("simulate_plan", sdk.simulate_plan(plan_id, request_key="sdk-sim"))
-    assert simulated["status"] == "blocked"
+    assert simulated["status"] in ("completed", "truncated")
+    other_sim = _valid("simulate_plan", sdk.simulate_plan(other, request_key="sdk-sim-2"))
+    portfolio_sim = _valid(
+        "simulate_portfolio",
+        sdk.simulate_portfolio(portfolio["portfolio_id"], request_key="sdk-sim-pf"),
+    )
+    assert portfolio_sim["portfolio_id"] == portfolio["portfolio_id"]
+    paired = _valid(
+        "compare_plans",
+        sdk.compare_plans(
+            [plan_id, other],
+            simulation_ids=[simulated["simulation_id"], other_sim["simulation_id"]],
+        ),
+    )
+    assert paired["simulation"]["reference_plan_id"] == plan_id
 
     with pytest.raises(TwinflowError) as explained:
         sdk.explain_plan(plan_id)

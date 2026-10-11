@@ -22,32 +22,38 @@ from twinflow.application.planning import (
     MenuRecord,
     PlanPage,
     PortfolioRecord,
+    PortfolioSimulation,
     RushRecord,
     SimulateResult,
 )
 from twinflow.mcp import _handlers as h
 from twinflow.mcp import models as m
-from twinflow.mcp.spec import Classification, Handler, ToolServices, ToolSpec
+from twinflow.mcp.spec import Classification, Handler, TimeoutCap, ToolServices, ToolSpec
+from twinflow.policy import DISPATCH_NAMES
 from twinflow.service.auth import Caller, required_scope
 
 __all__ = ["CATALOGUE", "SPECS", "describe_capabilities"]
 
 # Guard timeouts (REQ-187). Solve-type tools wait the configured planning service's solve
-# cap (REQ-169) plus the same 15 s grace its own wall-clock limit allows (`ToolSpec.timeout_for`).
+# cap (REQ-169), simulate tools its simulate cap (TF-004 D-105), plus the same 15 s grace
+# its own wall-clock limit allows (`ToolSpec.timeout_for`).
 GRACE_SECONDS = 15.0
 DEFAULT_TIMEOUT_SECONDS = 30.0
 ERP_TIMEOUT_SECONDS = 60.0
-SIMULATE_TIMEOUT_SECONDS = 120.0 + GRACE_SECONDS  # wait_seconds is capped at 120
 SCHEDULE_TIMEOUT_SECONDS = 30.0 + GRACE_SECONDS  # schedule time_limit is capped at 30
+
+# The distribution sources a plan simulation can draw from (TF-004 COMP-132, REQ-139).
+SIMULATION_SOURCES = ("deterministic", "profile", "capsule")
 
 
 def describe_capabilities(
     services: ToolServices, caller: Caller, _: m.NoInput
 ) -> m.CapabilitiesOutput:
-    """Actions, limits, the solve cap, every tool's timeout and the public signing key.
+    """Actions, limits, the solve and simulation caps, every tool's timeout and the signing key.
 
-    REQ-169, REQ-186, REQ-187. The key is the raw 32-byte Ed25519 public key in lowercase
-    hex; both key fields are None when no signing key is configured.
+    REQ-169, REQ-186, REQ-187, TF-004 REQ-139 (simulation caps, sources and baseline
+    rules). The key is the raw 32-byte Ed25519 public key in lowercase hex; both key fields
+    are None when no signing key is configured.
 
     Result contract for schedule_operations and solve_schedule_snapshot (REST `POST
     /schedules` answers 201): a semantic refusal (cycle, unknown reference, horizon) is a
@@ -60,6 +66,9 @@ def describe_capabilities(
         {
             **services.workspace.capabilities(),
             "max_solve_seconds": services.planning.max_solve_seconds,
+            **services.planning.simulation_caps(),
+            "simulation_sources": list(SIMULATION_SOURCES),
+            "baseline_rules": list(DISPATCH_NAMES),
             "portfolio_available": services.planning.portfolio_available,
             "tool_timeouts": {spec.name: spec.timeout_for(services) for spec in CATALOGUE},
             "signing_public_key": artifacts.public_key_raw.hex() if artifacts else None,
@@ -79,6 +88,7 @@ def _spec(
     destructive: bool = False,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     solve_slot: bool = False,
+    timeout_cap: TimeoutCap = "fixed",
     scope: str | None = None,
 ) -> ToolSpec:
     """One catalogue row; the description is the handler's docstring.
@@ -97,6 +107,7 @@ def _spec(
         timeout_seconds=timeout,
         description=(handler.__doc__ or name).strip(),
         solve_slot=solve_slot,
+        timeout_cap=timeout_cap,
     )
 
 
@@ -139,7 +150,34 @@ def _solve(
     name: str, models: tuple[type[BaseModel], type[BaseModel]], handler: Handler
 ) -> ToolSpec:
     """A keyed solve-type tool: holds a solve slot; times out at the solve cap plus grace."""
-    return _spec(name, models, handler, "state_modifying", timeout=GRACE_SECONDS, solve_slot=True)
+    return _spec(
+        name,
+        models,
+        handler,
+        "state_modifying",
+        timeout=GRACE_SECONDS,
+        solve_slot=True,
+        timeout_cap="solve",
+    )
+
+
+def _simulate(
+    name: str, models: tuple[type[BaseModel], type[BaseModel]], handler: Handler
+) -> ToolSpec:
+    """A keyed simulate tool: holds a solve slot; times out at the simulate cap plus grace.
+
+    D-105: a simulation is synchronous and CPU-bound like a solve, so it shares the
+    caller's solve slots, but its timeout follows `max_simulate_seconds`, not the solve cap.
+    """
+    return _spec(
+        name,
+        models,
+        handler,
+        "state_modifying",
+        timeout=GRACE_SECONDS,
+        solve_slot=True,
+        timeout_cap="simulate",
+    )
 
 
 CATALOGUE: tuple[ToolSpec, ...] = (
@@ -192,11 +230,11 @@ CATALOGUE: tuple[ToolSpec, ...] = (
         h.resolve_with_overrides,
     ),
     _solve("insert_rush_order", (m.InsertRushInput, RushRecord), h.insert_rush_order),
-    _keyed(
-        "simulate_plan",
-        (m.SimulateInput, SimulateResult),
-        h.simulate_plan,
-        timeout=SIMULATE_TIMEOUT_SECONDS,
+    _simulate("simulate_plan", (m.SimulateInput, SimulateResult), h.simulate_plan),
+    _simulate(
+        "simulate_portfolio",
+        (m.SimulatePortfolioInput, PortfolioSimulation),
+        h.simulate_portfolio,
     ),
     _keyed(
         "schedule_operations",

@@ -53,14 +53,17 @@ STATUS_BY_CODE: Mapping[str, int] = {
     "invalid_input": 422,
     "unsupported_solver": 422,
     "blocked": 422,
+    "plan_unverified": 422,
+    "schedule_source_changed": 422,
     "mixed_problems": 422,
     "incomparable": 422,
-    "simulation_link_pending": 422,
+    "incomparable_simulations": 422,
     "rate_limited": 429,
     "internal_error": 500,
     "artifact_signature_invalid": 500,
     "capability_unavailable": 503,
     "timeout": 504,
+    "budget_exhausted": 504,
 }
 
 
@@ -176,6 +179,14 @@ def _add_plan_routes(router: APIRouter, routes: PlanningRoutes) -> None:
         """The guard validates the bounds (`GetPlanInput`), so they are audited like MCP's."""
         arguments: dict[str, Any] = {"offset": offset, "limit": limit, "job_id": job_id}
         return await routes.call("get_plan", request, arguments, plan_id=plan_id)
+
+    @_route(router, "POST", "/portfolios/{portfolio_id:path}/simulate", "simulate_portfolio")
+    async def simulate_portfolio(
+        request: Request, portfolio_id: str, body: m.SimulatePortfolioInput
+    ) -> Response:
+        return await routes.call(
+            "simulate_portfolio", request, _dump(body), portfolio_id=portfolio_id
+        )
 
     @_route(router, "GET", "/portfolios/{portfolio_id:path}/menu", "get_pareto_menu")
     async def get_pareto_menu(request: Request, portfolio_id: str) -> Response:

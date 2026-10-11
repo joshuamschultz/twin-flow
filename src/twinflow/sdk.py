@@ -376,28 +376,59 @@ class TwinflowClient:
         body = {"plan_id": plan_id, "job_ids": job_ids}
         return cast(dict[str, Any], self.request(f"{_plan_path(plan_id)}/explain", body))
 
-    def compare_plans(self, plan_ids: list[str]) -> dict[str, Any]:
-        """Compare plans of one problem side by side."""
-        return cast(dict[str, Any], self.request("/plans/compare", {"plan_ids": plan_ids}))
+    def compare_plans(
+        self, plan_ids: list[str], simulation_ids: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Compare plans of one problem; with one simulation per plan, paired deltas too."""
+        body = {"plan_ids": plan_ids, "simulation_ids": simulation_ids}
+        return cast(dict[str, Any], self.request("/plans/compare", body))
 
     def simulate_plan(
         self,
         plan_id: str,
         *,
         request_key: str,
-        reps: int = 10,
+        reps: int | None = None,
         seed: int = 42,
-        wait_seconds: float = 0,
+        time_budget_seconds: float | None = None,
+        baseline: bool = False,
+        profile_digest: str | None = None,
     ) -> dict[str, Any]:
-        """Simulate a plan (idempotent per `request_key`)."""
+        """Simulate a stored plan synchronously (idempotent per `request_key`)."""
         body = {
             "plan_id": plan_id,
             "request_key": request_key,
             "reps": reps,
             "seed": seed,
-            "wait_seconds": wait_seconds,
+            "time_budget_seconds": time_budget_seconds,
+            "baseline": baseline,
+            "profile_digest": profile_digest,
         }
         return cast(dict[str, Any], self.request(f"{_plan_path(plan_id)}/simulate", body))
+
+    def simulate_portfolio(
+        self,
+        portfolio_id: str,
+        *,
+        request_key: str,
+        reps: int | None = None,
+        seed: int = 42,
+        time_budget_seconds: float | None = None,
+        baseline: bool = True,
+        profile_digest: str | None = None,
+    ) -> dict[str, Any]:
+        """Simulate a portfolio's verified candidates and a baseline (idempotent per key)."""
+        body = {
+            "portfolio_id": portfolio_id,
+            "request_key": request_key,
+            "reps": reps,
+            "seed": seed,
+            "time_budget_seconds": time_budget_seconds,
+            "baseline": baseline,
+            "profile_digest": profile_digest,
+        }
+        path = f"/portfolios/{_segment(portfolio_id)}/simulate"
+        return cast(dict[str, Any], self.request(path, body))
 
     def get_planning_profile(self) -> dict[str, Any]:
         """The active signed planning profile."""

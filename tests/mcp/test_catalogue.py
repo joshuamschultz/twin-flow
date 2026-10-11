@@ -4,7 +4,8 @@ Component COMP-118 (`twinflow.mcp.tools`). Requirements: REQ-163 (tool set), REQ
 (input/output models, structured content), REQ-165 (classification and hints; read_only
 writes no record), REQ-166 (query_evidence offset/limit), REQ-169/REQ-187 (published solve
 cap and per-tool timeouts), REQ-170 (errors carry a code and a correlation id, never a
-stack trace or path), REQ-174 (no URL or path input), REQ-185 (no inline profile).
+stack trace or path), REQ-174 (no URL or path input), REQ-185 (no inline profile), TF-004
+REQ-140 (simulate_portfolio joins the keyed tools).
 
 Contract pinned here (orchestrator API for T-208):
 
@@ -95,6 +96,8 @@ EXPECTED: dict[str, tuple[str, bool, bool]] = {
             "resolve_with_overrides",
             "insert_rush_order",
             "simulate_plan",
+            # TF-004 REQ-140: keyed like solve_portfolio; replays its result per request key.
+            "simulate_portfolio",
             "schedule_operations",
             "solve_schedule_snapshot",
             "simulate_schedule_baseline",
@@ -346,7 +349,7 @@ def test_tools_list_names_equal_the_catalogue_table(world: World) -> None:
         "missing": sorted(set(EXPECTED) - names),
         "unexpected": sorted(names - set(EXPECTED)),
     }
-    assert len(EXPECTED) == 44
+    assert len(EXPECTED) == 45  # TF-004 adds simulate_portfolio
 
 
 def test_removed_scenario_simulate_tool_is_gone_and_legacy_tools_survive(world: World) -> None:

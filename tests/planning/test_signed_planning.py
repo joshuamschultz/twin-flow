@@ -24,7 +24,7 @@ Contract pinned here (orchestrator design for T-221):
 * `describe_capabilities` returns `signing_public_key` (lowercase hex of the 32-byte raw
   Ed25519 public key) and `signing_key_id` (the signer's key id); both None without a
   signer. Its `max_solve_seconds` is the planning service's configured cap, and the
-  timeout of every solve-type tool (`ToolSpec.solve_slot`) is that cap + 15 s.
+  timeout of every solve-capped tool (`ToolSpec.timeout_cap == "solve"`) is that cap + 15 s.
 * Without an artifact store: `ToolServices(local_mode=True)` builds with the built-in
   default profile (`load_planning_profile("")`) and records `profile_signed: false`;
   `local_mode=False` refuses the build with `no_planning_profile`.
@@ -464,7 +464,9 @@ def test_describe_capabilities_budgets_follow_the_configured_solve_cap(world: Wo
         return await session.call("describe_capabilities", {})
 
     capabilities = _session(world, body)
-    solve_tools = {spec.name for spec in CATALOGUE if spec.solve_slot}
+    # Tools whose timeout follows the solve cap; the simulate tools also hold a solve slot
+    # but follow max_simulate_seconds (TF-004 D-105), so they are selected out by cap.
+    solve_tools = {spec.name for spec in CATALOGUE if spec.timeout_cap == "solve"}
 
     assert solve_tools == {"solve_portfolio", "resolve_with_overrides", "insert_rush_order"}
     assert capabilities["max_solve_seconds"] == MAX_SOLVE_SECONDS

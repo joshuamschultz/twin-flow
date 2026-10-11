@@ -435,15 +435,17 @@ def test_get_plan_pages_cover_every_assignment_once_with_consistent_totals(flow:
     assert rows == flow.full_plan["assignments"]  # same stored order as one big page
 
 
-# --- simulation link (REQ-163) -------------------------------------------------------------------
+# --- simulation link (TF-004 REQ-140 supersedes TF-005 REQ-171) ----------------------------------
 
 
-def test_simulate_plan_on_an_erp_plan_is_blocked_with_simulation_link_pending(flow: Flow) -> None:
+def test_simulate_plan_on_an_erp_plan_completes_with_a_stored_simulation(flow: Flow) -> None:
     simulated = flow.ok("simulate_plan")
 
-    assert simulated["status"] == "blocked"
-    assert "simulation_link_pending" in {issue["code"] for issue in simulated["issues"]}
-    assert simulated["job"] is None
+    assert simulated["status"] in ("completed", "truncated")
+    assert isinstance(simulated["simulation_id"], str) and simulated["simulation_id"]
+    assert "simulation_link_pending" not in {issue["code"] for issue in simulated["issues"]}
+    assert simulated["evidence_kind"] == "simulation"
+    assert "job" not in simulated
 
 
 # --- provisional evidence (REQ-177) -----------------------------------------------------------

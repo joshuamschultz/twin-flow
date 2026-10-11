@@ -160,11 +160,24 @@ class BuildOperationalSnapshotInput(ToolInput):
 
 
 class QueryEvidenceInput(ToolInput):
-    job_id: Ident
+    """Exactly one of `job_id` (an experiment) and `simulation_id` (a plan simulation).
+
+    TF-004 D-106: topic `schedule` reads a stored simulation (`simulation_id`); every
+    other topic reads a completed experiment (`job_id`).
+    """
+
+    job_id: Ident | None = None
+    simulation_id: Ident | None = None
     topic: Topic
     entity_id: str | None = Field(default=None, max_length=256)
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def _exactly_one_id(self) -> QueryEvidenceInput:
+        if (self.job_id is None) == (self.simulation_id is None):
+            raise ValueError("give exactly one of job_id or simulation_id")
+        return self
 
 
 class ScheduleOperationsInput(ToolInput):
@@ -229,15 +242,40 @@ class ExplainInput(ToolInput):
 
 
 class ComparePlansInput(ToolInput):
+    """`simulation_ids`, when given, names one stored simulation per plan, same order."""
+
     plan_ids: tuple[str, ...] = Field(min_length=2, max_length=10)
+    simulation_ids: tuple[Ident, ...] | None = Field(default=None, max_length=10)
+
+    @model_validator(mode="after")
+    def _one_simulation_per_plan(self) -> ComparePlansInput:
+        if self.simulation_ids is not None and len(self.simulation_ids) != len(self.plan_ids):
+            raise ValueError("simulation_ids needs one simulation per plan id")
+        return self
 
 
-class SimulateInput(ToolInput):
-    plan_id: Ident
+class _SimulateSettings(ToolInput):
+    """The settings both simulate tools share (TF-004 Data Model "Tool inputs", D-105).
+
+    The call is synchronous (no `wait_seconds`); `reps` above the service cap is refused
+    by the planning service, and the budget is clamped to the service cap.
+    """
+
     request_key: Ident
-    reps: int = Field(default=10, ge=1, le=10)
+    reps: int | None = Field(default=None, ge=1, le=1000)
     seed: int = Field(default=42, ge=0, le=_MAX_SEED)
-    wait_seconds: float = Field(default=0, ge=0, le=120, allow_inf_nan=False)
+    time_budget_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    profile_digest: str | None = Field(default=None, pattern=_DIGEST_PATTERN)
+
+
+class SimulateInput(_SimulateSettings):
+    plan_id: Ident
+    baseline: bool = False
+
+
+class SimulatePortfolioInput(_SimulateSettings):
+    portfolio_id: Ident
+    baseline: bool = True
 
 
 class PutPlanningProfileInput(ToolInput):
@@ -268,6 +306,12 @@ class CapabilitiesOutput(OpenOutput):
     actions: list[str]
     limits: dict[str, int]
     max_solve_seconds: float
+    max_simulate_seconds: float
+    max_simulation_replications: int
+    max_simulation_candidates: int
+    max_simulation_workers: int
+    simulation_sources: list[str]
+    baseline_rules: list[str]
     tool_timeouts: dict[str, float]
     portfolio_available: bool
     signing_public_key: str | None
@@ -410,7 +454,10 @@ class OperationalSnapshotOutput(OpenOutput):
 
 
 class EvidenceOutput(OpenOutput):
-    job_id: str
+    """An evidence page; `job_id` or `simulation_id` names its source (the other is None)."""
+
+    job_id: str | None = None
+    simulation_id: str | None = None
     topic: str
     evidence: list[Any]
     total: int

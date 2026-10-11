@@ -28,6 +28,7 @@ from twinflow.application.planning import (
     PlanningError,
     PlanPage,
     PortfolioRecord,
+    PortfolioSimulation,
     RushRecord,
     SimulateResult,
 )
@@ -106,11 +107,41 @@ def get_plan(services: ToolServices, caller: Caller, data: m.GetPlanInput) -> Pl
 def query_evidence(
     services: ToolServices, caller: Caller, data: m.QueryEvidenceInput
 ) -> m.EvidenceOutput:
-    """One page of decision evidence (REQ-166: offset and limit are applied)."""
+    """One page of evidence: topic `schedule` by `simulation_id`, other topics by `job_id`.
+
+    REQ-166 (offset and limit are applied), TF-004 REQ-141 and D-106: schedule rows come
+    from a stored plan simulation, operation rows first, then job rows.
+    """
+    if data.simulation_id is not None:
+        return _simulation_evidence(services, data.simulation_id, data)
+    if data.job_id is None:  # unreachable: the input model requires exactly one id
+        raise ValueError("give exactly one of job_id or simulation_id")
     answer = services.decisions.query(
         data.job_id, data.topic, data.entity_id, offset=data.offset, limit=data.limit
     )
     return m.EvidenceOutput.model_validate(answer)
+
+
+def _simulation_evidence(
+    services: ToolServices, simulation_id: str, data: m.QueryEvidenceInput
+) -> m.EvidenceOutput:
+    if data.topic != "schedule":
+        raise ValueError("a simulation_id serves topic schedule only; other topics take a job_id")
+    page = services.planning.simulation_evidence(
+        simulation_id, entity_id=data.entity_id, offset=data.offset, limit=data.limit
+    )
+    return m.EvidenceOutput.model_validate(
+        {
+            "simulation_id": page.simulation_id,
+            "topic": data.topic,
+            "evidence": list(page.rows),
+            "total": page.total,
+            "offset": page.offset,
+            "next_offset": page.next_offset,
+            "validity": page.validity,
+            "evidence_kind": page.evidence_kind,
+        }
+    )
 
 
 def validate_scenario(
@@ -151,8 +182,8 @@ def explain_plan(services: ToolServices, caller: Caller, data: m.ExplainInput) -
 def compare_plans(
     services: ToolServices, caller: Caller, data: m.ComparePlansInput
 ) -> CompareResult:
-    """Plans of one problem side by side."""
-    return services.planning.compare_plans(data.plan_ids)
+    """Plans of one problem side by side; with `simulation_ids`, paired simulated deltas."""
+    return services.planning.compare_plans(data.plan_ids, data.simulation_ids)
 
 
 def compare(services: ToolServices, caller: Caller, data: m.CompareInput) -> m.CompareOutput:
@@ -253,14 +284,42 @@ def insert_rush_order(
 
 
 def simulate_plan(services: ToolServices, caller: Caller, data: m.SimulateInput) -> SimulateResult:
-    """Simulate a scenario plan; an ERP plan is blocked until the simulation link ships."""
+    """Re-verify and simulate a stored ERP or scenario plan; the simulation by reference.
+
+    Synchronous and capped (D-105). A plan that no longer verifies is `status: blocked`
+    with the reason in `issues`, and nothing is stored.
+    """
     return services.planning.simulate_plan(
         data.plan_id,
         request_key=data.request_key,
         caller_id=caller.caller_id,
         reps=data.reps,
         seed=data.seed,
-        wait_seconds=data.wait_seconds,
+        time_budget_seconds=data.time_budget_seconds,
+        baseline=data.baseline,
+        profile_digest=data.profile_digest,
+        artifacts=services.planning_artifacts,
+    )
+
+
+def simulate_portfolio(
+    services: ToolServices, caller: Caller, data: m.SimulatePortfolioInput
+) -> PortfolioSimulation:
+    """Simulate a portfolio's verified candidates and a dispatch baseline; rank them.
+
+    Synchronous and capped (D-105, D-108): candidates over the cap or not verified are
+    skipped and named in `issues`.
+    """
+    return services.planning.simulate_portfolio(
+        data.portfolio_id,
+        request_key=data.request_key,
+        caller_id=caller.caller_id,
+        reps=data.reps,
+        seed=data.seed,
+        time_budget_seconds=data.time_budget_seconds,
+        baseline=data.baseline,
+        profile_digest=data.profile_digest,
+        artifacts=services.planning_artifacts,
     )
 
 

@@ -773,7 +773,7 @@ class Workspace:
             "status_explanation": _status_explanation(result, backend),
             "simulation": {
                 "status": "available" if blocker is None else "blocked",
-                "submit_route": f"/api/workspace/schedule-plans/{plan_record_id}/simulate",
+                "submit_route": f"/api/workspace/plans/{plan_record_id}/simulate",
                 "blocker": blocker,
                 "meaning": (
                     "Enforces verified machine assignments and planned starts as earliest starts; "

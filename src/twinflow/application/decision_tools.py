@@ -76,7 +76,7 @@ class DecisionTools:
                 "max_bytes": 1_048_576,
                 "max_columns": 100,
                 "max_rows": 1_000,
-                "max_schedule_replications": 10,
+                "max_baseline_replications": 10,
                 "original_file_retention": "discarded_after_parse",
             },
             "query_topics": [
@@ -96,6 +96,9 @@ class DecisionTools:
                 "Office times and scheduling values use relative seconds.",
                 "Map reconciled entities into a capsule explicitly; "
                 "record mapping assumptions in provenance.",
+                "Plan simulation caps (max_simulate_seconds, max_simulation_replications, "
+                "max_simulation_candidates, max_simulation_workers) are published by "
+                "describe_capabilities.",
             ],
         }
 
@@ -150,7 +153,11 @@ class DecisionTools:
         offset: int = 0,
         limit: int = 100,
     ) -> dict[str, Any]:
-        """Retrieve bounded evidence for an agent to explain; never invent narrative answers."""
+        """Retrieve bounded evidence for an agent to explain; never invent narrative answers.
+
+        Topic `schedule` is refused here: it is served from a stored plan simulation by
+        `PlanningService.simulation_evidence` (TF-004 D-106).
+        """
         if offset < 0 or not 1 <= limit <= 1000:
             raise ValueError("Evidence pages require offset >= 0 and limit 1..1000")
         job = self.workspace.repository.get("jobs", job_id)
@@ -169,15 +176,8 @@ class DecisionTools:
         elif topic == "process":
             evidence = scenario["summary"]
         elif topic == "schedule":
-            if domain != "manufacturing" or "schedule_execution" not in result:
-                raise ValueError("Schedule evidence requires a completed scheduled simulation")
-            evidence = [
-                {"replication": sample["replication"], "record": row}
-                for sample in result["schedule_execution"]["replications"]
-                for row in sample["trace"]
-                if entity_id is None
-                or entity_id in (row["piece_id"], row["operation_id"], row["location_id"])
-            ]
+            # TF-004 D-106: schedule evidence lives on stored plan simulations.
+            raise ValueError("Schedule evidence takes a simulation_id, not a job_id")
         elif topic in ("dates", "blockers", "waits", "termination"):
             if domain == "manufacturing":
                 if topic == "dates":

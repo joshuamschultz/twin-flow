@@ -37,9 +37,9 @@ Contract pinned here (the implementation follows these tests):
 * `get_plan(plan_id, *, offset=0, limit=100, job_id=None)`: limit outside 1..1000 or
   offset < 0 -> ValueError; assignments in stored order, each with its `lineage` from the
   problem's lineage index.
-* `simulate_plan(plan_id, *, request_key, caller_id, reps=1, seed=0, wait_seconds=0)`
-  returns a result with `status`, `issues`, `job` (the jobs record or None), `validity`,
-  `evidence_kind`. reps outside 1..10 or wait_seconds outside 0..120 -> ValueError.
+* `simulate_plan` (TF-004 T-187 supersedes REQ-171 with REQ-140; its `wait_seconds`, job
+  claim, 10-rep cap and `simulation_link_pending` are gone) is pinned in
+  `test_planning_simulation.py`; only its key and not-found checks stay here.
 """
 
 from __future__ import annotations
@@ -907,37 +907,12 @@ def test_read_methods_leave_every_record_count_unchanged(
     assert _counts(workspace) == before
 
 
-# --- simulate_plan (REQ-171) ----------------------------------------------------------------------
-
-
-def test_simulate_plan_on_erp_plan_is_blocked_simulation_link_pending(
-    service: PlanningService, plan_id: str, workspace: Workspace
-) -> None:
-    result = _row(
-        service.simulate_plan(plan_id, request_key="sim", caller_id=CALLER, reps=1, seed=0)
-    )
-
-    assert result["status"] == "blocked"
-    assert "simulation_link_pending" in {issue["code"] for issue in result["issues"]}
-    assert result["job"] is None
-    assert result["validity"] == "provisional"
-    assert result["evidence_kind"]
-    assert workspace.repository.count("jobs") == 0
+# --- simulate_plan (REQ-140; full contract in test_planning_simulation.py) --------------------
 
 
 def test_simulate_plan_requires_request_key(service: PlanningService, plan_id: str) -> None:
     with pytest.raises(ValueError):
         service.simulate_plan(plan_id, request_key="", caller_id=CALLER)
-
-
-@pytest.mark.parametrize(("reps", "wait"), [(0, 0), (11, 0), (1, -1), (1, 121)])
-def test_simulate_plan_rejects_reps_or_wait_out_of_range(
-    service: PlanningService, plan_id: str, reps: int, wait: float
-) -> None:
-    with pytest.raises(ValueError):
-        service.simulate_plan(
-            plan_id, request_key="sim", caller_id=CALLER, reps=reps, wait_seconds=wait
-        )
 
 
 def test_simulate_plan_unknown_plan_is_not_found(service: PlanningService) -> None:
@@ -991,54 +966,6 @@ def _scenario_plan(workspace: Workspace) -> str:
     plan = workspace.solve_schedule_snapshot(snapshot["id"], "baseline", 5)
     assert plan["simulation"]["status"] == "available", plan["simulation"]
     return str(plan["id"])
-
-
-def test_simulate_plan_on_scenario_plan_waits_for_the_finished_job(
-    service: PlanningService, workspace: Workspace
-) -> None:
-    scenario_plan = _scenario_plan(workspace)
-
-    result = _row(
-        service.simulate_plan(
-            scenario_plan, request_key="sim", caller_id=CALLER, reps=1, seed=42, wait_seconds=60
-        )
-    )
-
-    assert result["status"] == "completed"
-    assert result["job"]["status"] == "completed"
-    assert result["job"]["result"]["schedule_plan"]["id"] == scenario_plan
-    assert result["validity"] == "provisional"
-    assert result["evidence_kind"]
-
-
-def test_simulate_plan_on_scenario_plan_is_todays_submit_schedule_plan_claim(
-    service: PlanningService, workspace: Workspace
-) -> None:
-    scenario_plan = _scenario_plan(workspace)
-
-    result = _row(
-        service.simulate_plan(scenario_plan, request_key="sim", caller_id=CALLER, reps=1, seed=42)
-    )
-    today = workspace.submit_schedule_plan(scenario_plan, 1, 42, f"{CALLER}:sim")
-
-    assert result["job"]["id"] == today["id"]
-    assert result["job"]["schedule_plan_id"] == scenario_plan
-    assert workspace.repository.count("jobs") == 1
-
-
-def test_simulate_plan_without_wait_returns_the_submitted_job_at_once(
-    service: PlanningService, workspace: Workspace
-) -> None:
-    scenario_plan = _scenario_plan(workspace)
-
-    result = _row(
-        service.simulate_plan(scenario_plan, request_key="sim", caller_id=CALLER, wait_seconds=0)
-    )
-
-    assert result["job"]["status"] in {"queued", "running", "completed"}
-    assert (
-        workspace.repository.get("jobs", result["job"]["id"])["schedule_plan_id"] == scenario_plan
-    )
 
 
 # --- every stored record is provisional evidence (REQ-177) ----------------------------------------

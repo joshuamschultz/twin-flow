@@ -144,12 +144,6 @@ def test_setup_changeover_plan_records_the_replay_guard_blocker(tmp_path: Path) 
         assert plan["simulation"]["blocker"] == expected
         stored = client.get(f"/api/workspace/schedule-plans/{plan['id']}").json()
         assert stored["simulation"] == plan["simulation"]
-        submitted = client.post(
-            f"/api/workspace/schedule-plans/{plan['id']}/simulate",
-            json={"request_key": "blocked-run", "reps": 1, "seed": 42},
-        )
-        assert submitted.status_code == 422, submitted.text
-        assert submitted.json()["detail"] == expected
 
 
 def test_plan_the_replay_guards_accept_stays_available(tmp_path: Path) -> None:
@@ -158,8 +152,3 @@ def test_plan_the_replay_guards_accept_stays_available(tmp_path: Path) -> None:
 
         assert plan["verified"] is True
         assert plan["simulation"] == {**plan["simulation"], "status": "available", "blocker": None}
-        submitted = client.post(
-            f"/api/workspace/schedule-plans/{plan['id']}/simulate",
-            json={"request_key": "linear-run", "reps": 1, "seed": 42},
-        )
-        assert submitted.status_code == 202, submitted.text

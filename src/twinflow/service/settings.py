@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,8 @@ class ServiceSettings:
 
     Callers authenticate with named tokens from the registry at ``tokens_file`` (COMP-120,
     D-117). Without a registry the service runs in open local mode, allowed on loopback only.
+    The ``max_simulat*`` caps bound plan simulation (TF-004 REQ-139, D-105);
+    ``max_simulate_seconds`` is also the simulate tools' guard timeout, so it must be finite.
     """
 
     local_only: bool = True
@@ -32,6 +35,10 @@ class ServiceSettings:
     max_replications: int = 50
     max_records_per_kind: int = 10_000
     max_evidence_rows: int = 1_000
+    max_simulate_seconds: float = 120.0
+    max_simulation_replications: int = 200
+    max_simulation_candidates: int = 20
+    max_simulation_workers: int = 4
 
     def __post_init__(self) -> None:
         if not self.local_only and self.tokens_file is None:
@@ -47,9 +54,15 @@ class ServiceSettings:
             ("max_replications", self.max_replications),
             ("max_records_per_kind", self.max_records_per_kind),
             ("max_evidence_rows", self.max_evidence_rows),
+            ("max_simulate_seconds", self.max_simulate_seconds),
+            ("max_simulation_replications", self.max_simulation_replications),
+            ("max_simulation_candidates", self.max_simulation_candidates),
+            ("max_simulation_workers", self.max_simulation_workers),
         ):
             if not value > 0:
                 raise ValueError(f"{name} must be positive")
+        if not math.isfinite(self.max_simulate_seconds):
+            raise ValueError("max_simulate_seconds must be finite")
         if self.max_request_bytes > 5_242_880:
             raise ValueError("max_request_bytes cannot exceed the API schema bound")
         if "*" in self.cors_origins or "*" in self.allowed_hosts or "*" in self.mcp_allowed_origins:

@@ -233,19 +233,6 @@ def decision_router(workspace: Workspace) -> APIRouter:
         except KeyError as exc:
             raise HTTPException(404, "Schedule plan not found") from exc
 
-    @router.post("/schedule-plans/{plan_id}/simulate", status_code=202)
-    def submit_schedule_plan_simulation(
-        plan_id: str, request: ScheduleSimulationRequest
-    ) -> dict[str, Any]:
-        try:
-            return workspace.submit_schedule_plan(
-                plan_id, request.reps, request.seed, request.request_key
-            )
-        except KeyError as exc:
-            raise HTTPException(404, "Schedule plan not found") from exc
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-
     @router.get("/schedules")
     def schedules() -> list[dict[str, Any]]:
         return workspace.repository.list("schedules")

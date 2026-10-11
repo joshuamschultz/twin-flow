@@ -2,17 +2,18 @@
 
 `PlanningService` validates ERP snapshots, builds and stores scheduling problems by content
 address, wraps the four TF-003 portfolio functions through `portfolio_port`, and serves plan
-reads, comparisons and simulation requests. Requirements: REQ-159, REQ-163, REQ-167,
-REQ-168, REQ-169, REQ-171, REQ-177. Decisions: D-119 (plans by reference), D-120
-(idempotency, capped synchronous budget).
+reads, comparisons and plan simulations. Requirements: REQ-159, REQ-163, REQ-167,
+REQ-168, REQ-169, REQ-177, and TF-004 REQ-127, REQ-136, REQ-138..REQ-141 (REQ-140 supersedes
+REQ-171). Decisions: D-119 (plans by reference), D-120 (idempotency, capped synchronous
+budget), TF-004 D-104, D-105, D-108 (simulation, see `_planning_simulation`).
 
-* Records: `erp_snapshots` (id = snapshot digest), `problems` (id = problem id), `portfolios`
-  and `plans`; every record and result is `validity = "provisional"` with an
-  `evidence_kind`.
+* Records: `erp_snapshots` (id = snapshot digest), `problems` (id = problem id), `portfolios`,
+  `plans`, `simulations` and `evaluations`; every record and result is
+  `validity = "provisional"` with an `evidence_kind`.
 * Idempotency: a state-modifying call claims `(caller_id, request_key)` in the workspace
   `requests` table with the digest of its method and inputs, atomically with the records it
   stores. Same digest replays the stored result; another digest is `IdempotencyConflict`.
-  A call that times out or fails stores no claim, so a retry solves again.
+  A call that times out, fails or is blocked stores no claim, so a retry runs again.
 * Budget: `min(requested, the problem profile's time_budget_seconds, max_solve_seconds)`;
   the wall-clock limit is budget + `timeout_grace_seconds`.
 * TF-003 absent: the four wrapped methods raise `CapabilityUnavailable`; reads still work.
@@ -54,8 +55,10 @@ from twinflow.application._planning_models import (
     PlanningTimeout,
     PlanPage,
     PortfolioRecord,
+    PortfolioSimulation,
     RushRecord,
     SimulateResult,
+    SimulationEvidencePage,
     SizeLimit,
 )
 from twinflow.application._planning_records import (
@@ -69,7 +72,12 @@ from twinflow.application._planning_records import (
     rush_records,
 )
 from twinflow.application._planning_runner import SolveRunner
-from twinflow.application._planning_simulation import check_simulation_settings, simulate
+from twinflow.application._planning_simulation import (
+    SimulationLimits,
+    SimulationRequest,
+    Simulator,
+    load_engine,
+)
 from twinflow.application.planning_artifacts import PlanningArtifacts, Provenance
 from twinflow.application.portfolio_port import PortfolioApi
 from twinflow.application.workspace import Workspace
@@ -93,8 +101,10 @@ __all__ = [
     "PlanningService",
     "PlanningTimeout",
     "PortfolioRecord",
+    "PortfolioSimulation",
     "RushRecord",
     "SimulateResult",
+    "SimulationEvidencePage",
     "SizeLimit",
 ]
 
@@ -102,7 +112,8 @@ MAX_PAGE_LIMIT = 1_000
 COMPARE_SIZES = range(2, 11)
 
 ResultT = TypeVar("ResultT", bound=BaseModel)
-Computed = tuple[str, list[RecordRow], ResultT]
+Computed = tuple[str | None, list[RecordRow], ResultT]
+"""`(result id, records, result)`; a None id stores nothing and claims nothing (blocked)."""
 
 log = logging.getLogger(__name__)
 
@@ -121,19 +132,45 @@ class PlanningService:
         max_solve_seconds: float = 120.0,
         timeout_grace_seconds: float = 15.0,
         max_workers: int = 4,
+        max_simulate_seconds: float = 120.0,
+        max_simulation_replications: int = 200,
+        max_simulation_candidates: int = 20,
+        max_simulation_workers: int = 4,
     ) -> None:
         check_budget(max_solve_seconds)
-        self._workspace = workspace
+        limits = SimulationLimits(
+            max_seconds=max_simulate_seconds,
+            max_replications=max_simulation_replications,
+            max_candidates=max_simulation_candidates,
+            max_workers=max_simulation_workers,
+        )
         self._repository = workspace.repository
         self._portfolio = portfolio
         self._max_solve_seconds = max_solve_seconds
+        self._simulation_limits = limits
         self._runner = SolveRunner(max_workers=max_workers, grace_seconds=timeout_grace_seconds)
+        self._simulator = Simulator(self._repository, self._runner, limits)
         self._locks = KeyLocks()
 
     @property
     def max_solve_seconds(self) -> float:
         """The configured cap on any solve's time budget (REQ-169)."""
         return self._max_solve_seconds
+
+    @property
+    def max_simulate_seconds(self) -> float:
+        """The configured cap on any simulation's time budget (TF-004 REQ-139)."""
+        return self._simulation_limits.max_seconds
+
+    def simulation_caps(self) -> dict[str, float | int]:
+        """The four simulation caps, named like the `ServiceSettings` fields (REQ-139)."""
+        limits = self._simulation_limits
+        return {
+            "max_simulate_seconds": limits.max_seconds,
+            "max_simulation_replications": limits.max_replications,
+            "max_simulation_candidates": limits.max_candidates,
+            "max_simulation_workers": limits.max_workers,
+        }
 
     @property
     def portfolio_available(self) -> bool:
@@ -368,20 +405,27 @@ class PlanningService:
         lineage_index = self._get("problems", plan["problem_id"])["lineage_index"]
         return plan_page(plan, lineage_index, offset=offset, limit=limit, job_id=job_id)
 
-    def compare_plans(self, plan_ids: Sequence[str]) -> CompareResult:
-        """Objective values of 2 to 10 plans of one problem, ranked by the profile objective."""
+    def compare_plans(
+        self, plan_ids: Sequence[str], simulation_ids: Sequence[str] | None = None
+    ) -> CompareResult:
+        """Objective values of 2 to 10 plans of one problem, ranked by the profile objective.
+
+        With `simulation_ids` (one stored plan simulation per plan, same order) the result
+        adds paired deltas against the first plan and the simulated ranking (read only).
+        """
         if len(plan_ids) not in COMPARE_SIZES:
             raise ValueError("compare_plans needs 2 to 10 plan ids")
         plans = [self._get("plans", plan_id) for plan_id in plan_ids]
         if len({plan["problem_digest"] for plan in plans}) != 1:
             raise PlanningError("Plans of different problems", code="mixed_problems")
         problem = self._problem(plans[0]["problem_id"])
+        objective = problem.request.profile.objective
         values = {
             plan["id"]: {ObjectiveKind(k): v for k, v in plan["objective_values"].items()}
             for plan in plans
         }
         try:
-            ranking = rank(values, problem.request.profile.objective)
+            ranking = rank(values, objective)
         except KeyError:
             raise PlanningError(
                 "A plan has no value for the profile objective", code="incomparable"
@@ -394,9 +438,19 @@ class PlanningService:
             )
             for plan in plans
         )
-        return CompareResult(problem_id=problem.problem_id, plans=rows, ranking=tuple(ranking))
+        simulation = None
+        if simulation_ids is not None:
+            simulation = self._simulator.comparison(
+                load_engine(), plan_ids, simulation_ids, objective
+            )
+        return CompareResult(
+            problem_id=problem.problem_id,
+            plans=rows,
+            ranking=tuple(ranking),
+            simulation=simulation,
+        )
 
-    # --- simulation --------------------------------------------------------------------------
+    # --- simulation (TF-004) -----------------------------------------------------------------
 
     def simulate_plan(
         self,
@@ -404,21 +458,67 @@ class PlanningService:
         *,
         request_key: str,
         caller_id: str,
-        reps: int = 1,
-        seed: int = 0,
-        wait_seconds: float = 0,
+        reps: int | None = None,
+        seed: int = 42,
+        time_budget_seconds: float | None = None,
+        baseline: bool = False,
+        profile_digest: str | None = None,
+        artifacts: PlanningArtifacts | None = None,
     ) -> SimulateResult:
-        """Simulate a scenario plan (today's job claim); an ERP plan is blocked (REQ-171)."""
-        check_simulation_settings(reps, wait_seconds)
-        check_seed(seed)
-        job_key = claim_key(caller_id, request_key)
-        return simulate(
-            self._workspace,
-            plan_id,
-            job_key=job_key,
-            reps=reps,
-            seed=seed,
-            wait_seconds=wait_seconds,
+        """Re-verify and simulate one ERP or scenario plan; stored as `simulations` records.
+
+        A plan that does not re-verify is `blocked` (`plan_unverified` or
+        `schedule_source_changed`) and nothing is stored (D-087, REQ-140).
+        """
+        request = SimulationRequest(reps, seed, time_budget_seconds, baseline, profile_digest)
+        engine = load_engine()
+        resolver = artifacts or _LOCAL_ARTIFACTS
+
+        def compute() -> Computed[SimulateResult]:
+            return self._simulator.simulate_plan(engine, plan_id, request, resolver)
+
+        inputs = {"plan_id": plan_id, **request.inputs()}
+        return self._claimed(
+            "simulate_plan", caller_id, request_key, inputs, compute, SimulateResult, "result"
+        )
+
+    def simulate_portfolio(
+        self,
+        portfolio_id: str,
+        *,
+        request_key: str,
+        caller_id: str,
+        reps: int | None = None,
+        seed: int = 42,
+        time_budget_seconds: float | None = None,
+        baseline: bool = True,
+        profile_digest: str | None = None,
+        artifacts: PlanningArtifacts | None = None,
+    ) -> PortfolioSimulation:
+        """Simulate a portfolio's verified candidates (D-108); one `evaluations` record."""
+        request = SimulationRequest(reps, seed, time_budget_seconds, baseline, profile_digest)
+        engine = load_engine()
+        resolver = artifacts or _LOCAL_ARTIFACTS
+
+        def compute() -> Computed[PortfolioSimulation]:
+            return self._simulator.simulate_portfolio(engine, portfolio_id, request, resolver)
+
+        inputs = {"portfolio_id": portfolio_id, **request.inputs()}
+        return self._claimed(
+            "simulate_portfolio", caller_id, request_key, inputs, compute, PortfolioSimulation
+        )
+
+    def simulation_evidence(
+        self,
+        simulation_id: str,
+        *,
+        entity_id: str | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> SimulationEvidencePage:
+        """One page of a stored simulation's operation rows, then its job rows (REQ-141)."""
+        return self._simulator.evidence(
+            simulation_id, entity_id=entity_id, offset=offset, limit=limit
         )
 
     # --- internals ---------------------------------------------------------------------------
@@ -431,26 +531,35 @@ class PlanningService:
         inputs: dict[str, Any],
         compute: Callable[[], Computed[ResultT]],
         model: type[ResultT],
+        field: str = "summary",
     ) -> ResultT:
-        """Replay the stored result of this claim, or compute, store and claim it atomically."""
+        """Replay the stored result of this claim, or compute, store and claim it atomically.
+
+        The result is stored under `field` of the record the claim names. A computed result
+        with no id (a blocked plan) is returned without storing or claiming anything.
+        """
         key = claim_key(caller_id, request_key)
         digest = input_digest(method, inputs)
         with self.claim_lock(key):
             claimed = self._repository.find_request_claim(key)
             if claimed is None:
                 result_id, rows, result = compute()
+                if result_id is None:
+                    return result
                 claimed = self._repository.claim_request(key, digest, result_id, rows)
                 if claimed == (digest, result_id):
                     log.info("planning %s stored %s", method, result_id)
                     return result
-            return self._replay(claimed, digest, model)
+            return self._replay(claimed, digest, model, field)
 
-    def _replay(self, claimed: tuple[str, str], digest: str, model: type[ResultT]) -> ResultT:
+    def _replay(
+        self, claimed: tuple[str, str], digest: str, model: type[ResultT], field: str
+    ) -> ResultT:
         stored_digest, result_id = claimed
         if stored_digest != digest:
             raise IdempotencyConflict("The request key was already used with different inputs")
         kind, _, record_id = result_id.partition("/")
-        return model.model_validate(self._repository.get(kind, record_id)["summary"])
+        return model.model_validate(self._repository.get(kind, record_id)[field])
 
     def _verified(
         self, problem: StoredProblem, artifacts: PlanningArtifacts | None

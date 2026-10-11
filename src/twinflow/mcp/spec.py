@@ -26,6 +26,7 @@ from twinflow.application.workspace import Workspace
 from twinflow.service.auth import Caller
 
 Classification = Literal["read_only", "state_modifying"]
+TimeoutCap = Literal["fixed", "solve", "simulate"]
 
 
 @dataclass(frozen=True)
@@ -62,10 +63,12 @@ Handler = Callable[[ToolServices, Caller, Any], BaseModel]
 class ToolSpec:
     """One tool: its contract, its classification and how the guard runs it.
 
-    `solve_slot` marks solve-type tools, which also hold one of the caller's concurrent
-    solve slots (COMP-121) for the duration of the call. `timeout_seconds` is a tool's
-    fixed timeout; for a solve-type tool it is the grace over the configured planning
-    service's solve cap. The guard and `describe_capabilities` read `timeout_for(services)`.
+    `solve_slot` marks solve-type tools (solves and simulations), which also hold one of
+    the caller's concurrent solve slots (COMP-121) for the duration of the call.
+    `timeout_cap` names the planning service cap the timeout follows: `fixed` uses
+    `timeout_seconds` as is; `solve` and `simulate` add it, as grace, to the configured
+    solve or simulate cap (TF-004 D-105: the two caps are independent). The guard and
+    `describe_capabilities` read `timeout_for(services)`.
     """
 
     name: str
@@ -79,11 +82,14 @@ class ToolSpec:
     timeout_seconds: float
     description: str
     solve_slot: bool = False
+    timeout_cap: TimeoutCap = "fixed"
 
     def timeout_for(self, services: ToolServices) -> float:
-        """The guard timeout; a solve-type tool's follows the service's configured cap."""
-        if self.solve_slot:
+        """The guard timeout; a capped tool's follows the service's configured cap."""
+        if self.timeout_cap == "solve":
             return services.planning.max_solve_seconds + self.timeout_seconds
+        if self.timeout_cap == "simulate":
+            return services.planning.max_simulate_seconds + self.timeout_seconds
         return self.timeout_seconds
 
     def request_key(self, validated: BaseModel) -> str | None:
@@ -92,4 +98,4 @@ class ToolSpec:
         return key if isinstance(key, str) else None
 
 
-__all__ = ["Classification", "Handler", "ToolServices", "ToolSpec"]
+__all__ = ["Classification", "Handler", "TimeoutCap", "ToolServices", "ToolSpec"]

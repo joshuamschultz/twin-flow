@@ -225,33 +225,6 @@ def test_model_draft_compile_and_import_are_linked(tmp_path: Path) -> None:
         _assert_v2_plan_record(plan)
         assert plan["status_explanation"] == "Verified baseline schedule"
         assert plan["simulation"]["status"] == "available"
-        submitted = client.post(
-            f"/api/workspace/schedule-plans/{plan['id']}/simulate",
-            json={"request_key": "schedule-run", "reps": 2, "seed": 42},
-        )
-        assert submitted.status_code == 202, submitted.text
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            schedule_job = client.get(f"/api/workspace/jobs/{submitted.json()['id']}").json()
-            if schedule_job["status"] not in ("queued", "running"):
-                break
-            time.sleep(0.05)
-        assert schedule_job["status"] == "completed", schedule_job
-        schedule_result = schedule_job["result"]
-        assert schedule_result["schedule_plan"]["id"] == plan["id"]
-        assert schedule_result["snapshot_ref"]["id"] == committed["id"]
-        assert schedule_result["schedule_execution"]["mode"] == "enforced_verified_plan"
-        assert all(
-            sample["executed_operations"] == sample["planned_operations"]
-            for sample in schedule_result["schedule_execution"]["replications"]
-        )
-        schedule_evidence = client.post(
-            f"/api/workspace/jobs/{schedule_job['id']}/query",
-            json={"topic": "schedule"},
-        )
-        assert schedule_evidence.status_code == 200, schedule_evidence.text
-        assert schedule_evidence.json()["total"] == 4
-        assert schedule_evidence.json()["snapshot_id"] == committed["id"]
         baseline_submission = client.post(
             f"/api/workspace/schedule-snapshots/{committed['id']}/simulate-baseline",
             json={"request_key": "schedule-baseline", "reps": 2, "seed": 42},
@@ -269,14 +242,6 @@ def test_model_draft_compile_and_import_are_linked(tmp_path: Path) -> None:
         assert baseline_job["result"]["schedule_baseline"]["mode"] == (
             "piece_dispatch_without_enforced_plan"
         )
-        comparison = client.post(
-            "/api/workspace/compare",
-            json={"baseline_id": baseline_job["id"], "candidate_id": schedule_job["id"]},
-        )
-        assert comparison.status_code == 200, comparison.text
-        assert comparison.json()["compared"]["snapshot_id"] == committed["id"]
-        assert comparison.json()["compared"]["baseline_mode"] == "piece_dispatch"
-        assert comparison.json()["compared"]["candidate_mode"] == "enforced_verified_plan"
         original_submission = client.post(
             f"/api/workspace/scenarios/{scenario['id']}/evaluate",
             json={"request_key": "original-orders", "reps": 2, "seed": 42},
@@ -288,12 +253,6 @@ def test_model_draft_compile_and_import_are_linked(tmp_path: Path) -> None:
                 break
             time.sleep(0.05)
         assert original_job["status"] == "completed", original_job
-        rejected = client.post(
-            "/api/workspace/compare",
-            json={"baseline_id": original_job["id"], "candidate_id": schedule_job["id"]},
-        )
-        assert rejected.status_code == 409
-        assert "same operational snapshot" in rejected.text
 
 
 def test_schedule_upload_preview_and_snapshot_commit(tmp_path: Path) -> None:

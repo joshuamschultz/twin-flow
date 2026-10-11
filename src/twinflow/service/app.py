@@ -220,6 +220,10 @@ def _tool_services(
         workspace,
         portfolio=portfolio_api or load_portfolio_api(),
         max_solve_seconds=configured.max_solve_seconds,
+        max_simulate_seconds=configured.max_simulate_seconds,
+        max_simulation_replications=configured.max_simulation_replications,
+        max_simulation_candidates=configured.max_simulation_candidates,
+        max_simulation_workers=configured.max_simulation_workers,
     )
     return ToolServices(
         workspace=workspace,
