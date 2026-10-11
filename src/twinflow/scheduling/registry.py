@@ -11,6 +11,11 @@ Priority rules by name (T-149; SDD COMP-002 names no rule registry): a leaf may 
 Construction and beam search compose rules this way: beam's rollout continues a partial
 `DispatchState`, which a whole-solver call cannot start from, and leaves never import each
 other. The dispatch engine calls the rule's `prepare(index)` once per run.
+
+Analyses by name (T-153; SDD COMP-011 "registered as an analysis entry, not a solver"): a
+leaf may export `ANALYSES: tuple[AnalysisSpec, ...]`, and `analysis(name)` returns the
+function. An analysis reads a compiled problem and returns a report, never a schedule, so it
+is not listed by `available()`.
 """
 
 from __future__ import annotations
@@ -41,6 +46,10 @@ class UnknownRuleError(ValueError):
     """Raised by `rule` for a name no leaf registered as a rule; the message lists them."""
 
 
+class UnknownAnalysisError(ValueError):
+    """Raised by `analysis` for a name no leaf registered as an analysis; lists them."""
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SolverSpec:
     """What a leaf contributes per solver: `factory(**params)` builds a fresh instance.
@@ -65,6 +74,14 @@ class RuleSpec:
 
     name: str
     factory: Callable[..., PriorityRule]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AnalysisSpec:
+    """An analysis a leaf contributes: `function` is returned as is by `analysis(name)`."""
+
+    name: str
+    function: Callable[..., object]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -123,6 +140,19 @@ def _rules() -> Mapping[str, RuleSpec]:
     return rules
 
 
+@cache
+def _analyses() -> Mapping[str, AnalysisSpec]:
+    analyses: dict[str, AnalysisSpec] = {}
+    for module in _leaves():
+        for spec in getattr(module, "ANALYSES", ()):
+            if spec.name in analyses:
+                raise ValueError(
+                    f"analysis {spec.name!r} from {module.__name__} is registered twice"
+                )
+            analyses[spec.name] = spec
+    return analyses
+
+
 def available() -> tuple[SolverInfo, ...]:
     """Every registered solver, sorted by name."""
     return tuple(
@@ -165,3 +195,12 @@ def rule(name: str, **params: object) -> PriorityRule:
         registered = ", ".join(sorted(_rules()))
         raise UnknownRuleError(f"unknown rule {name!r}; registered: {registered}")
     return spec.factory(**params)
+
+
+def analysis(name: str) -> Callable[..., object]:
+    """The analysis function registered as `name`; `UnknownAnalysisError` for an unknown one."""
+    spec = _analyses().get(name)
+    if spec is None:
+        registered = ", ".join(sorted(_analyses()))
+        raise UnknownAnalysisError(f"unknown analysis {name!r}; registered: {registered}")
+    return spec.function
