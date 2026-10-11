@@ -102,5 +102,6 @@ def test_removing_one_leaf_leaves_the_rest_working(tmp_path: Path, leaf: str) ->
             assert row["get_error"] == "OptionalDependencyError", row
             continue
         assert row["verified"] or row["codes"], row
+        assert "solver_error" not in row["codes"], row  # a hidden hard dependency on the leaf
     baseline = next(row for row in rows if row["name"] == "baseline")
     assert baseline["verified"] is True, baseline

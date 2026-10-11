@@ -25,6 +25,7 @@ from collections.abc import Mapping, Sequence
 from typing import Literal
 
 import pytest
+from generators import random_request
 from kernel_cases import (
     compile_request,
     load_request,
@@ -189,6 +190,13 @@ def test_7_2_3_the_book_cycle_is_reported_by_the_graph() -> None:
 
     with pytest.raises(GraphCycle):
         DisjunctiveGraph.build(index, only_choice(request), sequences)
+
+
+@pytest.mark.parametrize("seed", [14, 23, 27, 30])
+def test_delayed_precedence_keeps_generated_shops_acyclic(seed: int) -> None:
+    # Review mutation: with no delayed precedence passed to the center subproblems, sb_wt
+    # closes a graph cycle (GraphCycle, solver_error) on these contract-sweep seeds.
+    _run("sb_wt", random_request(seed))
 
 
 # --- T-141: re-optimization, determinism, params ------------------------------------------------

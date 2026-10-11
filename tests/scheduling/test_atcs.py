@@ -597,6 +597,22 @@ def test_macro_needs_zero_setup_in_both_directions() -> None:
     assert not _adjacent(_order(on, "M1"), "U-1", "V-1")
 
 
+def test_macro_follower_never_runs_over_a_pinned_window() -> None:
+    # U+V merge (as above); P-1 is pinned to start exactly at 12 on M1. The member that
+    # follows the head would run [10, 20) over P's window, so it must wait (review: the
+    # follower path skipped the pinned-window check and the plan failed to verify).
+    problem = _macro_problem(2.5, v_due=10.0, z_due=25.0, u_weight=5.0, v_weight=1.0)
+    pinned = op(
+        "P-1", {"M1": 10.0}, pin={"machine_id": "M1", "earliest_start": 12.0, "latest_start": 12.0}
+    )
+    problem["jobs"].append(_job("P", [pinned], due=100.0, weight_override=0.1))
+
+    result = _macro_run(problem, macro_jobs=True)
+
+    assert result.verified, [i.code for i in (*result.issues, *result.schedule.issues)]
+    assert _start(result, "P-1") == 12.0
+
+
 # --- every option on, generated problems (adversarial) ---------------------------------------
 
 
