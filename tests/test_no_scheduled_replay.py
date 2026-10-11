@@ -24,6 +24,7 @@ DELETED_SYMBOLS = (
     "enforced_verified_plan",
     "_run_scheduled_machine",
     "scheduled_firings",
+    "schedule_plan_simulate",
 )
 PATTERN = re.compile(r"\b(" + "|".join(DELETED_SYMBOLS) + r")\b")
 

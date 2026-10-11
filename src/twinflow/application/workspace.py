@@ -124,7 +124,6 @@ class Workspace:
                 "schedule_upload_preview",
                 "schedule_snapshot_commit",
                 "schedule_snapshot_solve",
-                "schedule_plan_simulate",
                 "schedule_snapshot_baseline",
                 "answer",
                 "ingest_events",
