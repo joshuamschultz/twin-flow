@@ -246,7 +246,7 @@ class ExplainInput(ToolInput):
 class ComparePlansInput(ToolInput):
     """`simulation_ids`, when given, names one stored simulation per plan, same order."""
 
-    plan_ids: tuple[str, ...] = Field(min_length=2, max_length=10)
+    plan_ids: tuple[RecordRef, ...] = Field(min_length=2, max_length=10)
     simulation_ids: tuple[RecordRef, ...] | None = Field(default=None, max_length=10)
 
     @model_validator(mode="after")

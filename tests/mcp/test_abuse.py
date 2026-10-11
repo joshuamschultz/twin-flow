@@ -1446,6 +1446,7 @@ def _simulate_field_cases() -> list[tuple[str, str, str]]:
         ("simulate_portfolio", "portfolio_id"),
         ("simulate_portfolio", "request_key"),
         ("query_evidence", "simulation_id"),
+        ("compare_plans", "plan_ids"),
         ("compare_plans", "simulation_ids"),
     )
     return [(tool, name, value) for tool, name in fields for value in URL_OR_PATH_VALUES]
@@ -1463,7 +1464,8 @@ def _arguments(tool: str, seeded: _Seeded, field_name: str, value: str) -> dict[
         },
     }
     arguments = dict(valid[tool])
-    arguments[field_name] = [value, value] if field_name == "simulation_ids" else value
+    listed = field_name in {"plan_ids", "simulation_ids"}
+    arguments[field_name] = [value, value] if listed else value
     return arguments
 
 
