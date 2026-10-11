@@ -24,6 +24,7 @@ from oracle import SequenceDeadlock, all_sequences, semi_active
 from oracle_math import objective_values
 
 from bench.gates import (
+    GATE_SEEDS,
     HELD_OUT_BENCH,
     MAKESPAN_BENCH,
     MAKESPAN_TERMS,
@@ -700,6 +701,7 @@ class GateCase:
 
 ATCS_EXTENDED: Params = {"flexibility": True, "suitability": True, "macro_jobs": True}
 CPSAT_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=5.0)  # T-139: 5 s each
+LOCAL_SEARCH_BENCH = dataclasses.replace(HELD_OUT_BENCH, budget_seconds=2.0)  # T-147, T-148
 
 GATE_CASES = (
     pytest.param(GateCase("atcs", "atcs"), id="atcs"),
@@ -715,8 +717,16 @@ GATE_CASES = (
         GateCase("sb_makespan (makespan bench)", "sb_makespan", bench=MAKESPAN_BENCH),
         id="sb_makespan",
     ),
+    pytest.param(GateCase("tabu (2 s)", "tabu", bench=LOCAL_SEARCH_BENCH), id="tabu"),
+    # sa is stochastic: judged over GATE_SEEDS, so the verdict's CV <= 0.05 is its seed check
+    pytest.param(
+        GateCase("sa (2 s, seeds 0-4)", "sa", bench=LOCAL_SEARCH_BENCH, seeds=GATE_SEEDS), id="sa"
+    ),
 )
 """A later method adds one `pytest.param(GateCase(...))` row."""
+
+DETERMINISTIC_GATE_CASES = tuple(p for p in GATE_CASES if p.values[0].seeds == (0,))
+"""Single-seed rows; a stochastic row (several seeds) is not expected to repeat across seeds."""
 
 
 def _gate(case: GateCase) -> GateVerdict:
@@ -735,6 +745,6 @@ def test_method_beats_fifo_edd_and_spt_on_the_held_out_bench(case: GateCase) -> 
 
 @pytest.mark.slow
 @needs_rules
-@pytest.mark.parametrize("case", GATE_CASES)
+@pytest.mark.parametrize("case", DETERMINISTIC_GATE_CASES)
 def test_method_gives_identical_output_for_seeds_0_and_1(case: GateCase) -> None:
     assert seed_stable(case.method, bench=case.bench, params=case.params), case.label

@@ -28,6 +28,7 @@ Model "Disjunctive graph". Contract defined here for `twinflow.scheduling.kernel
 - `confirm(index, estimate, choice, sequences, scorer, best) -> Confirmed | ScheduleIssue`:
   decodes; `Confirmed(decoded, values, improved)` carries the *decoded* `fast_values` and
   `improved = scorer.better(values, best)`; the graph estimate never decides (D-076).
+  Keyword-only `previous_plan` / `churn_tolerance` (default None / 0.0) score churn.
 - `SetupTable.cache_info() -> (hits, misses, size)` named fields: misses = computations.
 """
 
@@ -66,6 +67,8 @@ from twinflow.scheduling.model import (
     LexicographicLevel,
     ObjectiveKind,
     ObjectiveSpec,
+    PreviousAssignment,
+    PreviousPlan,
     ScheduleIssue,
     SolveRequest,
 )
@@ -788,6 +791,35 @@ def test_confirm_returns_the_decoder_issue_for_a_cyclic_sequence() -> None:
 
     assert isinstance(result, ScheduleIssue)
     assert result.code == "sequence_cycle"
+
+
+def test_confirm_scores_churn_against_the_previous_plan_when_given() -> None:
+    """Previous plan 2,1,4,3 (starts 0, 10, 20, 24); 2,4,1,3 moves op 4 by 10 s and op 1 by
+    4 s: churn 2 at tolerance 0, 1 at tolerance 5, and 0 without a previous plan."""
+    request = load_request("pinedo_14_3_4")
+    index = ProblemIndex.build(compile_request(request).problem)
+    choice = only_choice(request)
+    starts = {"2-1": 0.0, "1-1": 10.0, "4-1": 20.0, "3-1": 24.0}
+    previous = PreviousPlan(
+        plan_id="prev",
+        problem_digest="d",
+        assignments=tuple(
+            PreviousAssignment(operation_id=o, machine_id="M1", start=s) for o, s in starts.items()
+        ),
+    )
+    moved = {"M1": ["2-1", "4-1", "1-1", "3-1"]}
+    best = {kind: 0.0 for kind in ObjectiveKind}
+    scorer = Scorer(WT, None)
+    churn = ObjectiveKind.CHURN
+
+    def churn_of(**kwargs: Any) -> float:
+        result = confirm(index, best, choice, moved, scorer, best, **kwargs)
+        assert isinstance(result, Confirmed)
+        return result.values[churn]
+
+    assert churn_of(previous_plan=previous) == 2.0
+    assert churn_of(previous_plan=previous, churn_tolerance=5.0) == 1.0
+    assert churn_of() == 0.0
 
 
 # --- T-146: setup table cache ------------------------------------------------------------------

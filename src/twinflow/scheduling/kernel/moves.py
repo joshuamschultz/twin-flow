@@ -35,7 +35,7 @@ from twinflow.scheduling.kernel.decode import Decoded, decode
 from twinflow.scheduling.kernel.graph import DisjunctiveGraph
 from twinflow.scheduling.kernel.index import ProblemIndex
 from twinflow.scheduling.kernel.score import Scorer, Values, fast_values
-from twinflow.scheduling.model import ObjectiveKind, ObjectiveSpec, ScheduleIssue
+from twinflow.scheduling.model import ObjectiveKind, ObjectiveSpec, PreviousPlan, ScheduleIssue
 from twinflow.scheduling.objectives import primary_kind
 
 MoveKind = Literal["swap", "lookback", "reassign"]
@@ -290,15 +290,18 @@ def confirm(
     sequences: Mapping[str, Sequence[str]],
     scorer: Scorer,
     best: Values,
+    *,
+    previous_plan: PreviousPlan | None = None,
+    churn_tolerance: float = 0.0,
 ) -> Confirmed | ScheduleIssue:
     """Decode the moved solution and score its decoded values against `best`.
 
     `estimate` (the graph's values) is what selected the move; it never decides here: the
-    returned values and `improved` come from the decode alone (D-076). Scored without a
-    previous plan (churn 0).
+    returned values and `improved` come from the decode alone (D-076). Churn is scored
+    against `previous_plan` (0 without one).
     """
     decoded = decode(index, choice, sequences)
     if isinstance(decoded, ScheduleIssue):
         return decoded
-    values = fast_values(index, decoded, None, 0.0)
+    values = fast_values(index, decoded, previous_plan, churn_tolerance)
     return Confirmed(decoded, values, scorer.better(values, best))

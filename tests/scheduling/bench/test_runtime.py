@@ -6,7 +6,7 @@ says so, a named refusal fast. Time is wall clock around `solve()` (validation, 
 the method, verification); building the instance is outside the timing. Shifting
 bottleneck must return a verified schedule: a refusal is not acceptable there.
 
-A later method adds one row to `VERIFIED_BUDGETS` or `REFUSAL_BUDGETS`.
+A later method adds one row to `VERIFIED_BUDGETS`, `ANYTIME_BUDGETS` or `REFUSAL_BUDGETS`.
 """
 
 from __future__ import annotations
@@ -37,6 +37,13 @@ REFUSAL_BUDGETS: tuple[tuple[str, str, float, float], ...] = (
     ("ortools", "model_too_large", 2.0, 10.0),
 )
 """(method, issue code, seconds, budget handed to the solver): UNKNOWN with that code fast."""
+
+ANYTIME_BUDGETS: tuple[tuple[str, float, float], ...] = (
+    ("tabu", 30.0, 33.0),  # SDD: anytime, return within budget + 10 percent
+    ("sa", 30.0, 33.0),
+)
+"""(method, budget handed to the solver, seconds): an anytime method may use its whole budget,
+so it is held to budget + 10 percent, with a verified schedule."""
 
 needs_ortools = pytest.mark.skipif(
     importlib.util.find_spec("ortools") is None, reason="ortools (scheduling extra) is absent"
@@ -70,6 +77,20 @@ def test_method_returns_a_verified_schedule_on_600x8_within_its_budget(
     assert result.verified, (method, result.schedule.status, [i.code for i in result.issues])
     assert len(result.schedule.assignments) == 600 * 8
     assert elapsed < seconds, f"{method} took {elapsed:.2f} s, budget {seconds} s"
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("method", "budget", "seconds"), ANYTIME_BUDGETS, ids=[r[0] for r in ANYTIME_BUDGETS]
+)
+def test_anytime_method_returns_a_verified_schedule_on_600x8_within_budget_plus_10_percent(
+    method: str, budget: float, seconds: float
+) -> None:
+    result, elapsed = _timed(method, budget)
+
+    assert result.verified, (method, result.schedule.status, [i.code for i in result.issues])
+    assert len(result.schedule.assignments) == 600 * 8
+    assert elapsed < seconds, f"{method} took {elapsed:.2f} s, budget {budget} s, limit {seconds}"
 
 
 @pytest.mark.slow

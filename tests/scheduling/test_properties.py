@@ -41,9 +41,15 @@ SEEDS = range(200)
 DETERMINISM_SEEDS = range(0, 200, 10)
 PROPERTY_BUDGET_SECONDS = 1.0
 REGISTERED = available()
-# Construction params per solver for this suite; later improvement methods add an iteration
-# limit here to keep the suite under its runtime budget (T-128).
+# Construction params per solver for this suite (T-128).
 SUITE_PARAMS: dict[str, dict[str, ParamValue]] = {"ortools": {"workers": 1, "seed": 0}}
+# Method params (`profile.method_params[name]`) per solver for this suite: improvement methods
+# are anytime, so an iteration limit keeps 200 seeds well inside the suite's runtime (T-147,
+# T-148); their defaults (sa: 20,000 iterations) would run to the 1 s budget on every seed.
+SUITE_METHOD_PARAMS: dict[str, dict[str, ParamValue]] = {
+    "tabu": {"iteration_limit": 20},
+    "sa": {"sa_iterations": 200},
+}
 TOLERANCE = 1e-6
 MIN_BASELINE_VERIFIED = 150
 MIN_CPSAT_VERIFIED = 50
@@ -62,7 +68,17 @@ def _registered(name: str, seed: int) -> SolveResult:
         solver = get_solver(name, **SUITE_PARAMS.get(name, {}))
     except OptionalDependencyError as error:
         pytest.skip(f"{name}: {error}")
-    return solve(_request(seed), solver=solver, budget_seconds=PROPERTY_BUDGET_SECONDS)
+    request = _with_method_params(_request(seed), name)
+    return solve(request, solver=solver, budget_seconds=PROPERTY_BUDGET_SECONDS)
+
+
+def _with_method_params(request: SolveRequest, name: str) -> SolveRequest:
+    params = SUITE_METHOD_PARAMS.get(name)
+    if params is None:
+        return request
+    data = request.model_dump(mode="json")
+    data["profile"]["method_params"] = data["profile"].get("method_params", {}) | {name: params}
+    return SolveRequest.model_validate(data)
 
 
 def _baseline(seed: int) -> SolveResult:
