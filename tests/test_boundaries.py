@@ -385,11 +385,19 @@ _EXECUTION_ALLOWED_PREFIXES = (
     "numpy",
     "scipy",
     "simpy",
-    "twinflow.engine",
-    "twinflow.scheduling",
+    "twinflow.engine.rng",
+    "twinflow.scheduling.model",
+    "twinflow.scheduling.setups",
+    "twinflow.scheduling.calendar_math",
+    "twinflow.scheduling.objectives",
+    "twinflow.scheduling.verifier",
     "twinflow.policy",
     "twinflow.execution",
 )
+# `from twinflow.scheduling import calendar_math` names the package root too; only the
+# root itself is allowed, every name taken from it must still be an allowed submodule (no
+# solver, so the executor can never compute a schedule, R-2).
+_EXECUTION_ALLOWED_ROOTS = frozenset({"twinflow.scheduling"})
 # Packages that must never depend on the executor (it sits above them, D-085).
 _EXECUTION_FREE_PACKAGES = ("scheduling", "engine", "primitives", "plan", "model")
 # No network and no filesystem in the executor: it runs on data handed to it.
@@ -414,7 +422,11 @@ def _execution_files() -> list[pathlib.Path]:
 
 def _execution_allows(name: str) -> bool:
     top = name.split(".", 1)[0]
-    return top in sys.stdlib_module_names or _under(name, _EXECUTION_ALLOWED_PREFIXES)
+    return (
+        top in sys.stdlib_module_names
+        or name in _EXECUTION_ALLOWED_ROOTS
+        or _under(name, _EXECUTION_ALLOWED_PREFIXES)
+    )
 
 
 def _io_call(node: ast.AST) -> str | None:
