@@ -5,7 +5,7 @@ before the `:` separator, so the first `:` always ends the caller id and two dif
 `(caller_id, request_key)` pairs never encode to the same key: `("alice:x", "k")` becomes
 `alice%3Ax:k`, `("alice", "x:k")` becomes `alice:x:k`. A plain caller id such as `arc`
 encodes unchanged, so planning claims share one namespace with today's job claims
-(`Workspace.submit_schedule_plan` keys).
+(`Workspace.submit_schedule_baseline` keys).
 
 The input digest is the SHA-256 of the canonical JSON of the method name and its inputs, so
 one key reused by a different method is a conflict, not a replay.

@@ -19,22 +19,13 @@ from twinflow.application.linear_draft import LinearDraft, compile_draft
 from twinflow.application.repository import WorkspaceRepository
 from twinflow.application.schedule_intake import decode_upload, preview_mapping
 from twinflow.application.schedule_problem import (
-    Translation,
     build_request,
-    firings_from_plan,
     record_fields,
 )
 from twinflow.application.solver_port import build_solver
-from twinflow.plan.driver import RunDriver
-from twinflow.policy import configured_runtime
-from twinflow.primitives.location import ScheduledFiring
-from twinflow.scenario import ScenarioCapsule
 from twinflow.scheduling import SolveResult, solve
 
 log = logging.getLogger(__name__)
-
-SIMULATION_HORIZON_SECONDS = 31_536_000.0
-"""The DES runs at most one year of simulated time (`evaluate_capsule` max_sim_time)."""
 
 
 class WorkspaceOwned(RuntimeError):  # noqa: N818 - names the condition, like the message
@@ -55,6 +46,11 @@ def _status_explanation(result: SolveResult, backend: str) -> str:
     if status == "INFEASIBLE":
         return f"The {backend} solver reported infeasibility for the translated finite problem"
     return "No verified feasibility or infeasibility conclusion is available"
+
+
+def _dispatch_mode(result: dict[str, Any]) -> str:
+    """How the experiment released work: per-piece baseline or the scenario's own dispatch."""
+    return "piece_dispatch" if "schedule_baseline" in result else "scenario_dispatch"
 
 
 class Workspace:
@@ -255,47 +251,6 @@ class Workspace:
                 self.repository.append_audit(_now(), "evaluate", "job", job_id, "queued")
         return self.repository.get("jobs", job_id)
 
-    def submit_schedule_plan(self, plan_id: str, reps: int, seed: int, key: str) -> dict[str, Any]:
-        if (
-            not 1 <= reps <= min(self.max_replications, 10)
-            or not 0 <= seed <= 2**32 - 1
-            or not key
-            or len(key) > 200
-        ):
-            raise ValueError("Invalid experiment settings or request key")
-        plan_record = self.repository.get("schedule_plans", plan_id)
-        simulation = plan_record["simulation"]
-        if simulation["status"] != "available":
-            raise ValueError(simulation["blocker"])
-        scenario = self.repository.get("scenarios", plan_record["scenario_id"])
-        snapshot = self.repository.get("schedule_snapshots", plan_record["schedule_snapshot_id"])
-        self._plan_firings(plan_record, scenario, snapshot)
-        simulation_capsule = self._schedule_capsule(scenario, snapshot, plan_record)
-        scenarios.validate_content(json.dumps(simulation_capsule, allow_nan=False))
-        fingerprint = hashlib.sha256(
-            json.dumps([plan_id, plan_record["problem_digest"], reps, seed]).encode()
-        ).hexdigest()
-        proposed = {
-            "id": uuid.uuid4().hex,
-            "scenario_id": scenario["id"],
-            "schedule_plan_id": plan_id,
-            "status": "queued",
-            "created_at": _now(),
-            "reps": reps,
-            "seed": seed,
-            "result": None,
-            "error": None,
-        }
-        with self._lock:
-            job_id, created = self.repository.claim_job(
-                key, fingerprint, proposed, self.max_active_jobs
-            )
-            if created:
-                self._active.add(job_id)
-                self._pool.submit(self._execute, job_id, scenario["capsule"])
-                self.repository.append_audit(_now(), "simulate_schedule", "job", job_id, "queued")
-        return self.repository.get("jobs", job_id)
-
     def submit_schedule_baseline(
         self, snapshot_id: str, reps: int, seed: int, key: str
     ) -> dict[str, Any]:
@@ -351,7 +306,6 @@ class Workspace:
     def _schedule_capsule(
         scenario: dict[str, Any],
         snapshot: dict[str, Any],
-        plan_record: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         capsule: dict[str, Any] = copy.deepcopy(scenario["capsule"])
         capsule["snapshot"]["id"] = snapshot["id"]
@@ -365,11 +319,7 @@ class Workspace:
             }
             for order in snapshot["orders"]
         ]
-        capsule["experiment"]["id"] = (
-            plan_record["id"] if plan_record is not None else snapshot["id"]
-        )
-        if plan_record is not None:
-            capsule["provenance"]["schedule_plan_id"] = plan_record["id"]
+        capsule["experiment"]["id"] = snapshot["id"]
         capsule["provenance"]["source_scenario_digest"] = scenario["digest"]
         capsule["provenance"]["schedule_snapshot_digest"] = snapshot["original_file_digest"]
         return capsule
@@ -400,34 +350,7 @@ class Workspace:
             if running is None:
                 raise InterruptedError("Experiment canceled")
             job = running
-            plan_id = job.get("schedule_plan_id")
-            if plan_id is not None:
-                plan_record = self.repository.get("schedule_plans", plan_id)
-                scenario_record = self.repository.get("scenarios", job["scenario_id"])
-                schedule_snapshot = self.repository.get(
-                    "schedule_snapshots", plan_record["schedule_snapshot_id"]
-                )
-                firings = self._plan_firings(plan_record, scenario_record, schedule_snapshot)
-                capsule = self._schedule_capsule(scenario_record, schedule_snapshot, plan_record)
-                result = scenarios.evaluate_capsule(
-                    capsule,
-                    self.repository.root / "artifacts" / job_id,
-                    job["reps"],
-                    job["seed"],
-                    lambda: self._is_canceled(job_id),
-                    execution_schedule=firings,
-                )
-                result["schedule_plan"] = {
-                    "id": plan_id,
-                    "schedule_snapshot_id": schedule_snapshot["id"],
-                    "problem_digest": plan_record["problem_digest"],
-                    "solver_status": plan_record["result"]["schedule"]["status"],
-                    "objective_spec": plan_record["objective_spec"],
-                }
-                result["simulation_input_digest"] = scenarios.validate_content(
-                    json.dumps(capsule, allow_nan=False)
-                ).digest
-            elif job.get("schedule_snapshot_id") is not None:
+            if job.get("schedule_snapshot_id") is not None:
                 scenario_record = self.repository.get("scenarios", job["scenario_id"])
                 schedule_snapshot = self.repository.get(
                     "schedule_snapshots", job["schedule_snapshot_id"]
@@ -562,20 +485,8 @@ class Workspace:
                 "replications": a["reps"],
                 "domain": a["result"].get("domain", "manufacturing"),
                 "metrics": sorted(a["result"]["metrics"]),
-                "baseline_mode": (
-                    "enforced_verified_plan"
-                    if "schedule_execution" in a["result"]
-                    else "piece_dispatch"
-                    if "schedule_baseline" in a["result"]
-                    else "scenario_dispatch"
-                ),
-                "candidate_mode": (
-                    "enforced_verified_plan"
-                    if "schedule_execution" in b["result"]
-                    else "piece_dispatch"
-                    if "schedule_baseline" in b["result"]
-                    else "scenario_dispatch"
-                ),
+                "baseline_mode": _dispatch_mode(a["result"]),
+                "candidate_mode": _dispatch_mode(b["result"]),
             },
             "delta": {k: b["result"]["metrics"][k] - v for k, v in a["result"]["metrics"].items()},
             "interpretation": (
@@ -756,7 +667,6 @@ class Workspace:
             budget_seconds=time_limit,
         )
         plan_record_id = uuid.uuid4().hex
-        blocker = self._simulation_blocker(scenario, schedule_snapshot, translation, result)
         record: dict[str, Any] = {
             "id": plan_record_id,
             **record_fields(translation.request, result),
@@ -771,15 +681,11 @@ class Workspace:
             "time_limit_applied": result.schedule.budget_enforced,
             "result": result.model_dump(mode="json"),
             "status_explanation": _status_explanation(result, backend),
-            "simulation": {
-                "status": "available" if blocker is None else "blocked",
-                "submit_route": f"/api/workspace/plans/{plan_record_id}/simulate",
-                "blocker": blocker,
-                "meaning": (
-                    "Enforces verified machine assignments and planned starts as earliest starts; "
-                    "later work may slip if upstream execution is late."
-                ),
-            },
+            "simulation": (
+                {"status": "available"}
+                if result.verified
+                else {"status": "blocked", "blocker": "A verified feasible plan is required"}
+            ),
             "interpretation": (
                 "Verified feasible deterministic schedule for the profile's objective; "
                 "stochastic delivery confidence has not been simulated."
@@ -790,46 +696,6 @@ class Workspace:
         }
         self.repository.create("schedule_plans", record["id"], record)
         return record
-
-    def _simulation_blocker(
-        self,
-        scenario: dict[str, Any],
-        snapshot: dict[str, Any],
-        translation: Translation,
-        result: SolveResult,
-    ) -> str | None:
-        """Why the DES cannot replay this plan, or None when it can (REQ-082).
-
-        Runs the runner's own replay guards on the capsule the simulation would use, so
-        the record carries the guard's message instead of a later failed job.
-        """
-        if not result.verified:
-            return "A verified feasible plan is required"
-        firings = firings_from_plan(translation, result)
-        if max((f.planned_end for f in firings), default=0.0) > SIMULATION_HORIZON_SECONDS:
-            return "Verified plan exceeds the one-year simulation horizon"
-        capsule = ScenarioCapsule.from_dict(self._schedule_capsule(scenario, snapshot))
-        compiled = capsule.compile()
-        policy = capsule.experiment.get("dispatch_policy")
-        runtime = (
-            configured_runtime(policy, {spec.location_id for spec in compiled.model.locations})
-            if policy is not None
-            else None
-        )
-        try:
-            RunDriver(compiled.model).check_execution_schedule(compiled.plan, firings, runtime)
-        except ValueError as exc:
-            return str(exc)
-        return None
-
-    def _plan_firings(
-        self, plan_record: dict[str, Any], scenario: dict[str, Any], snapshot: dict[str, Any]
-    ) -> list[ScheduledFiring]:
-        """The plan's DES firings, refused when its source no longer translates the same."""
-        translation = build_request(scenario, snapshot)
-        if translation.problem_digest != plan_record["problem_digest"]:
-            raise ValueError("Schedule source changed since the plan was solved")
-        return firings_from_plan(translation, SolveResult.model_validate(plan_record["result"]))
 
     def answer_draft(self, draft_id: str, answers: list[dict[str, str]]) -> dict[str, Any]:
         previous = self.repository.get("drafts", draft_id)
@@ -854,15 +720,6 @@ class Workspace:
                 for key in ("trace", "gate_results", "shortages", "order_forecasts", "cases"):
                     for row in sample.get(key, []):
                         evidence.append({"replication": index, "kind": key, "record": row})
-            for sample in result.get("schedule_execution", {}).get("replications", []):
-                for row in sample.get("trace", []):
-                    evidence.append(
-                        {
-                            "replication": sample["replication"],
-                            "kind": "schedule_operation",
-                            "record": row,
-                        }
-                    )
         return {
             "job_id": job_id,
             "offset": offset,

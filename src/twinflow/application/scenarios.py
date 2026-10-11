@@ -13,7 +13,6 @@ from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import aggregate_kpis
 from twinflow.instrumentation.sweep import orders_frame
 from twinflow.plan.driver import RunDriver
-from twinflow.primitives.location import ScheduledFiring
 from twinflow.scenario import CapsuleValidationError, ScenarioCapsule, import_legacy, schema
 from twinflow.service.serialize import intervals_to_dict, manufacturing_result_details
 
@@ -84,7 +83,6 @@ def evaluate_capsule(
     seed: int,
     canceled: Callable[[], bool],
     *,
-    execution_schedule: list[ScheduledFiring] | None = None,
     piece_release: bool = False,
 ) -> dict[str, Any]:
     """Sequential bounded replications; no thread-global paths or nested CPU pools."""
@@ -98,7 +96,6 @@ def evaluate_capsule(
     per_rep = []
     outcomes = []
     policy_traces = []
-    schedule_evidence: list[dict[str, Any]] = []
     out.mkdir(parents=True, exist_ok=True)
     (out / "scenario.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
     start = time.monotonic()
@@ -122,32 +119,11 @@ def evaluate_capsule(
             replication_index=index,
             artifact_dir=out / f"rep-{index:04}",
             decision_runtime=runtime,
-            execution_schedule=execution_schedule,
             piece_release=piece_release,
             max_sim_time=31_536_000,
             max_events=1_000_000,
             max_wall_seconds=min(remaining, 30),
         )
-        if execution_schedule is not None:
-            planned = {firing.operation_id: firing for firing in execution_schedule}
-            trace = run.schedule_trace
-            schedule_evidence.append(
-                {
-                    "replication": index,
-                    "planned_operations": len(execution_schedule),
-                    "executed_operations": len(trace),
-                    "machine_mismatches": sum(
-                        row["machine_id"] != planned[str(row["operation_id"])].machine_id
-                        for row in trace
-                    ),
-                    "max_start_slip_seconds": max(
-                        (float(row["actual_start"]) - float(row["planned_start"]) for row in trace),
-                        default=None,
-                    ),
-                    "trace": trace,
-                    "outcome": run.outcome,
-                }
-            )
         if runtime is not None:
             policy_traces.append(
                 {"replication": index, "decisions": [asdict(row) for row in runtime.trace]}
@@ -197,16 +173,6 @@ def evaluate_capsule(
             "Simulation outcomes conditional on model assumptions; not customer commitments."
         ),
     }
-    if execution_schedule is not None:
-        result["schedule_execution"] = {
-            "mode": "enforced_verified_plan",
-            "replications": schedule_evidence,
-            "uncertainty": "deterministic_if_model_time_cv_is_zero",
-            "interpretation": (
-                "Physical machine assignments and planned starts are enforced as earliest starts; "
-                "late upstream work can slip later operations."
-            ),
-        }
     (out / "result.json").write_text(
         json.dumps(result, indent=2, allow_nan=False), encoding="utf-8"
     )

@@ -17,7 +17,6 @@ The capsule's compiled model is the shop and the snapshot's orders are the jobs:
 
 Anything the v2 model cannot express is refused with one named issue per feature and
 status `blocked`; nothing is dropped silently. There is no piece or operation cap.
-`firings_from_plan` expands each verified lot back into the DES per-piece firings.
 """
 
 from __future__ import annotations
@@ -32,13 +31,11 @@ from twinflow.model import CompiledModel, LaborPoolConfig
 from twinflow.model.schema import LocationSpec
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.calendar import CalendarConfig, WorkingCalendar
-from twinflow.primitives.location import ScheduledFiring
 from twinflow.primitives.time_model import KIND_BATCH_HOLD, KIND_DISTRIBUTION
 from twinflow.scenario import ScenarioCapsule
 from twinflow.scheduling.model import (
     MAX_TEXT_LENGTH,
     SCHEMA_VERSION,
-    Assignment,
     Calendar,
     FamilyMatrixEntry,
     Interval,
@@ -115,47 +112,6 @@ def build_request(
         request=request,
         problem_digest=hashlib.sha256(canonical.encode()).hexdigest(),
     )
-
-
-def firings_from_plan(translation: Translation, result: SolveResult) -> list[ScheduledFiring]:
-    """Expand each verified lot into DES piece firings, in run order (REQ-082, D-061).
-
-    Piece p of the lot of job `order-{i}` at location L becomes firing
-    `order-{i}:piece-{p}:stage-L` (piece id `order-{i}:piece-{p}`) on the assigned
-    machine, planned on `[setup_end + p * unit, setup_end + (p + 1) * unit)`.
-    """
-    request = translation.request
-    if request is None:
-        raise ValueError("Only a ready translation has a plan to simulate")
-    if not result.verified or result.schedule.status not in SOLUTION_STATUSES:
-        raise ValueError("Only a verified feasible plan can be simulated")
-    by_operation = {a.operation_id: a for a in result.schedule.assignments}
-    lots = [(job.id, op) for job in request.problem.jobs for op in job.operations]
-    if set(by_operation) != {op.id for _, op in lots}:
-        raise ValueError("Solver assignment does not cover every translated operation")
-    firings = [
-        firing for job_id, op in lots for firing in _piece_firings(job_id, op, by_operation[op.id])
-    ]
-    return sorted(firings, key=lambda f: (f.planned_start, f.machine_id, f.operation_id))
-
-
-def _piece_firings(job_id: str, op: Operation, assignment: Assignment) -> list[ScheduledFiring]:
-    unit = {o.machine_id: o.unit_seconds for o in op.options}[assignment.machine_id]
-    firings = []
-    for piece in range(int(op.quantity)):
-        start = assignment.setup_end + piece * unit
-        piece_id = f"{job_id}:piece-{piece}"
-        firings.append(
-            ScheduledFiring(
-                operation_id=f"{piece_id}:stage-{op.work_center_id}",
-                piece_id=piece_id,
-                location_id=op.work_center_id,
-                machine_id=assignment.machine_id,
-                planned_start=start,
-                planned_end=start + unit,
-            )
-        )
-    return firings
 
 
 def record_fields(request: SolveRequest, result: SolveResult) -> dict[str, Any]:

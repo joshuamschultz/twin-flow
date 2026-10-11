@@ -15,17 +15,11 @@ from twinflow.application.schedule_problem import (
     TRANSLATOR_VERSION,
     Translation,
     build_request,
-    firings_from_plan,
 )
-from twinflow.plan.driver import RunDriver
-from twinflow.plan.loader import WorkOrder
 from twinflow.scenario import ScenarioCapsule
 from twinflow.scheduling.model import (
-    Assignment,
     FamilyMatrixEntry,
     OperatorNeed,
-    Schedule,
-    SolveResult,
 )
 from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import validate
@@ -383,85 +377,6 @@ def test_several_unsupported_features_each_get_an_issue() -> None:
     translation = _translate(model, [_order("a", 2)])
 
     assert sorted(issue.code for issue in translation.issues) == ["batch_size", "split_output"]
-
-
-# --- firings --------------------------------------------------------------------------------
-
-
-def _verified(assignments: tuple[Assignment, ...]) -> SolveResult:
-    schedule = Schedule(
-        status="FEASIBLE", assignments=assignments, solver="test", elapsed_seconds=0.0
-    )
-    return SolveResult(schedule=schedule, verified=True)
-
-
-def test_firings_expand_each_lot_into_pieces_after_setup() -> None:
-    translation = _translate(_model(("cut",)), [_order("a", 3)])
-    assignment = Assignment(
-        operation_id="order-0:stage-cut",
-        machine_id="machine_cut",
-        start=10.0,
-        setup_end=15.0,
-        end=27.0,
-    )
-
-    firings = firings_from_plan(translation, _verified((assignment,)))
-
-    assert [(f.operation_id, f.piece_id) for f in firings] == [
-        ("order-0:piece-0:stage-cut", "order-0:piece-0"),
-        ("order-0:piece-1:stage-cut", "order-0:piece-1"),
-        ("order-0:piece-2:stage-cut", "order-0:piece-2"),
-    ]
-    assert [(f.planned_start, f.planned_end) for f in firings] == [
-        (15.0, 19.0),
-        (19.0, 23.0),
-        (23.0, 27.0),
-    ]
-    assert {(f.location_id, f.machine_id) for f in firings} == {("cut", "machine_cut")}
-
-
-def test_firings_require_a_verified_plan() -> None:
-    translation = _translate(_model(("cut",)), [_order("a", 1)])
-    unverified = _verified(()).model_copy(update={"verified": False})
-
-    with pytest.raises(ValueError, match="verified"):
-        firings_from_plan(translation, unverified)
-
-
-def test_firings_require_every_operation_assigned() -> None:
-    translation = _translate(_model(), [_order("a", 1)])
-    only_cut = Assignment(
-        operation_id="order-0:stage-cut", machine_id="machine_cut", start=0, setup_end=0, end=4
-    )
-
-    with pytest.raises(ValueError, match="every"):
-        firings_from_plan(translation, _verified((only_cut,)))
-
-
-def test_solved_plan_firings_pass_the_des_replay_guard() -> None:
-    model = _model(capacity=2)
-    capsule = _capsule(model)
-    scenario = _scenario(capsule)
-    orders = [_order("a", 3), _order("b", 2, release=5.0)]
-    translation = build_request(scenario, _snapshot(scenario, orders))
-
-    result = solve(_ready(translation))
-    firings = firings_from_plan(translation, result)
-
-    assert result.verified
-    assert len(firings) == (3 + 2) * 2
-    plan = [
-        WorkOrder(
-            work_order_id=order["order_id"],
-            part=order["product"],
-            qty=order["quantity"],
-            start_date=str(order["release_second"]),
-            due_date=str(order["due_second"]),
-        )
-        for order in orders
-    ]
-    run = RunDriver(capsule.compile().model).run(plan, 7, 0, execution_schedule=firings)
-    assert run is not None
 
 
 # --- end to end ------------------------------------------------------------------------------
