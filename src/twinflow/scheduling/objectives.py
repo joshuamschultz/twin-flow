@@ -5,7 +5,8 @@
 `ObjectiveSpec`. Both are pure, deterministic and linear in the number of operations
 and candidates they read. `JobOutcome`, `job_terms`, `signed`, `term_scale`,
 `level_tolerance` and `bound_violation` are public so the kernel's fast evaluator and
-scorer (COMP-006) use the same arithmetic as `evaluate` and `rank`.
+scorer (COMP-006) use the same arithmetic as `evaluate` and `rank`. `effective_spec` adds
+churn to a spec; `reschedule` and the portfolio runner share it (neither imports the other).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from twinflow.scheduling.model import (
     PreviousPlan,
     Schedule,
     WeightedSum,
+    WeightedTerm,
 )
 
 Sense = Literal["min", "max"]
@@ -57,6 +59,31 @@ def primary_kind(spec: ObjectiveSpec) -> ObjectiveKind:
 def signed(kind: ObjectiveKind, value: float) -> float:
     """`value` turned into a quantity to minimize: maximize-sense values are negated."""
     return -value if SENSE[kind] == "max" else value
+
+
+def effective_spec(
+    spec: ObjectiveSpec, churn_weight: float, previous_op_count: int
+) -> ObjectiveSpec:
+    """`spec` with churn added, as `reschedule` and the portfolio rank (COMP-020, COMP-024).
+
+    Weighted sum: a churn term with `weight = churn_weight` and `scale = previous_op_count`
+    appended; lexicographic: a last churn level; epsilon constraint: unchanged. Unchanged
+    too without weight or previous ops, and when the spec already names churn (the caller's
+    churn term wins, and churn is never counted twice).
+    """
+    churn = ObjectiveKind.CHURN
+    if churn_weight == 0 or previous_op_count == 0:
+        return spec
+    if isinstance(spec, WeightedSum):
+        if any(term.kind is churn for term in spec.terms):
+            return spec
+        term = WeightedTerm(kind=churn, weight=churn_weight, scale=float(previous_op_count))
+        return spec.model_copy(update={"terms": (*spec.terms, term)})
+    if isinstance(spec, Lexicographic):
+        if any(level.kind is churn for level in spec.levels):
+            return spec
+        return spec.model_copy(update={"levels": (*spec.levels, LexicographicLevel(kind=churn))})
+    return spec
 
 
 # --- evaluation -------------------------------------------------------------------------------

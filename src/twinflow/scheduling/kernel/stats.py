@@ -20,12 +20,14 @@ does not depend on input order.
 
 `atcs_k(tau, R, eta)` is the p.376 K formula with its clamps (`K1_RANGE`, `K2_RANGE`); it
 lives here, beside the statistics it reads, so `algorithms/atcs.py` and the K-table seed in
-`learning/` share one copy without one importing the other (D-069, D-082).
+`learning/` share one copy without one importing the other (D-069, D-082). `KLookup` is the
+type of the K-table callable ATCS takes.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from twinflow.scheduling.kernel.index import OpData, ProblemIndex
@@ -33,6 +35,11 @@ from twinflow.scheduling.kernel.index import OpData, ProblemIndex
 MAX_SETUP_PAIRS = 20_000
 K1_RANGE = (0.5, 10.0)
 K2_RANGE = (0.05, 10.0)
+
+KLookup = Callable[[float, float, float, int], tuple[float, float]]
+"""`k_lookup(tau, R, eta, m) -> (K1, K2)`; picklable so it survives the process pool.
+
+Here so ATCS and the portfolio runner (which passes it to every `atcs` stage) share it."""
 
 
 def atcs_k(tau: float, R: float, eta: float) -> tuple[float, float]:  # noqa: N803

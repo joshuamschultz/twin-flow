@@ -7,6 +7,9 @@ the compiled problem with the profile's objective spec, verify any FEASIBLE or O
 answer with the independent verifier, and evaluate every objective of a verified
 schedule (D-068). The solver gets a `SolveContext` built from the request (D-070).
 
+The portfolio runner (COMP-024) reuses the same path in parts: `prepare` once per request,
+`solve_prepared` per pipeline stage, `check_schedule` per Pareto search point.
+
 The seam types (`Feature`, `Solver`, `SolveContext`) live in the leaf `seam.py`; solver
 modules import them from there, so this module imports the default baseline at module top
 without a cycle.
@@ -157,6 +160,42 @@ def _present(flags: dict[Feature, bool]) -> set[Feature]:
 # --- solve ---------------------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True)
+class Prepared:
+    """A request validated and compiled once, ready for any number of solver runs.
+
+    `issues` holds the refusal issues (budget, validator); with any, no solver runs.
+    `compiled` is None when the request itself (or its budget) was refused. `solve()` and
+    the portfolio runner (COMP-024) share this path, so every candidate is checked exactly
+    like a `solve()` answer. Picklable: the runner ships it to spawned workers.
+    """
+
+    request: SolveRequest
+    compiled: CompiledProblem | None
+    features: frozenset[Feature]
+    issues: tuple[ScheduleIssue, ...]
+
+
+def prepare(request: SolveRequest, budget: float) -> Prepared:
+    """Check the budget, validate, compile the overrides and validate the compiled problem.
+
+    A budget that is not finite and > 0 gets a `budget` issue; the validator's issues on the
+    request or on the compiled problem are refusals too.
+    """
+    if not (math.isfinite(budget) and budget > 0):
+        message = f"budget_seconds must be finite and > 0, got {budget}"
+        issue = ScheduleIssue(code="budget", path=BUDGET_PATH, message=message)
+        return Prepared(request, None, frozenset(), (issue,))
+    request_issues = validate(request)
+    if request_issues:
+        return Prepared(request, None, frozenset(), tuple(request_issues))
+    compiled = apply_overrides(request)
+    compiled_issues = validate(compiled)
+    if compiled_issues:
+        return Prepared(request, compiled, frozenset(), tuple(compiled_issues))
+    return Prepared(request, compiled, problem_features(compiled.problem), ())
+
+
 def solve(
     request: SolveRequest,
     *,
@@ -182,23 +221,42 @@ def solve(
     """
     chosen = solver if solver is not None else BaselineSolver()
     budget = request.profile.time_budget_seconds if budget_seconds is None else budget_seconds
-    if not (math.isfinite(budget) and budget > 0):
-        message = f"budget_seconds must be finite and > 0, got {budget}"
-        return _refused(chosen, [ScheduleIssue(code="budget", path=BUDGET_PATH, message=message)])
-    request_issues = validate(request)
-    if request_issues:
-        return _refused(chosen, request_issues)
-    compiled = apply_overrides(request)
-    compiled_issues = validate(compiled)
-    if compiled_issues:
-        return _refused(chosen, compiled_issues, compiled)
-    features = problem_features(compiled.problem)
-    missing = sorted(features - chosen.capabilities)
+    prepared = prepare(request, budget)
+    return solve_prepared(prepared, chosen, budget, seed=seed, warm_start=warm_start)
+
+
+def solve_prepared(
+    prepared: Prepared,
+    solver: Solver,
+    budget: float,
+    *,
+    seed: int = 0,
+    warm_start: Schedule | None = None,
+) -> SolveResult:
+    """The rest of `solve()` on a prepared request: refuse, check features, run, check.
+
+    The solver runs on the compiled problem with `compiled.profile.objective`.
+    """
+    compiled = prepared.compiled
+    if compiled is None or prepared.issues:
+        return _refused(solver, prepared.issues, compiled)
+    missing = sorted(prepared.features - solver.capabilities)
     if missing:
-        return _refused(chosen, [_unsupported(chosen, f) for f in missing], compiled, features)
-    context = _context(request, chosen, budget, seed, warm_start)
-    schedule = _run(chosen, compiled, budget, context)
-    return _checked(request, compiled, features, schedule)
+        issues = [_unsupported(solver, f) for f in missing]
+        return _refused(solver, issues, compiled, prepared.features)
+    context = _context(prepared.request, solver, budget, seed, warm_start)
+    schedule = _run(solver, compiled, budget, context)
+    return _checked(prepared.request, compiled, prepared.features, schedule)
+
+
+def check_schedule(prepared: Prepared, schedule: Schedule) -> SolveResult:
+    """Verify and evaluate a schedule built outside a solver (Pareto search points).
+
+    Raises ValueError for a refused request: it has no compiled problem to check against.
+    """
+    if prepared.compiled is None or prepared.issues:
+        raise ValueError("a refused request has no compiled problem to check a schedule on")
+    return _checked(prepared.request, prepared.compiled, prepared.features, schedule)
 
 
 def _context(

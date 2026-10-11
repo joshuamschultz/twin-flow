@@ -56,13 +56,10 @@ from twinflow.scheduling.kernel.dispatch import (
     dispatch_schedule,
 )
 from twinflow.scheduling.kernel.index import DEFAULT_PHI, OpData, ProblemIndex
-from twinflow.scheduling.kernel.stats import InstanceStats, atcs_k, clamp_k
+from twinflow.scheduling.kernel.stats import InstanceStats, KLookup, atcs_k, clamp_k
 from twinflow.scheduling.model import AtcsRun, ObjectiveSpec, Problem, Schedule, ScheduleIssue
 from twinflow.scheduling.registry import RuleSpec, SolverSpec
 from twinflow.scheduling.seam import Feature, ParamValue, SolveContext
-
-KLookup = Callable[[float, float, float, int], tuple[float, float]]
-"""`k_lookup(tau, R, eta, m) -> (K1, K2)`; picklable so it survives the process pool."""
 
 KSource = Literal["formula", "table", "explicit"]
 

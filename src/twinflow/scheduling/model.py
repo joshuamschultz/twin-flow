@@ -687,6 +687,42 @@ class SolveResult(_Contract):
     features: tuple[Id, ...] = ()
 
 
+class Candidate(_Contract):
+    """One schedule a portfolio produced, checked like a `solve()` answer (COMP-024, D-079).
+
+    `id` is "{index:02d}:{stages}" for a pipeline stage (`pipeline` = the stage names up to
+    and including it) or "pareto:{n}" for a Pareto search point (empty `pipeline`); the
+    model does not parse it. `objective_values` holds every objective exactly when
+    `verified`.
+    """
+
+    id: Id
+    pipeline: tuple[Id, ...]
+    schedule: Schedule
+    verified: bool
+    objective_values: dict[ObjectiveKind, float] = Field(default_factory=dict)
+    issues: tuple[ScheduleIssue, ...] = ()
+
+
+class PortfolioResult(_Contract):
+    """What a portfolio run returns: candidates, Pareto menu and recommendation (COMP-024).
+
+    `effective_objective` is the objective the candidates were run and ranked with (load
+    weights and churn applied). `load_ratio` is None without a horizon or when unbounded
+    (then a `load_ratio_unbounded` issue says so). `recommended` is None when no candidate
+    verified.
+    """
+
+    candidates: tuple[Candidate, ...]
+    menu: tuple[MenuEntry, ...]
+    recommended: Id | None
+    effective_objective: ObjectiveSpec
+    load_ratio: float | None
+    atcs_runs: tuple[AtcsRun, ...] = ()
+    issues: tuple[ScheduleIssue, ...] = ()
+    elapsed_seconds: NonNegFloat
+
+
 def request_json_schema() -> dict[str, Any]:
     """JSON Schema of `SolveRequest`, the source of `problem.schema.json` (REQ-070)."""
     return SolveRequest.model_json_schema()

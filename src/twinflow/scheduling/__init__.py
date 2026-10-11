@@ -2,7 +2,9 @@
 
 The facade re-exports the public names of the submodules. `solve` is the one entry point
 (validate, compile overrides, refuse unsupported features, run, verify, evaluate).
-Solvers are built by name through the registry (`get_solver`, `available_solvers`); the
+Solvers are built by name through the registry (`get_solver`, `available_solvers`). The
+TF-005 planning functions (`solve_portfolio`, `get_pareto_menu`, `resolve_with_overrides`,
+`insert_rush_order`) come from `portfolio.api` and compose solvers by name too. The
 facade imports no algorithm module, so importing this package never needs the optional
 `scheduling` extra (D-069).
 """
@@ -14,6 +16,7 @@ from twinflow.scheduling.model import (
     Assignment,
     BatchCapacity,
     Calendar,
+    Candidate,
     CompiledProblem,
     EpsilonBound,
     EpsilonConstraint,
@@ -29,6 +32,7 @@ from twinflow.scheduling.model import (
     LockOverride,
     Machine,
     MachineState,
+    MenuEntry,
     MismatchTerm,
     ObjectiveKind,
     ObjectiveSpec,
@@ -38,6 +42,7 @@ from twinflow.scheduling.model import (
     OperatorPool,
     Override,
     Pin,
+    PortfolioResult,
     Precedence,
     PreferMachineOverride,
     PreviousAssignment,
@@ -61,6 +66,12 @@ from twinflow.scheduling.model import (
 )
 from twinflow.scheduling.objectives import SENSE, evaluate, primary_kind, rank
 from twinflow.scheduling.overrides import apply_overrides
+from twinflow.scheduling.portfolio.api import (
+    get_pareto_menu,
+    insert_rush_order,
+    resolve_with_overrides,
+    solve_portfolio,
+)
 from twinflow.scheduling.profile import default_profile, load_profile
 from twinflow.scheduling.registry import UnknownSolverError
 from twinflow.scheduling.registry import available as available_solvers
@@ -80,6 +91,7 @@ __all__ = [
     "BaselineSolver",
     "BatchCapacity",
     "Calendar",
+    "Candidate",
     "CompiledProblem",
     "EpsilonBound",
     "EpsilonConstraint",
@@ -96,6 +108,7 @@ __all__ = [
     "LockOverride",
     "Machine",
     "MachineState",
+    "MenuEntry",
     "MismatchTerm",
     "ObjectiveKind",
     "ObjectiveSpec",
@@ -105,6 +118,7 @@ __all__ = [
     "OperatorPool",
     "Override",
     "Pin",
+    "PortfolioResult",
     "Precedence",
     "PreferMachineOverride",
     "PreviousAssignment",
@@ -132,7 +146,9 @@ __all__ = [
     "available_solvers",
     "default_profile",
     "evaluate",
+    "get_pareto_menu",
     "get_solver",
+    "insert_rush_order",
     "is_registered_solver",
     "load_profile",
     "parse_request",
@@ -140,7 +156,9 @@ __all__ = [
     "problem_features",
     "rank",
     "request_json_schema",
+    "resolve_with_overrides",
     "solve",
+    "solve_portfolio",
     "validate",
     "verify",
 ]

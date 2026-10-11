@@ -44,8 +44,10 @@ relaxation adds one `relaxed_due` issue naming the job, and each rush job one in
 field for it).
 
 **reschedule** warm-starts from the previous sequences, adds churn to the objective
-(`effective_spec`) and runs `params.improver` (default `tabu`, by registry name;
-unregistered gives UNKNOWN `subsolver_unavailable`) with that warm start and empty params.
+(`objectives.effective_spec`, shared with the portfolio runner; a spec that already has a
+churn term or level is kept as is) and runs `params.improver` (default `tabu`, by registry
+name; unregistered gives UNKNOWN `subsolver_unavailable`) with that warm start and empty
+params.
 Without a previous plan: UNKNOWN `previous_plan_required`. When the improver finds no plan,
 the warm start is returned.
 
@@ -88,9 +90,6 @@ from twinflow.scheduling.kernel.graph import DisjunctiveGraph, GraphCycle
 from twinflow.scheduling.kernel.index import OpData, OpOption, ProblemIndex
 from twinflow.scheduling.kernel.score import Scorer, fast_values
 from twinflow.scheduling.model import (
-    EpsilonConstraint,
-    Lexicographic,
-    LexicographicLevel,
     ObjectiveKind,
     ObjectiveSpec,
     PreviousAssignment,
@@ -99,9 +98,8 @@ from twinflow.scheduling.model import (
     Relaxation,
     Schedule,
     ScheduleIssue,
-    WeightedSum,
-    WeightedTerm,
 )
+from twinflow.scheduling.objectives import effective_spec
 from twinflow.scheduling.registry import SolverSpec
 from twinflow.scheduling.seam import Feature, ParamValue, SolveContext
 
@@ -659,27 +657,6 @@ class RushInsertSolver:
 
 
 # --- reschedule from state ---------------------------------------------------------------------
-
-
-def effective_spec(
-    spec: ObjectiveSpec, churn_weight: float, previous_op_count: int
-) -> ObjectiveSpec:
-    """`spec` with churn added (module docstring); unchanged without weight or previous ops.
-
-    Weighted sum: a churn term with `scale = previous_op_count`; lexicographic: a last churn
-    level; epsilon constraint: unchanged.
-    """
-    if churn_weight == 0 or previous_op_count == 0:
-        return spec
-    churn = ObjectiveKind.CHURN
-    if isinstance(spec, WeightedSum):
-        term = WeightedTerm(kind=churn, weight=churn_weight, scale=float(previous_op_count))
-        return spec.model_copy(update={"terms": (*spec.terms, term)})
-    if isinstance(spec, Lexicographic):
-        return spec.model_copy(update={"levels": (*spec.levels, LexicographicLevel(kind=churn))})
-    if isinstance(spec, EpsilonConstraint):
-        return spec
-    raise AssertionError(f"unknown objective spec {type(spec).__name__}")
 
 
 @dataclass(frozen=True, slots=True)
