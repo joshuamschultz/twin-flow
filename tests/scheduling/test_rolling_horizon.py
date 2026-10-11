@@ -53,6 +53,8 @@ from twinflow.scheduling.kernel.index import ProblemIndex
 from twinflow.scheduling.model import (
     Assignment,
     CompiledProblem,
+    Lexicographic,
+    LexicographicLevel,
     ObjectiveKind,
     ObjectiveSpec,
     Problem,
@@ -347,6 +349,7 @@ def test_rolling_horizon_is_registered_decomposition_deterministic() -> None:
         {"gap": -1.0},
         {"eps": -0.1},
         {"window_solver": ""},
+        {"whole_problem_floor": 1},
         {"no_such_param": 1},
     ],
     ids=[
@@ -357,6 +360,7 @@ def test_rolling_horizon_is_registered_decomposition_deterministic() -> None:
         "gap-negative",
         "eps-negative",
         "window-solver-empty",
+        "floor-not-bool",
         "unknown-param",
     ],
 )
@@ -436,6 +440,7 @@ def _book_params(window_solver: str, seam: int) -> dict[str, Any]:
         "seam": seam,
         "window_solver": window_solver,
         "seam_solver": window_solver,
+        "whole_problem_floor": False,  # the book's decomposition alone (DEV-25)
     }
 
 
@@ -519,6 +524,45 @@ def test_one_window_when_min_jobs_exceeds_the_job_count() -> None:
     result = _solve(load_request("pinedo_15_2_3"), {"min_jobs": 50})
     assert result.verified, (result.schedule.status, _codes(result))
     assert len(result.schedule.assignments) == 9
+
+
+# --- DEV-25: windows never silently lose to one ATCS pass ----------------------------------
+
+# 120 jobs cut into windows of at most 30 (seams off): each window queues behind the last on
+# every machine, so on these training seeds the windowed plan is about 2x worse than one ATCS
+# pass over the whole problem (weighted tardiness 298k vs 116k on seed 0).
+MULTI_WINDOW = {"window_solver": "atcs", "seam": 0, "min_jobs": 10, "max_jobs": 30}
+
+
+def _wt_request(seed: int, jobs: int) -> SolveRequest:
+    request = hmlv_instance(seed, jobs=jobs)
+    profile = request.profile.model_copy(
+        update={"objective": Lexicographic(levels=(LexicographicLevel(kind=WT),))}
+    )
+    return request.model_copy(update={"profile": profile})
+
+
+@pytest.mark.parametrize("seed", TRAINING_SEEDS[:3])
+def test_multi_window_plan_is_never_worse_than_one_atcs_pass_and_says_so(seed: int) -> None:
+    request = _wt_request(seed, jobs=120)
+    assert len(_rh().cuts(_index(request), MULTI_WINDOW)) >= 3
+
+    windowed = _solve(request, MULTI_WINDOW, budget_seconds=60.0)
+    atcs = solve(request, solver=get_solver("atcs"), budget_seconds=60.0)
+
+    assert windowed.verified and atcs.verified
+    assert windowed.objective_values[WT] <= atcs.objective_values[WT] + 1e-6
+    assert "windows_lost_to_single_pass" in _codes(windowed)  # the DEV-25 weakness, visible
+
+
+def test_one_window_runs_no_single_pass() -> None:
+    request = _wt_request(TRAINING_SEEDS[0], jobs=40)
+    assert not _rh().cuts(_index(request), {})
+
+    result = _solve(request, {}, budget_seconds=30.0)
+
+    assert result.verified
+    assert "windows_lost_to_single_pass" not in _codes(result)
 
 
 # --- window solver (slow, T-152; the gate and 600 x 8 rows live in bench/) ---------------------

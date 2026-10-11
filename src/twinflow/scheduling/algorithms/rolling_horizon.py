@@ -30,13 +30,19 @@ family `decomposition`, deterministic (its default window solver `atcs->tabu` is
 4. The final plan is the decode of the per-machine sequences (D-071); should the decode
    fail, the last verified sub-problem schedule (valid for the whole problem: pins only
    restrict) is returned.
+5. Single pass (DEV-25): with more than one window (and `whole_problem_floor`), one `atcs`
+   pass over the whole problem (registry, when registered) runs first on one window's
+   share of the time. Windows queue behind the earlier windows on every machine, so their
+   plan can be far worse; when the single pass scores better it is returned with a
+   `windows_lost_to_single_pass` issue, never silently.
 
 Params (`SolveContext.params`; an unknown or invalid one gives UNKNOWN
 `invalid_method_param`): `gap` (>= 0, default 1.0), `eps` (>= 0, default 0.25),
 `min_jobs` (>= 1, default 20), `max_jobs` (>= min_jobs, default 150), `seam` (>= 0,
 default 5; 0 = seams off), `window_solver` (default `atcs->tabu`), `seam_solver` (also a
 pipeline; default `ortools` when registered and the seam sub-problem has at most
-`SEAM_EXACT_OPS` ops, else `tabu`). An unregistered window or seam solver gives UNKNOWN
+`SEAM_EXACT_OPS` ops, else `tabu`), `whole_problem_floor` (bool, default true: step 5;
+false shows the decomposition alone). An unregistered window or seam solver gives UNKNOWN
 `subsolver_unavailable`. CP-SAT refuses times with more than six decimals, so as a window
 or seam solver it helps only when the pins come from CP-SAT (tick-aligned) plans.
 
@@ -93,6 +99,8 @@ DEFAULT_SEAM = 5
 DEFAULT_WINDOW_SOLVER = "atcs->tabu"
 EXACT_SEAM_SOLVER = "ortools"
 FALLBACK_SEAM_SOLVER = "tabu"
+WHOLE_PROBLEM_SOLVER = "atcs"
+"""With more than one window, the plan is compared with one pass of this solver (DEV-25)."""
 SEAM_EXACT_OPS = 60
 """A seam sub-problem with at most this many ops goes to CP-SAT by default [mine]."""
 FINAL_SHARE = 0.05
@@ -101,7 +109,16 @@ WINDOW_SHARE = 0.8
 """Share of the rest the windows get when seams run; the seams get the remainder."""
 SOLUTION_STATUSES = frozenset({"OPTIMAL", "FEASIBLE"})
 _KNOWN_PARAMS = frozenset(
-    {"gap", "eps", "min_jobs", "max_jobs", "seam", "window_solver", "seam_solver"}
+    {
+        "gap",
+        "eps",
+        "min_jobs",
+        "max_jobs",
+        "seam",
+        "window_solver",
+        "seam_solver",
+        "whole_problem_floor",
+    }
 )
 
 CutReason = Literal["due_gap", "load", "max_jobs"]
@@ -130,6 +147,7 @@ class _Settings:
     seam: int
     window_solver: tuple[str, ...]
     seam_solver: tuple[str, ...] | None
+    whole_problem_floor: bool
 
     @classmethod
     def parse(cls, params: Mapping[str, ParamValue]) -> _Settings:
@@ -149,6 +167,7 @@ class _Settings:
             seam=_count(params, "seam", DEFAULT_SEAM, 0),
             window_solver=_names(params.get("window_solver", DEFAULT_WINDOW_SOLVER)),
             seam_solver=None if seam_solver is None else _names(seam_solver),
+            whole_problem_floor=_flag(params, "whole_problem_floor", True),
         )
 
 
@@ -159,6 +178,13 @@ def _non_negative(params: Mapping[str, ParamValue], name: str, default: float) -
     if not (math.isfinite(value) and value >= 0):
         raise InvalidParamError(f"{name} must be finite and not negative")
     return float(value)
+
+
+def _flag(params: Mapping[str, ParamValue], name: str, default: bool) -> bool:
+    value = params.get(name, default)
+    if not isinstance(value, bool):
+        raise InvalidParamError(f"{name} must be true or false")
+    return value
 
 
 def _count(params: Mapping[str, ParamValue], name: str, default: int, least: int) -> int:
@@ -559,6 +585,9 @@ class _Run:
         seams = self._settings.seam > 0 and len(windows) > 1
         now = time.monotonic()
         windows_end = now + (self._end - now) * (WINDOW_SHARE if seams else 1.0)
+        single = None
+        if len(windows) > 1 and self._settings.whole_problem_floor:
+            single = self._single_pass(now + (windows_end - now) / (len(windows) + 1))
         current: Schedule | None = None
         for k, window in enumerate(windows):
             share = (windows_end - time.monotonic()) / (len(windows) - k)
@@ -571,7 +600,51 @@ class _Run:
         best = self._evaluated(current)
         if seams:
             best = self._seams(windows, best, seam_stages)
+        if (
+            single is not None
+            and single.values is not None
+            and self._better(single.values, best.values)
+        ):
+            return self._lost_to_single_pass(single, len(windows))
         return self._final(best)
+
+    # --- single pass (DEV-25) ------------------------------------------------------------------
+
+    def _single_pass(self, deadline: float) -> _Current | None:
+        """One `atcs` pass over the whole problem, the floor a multi-window plan must beat.
+
+        Windows queue behind the earlier windows on every machine (the dispatch engine
+        cannot fill free ops around exact pins), so with more than one window the plan can
+        be far worse than one pass; None when `atcs` is not registered or gives no
+        verified plan."""
+        if not registry.is_registered(WHOLE_PROBLEM_SOLVER):
+            return None
+        context = SolveContext(
+            previous_plan=self._context.previous_plan,
+            churn_tolerance=self._context.churn_tolerance,
+            seed=self._context.seed,
+            deadline=deadline,
+            warm_start=None,
+            params={},
+        )
+        schedule = registry.get(WHOLE_PROBLEM_SOLVER).solve(
+            self._problem,
+            objective=self._objective,
+            budget_seconds=max(deadline - time.monotonic(), 1e-3),
+            context=context,
+        )
+        if schedule.status not in SOLUTION_STATUSES or not _verifies(self._problem, schedule):
+            return None
+        return self._evaluated(schedule)
+
+    def _lost_to_single_pass(self, single: _Current, windows: int) -> Schedule:
+        schedule = self._final(single)
+        issue = _issue(
+            "windows_lost_to_single_pass",
+            f"the plan from {windows} windows scored worse than one {WHOLE_PROBLEM_SOLVER} pass "
+            "over the whole problem; the single pass is returned (DEV-25)",
+        )
+        return schedule.model_copy(update={"issues": (*schedule.issues, issue)})
 
     def _solve_window(
         self,
