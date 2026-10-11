@@ -42,10 +42,16 @@ options on one machine, or more than `MAX_CIRCUIT_ARCS` circuit arcs (counted as
 per sequenced machine), returns UNKNOWN `model_too_large`; the count is one pass over the
 options.
 
-Warm start and horizon cap (T-138, TF-002 review item 3): the model is hinted with
-`context.warm_start`, else with the baseline's plan (run within the same deadline): option
+Warm start and horizon cap (T-138, T-139, TF-002 review item 3): the model is hinted with
+`context.warm_start`, else with the best verified plan under the objective (by
+`kernel.score.Scorer` over `objectives.evaluate`) among the baseline and the methods named
+in the `hint_solvers` param (comma-separated registry names, default `atcs`, looked up at
+call time, D-069; a name not registered is skipped with a debug log). Every hint solver
+runs within the same deadline, so hint time counts against the budget. Hinted: option
 presences, circuit arcs, warm-ups and batch links (starts are left to propagation, see
-`_add_hints`). When the objective is makespan
+`_add_hints`). A verified hint is also the floor of the answer: when CP-SAT ends FEASIBLE
+with a plan the hint outranks, or runs out of time without a plan, the hint's plan is
+returned FEASIBLE. When the objective is makespan
 alone and the hint verifies, the horizon is capped at the hint's last end, so every
 variable is bounded by a plan known to exist; a capped model CP-SAT calls infeasible (only
 tick rounding could do that) is solved again uncapped. The cap never applies to any other
@@ -92,6 +98,7 @@ through `SOLVERS` and nothing outside `algorithms/` imports it.
 from __future__ import annotations
 
 import importlib
+import logging
 import math
 import time
 from collections import Counter, defaultdict
@@ -103,6 +110,7 @@ from typing import Any, Literal
 
 from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.kernel.index import DEFAULT_CLASS_WEIGHTS
+from twinflow.scheduling.kernel.score import Scorer, Values
 from twinflow.scheduling.model import (
     Assignment,
     CompiledProblem,
@@ -129,8 +137,9 @@ from twinflow.scheduling.objectives import (
     level_tolerance,
     primary_kind,
 )
-from twinflow.scheduling.registry import SolverSpec
-from twinflow.scheduling.seam import Feature, OptionalDependencyError, SolveContext
+from twinflow.scheduling.registry import SolverSpec, is_registered
+from twinflow.scheduling.registry import get as get_solver
+from twinflow.scheduling.seam import Feature, OptionalDependencyError, SolveContext, Solver
 from twinflow.scheduling.setups import SetupTable
 from twinflow.scheduling.verifier import verify
 
@@ -160,6 +169,9 @@ HINT_BUDGET_SHARE = 0.25
 HINT_DETERMINISTIC_TIME = 2.0
 """CP-SAT deterministic-time cap of the hint completion solve, so it stops at the same point
 on every run with one worker."""
+HINT_SOLVERS_PARAM = "hint_solvers"
+DEFAULT_HINT_SOLVERS = "atcs"
+"""Registry names whose plans compete with the baseline's for the hint (T-139, D-069)."""
 SOLVER_NAME = "ortools"
 OBJECTIVE_PATH = "profile.objective"
 CAPABILITIES = frozenset(
@@ -179,6 +191,8 @@ CAPABILITIES = frozenset(
         Feature.BATCHING,
     }
 )
+
+log = logging.getLogger(__name__)
 
 Status = Literal["OPTIMAL", "FEASIBLE", "INFEASIBLE", "UNKNOWN"]
 TickInterval = tuple[int, int]
@@ -1288,19 +1302,82 @@ class _ModelInput:
     hint: Schedule | None
 
 
-def _hint_schedule(
+@dataclass(frozen=True, slots=True)
+class _Hint:
+    """The plan the model is hinted with; `values` are its objective values when it verifies
+    (always for a constructed hint; a warm start may not), else None."""
+
+    schedule: Schedule
+    values: Values | None
+
+
+def _hint(
     problem: Problem, objective: ObjectiveSpec, context: SolveContext, stop_at: float
-) -> Schedule | None:
-    """`context.warm_start`, else the baseline's plan within the deadline (TF-002 item 3)."""
+) -> _Hint | None:
+    """`context.warm_start`, else the best verified plan under the objective among the
+    baseline and the `hint_solvers` methods, each run within the deadline (T-139)."""
     if context.warm_start is not None:
-        return context.warm_start
-    baseline = BaselineSolver().solve(
-        problem,
-        objective=objective,
-        budget_seconds=max(stop_at - time.monotonic(), 0.0),
-        context=replace(context, deadline=stop_at),
-    )
-    return baseline if baseline.status == "FEASIBLE" else None
+        return _checked_hint(problem, context, context.warm_start)
+    best: _Hint | None = None
+    scorer: Scorer | None = None
+    for solver in _hint_solvers(context):
+        remaining = stop_at - time.monotonic()
+        if remaining <= 0:
+            break
+        schedule = solver.solve(
+            problem,
+            objective=objective,
+            budget_seconds=remaining,
+            context=replace(context, deadline=stop_at, params={}),
+        )
+        if schedule.status not in ("OPTIMAL", "FEASIBLE"):
+            continue
+        candidate = _checked_hint(problem, context, schedule)
+        if candidate.values is None:
+            continue
+        if best is None or best.values is None:
+            best, scorer = candidate, Scorer(objective, candidate.values)
+        elif scorer is not None and scorer.better(candidate.values, best.values):
+            best = candidate
+    return best
+
+
+def _hint_solvers(context: SolveContext) -> list[Solver]:
+    """The baseline, then each registered `hint_solvers` name (comma-separated, default
+    `atcs`), looked up by name (D-069). A plan a method gets wrong (say, a feature it does
+    not model) fails verification and is not a candidate."""
+    raw = context.params.get(HINT_SOLVERS_PARAM, DEFAULT_HINT_SOLVERS)
+    if not isinstance(raw, str):
+        raise ValueError(f"{HINT_SOLVERS_PARAM} must be a comma-separated string of names")
+    solvers: list[Solver] = [BaselineSolver()]
+    for name in (part.strip() for part in raw.split(",")):
+        solver = _named_hint_solver(name)
+        if solver is not None:
+            solvers.append(solver)
+    return solvers
+
+
+def _named_hint_solver(name: str) -> Solver | None:
+    """The registered solver `name`, or None (logged) when it cannot give a hint."""
+    if not name or name == SOLVER_NAME:
+        return None
+    if not is_registered(name):
+        log.debug("hint solver %r is not registered; skipped", name)
+        return None
+    try:
+        return get_solver(name)
+    except OptionalDependencyError:
+        log.debug("hint solver %r misses an optional dependency; skipped", name)
+        return None
+
+
+def _checked_hint(problem: Problem, context: SolveContext, schedule: Schedule) -> _Hint:
+    """The schedule with its objective values when it verifies, else with None."""
+    compiled = CompiledProblem(problem=problem, profile=SchedulingProfile())
+    unvalued = schedule.model_copy(update={"primary_value": None})
+    if not verify(compiled, (), unvalued).valid:
+        return _Hint(schedule, None)
+    return _Hint(schedule, _values(problem, schedule.assignments, context))
 
 
 def _makespan_only(spec: ObjectiveSpec) -> bool:
@@ -1313,16 +1390,32 @@ def _makespan_only(spec: ObjectiveSpec) -> bool:
     return len(weighted) == 1 and weighted[0].kind == ObjectiveKind.MAKESPAN
 
 
-def _makespan_cap(problem: Problem, objective: ObjectiveSpec, hint: Schedule | None) -> int | None:
+def _makespan_cap(problem: Problem, objective: ObjectiveSpec, hint: _Hint | None) -> int | None:
     """The hint's last end in absolute ticks, when the objective is makespan alone and the
     hint verifies; None otherwise. An optimal plan never ends later than a verified one."""
-    if hint is None or not _makespan_only(objective):
+    if hint is None or hint.values is None or not _makespan_only(objective):
         return None
-    compiled = CompiledProblem(problem=problem, profile=SchedulingProfile())
-    unvalued = hint.model_copy(update={"primary_value": None})
-    if not verify(compiled, (), unvalued).valid:
-        return None
-    return max((_ticks(a.end) for a in hint.assignments), default=_ticks(problem.now))
+    ends = (_ticks(a.end) for a in hint.schedule.assignments)
+    return max(ends, default=_ticks(problem.now))
+
+
+def _hint_wins(
+    outcome: _Outcome,
+    hint: _Hint | None,
+    problem: Problem,
+    objective: ObjectiveSpec,
+    context: SolveContext,
+) -> bool:
+    """True when the verified hint should be the answer: CP-SAT ran out of time without a
+    plan, or its unproven plan ranks behind the hint under the objective (T-139)."""
+    if hint is None or hint.values is None or outcome.status == "OPTIMAL":
+        return False
+    if outcome.status == "UNKNOWN":
+        return [issue.code for issue in outcome.issues] == ["time_limit"]
+    if outcome.status != "FEASIBLE":
+        return False
+    found = _values(problem, outcome.assignments, context)
+    return Scorer(objective, hint.values).better(hint.values, found)
 
 
 def _add_hints(builder: _Builder, hint: Schedule) -> None:
@@ -1465,18 +1558,23 @@ class ORToolsSolver:
         stop_at = min(time.monotonic() + budget_seconds, context.deadline)
         if stop_at <= time.monotonic():
             return _schedule("UNKNOWN", started, issues=[_time_limit()])
-        hint = _hint_schedule(problem, objective, context, stop_at)
+        hint = _hint(problem, objective, context, stop_at)
         cap = _makespan_cap(problem, objective, hint)
         capped = horizon if cap is None else min(horizon, cap)
-        model = _ModelInput(problem, scheduled, setups, objective, context, hint)
+        hinted = None if hint is None else hint.schedule
+        model = _ModelInput(problem, scheduled, setups, objective, context, hinted)
         outcome = self._optimize(model, capped, stop_at)
         if outcome.status == "INFEASIBLE" and capped < horizon:
             outcome = self._optimize(model, horizon, stop_at)  # tick rounding broke the cap
+        if hint is not None and _hint_wins(outcome, hint, problem, objective, context):
+            outcome = _Outcome(
+                "FEASIBLE", list(hint.schedule.assignments), best_bound=outcome.best_bound
+            )
         if outcome.status not in ("OPTIMAL", "FEASIBLE"):
             return _schedule(
                 outcome.status, started, issues=outcome.issues, best_bound=outcome.best_bound
             )
-        value = _primary_value(problem, objective, outcome.assignments, context)
+        value = _values(problem, outcome.assignments, context)[primary_kind(objective)]
         return _schedule(
             outcome.status,
             started,
@@ -1687,13 +1785,10 @@ def _batch_ids(cp_solver: Any, builder: _Builder) -> dict[str, str]:
     return batch_of
 
 
-def _primary_value(
-    problem: Problem,
-    objective: ObjectiveSpec,
-    assignments: Sequence[Assignment],
-    context: SolveContext,
-) -> float:
-    """The primary objective of the plan, by `objectives.evaluate` (the verifier's arithmetic)."""
+def _values(
+    problem: Problem, assignments: Sequence[Assignment], context: SolveContext
+) -> dict[ObjectiveKind, float]:
+    """Every objective value of the plan, by `objectives.evaluate` (the verifier's arithmetic)."""
     zone = (
         FrozenZone(until=problem.now, tolerance=context.churn_tolerance)
         if context.churn_tolerance > 0
@@ -1704,7 +1799,7 @@ def _primary_value(
         status="FEASIBLE", assignments=tuple(assignments), solver=SOLVER_NAME, elapsed_seconds=0.0
     )
     previous_plan: PreviousPlan | None = context.previous_plan
-    return evaluate(compiled, schedule, previous_plan)[primary_kind(objective)]
+    return evaluate(compiled, schedule, previous_plan)
 
 
 def _schedule(

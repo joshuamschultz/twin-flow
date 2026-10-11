@@ -1715,3 +1715,77 @@ def test_short_budget_on_calendars_is_never_worse_than_the_verified_baseline(
     assert calls, "CP-SAT was never called"
     assert calls[0].largest_upper <= round(baseline_makespan * SCALE)
     assert calls[0].hints > 0  # the baseline plan is the hint
+
+
+# --- T-139: hint from the best constructive plan (COMP-016 "AddHint", D-069) -----------------
+
+
+def _tardiness_request(seed: int = 0) -> SolveRequest:
+    """A held-out-size HMLV instance (40 jobs x 5 ops, 4 centers) scored by weighted tardiness."""
+    profile = SchedulingProfile(objective=_single(ObjectiveKind.WEIGHTED_TARDINESS))
+    return hmlv_instance(seed).model_copy(update={"profile": profile})
+
+
+def _with_params(request: SolveRequest, **params: Any) -> SolveRequest:
+    profile = request.profile.model_copy(update={"method_params": {"ortools": params}})
+    return request.model_copy(update={"profile": profile})
+
+
+def _tardiness(result: SolveResult) -> float:
+    assert result.verified, result.issues
+    return result.objective_values[ObjectiveKind.WEIGHTED_TARDINESS]
+
+
+def test_without_warm_start_the_answer_is_never_worse_than_baseline_or_atcs() -> None:
+    """The default hint is the better of the baseline and `atcs` (looked up by registry name),
+    and the answer is never worse than its hint. Measured before T-139: CP-SAT kept close to
+    the objective-blind baseline plan on this 200-operation model."""
+    request = _tardiness_request()
+    references = [_tardiness(solve(request, solver=get_solver(n))) for n in ("baseline", "atcs")]
+
+    result = solve(request, solver=_exact_solver(), budget_seconds=2.0)
+
+    assert _tardiness(result) <= min(references) + 1e-6, references
+
+
+def test_an_unregistered_hint_solver_is_skipped_with_a_debug_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    request = _with_params(_tardiness_request(), hint_solvers="no_such_solver,atcs")
+    atcs = _tardiness(solve(request, solver=get_solver("atcs")))
+
+    with caplog.at_level("DEBUG", logger="twinflow.scheduling.algorithms.cpsat"):
+        result = solve(request, solver=_exact_solver(), budget_seconds=2.0)
+
+    assert _tardiness(result) <= atcs + 1e-6
+    assert any("no_such_solver" in record.getMessage() for record in caplog.records)
+
+
+def test_time_spent_building_hints_counts_against_the_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A slow hint solver eats the deadline: CP-SAT still stops by it."""
+    from twinflow.scheduling.algorithms.atcs import AtcsSolver
+
+    original = AtcsSolver.solve
+    calls: list[float] = []
+
+    def slow(self: Any, *args: Any, **kwargs: Any) -> Any:
+        calls.append(time.monotonic())
+        time.sleep(0.4)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(AtcsSolver, "solve", slow)
+    request = _tardiness_request()
+    started = time.monotonic()
+
+    schedule = _exact_solver().solve(
+        request.problem,
+        objective=_single(ObjectiveKind.WEIGHTED_TARDINESS),
+        budget_seconds=5.0,
+        context=_context(started + 0.8),
+    )
+
+    assert calls, "atcs was never asked for a hint"
+    assert time.monotonic() - started < 1.3
+    assert schedule.status in {"FEASIBLE", "UNKNOWN"}
