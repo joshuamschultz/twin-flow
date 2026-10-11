@@ -12,6 +12,8 @@ import re
 import subprocess
 import sys
 
+import pytest
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "twinflow"
 
@@ -166,8 +168,14 @@ ERP = SRC / "erp"
 MCP = SRC / "mcp"
 PLANNING = SRC / "application" / "planning.py"
 
-# `twinflow.erp` is a pure contract package: stdlib, pydantic and the scheduling model only.
-_ERP_ALLOWED_PREFIXES = ("pydantic", "twinflow.scheduling", "twinflow.erp")
+# `twinflow.erp` is a pure contract package: stdlib, pydantic and the scheduling model only,
+# plus exactly one TF-004 module: the pure Pydantic `[simulation]` types (SDD import rules).
+_ERP_ALLOWED_PREFIXES = (
+    "pydantic",
+    "twinflow.scheduling",
+    "twinflow.erp",
+    "twinflow.execution.policy",
+)
 # No outbound calls from the ERP, planning or MCP code (REQ-174); MCP never goes via the SDK.
 _NETWORK_PREFIXES = (
     "httpx",
@@ -367,3 +375,157 @@ def test_only_the_portfolio_port_references_tf003() -> None:
     ]
     assert offenders == [], offenders
     assert _tf003_references(_PORTFOLIO_PORT), "the scanner must see the adapter's own imports"
+
+
+# --- TF-004: `twinflow.execution` is a pure driver package (T-169, SDD import rules) ---------
+
+EXECUTION = SRC / "execution"
+_EXECUTION_ALLOWED_PREFIXES = (
+    "pydantic",
+    "numpy",
+    "scipy",
+    "simpy",
+    "twinflow.engine",
+    "twinflow.scheduling",
+    "twinflow.policy",
+    "twinflow.execution",
+)
+# Packages that must never depend on the executor (it sits above them, D-085).
+_EXECUTION_FREE_PACKAGES = ("scheduling", "engine", "primitives", "plan", "model")
+# No network and no filesystem in the executor: it runs on data handed to it.
+_EXECUTION_IO_PREFIXES = (
+    *_NETWORK_PREFIXES,
+    "urllib",
+    "pathlib",
+    "tempfile",
+    "shutil",
+)
+# File I/O calls: builtin `open(`, `io.open(`/`os.open(`/`os.fdopen(`, and pathlib reads/writes.
+# A bare `.open()` method is not flagged: executor objects (gates) may legitimately have one.
+_IO_MODULE_CALLS = frozenset({("io", "open"), ("os", "open"), ("os", "fdopen")})
+_PATH_IO_METHODS = frozenset({"write_text", "write_bytes", "read_text", "read_bytes"})
+
+
+def _execution_files() -> list[pathlib.Path]:
+    """Every module of `twinflow.execution`; fails loudly while the package does not exist."""
+    assert (EXECUTION / "__init__.py").is_file(), "src/twinflow/execution/ is missing"
+    return _existing_py(EXECUTION)
+
+
+def _execution_allows(name: str) -> bool:
+    top = name.split(".", 1)[0]
+    return top in sys.stdlib_module_names or _under(name, _EXECUTION_ALLOWED_PREFIXES)
+
+
+def _io_call(node: ast.AST) -> str | None:
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    if isinstance(func, ast.Name) and func.id == "open":
+        return "open("
+    if not isinstance(func, ast.Attribute):
+        return None
+    if func.attr in _PATH_IO_METHODS:
+        return f".{func.attr}("
+    owner = func.value.id if isinstance(func.value, ast.Name) else None
+    return f"{owner}.{func.attr}(" if (owner, func.attr) in _IO_MODULE_CALLS else None
+
+
+def _io_offenders(path: pathlib.Path) -> list[str]:
+    found = [
+        f"{path.relative_to(ROOT)}:{line} -> {name}"
+        for line, name in _all_imports(path)
+        if _under(name, _EXECUTION_IO_PREFIXES)
+    ]
+    for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+        call = _io_call(node)
+        if call is not None:
+            found.append(f"{path.relative_to(ROOT)}:{node.lineno} -> {call}")
+    return found
+
+
+def test_execution_package_exists() -> None:
+    assert _execution_files()
+
+
+def test_execution_imports_only_the_sdd_allow_list() -> None:
+    offenders = [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in _execution_files()
+        for line, name in _all_imports(p)
+        if not _execution_allows(name)
+    ]
+    assert offenders == [], offenders
+
+
+def test_execution_makes_no_network_or_file_io() -> None:
+    offenders = [o for p in _execution_files() for o in _io_offenders(p)]
+    assert offenders == [], offenders
+
+
+@pytest.mark.parametrize("package", _EXECUTION_FREE_PACKAGES)
+def test_lower_packages_never_import_execution(package: str) -> None:
+    files = _existing_py(SRC / package)
+    assert files, f"src/twinflow/{package}/ has no modules to scan"
+    offenders = [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in files
+        for line, name in _all_imports(p)
+        if _under(name, ("twinflow.execution",))
+    ]
+    assert offenders == [], offenders
+
+
+def test_erp_imports_only_the_policy_module_from_execution() -> None:
+    offenders = [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in _existing_py(ERP)
+        for line, name in _all_imports(p)
+        if _under(name, ("twinflow.execution",))
+        and not _under(name, ("twinflow.execution.policy",))
+    ]
+    assert offenders == [], offenders
+
+
+def test_execution_boundary_scanners_see_forbidden_forms(tmp_path: pathlib.Path) -> None:
+    """Guard the guard: the execution scanners must flag every forbidden form."""
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        "import socket\n"
+        "import urllib.parse\n"
+        "from pathlib import Path\n"
+        "from twinflow.primitives import location\n"
+        "from twinflow.execution import engine\n"
+        "open('x')\n"
+        "Path('x').write_text('y')\n"
+        "io.open('x')\n"
+        "os.open('x', 0)\n"
+        "gate.open()\n"
+    )
+    imports = [name for _, name in _all_imports(probe)]
+    io_found = _io_offenders_outside_root(probe)
+
+    assert not _execution_allows("twinflow.primitives.location")
+    assert not _execution_allows("twinflow.model")
+    assert not _execution_allows("twinflow.erp.profile")
+    assert not _execution_allows("httpx")
+    assert _execution_allows("twinflow.scheduling.setups")
+    assert _execution_allows("twinflow.policy.DISPATCH_NAMES")
+    assert _execution_allows("simpy")
+    assert _execution_allows("statistics")
+    assert {"socket", "urllib.parse", "pathlib"} <= {
+        name for name in imports if _under(name, _EXECUTION_IO_PREFIXES)
+    }
+    assert any(_under(name, ("twinflow.execution",)) for name in imports)
+    assert sorted(io_found) == sorted(["open(", ".write_text(", "io.open(", "os.open("])
+    assert _erp_allows("twinflow.execution.policy")
+    assert _erp_allows("twinflow.execution.policy.SimulationPolicy")
+    assert not _erp_allows("twinflow.execution")
+    assert not _erp_allows("twinflow.execution.engine")
+    assert not _erp_allows("twinflow.execution.policy_extra")
+
+
+def _io_offenders_outside_root(path: pathlib.Path) -> list[str]:
+    """The I/O calls `_io_offenders` flags, for a probe file outside the repo."""
+    tree = ast.parse(path.read_text(), filename=str(path))
+    return [call for node in ast.walk(tree) if (call := _io_call(node)) is not None]
