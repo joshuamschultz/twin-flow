@@ -618,6 +618,27 @@ def test_put_planning_profile_signs_the_simulation_table_and_get_returns_it(
     assert stored["simulation"] == expected.simulation.model_dump(mode="json")
 
 
+def test_a_profile_with_a_non_ascii_id_re_digests_to_its_signed_digest(world: World) -> None:
+    # DEV-15: the store signs ASCII-escaped canonical JSON; `profile_digest` must hash the
+    # same bytes, or this profile would fail its own signature check on every read.
+    toml = (
+        SIMULATION_TOML
+        + '\n[[simulation.run_factors]]\nmachine_id = "Fr\u00e4se-1"\n'
+        + 'distribution = { kind = "lognormal", mean = 1.0, cv = 0.2 }\n'
+    )
+    expected = load_planning_profile(toml)
+
+    async def body(session: McpSession) -> tuple[dict[str, Any], dict[str, Any]]:
+        ref = await session.call("put_planning_profile", {"profile_toml": toml})
+        return ref, await session.call("get_planning_profile", {})
+
+    ref, active = _session(world, body)
+
+    assert ref["digest"] == profile_digest(expected)
+    assert active["digest"] == ref["digest"]
+    assert active["artifact"]["simulation"]["run_factors"][-1]["machine_id"] == "Fr\u00e4se-1"
+
+
 def test_put_planning_profile_typed_profile_round_trips_the_simulation_table(
     world: World,
 ) -> None:
