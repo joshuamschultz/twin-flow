@@ -611,7 +611,11 @@ class Assignment(_Contract):
 
 
 class Schedule(_Contract):
-    """A solver's answer with its status, primary value and bound."""
+    """A solver's answer with its status, primary value and bound.
+
+    `budget_enforced` is true when the solver ran and stops at its time budget; a refusal
+    before solving, a solver error or a solver that does not claim it leaves it false.
+    """
 
     status: Literal["OPTIMAL", "FEASIBLE", "INFEASIBLE", "UNKNOWN"]
     assignments: tuple[Assignment, ...]
@@ -620,6 +624,7 @@ class Schedule(_Contract):
     solver: Id
     elapsed_seconds: NonNegFloat
     issues: tuple[ScheduleIssue, ...] = ()
+    budget_enforced: bool = False
 
 
 class CompiledProblem(_Contract):

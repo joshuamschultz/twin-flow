@@ -768,7 +768,7 @@ class Workspace:
             "problem_digest": translation.problem_digest,
             "backend": backend,
             "time_limit_seconds": time_limit,
-            "time_limit_applied": backend == "ortools",
+            "time_limit_applied": result.schedule.budget_enforced,
             "result": result.model_dump(mode="json"),
             "status_explanation": _status_explanation(result, backend),
             "simulation": {

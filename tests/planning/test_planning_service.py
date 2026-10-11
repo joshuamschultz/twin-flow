@@ -1058,3 +1058,31 @@ def test_every_planning_record_carries_validity_and_evidence_kind(
             assert record["validity"] == "provisional", (kind, record.get("id"))
             assert isinstance(record["evidence_kind"], str), (kind, record.get("id"))
             assert record["evidence_kind"], (kind, record.get("id"))
+
+
+def test_scenario_plan_time_limit_applied_comes_from_the_solver_result(
+    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The baseline now stops at its budget too; the flag is what the solver reported."""
+    baseline_plan = workspace.repository.get("schedule_plans", _scenario_plan(workspace))
+    assert baseline_plan["backend"] == "baseline"
+    assert baseline_plan["time_limit_applied"] is True
+    assert baseline_plan["result"]["schedule"]["budget_enforced"] is True
+
+    from twinflow.application import workspace as workspace_module
+    from twinflow.scheduling import BaselineSolver
+
+    class IgnoresBudget:
+        """A registered solver that does not claim to honor the budget."""
+
+        name = "ignores-budget"
+        capabilities = BaselineSolver().capabilities
+
+        def solve(self, problem: Any, *, objective: Any, budget_seconds: float) -> Any:
+            schedule = BaselineSolver().solve(problem, objective=objective, budget_seconds=60.0)
+            return schedule.model_copy(update={"budget_enforced": False})
+
+    monkeypatch.setattr(workspace_module, "build_solver", lambda name: IgnoresBudget())
+    other = workspace.repository.get("schedule_plans", _scenario_plan(workspace))
+
+    assert other["time_limit_applied"] is False

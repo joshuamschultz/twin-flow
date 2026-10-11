@@ -474,3 +474,32 @@ def test_solve_with_frozen_pins_lost_in_compile_does_not_verify(
     assert result.schedule.status == "FEASIBLE"
     assert not result.verified
     assert [issue.code for issue in result.issues] == ["frozen"]
+
+
+# --- whether the solver honored the budget (time_limit_applied) ------------------------------
+
+
+def test_budget_enforced_is_what_the_solver_reports() -> None:
+    honoring = FakeSolver(
+        answer=lambda p: _valid_schedule(p).model_copy(update={"budget_enforced": True})
+    )
+
+    assert solve(_request(_problem()), solver=honoring).schedule.budget_enforced is True
+    assert solve(_request(_problem()), solver=FakeSolver()).schedule.budget_enforced is False
+
+
+def test_budget_enforced_is_false_when_the_solver_never_ran() -> None:
+    result = solve(_request(_problem()), solver=FakeSolver(), budget_seconds=0.0)
+
+    assert result.schedule.budget_enforced is False
+
+
+@pytest.mark.parametrize("solver_name", ["baseline", "ortools"])
+def test_builtin_solvers_report_that_they_enforce_the_budget(solver_name: str) -> None:
+    from twinflow.scheduling import BaselineSolver, ORToolsSolver
+
+    chosen: Solver = BaselineSolver() if solver_name == "baseline" else ORToolsSolver()
+
+    result = solve(_request(_problem()), solver=chosen, budget_seconds=5.0)
+
+    assert result.schedule.budget_enforced is True
