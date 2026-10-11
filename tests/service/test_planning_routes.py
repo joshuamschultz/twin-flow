@@ -136,7 +136,9 @@ def _secrets(base: Path) -> tuple[Path, Path, dict[str, str]]:
     tokens_file = secrets / "tokens.json"
     tokens = {
         "reader": add_token(tokens_file, caller_id="reader", scopes=["read"], days=None),
-        "planner": add_token(tokens_file, caller_id="planner", scopes=["read", "plan"], days=None),
+        "planner": add_token(
+            tokens_file, caller_id="planner", scopes=["read", "plan", "admin"], days=None
+        ),
     }
     key_file = secrets / "signing-key.pem"
     generate_signing_key(key_file)

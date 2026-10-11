@@ -122,13 +122,16 @@ Each caller has a named token. The registry file named by `TWINFLOW_TOKENS_FILE`
 
 ```bash
 export TWINFLOW_TOKENS_FILE=/etc/twinflow/tokens.json
-twinflow admin token new --caller arc --scopes read,plan --days 90
+twinflow admin token new --caller arc --scopes read,plan
 ```
+
+A token expires after 90 days by default. Pass `--days N` for a different lifetime, or `--no-expiry` for a token that never expires (the two flags are mutually exclusive).
 
 The command prints the token once. Twinflow cannot show it again; mint a new token if it is lost. A caller id has 1 to 64 characters from `A-Z a-z 0-9 . _ -`. Scopes are:
 
 - `read` runs `read_only` tools.
-- `plan` runs `state_modifying` tools.
+- `plan` runs `state_modifying` tools, except the two that need `admin`.
+- `admin` runs `put_planning_profile` and `put_k_table`, which replace the signed planning profile and K-table. Only a token minted with the `admin` scope can call them, over MCP or REST (`PUT /planning-profile`, `PUT /k-table`). Scopes are not hierarchical: `admin` does not grant `read` or `plan`, so mint `--scopes read,plan,admin` for an operator who needs all three.
 
 The refusal rules are:
 
@@ -153,7 +156,7 @@ If the key is lost, the profile and K-table signed with it no longer verify, and
 
 ### Tool classification
 
-Generated from the tool catalogue (`twinflow.mcp.catalogue.CATALOGUE`). A `read_only` tool needs the `read` scope; a `state_modifying` tool needs `plan`. "Idempotent" means a repeated call with the same `request_key` replays the stored result.
+Generated from the tool catalogue (`twinflow.mcp.catalogue.CATALOGUE`). A `read_only` tool needs the `read` scope; a `state_modifying` tool needs `plan`, except `put_planning_profile` and `put_k_table`, which need `admin`. "Idempotent" means a repeated call with the same `request_key` replays the stored result.
 
 | Tool | Classification | Scope | Idempotent | Destructive |
 |---|---|---|---|---|
@@ -199,8 +202,8 @@ Generated from the tool catalogue (`twinflow.mcp.catalogue.CATALOGUE`). A `read_
 | `ingest_operational_events` | state_modifying | plan | no | no |
 | `build_operational_snapshot` | state_modifying | plan | no | no |
 | `propose_action` | state_modifying | plan | no | no |
-| `put_planning_profile` | state_modifying | plan | no | no |
-| `put_k_table` | state_modifying | plan | no | no |
+| `put_planning_profile` | state_modifying | admin | no | no |
+| `put_k_table` | state_modifying | admin | no | no |
 
 `cancel_job` is the only destructive tool.
 

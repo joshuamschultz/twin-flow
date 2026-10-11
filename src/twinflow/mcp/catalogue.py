@@ -79,14 +79,18 @@ def _spec(
     destructive: bool = False,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     solve_slot: bool = False,
+    scope: str | None = None,
 ) -> ToolSpec:
-    """One catalogue row; the description is the handler's docstring."""
+    """One catalogue row; the description is the handler's docstring.
+
+    `scope` overrides the classification's default scope (only the `admin` tools do).
+    """
     return ToolSpec(
         name=name,
         input_model=models[0],
         output_model=models[1],
         classification=classification,
-        scope=required_scope(classification),
+        scope=scope if scope is not None else required_scope(classification),
         idempotent=idempotent,
         destructive=destructive,
         handler=handler,
@@ -111,6 +115,13 @@ def _append(
 ) -> ToolSpec:
     """A state-modifying tool that appends a record on every call (not idempotent)."""
     return _spec(name, models, handler, "state_modifying", idempotent=False)
+
+
+def _admin(
+    name: str, models: tuple[type[BaseModel], type[BaseModel]], handler: Handler
+) -> ToolSpec:
+    """A state-modifying, non-idempotent tool that needs the `admin` scope."""
+    return _spec(name, models, handler, "state_modifying", idempotent=False, scope="admin")
 
 
 def _keyed(
@@ -236,12 +247,12 @@ CATALOGUE: tuple[ToolSpec, ...] = (
         h.build_operational_snapshot,
     ),
     _append("propose_action", (m.ProposeActionInput, m.ProposalOutput), h.propose_action),
-    _append(
+    _admin(
         "put_planning_profile",
         (m.PutPlanningProfileInput, ArtifactRef),
         h.put_planning_profile,
     ),
-    _append("put_k_table", (m.PutKTableInput, ArtifactRef), h.put_k_table),
+    _admin("put_k_table", (m.PutKTableInput, ArtifactRef), h.put_k_table),
 )
 
 

@@ -123,6 +123,8 @@ EXPECTED: dict[str, tuple[str, bool, bool]] = {
     "cancel_job": ("state_modifying", True, True),
 }
 SCOPE = {"read_only": "read", "state_modifying": "plan"}
+# Ruling D: the two profile writes are state_modifying yet need the `admin` scope.
+ADMIN_SCOPE = {"put_planning_profile": "admin", "put_k_table": "admin"}
 
 # The REST-proxy server's tools before TF-005; each must survive except the removed one.
 REMOVED_TOOL = "simulate_" + "schedule_plan"  # built so the removed name appears nowhere literally
@@ -385,7 +387,7 @@ def test_every_tool_declares_classification_scope_and_hints_from_the_table(world
         }
         wanted = {
             "classification": classification,
-            "scope": SCOPE[classification],
+            "scope": ADMIN_SCOPE.get(name, SCOPE[classification]),
             "readOnlyHint": classification == "read_only",
             "destructiveHint": destructive,
             "idempotentHint": idempotent,
@@ -409,7 +411,7 @@ def test_catalogue_specs_match_the_table_and_carry_models_and_timeouts() -> None
             idempotent,
             destructive,
         ), name
-        assert spec.scope == SCOPE[classification], name
+        assert spec.scope == ADMIN_SCOPE.get(name, SCOPE[classification]), name
         assert issubclass(spec.input_model, BaseModel), name
         assert issubclass(spec.output_model, BaseModel), name
         assert spec.timeout_seconds > 0, name

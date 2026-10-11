@@ -255,7 +255,7 @@ def flow(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Flow]:
     portfolio_api, fake = _portfolio_api()
     base = tmp_path_factory.mktemp("conformance-http")
     with running_service(
-        base, tokens={PLANNER: ["read", "plan"]}, portfolio_api=portfolio_api
+        base, tokens={PLANNER: ["read", "plan", "admin"]}, portfolio_api=portfolio_api
     ) as service:
         recorded = Flow(service=service, fake=fake)
         started = time.perf_counter()

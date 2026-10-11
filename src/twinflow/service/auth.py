@@ -30,7 +30,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-SCOPES = frozenset({"read", "plan"})
+SCOPES = frozenset({"read", "plan", "admin"})
 CLASSIFICATION_SCOPES = {"read_only": "read", "state_modifying": "plan"}
 _ENTRY_KEYS = frozenset({"caller_id", "token_sha256", "scopes", "not_after"})
 _REQUIRED_KEYS = frozenset({"caller_id", "token_sha256", "scopes"})

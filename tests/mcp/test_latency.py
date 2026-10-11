@@ -89,7 +89,7 @@ def _in_process_samples(workspace_root: Path, plan_id: str) -> list[float]:
 def test_mcp_get_plan_overhead_is_under_50_ms_at_p95(tmp_path: Path) -> None:
     portfolio = as_portfolio_api(FakePortfolioApi())
     with running_service(
-        tmp_path, tokens={"planner": ["read", "plan"]}, portfolio_api=portfolio
+        tmp_path, tokens={"planner": ["read", "plan", "admin"]}, portfolio_api=portfolio
     ) as service:
         plan_id, http = asyncio.run(_http_samples(service.mcp_url, service.bearer("planner")))
         workspace_root = service.workspace_root

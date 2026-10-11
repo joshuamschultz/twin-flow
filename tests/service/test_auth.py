@@ -192,7 +192,7 @@ def test_registry_load_refuses_duplicate_hash_without_echoing_it(tmp_path: Path)
     assert token not in str(excinfo.value)
 
 
-@pytest.mark.parametrize("scopes", [["admin"], ["read", "write"], [], ["READ"]])
+@pytest.mark.parametrize("scopes", [["root"], ["read", "write"], [], ["READ"]])
 def test_registry_load_refuses_unknown_or_empty_scopes(tmp_path: Path, scopes: list[str]) -> None:
     path = _write_registry(
         tmp_path / "tokens.json", [_entry(_token("good")), _entry(_token("s"), scopes=scopes)]
@@ -378,7 +378,7 @@ def test_add_token_refuses_unknown_scope_and_writes_nothing(tmp_path: Path) -> N
     path = tmp_path / "tokens.json"
 
     with pytest.raises(TokenRegistryError):
-        add_token(path, caller_id="arc", scopes=["admin"], days=None, now=NOW)
+        add_token(path, caller_id="arc", scopes=["root"], days=None, now=NOW)
 
     assert not path.exists()
 
@@ -459,7 +459,7 @@ def test_cli_token_new_refuses_unknown_scope(
             "--caller",
             "arc",
             "--scopes",
-            "admin",
+            "root",
             "--tokens-file",
             str(path),
         ]
@@ -628,7 +628,9 @@ def test_middleware_without_registry_is_open_local_mode_with_local_caller() -> N
     response = _client(None).get("/mcp")
 
     assert response.status_code == 200
-    assert response.json() == {"caller": {"caller_id": "local", "scopes": ["plan", "read"]}}
+    assert response.json() == {
+        "caller": {"caller_id": "local", "scopes": ["admin", "plan", "read"]}
+    }
 
 
 def test_middleware_closes_websocket_scopes_without_reaching_the_app(

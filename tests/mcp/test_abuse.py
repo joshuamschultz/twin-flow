@@ -92,8 +92,8 @@ SERVE_START_SECONDS = 30.0
 CLIENT_LOGGERS = ("httpx", "httpcore", "httpx2", "mcp.client")
 DEFAULT_TOKENS = {
     "reader": ["read"],
-    "planner": ["read", "plan"],
-    "planner_b": ["read", "plan"],
+    "planner": ["read", "plan", "admin"],
+    "planner_b": ["read", "plan", "admin"],
 }
 
 
@@ -745,7 +745,11 @@ def test_caller_b_replaying_caller_a_request_key_gets_its_own_fresh_result(
 def test_prefix_related_caller_ids_never_share_request_keys(tmp_path: Path) -> None:
     # Naive concatenation would map ("alice", "_x-k") and ("alice_x", "-k") to one key.
     fake = FakePortfolioApi()
-    tokens = {"alice": ["read", "plan"], "alice_x": ["read", "plan"], "planner": ["read", "plan"]}
+    tokens = {
+        "alice": ["read", "plan"],
+        "alice_x": ["read", "plan"],
+        "planner": ["read", "plan", "admin"],
+    }
     with running_service(tmp_path, tokens=tokens, portfolio_api=as_portfolio_api(fake)) as running:
         CORPUS.remember_service(running)
         problem_id = _prepared_problem(running)

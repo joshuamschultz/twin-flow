@@ -15,6 +15,8 @@ from pathlib import Path
 from twinflow.application.backup import backup_workspace, restore_workspace
 from twinflow.service.auth import add_token
 
+DEFAULT_TOKEN_DAYS = 90
+
 
 def build_parser() -> argparse.ArgumentParser:
     """The ``twinflow admin`` argument parser."""
@@ -37,8 +39,12 @@ def _add_token_commands(commands: argparse._SubParsersAction[argparse.ArgumentPa
     token = commands.add_parser("token").add_subparsers(dest="token_command", required=True)
     token_new = token.add_parser("new", help="mint a caller token; prints it once")
     token_new.add_argument("--caller", required=True)
-    token_new.add_argument("--scopes", required=True, help="comma-separated: read,plan")
-    token_new.add_argument("--days", type=int, default=None)
+    token_new.add_argument("--scopes", required=True, help="comma-separated: read,plan,admin")
+    expiry = token_new.add_mutually_exclusive_group()
+    expiry.add_argument(
+        "--days", type=int, default=DEFAULT_TOKEN_DAYS, help="lifetime in days (default: 90)"
+    )
+    expiry.add_argument("--no-expiry", action="store_true", help="mint a token that never expires")
     token_new.add_argument("--tokens-file", default=None, help="default: $TWINFLOW_TOKENS_FILE")
     token_new.set_defaults(handler=_token_new)
 
@@ -80,7 +86,12 @@ def _token_new(args: argparse.Namespace) -> int:
         print("error: pass --tokens-file or set TWINFLOW_TOKENS_FILE", file=sys.stderr)
         return 2
     scopes = [scope.strip() for scope in args.scopes.split(",") if scope.strip()]
-    token = add_token(Path(tokens_file), caller_id=args.caller, scopes=scopes, days=args.days)
+    token = add_token(
+        Path(tokens_file),
+        caller_id=args.caller,
+        scopes=scopes,
+        days=None if args.no_expiry else args.days,
+    )
     print(token)
     return 0
 
