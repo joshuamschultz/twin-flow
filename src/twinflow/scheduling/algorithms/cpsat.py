@@ -13,13 +13,44 @@ REQ-106, D-067, D-068, D-075).
   over its option presences with a depot node for the machine state (or its in-progress
   operation). The arc into an option fixes that option's setup variable (from the depot:
   the setup after the state; from another option: the setup after that operation) and
-  bounds its start by the previous end;
+  bounds its start by the previous end. A machine with a restart rule (D-074, D-075) is
+  sequenced the same way, setups or not: each option has a `warm` literal, and every arc
+  into it (the depot arc measures idle from max(now, available_from), or from the end of
+  the machine's in-progress operation) enforces warm <=> idle > threshold, idle in ticks
+  (so one tick past the threshold is warm, equal is cold, TF-003 DEV-4). The warm-up joins
+  the setup phase: setup_end = start + setup + warm * warmup. With a detached setup the
+  start may move earlier by the warm-up, which the verifier accepts;
+- batch machines (D-075): instead of slots per family, a leader formulation (exact and
+  smaller): an option on a batch machine either leads a batch or joins the batch of an
+  earlier operation with the same family, run length and (with setups) the same setup
+  parameters and setup family, so every member has the same setups on both sides. Members
+  share start, setup_end, end, setup and warm-up with the leader; the leader's load (op
+  quantities in integer millionths of the machine's unit) fits the capacity; only leaders
+  occupy the machine (no-overlap and circuit). Operations without a family run alone;
+- transfer-lot overlap (D-061) is linear: gate >= pred.setup_end + pred.fixed + q *
+  pred.unit + min_lag (max_lag from the same point) and end >= pred.end + q * succ.unit,
+  per chosen option;
 - the material gate is `start`, or `setup_end` for a detached setup: readiness and every
   predecessor lag bound the gate, pins and machine availability bound the start;
 - `AddCumulative` per operator pool over each need's phase (setup, run or both) and, for
   a pool with a calendar, a "fence" cumulative that keeps every operation drawing on the
   pool out of the pool's breaks (TF-002 DEV-6);
 - readiness, pins and the horizon as bounds; in-progress operations fixed at `now`.
+
+Size guard (D-075): before any table or model is built, more than `MAX_MACHINE_OPTIONS`
+options on one machine, or more than `MAX_CIRCUIT_ARCS` circuit arcs (counted as (n + 1)^2
+per sequenced machine), returns UNKNOWN `model_too_large`; the count is one pass over the
+options.
+
+Warm start and horizon cap (T-138, TF-002 review item 3): the model is hinted with
+`context.warm_start`, else with the baseline's plan (run within the same deadline): option
+presences, circuit arcs, warm-ups and batch links (starts are left to propagation, see
+`_add_hints`). When the objective is makespan
+alone and the hint verifies, the horizon is capped at the hint's last end, so every
+variable is bounded by a plan known to exist; a capped model CP-SAT calls infeasible (only
+tick rounding could do that) is solved again uncapped. The cap never applies to any other
+objective, since finishing later can pay off there (earliness, churn, robustness, setups,
+due-date mixes).
 
 Zero-length operations (TF-002 review item 2): CP-SAT's `AddNoOverlap` lets a zero-size
 interval touch another interval's start or end but never sit strictly inside it, which
@@ -63,13 +94,14 @@ from __future__ import annotations
 import importlib
 import math
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from itertools import permutations
 from typing import Any, Literal
 
+from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.kernel.index import DEFAULT_CLASS_WEIGHTS
 from twinflow.scheduling.model import (
     Assignment,
@@ -85,6 +117,7 @@ from twinflow.scheduling.model import (
     Operation,
     PreviousPlan,
     Problem,
+    ProcessingOption,
     Schedule,
     ScheduleIssue,
     SchedulingProfile,
@@ -99,6 +132,7 @@ from twinflow.scheduling.objectives import (
 from twinflow.scheduling.registry import SolverSpec
 from twinflow.scheduling.seam import Feature, OptionalDependencyError, SolveContext
 from twinflow.scheduling.setups import SetupTable
+from twinflow.scheduling.verifier import verify
 
 SCALE = 1_000_000
 """Ticks per second: CP-SAT works on integers, times are float seconds."""
@@ -117,6 +151,15 @@ BOUND_SLACK = 1e-6
 LINEARIZATION_LEVEL = 2
 """CP-SAT's full LP relaxation: on mixed objectives over alternatives, setups and pool
 fences the default level (1) left small instances unproven where level 2 proves them."""
+MAX_MACHINE_OPTIONS = 300
+"""More options than this on one machine is `model_too_large` (D-075)."""
+MAX_CIRCUIT_ARCS = 2_000_000
+"""More circuit arcs than this over all sequenced machines is `model_too_large` (D-075)."""
+HINT_BUDGET_SHARE = 0.25
+"""Most of the remaining budget the hint completion solve may use (wall clock)."""
+HINT_DETERMINISTIC_TIME = 2.0
+"""CP-SAT deterministic-time cap of the hint completion solve, so it stops at the same point
+on every run with one worker."""
 SOLVER_NAME = "ortools"
 OBJECTIVE_PATH = "profile.objective"
 CAPABILITIES = frozenset(
@@ -131,6 +174,9 @@ CAPABILITIES = frozenset(
         Feature.MACHINE_STATE,
         Feature.SETUPS,
         Feature.DETACHED_SETUP,
+        Feature.OVERLAP,
+        Feature.RESTART,
+        Feature.BATCHING,
     }
 )
 
@@ -157,6 +203,10 @@ def _machine_ids(op: Operation) -> list[str]:
     """Option machines of a pending operation; a pinned machine keeps only its own option."""
     pin_machine = op.pin.machine_id if op.pin else None
     return [o.machine_id for o in op.options if pin_machine in (None, o.machine_id)]
+
+
+def _option(op: Operation, machine_id: str) -> ProcessingOption | None:
+    return next((o for o in op.options if o.machine_id == machine_id), None)
 
 
 def _run_ticks(op: Operation, machine_id: str) -> int:
@@ -203,6 +253,43 @@ def _magnitude_refusals(
     return []
 
 
+def _size_refusals(
+    problem: Problem, scheduled: Sequence[tuple[Job, Operation]]
+) -> list[ScheduleIssue]:
+    """`model_too_large` when a machine has too many options or the circuits too many arcs.
+
+    One pass over the pending operations' options; a sequenced machine (setup function or
+    restart rule) contributes (n + 1)^2 arcs for n options (depot, self loops, pairs).
+    """
+    counts: Counter[str] = Counter(
+        machine_id
+        for _, op in scheduled
+        if op.status.state != "in_progress"
+        for machine_id in _machine_ids(op)
+    )
+    for m, machine in enumerate(problem.machines):
+        if counts[machine.id] > MAX_MACHINE_OPTIONS:
+            message = (
+                f"machine {machine.id} has {counts[machine.id]} options "
+                f"(limit {MAX_MACHINE_OPTIONS})"
+            )
+            return [_too_large(f"problem.machines[{m}]", message)]
+    table = SetupTable.for_problem(problem)
+    arcs = sum(
+        (counts[m.id] + 1) ** 2
+        for m in problem.machines
+        if counts[m.id] and (m.restart is not None or table.function_for(m.id) is not None)
+    )
+    if arcs > MAX_CIRCUIT_ARCS:
+        message = f"the setup circuits need {arcs} arcs (limit {MAX_CIRCUIT_ARCS})"
+        return [_too_large("problem.machines", message)]
+    return []
+
+
+def _too_large(path: str, message: str) -> ScheduleIssue:
+    return ScheduleIssue(code="model_too_large", path=path, message=message)
+
+
 def _run_values(problem: Problem) -> Iterator[tuple[str, float]]:
     """Per operation, the sum of its option runs `fixed + quantity * unit`."""
     for j, job in enumerate(problem.jobs):
@@ -218,6 +305,10 @@ def _time_values(problem: Problem, context: SolveContext) -> Iterator[tuple[str,
         yield "problem.horizon_end", problem.horizon_end
     for m, machine in enumerate(problem.machines):
         yield f"problem.machines[{m}].state.available_from", machine.state.available_from
+        if machine.restart is not None:
+            path = f"problem.machines[{m}].restart"
+            yield f"{path}.idle_threshold_seconds", machine.restart.idle_threshold_seconds
+            yield f"{path}.warmup_seconds", machine.restart.warmup_seconds
     for c, calendar in enumerate(problem.calendars):
         for k, (start, end) in enumerate(calendar.intervals):
             yield f"problem.calendars[{c}].intervals[{k}][0]", start
@@ -332,9 +423,10 @@ def _safe_horizon(
     Fixed times are now, releases, ready times, dues, previous-plan starts, machine
     availability, pins, calendar ends and in-progress ends (dues and previous starts
     because earliness and churn reward waiting for them); all work is every operation's
-    longest option with its largest setup plus every min lag. Used when
+    longest option with its largest setup and warm-up plus every min lag. Used when
     `problem.horizon_end` is not set.
     """
+    warmups = {m.id: m.restart.warmup_seconds for m in problem.machines if m.restart}
     anchors = [problem.now, *(m.state.available_from for m in problem.machines)]
     anchors += [end for calendar in problem.calendars for _, end in calendar.intervals]
     anchors += [job.due for job, _ in scheduled if job.due is not None]
@@ -348,6 +440,7 @@ def _safe_horizon(
         anchors.append(problem.now + (op.status.remaining_seconds or 0.0))
         work += max(o.fixed_seconds + op.quantity * o.unit_seconds for o in op.options)
         work += sum(link.min_lag for link in op.predecessors)
+        work += max((warmups.get(m, 0.0) for m in _machine_ids(op)), default=0.0)
         if op.status.state != "in_progress":
             machine_setups = [setups[m].most[op.id] for m in _machine_ids(op) if m in setups]
             setup_ticks += max(machine_setups, default=0)
@@ -385,13 +478,25 @@ def _breaks(intervals: Sequence[TickInterval], high: int) -> list[TickInterval]:
 
 @dataclass(slots=True)
 class _Choice:
-    """One option of a placed operation: its machine, presence, run, setup and occupation."""
+    """One option of a placed operation.
+
+    `phase` is the setup phase in ticks (setup + warm * warm-up, or 0); `interval` the
+    operation's occupation for operator pools; `active` and `block` the node literal and
+    interval the machine sequences (the presence and `interval`, except on a batch machine
+    where only a batch leader occupies the machine). `links` pairs each batch the option
+    may belong to (by leader operation id) with its literal.
+    """
 
     machine_id: str
     presence: Any
     run: int
     setup: Any
+    warm: Any
+    phase: Any
     interval: Any
+    active: Any = None
+    block: Any = None
+    links: list[tuple[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -405,6 +510,11 @@ class _Placed:
     gate: Any
     end: Any
     choices: list[_Choice]
+
+
+def _setup_signature(op: Operation) -> tuple[object, ...]:
+    """What setups read of an operation (D-064): equal signatures mean equal setups."""
+    return (op.setup_family, tuple(sorted(op.setup_params.items())))
 
 
 @dataclass
@@ -427,6 +537,8 @@ class _Builder:
     machines: dict[str, Machine] = field(default_factory=dict)
     calendars: dict[str, list[TickInterval]] = field(default_factory=dict)
     pool_calendars: dict[str, str | None] = field(default_factory=dict)
+    arcs: dict[tuple[str, str | None, str | None], Any] = field(default_factory=dict)
+    """Circuit literals by (machine, previous op or None for the depot, next op or None)."""
 
     def at(self, seconds: float) -> int:
         """Model ticks of an absolute time in seconds."""
@@ -450,8 +562,13 @@ class _Builder:
         for placed in self.placed.values():
             if placed.op.status.state != "in_progress":
                 self._add_precedence(placed)
+        self._add_batches()
         self._add_machines()
         self._add_pools()
+
+    def sequenced(self, machine_id: str) -> bool:
+        """A machine whose options are ordered by a circuit: setups or a restart rule."""
+        return machine_id in self.setups or self.machines[machine_id].restart is not None
 
     # operations
 
@@ -464,16 +581,16 @@ class _Builder:
         for need in op.operator_needs:
             if need.phase in ("run", "both"):
                 self.pool_usage[need.pool_id].append((interval, need.quantity))
-        choice = _Choice(machine_id, 1, remaining, 0, interval)
+        choice = _Choice(machine_id, 1, remaining, 0, 0, 0, interval)
         self.placed[op.id] = _Placed(job, op, 0, 0, 0, remaining, [choice])
 
     def _add_pending(self, job: Job, op: Operation) -> None:
-        """Start, options and end; a setup end and an end variable only with setups."""
+        """Start, options and end; a setup end and an end variable only with a phase."""
         start = self.model.NewIntVar(0, self.horizon, f"start_{op.id}")
         machine_ids = _machine_ids(op)
-        has_setup = any(m in self.setups for m in machine_ids)
+        has_phase = any(self.sequenced(m) for m in machine_ids)
         setup_end, end = start, None
-        if has_setup:
+        if has_phase:
             setup_end = self.model.NewIntVar(0, self.horizon, f"setup_end_{op.id}")
             end = self.model.NewIntVar(0, self.horizon, f"end_{op.id}")
         gate = setup_end if op.setup_detached else start
@@ -482,8 +599,8 @@ class _Builder:
         choices = placed.choices
         self.model.AddExactlyOne(c.presence for c in choices)
         runs = sum(c.run * c.presence for c in choices)
-        if has_setup:
-            self.model.Add(setup_end == start + sum(c.setup for c in choices))
+        if has_phase:
+            self.model.Add(setup_end == start + sum(c.phase for c in choices))
             self.model.Add(end == setup_end + runs)
         else:
             placed.end = start + runs
@@ -501,30 +618,51 @@ class _Builder:
             self.model.Add(placed.start <= self.at(op.pin.latest_start))
 
     def _add_option(self, placed: _Placed, machine_id: str) -> _Choice:
-        """The option's presence, setup, occupation, machine availability and operator needs."""
-        op, start, end = placed.op, placed.start, placed.end
+        """The option's presence, phase, occupation, machine availability and operator needs."""
+        op, start = placed.op, placed.start
         presence = self.model.NewBoolVar(f"on_{op.id}_{machine_id}")
         run = _run_ticks(op, machine_id)
-        setups = self.setups.get(machine_id)
-        if setups is None:
-            setup: Any = 0
+        if self.sequenced(machine_id):
+            choice = self._phased_choice(placed, machine_id, presence, run)
+        else:
             interval = self.model.NewOptionalFixedSizeIntervalVar(
                 start, run, presence, f"run_{op.id}_{machine_id}"
             )
-        else:
-            setup = self.model.NewIntVar(0, setups.most[op.id], f"setup_{op.id}_{machine_id}")
-            self.model.Add(setup == 0).OnlyEnforceIf(presence.Not())
-            interval = self.model.NewOptionalIntervalVar(
-                start, setup + run, end, presence, f"busy_{op.id}_{machine_id}"
-            )
+            choice = _Choice(machine_id, presence, run, 0, 0, 0, interval)
+        choice.active, choice.block = presence, choice.interval
         available_from = self.machines[machine_id].state.available_from
         self.model.Add(start >= self.at(available_from)).OnlyEnforceIf(presence)
-        choice = _Choice(machine_id, presence, run, setup, interval)
         self.machine_choices[machine_id].append((placed, choice))
         self._add_needs(placed, choice)
         if run == 0:
             self._add_zero_length_starts(placed, choice)
         return choice
+
+    def _phased_choice(self, placed: _Placed, machine_id: str, presence: Any, run: int) -> _Choice:
+        """An option with a setup variable (setup function) and a warm literal (restart)."""
+        op, model = placed.op, self.model
+        setups = self.setups.get(machine_id)
+        rule = self.machines[machine_id].restart
+        setup: Any = 0
+        if setups is not None:
+            setup = model.NewIntVar(0, setups.most[op.id], f"setup_{op.id}_{machine_id}")
+            model.Add(setup == 0).OnlyEnforceIf(presence.Not())
+        warm: Any = 0
+        if rule is not None:
+            warm = model.NewBoolVar(f"warm_{op.id}_{machine_id}")
+            model.AddImplication(warm, presence)
+        phase: Any = setup
+        if rule is not None and setups is not None:
+            # An interval size must be affine: one variable carries setup + warm-up.
+            warmup = _ticks(rule.warmup_seconds)
+            phase = model.NewIntVar(0, setups.most[op.id] + warmup, f"phase_{op.id}_{machine_id}")
+            model.Add(phase == setup + warmup * warm)
+        elif rule is not None:
+            phase = _ticks(rule.warmup_seconds) * warm
+        interval = model.NewOptionalIntervalVar(
+            placed.start, phase + run, placed.end, presence, f"busy_{op.id}_{machine_id}"
+        )
+        return _Choice(machine_id, presence, run, setup, warm, phase, interval)
 
     def _add_needs(self, placed: _Placed, choice: _Choice) -> None:
         """Pool capacity per need phase; every drawing option joins its pools' fences."""
@@ -539,24 +677,24 @@ class _Builder:
         if phase == "both":
             return choice.interval
         name = f"{phase}_{placed.op.id}_{choice.machine_id}"
-        if phase == "run" and isinstance(choice.setup, int):
+        if phase == "run" and isinstance(choice.phase, int):
             return choice.interval
         if phase == "run":
             return self.model.NewOptionalFixedSizeIntervalVar(
                 placed.setup_end, choice.run, choice.presence, name
             )
-        if isinstance(choice.setup, int):
+        if isinstance(choice.phase, int):
             return None
         return self.model.NewOptionalIntervalVar(
-            placed.start, choice.setup, placed.setup_end, choice.presence, name
+            placed.start, choice.phase, placed.setup_end, choice.presence, name
         )
 
     def _add_zero_length_starts(self, placed: _Placed, choice: _Choice) -> None:
         """An empty span must start at a working instant of the machine and pool calendars.
 
         `AddNoOverlap` already keeps it out of a break's inside; this also rejects the break's
-        first instant, which is not working either. With setups the rule applies only when
-        the setup is 0 too, read by a literal tied to the setup variable.
+        first instant, which is not working either. With a setup phase the rule applies only
+        when the phase is 0 too, read by a literal tied to the phase.
         """
         calendar_ids = [self.machines[choice.machine_id].calendar_id]
         calendar_ids += [self.pool_calendars[n.pool_id] for n in placed.op.operator_needs]
@@ -564,10 +702,10 @@ class _Builder:
         if not calendars:
             return
         enforced = [choice.presence]
-        if not isinstance(choice.setup, int):
+        if not isinstance(choice.phase, int):
             empty = self.model.NewBoolVar(f"empty_{placed.op.id}_{choice.machine_id}")
-            self.model.Add(choice.setup == 0).OnlyEnforceIf(empty)
-            self.model.Add(choice.setup >= 1).OnlyEnforceIf(empty.Not())
+            self.model.Add(choice.phase == 0).OnlyEnforceIf(empty)
+            self.model.Add(choice.phase >= 1).OnlyEnforceIf(empty.Not())
             enforced.append(empty)
         for intervals in calendars:
             working = [[lo, hi - 1] for lo, hi in intervals if hi > lo]
@@ -575,14 +713,103 @@ class _Builder:
             self.model.AddLinearExpressionInDomain(placed.start, domain).OnlyEnforceIf(enforced)
 
     def _add_precedence(self, placed: _Placed) -> None:
-        """End-to-gate lags from every placed predecessor (done ones count as finished)."""
+        """Lags from every placed predecessor (done ones count as finished) to the gate.
+
+        Without overlap the lags run from the predecessor's end; with a transfer lot q from
+        pred.setup_end + pred.fixed + q * pred.unit, and the last lot bounds the end.
+        """
         for link in placed.op.predecessors:
             pred = self.placed.get(link.operation_id)
             if pred is None:
                 continue
-            self.model.Add(placed.gate >= pred.end + _ticks(link.min_lag))
+            ready = pred.end
+            if link.overlap_quantity is not None:
+                transfer = self._transfer(pred, link.overlap_quantity)
+                if transfer is None:
+                    continue  # no option row for an in-progress machine: nothing to check
+                ready = pred.setup_end + transfer
+                lot = sum(
+                    _ticks(link.overlap_quantity * _unit(placed.op, c.machine_id)) * c.presence
+                    for c in placed.choices
+                )
+                self.model.Add(placed.end >= pred.end + lot)
+            self.model.Add(placed.gate >= ready + _ticks(link.min_lag))
             if link.max_lag is not None:
-                self.model.Add(placed.gate <= pred.end + _ticks(link.max_lag))
+                self.model.Add(placed.gate <= ready + _ticks(link.max_lag))
+
+    def _transfer(self, pred: _Placed, quantity: float) -> Any:
+        """Ticks from pred.setup_end to its first transfer lot, over its chosen option."""
+        terms = []
+        for choice in pred.choices:
+            option = _option(pred.op, choice.machine_id)
+            if option is None:
+                return None
+            lot = _ticks(option.fixed_seconds + quantity * option.unit_seconds)
+            terms.append(lot * choice.presence)
+        return sum(terms)
+
+    # batches
+
+    def _add_batches(self) -> None:
+        """Leader / member literals on every batch machine (module docstring)."""
+        for machine in self.problem.machines:
+            if machine.batch is None:
+                continue
+            groups: dict[tuple[object, ...], list[tuple[_Placed, _Choice]]] = defaultdict(list)
+            for placed, choice in self.machine_choices.get(machine.id, []):
+                family = placed.op.batch_family
+                if family is None:
+                    continue
+                signature = _setup_signature(placed.op) if machine.id in self.setups else ()
+                groups[family, choice.run, signature].append((placed, choice))
+            capacity = math.floor(machine.batch.capacity * MICRO + BOUND_SLACK)
+            for group in groups.values():
+                self._add_batch_group(group, capacity)
+
+    def _add_batch_group(self, group: Sequence[tuple[_Placed, _Choice]], capacity: int) -> None:
+        """Each option leads a batch or joins one led by an earlier option of the group."""
+        model = self.model
+        loads: list[list[Any]] = []
+        for k, (placed, choice) in enumerate(group):
+            leader = model.NewBoolVar(f"leads_{placed.op.id}_{choice.machine_id}")
+            choice.links = [(placed.op.id, leader)]
+            for j, (head, head_choice) in enumerate(group[:k]):
+                joins = model.NewBoolVar(f"joins_{placed.op.id}_{head.op.id}")
+                model.AddImplication(joins, head_choice.active)
+                self._share_times(placed, choice, head, head_choice, joins)
+                choice.links.append((head.op.id, joins))
+                loads[j].append(_quantity(placed.op) * joins)
+            model.Add(sum(lit for _, lit in choice.links) == choice.presence)
+            choice.active = leader
+            choice.block = self._leader_block(placed, choice, leader)
+            loads.append([_quantity(placed.op) * leader])
+        for (_, choice), load in zip(group, loads, strict=True):
+            model.Add(sum(load) <= capacity * choice.active)
+
+    def _share_times(
+        self, member: _Placed, choice: _Choice, head: _Placed, head_choice: _Choice, joins: Any
+    ) -> None:
+        """A member has its leader's start, setup end, end, setup and warm-up."""
+        pairs = [
+            (member.start, head.start),
+            (member.setup_end, head.setup_end),
+            (member.end, head.end),
+            (choice.setup, head_choice.setup),
+            (choice.warm, head_choice.warm),
+        ]
+        for mine, theirs in pairs:
+            if not (isinstance(mine, int) and isinstance(theirs, int)):
+                self.model.Add(mine == theirs).OnlyEnforceIf(joins)
+
+    def _leader_block(self, placed: _Placed, choice: _Choice, leader: Any) -> Any:
+        """The machine occupation of a batch: the leader's span, present when it leads."""
+        name = f"batch_{placed.op.id}_{choice.machine_id}"
+        if isinstance(choice.phase, int):
+            interval = self.model.NewOptionalFixedSizeIntervalVar
+            return interval(placed.start, choice.run, leader, name)
+        return self.model.NewOptionalIntervalVar(
+            placed.start, choice.phase + choice.run, placed.end, leader, name
+        )
 
     # resources
 
@@ -604,38 +831,61 @@ class _Builder:
             for placed, choice in members:
                 if floor is not None:
                     self.model.Add(placed.start >= floor).OnlyEnforceIf(choice.presence)
-            intervals = [choice.interval for _, choice in members]
+            intervals = [choice.block for _, choice in members]
             self.model.AddNoOverlap(intervals + self._break_intervals(machine.calendar_id))
-            if machine.id in self.setups and members:
-                self._add_circuit(self.setups[machine.id], members)
+            if self.sequenced(machine.id) and members:
+                self._add_circuit(machine, members)
 
-    def _add_circuit(
-        self, setups: _MachineSetups, members: Sequence[tuple[_Placed, _Choice]]
-    ) -> None:
-        """Sequence the machine's options from a depot node 0 (the machine state, D-075).
+    def idle_base(self, machine: Machine) -> int:
+        """Where the first idle runs from: the in-progress end, else max(now, available_from)."""
+        floor = self.machine_floor.get(machine.id)
+        if floor is not None:
+            return floor
+        return max(0, self.at(machine.state.available_from))
 
-        An arc into an option fixes its setup; an arc between options also orders them.
-        Two zero-length runs at one instant follow the verifier's order (operation id).
+    def _add_circuit(self, machine: Machine, members: Sequence[tuple[_Placed, _Choice]]) -> None:
+        """Sequence the machine's active options from a depot node 0 (the machine state, D-075).
+
+        An arc into an option fixes its setup and its warm-up; an arc between options also
+        orders them. Two zero-length runs at one instant follow the verifier's order
+        (operation id).
         """
-        model = self.model
-        empty = model.NewBoolVar("idle")
-        arcs: list[tuple[int, int, Any]] = [(0, 0, empty)]
+        model, setups = self.model, self.setups.get(machine.id)
+        unused = model.NewBoolVar(f"unused_{machine.id}")
+        arcs: list[tuple[int, int, Any]] = [(0, 0, unused)]
+        base = self.idle_base(machine)
         for node, (placed, choice) in enumerate(members, start=1):
-            model.AddImplication(choice.presence, empty.Not())
-            arcs.append((node, node, choice.presence.Not()))
+            model.AddImplication(choice.active, unused.Not())
+            arcs.append((node, node, choice.active.Not()))
             first, last = model.NewBoolVar("first"), model.NewBoolVar("last")
-            model.Add(choice.setup == setups.first[placed.op.id]).OnlyEnforceIf(first)
+            if setups is not None:
+                model.Add(choice.setup == setups.first[placed.op.id]).OnlyEnforceIf(first)
+            self._add_idle(machine, choice, placed.start - base, first)
             arcs += [(0, node, first), (node, 0, last)]
+            self.arcs[machine.id, None, placed.op.id] = first
+            self.arcs[machine.id, placed.op.id, None] = last
         nodes = list(enumerate(members, start=1))
         for (i, (a, choice_a)), (j, (b, choice_b)) in permutations(nodes, 2):
             follows = model.NewBoolVar("follows")
             model.Add(b.start >= a.end).OnlyEnforceIf(follows)
-            setup = setups.between[a.op.id, b.op.id]
-            model.Add(choice_b.setup == setup).OnlyEnforceIf(follows)
+            if setups is not None:
+                setup = setups.between[a.op.id, b.op.id]
+                model.Add(choice_b.setup == setup).OnlyEnforceIf(follows)
             if choice_a.run == 0 and choice_b.run == 0 and a.op.id > b.op.id:
                 model.Add(b.end >= a.start + 1).OnlyEnforceIf(follows)
+            self._add_idle(machine, choice_b, b.start - a.end, follows)
             arcs.append((i, j, follows))
+            self.arcs[machine.id, a.op.id, b.op.id] = follows
         model.AddCircuit(arcs)
+
+    def _add_idle(self, machine: Machine, choice: _Choice, idle: Any, arc: Any) -> None:
+        """Restart (D-074) on an arc: warm iff idle passes the threshold (strictly)."""
+        rule = machine.restart
+        if rule is None:
+            return
+        threshold = _ticks(rule.idle_threshold_seconds)
+        self.model.Add(idle >= threshold + 1).OnlyEnforceIf([arc, choice.warm])
+        self.model.Add(idle <= threshold).OnlyEnforceIf([arc, choice.warm.Not()])
 
     def _add_pools(self) -> None:
         """Capacity per pool, plus a fence keeping members out of the pool's breaks.
@@ -653,6 +903,16 @@ class _Builder:
             if members and breaks:
                 n = len(members)
                 self.model.AddCumulative(members + breaks, [1] * n + [n] * len(breaks), n)
+
+
+def _unit(op: Operation, machine_id: str) -> float:
+    option = next(o for o in op.options if o.machine_id == machine_id)
+    return option.unit_seconds
+
+
+def _quantity(op: Operation) -> int:
+    """Quantity in integer millionths of the batch unit, rounded up (never under-counts)."""
+    return math.ceil(op.quantity * MICRO - BOUND_SLACK)
 
 
 # --- objectives -----------------------------------------------------------------------------
@@ -848,13 +1108,21 @@ class _Terms:
         )
         return _Linear(terms, SCALE * MICRO, 1.0, denominator)
 
+    def _phase_terms(self, choice: _Choice, coefficient: int) -> list[tuple[int, Any, int]]:
+        """coefficient * (setup + warm * warm-up) of one option, as terms over its variables."""
+        terms: list[tuple[int, Any, int]] = []
+        if not isinstance(choice.setup, int):
+            terms.append((coefficient, choice.setup, self.reach))
+        if not isinstance(choice.warm, int):
+            rule = self.builder.machines[choice.machine_id].restart
+            warmup = _ticks(rule.warmup_seconds) if rule is not None else 0
+            terms.append((coefficient * warmup, choice.warm, 1))
+        return terms
+
     def _total_setup(self) -> _Linear:
-        terms = tuple(
-            (1, choice.setup, self.reach)
-            for _, choice in self._choices()
-            if not isinstance(choice.setup, int)
-        )
-        return _Linear(terms, SCALE)
+        """sum (setup_end - start): the setup phase, warm-up included (D-074)."""
+        terms = [t for _, choice in self._choices() for t in self._phase_terms(choice, 1)]
+        return _Linear(tuple(terms), SCALE)
 
     def _cost(self) -> _Linear:
         """sum (run seconds * hour_cost + setup seconds * setup_hour_cost) / 3600."""
@@ -867,9 +1135,9 @@ class _Terms:
                 constant += _seconds(choice.run) * machine.hour_cost / SECONDS_PER_HOUR
                 continue
             terms.append((choice.run * hour_cost, choice.presence, 1))
-            if not isinstance(choice.setup, int):
+            if not isinstance(choice.phase, int):
                 setup_cost = _micro(machine.setup_hour_cost, f"machine {machine.id} setup cost")
-                terms.append((setup_cost, choice.setup, self.reach))
+                terms += self._phase_terms(choice, setup_cost)
         return _Linear(tuple(terms), SCALE * MICRO * round(SECONDS_PER_HOUR), constant)
 
     def _soft_penalty(self) -> _Linear:
@@ -1005,6 +1273,128 @@ def _single_stage(
     return _Stage(_signed(kind, terms.linear(kind)), level, kind)
 
 
+# --- warm start and horizon cap -------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class _ModelInput:
+    """Everything a model build reads besides the horizon."""
+
+    problem: Problem
+    scheduled: Sequence[tuple[Job, Operation]]
+    setups: Mapping[str, _MachineSetups]
+    objective: ObjectiveSpec
+    context: SolveContext
+    hint: Schedule | None
+
+
+def _hint_schedule(
+    problem: Problem, objective: ObjectiveSpec, context: SolveContext, stop_at: float
+) -> Schedule | None:
+    """`context.warm_start`, else the baseline's plan within the deadline (TF-002 item 3)."""
+    if context.warm_start is not None:
+        return context.warm_start
+    baseline = BaselineSolver().solve(
+        problem,
+        objective=objective,
+        budget_seconds=max(stop_at - time.monotonic(), 0.0),
+        context=replace(context, deadline=stop_at),
+    )
+    return baseline if baseline.status == "FEASIBLE" else None
+
+
+def _makespan_only(spec: ObjectiveSpec) -> bool:
+    """True when the spec optimizes makespan alone: nothing can gain from finishing later."""
+    if isinstance(spec, Lexicographic):
+        return len(spec.levels) == 1 and spec.levels[0].kind == ObjectiveKind.MAKESPAN
+    if isinstance(spec, EpsilonConstraint):
+        return False
+    weighted = [term for term in spec.terms if term.weight > 0]
+    return len(weighted) == 1 and weighted[0].kind == ObjectiveKind.MAKESPAN
+
+
+def _makespan_cap(problem: Problem, objective: ObjectiveSpec, hint: Schedule | None) -> int | None:
+    """The hint's last end in absolute ticks, when the objective is makespan alone and the
+    hint verifies; None otherwise. An optimal plan never ends later than a verified one."""
+    if hint is None or not _makespan_only(objective):
+        return None
+    compiled = CompiledProblem(problem=problem, profile=SchedulingProfile())
+    unvalued = hint.model_copy(update={"primary_value": None})
+    if not verify(compiled, (), unvalued).valid:
+        return None
+    return max((_ticks(a.end) for a in hint.assignments), default=_ticks(problem.now))
+
+
+def _add_hints(builder: _Builder, hint: Schedule) -> None:
+    """Hint option presences, then each machine's sequence (D-075, T-138).
+
+    Starts are not hinted: a float plan's times rounded to ticks disagree by a tick with
+    the model's sums of rounded setups and runs, which made the whole hint infeasible and
+    left CP-SAT without a plan on short budgets; presences, arcs, warm-ups and batch links
+    fix the plan's structure and propagation finds its starts.
+    """
+    model = builder.model
+    by_op = {a.operation_id: a for a in hint.assignments}
+    for placed in builder.placed.values():
+        assignment = by_op.get(placed.op.id)
+        if assignment is None or placed.op.status.state == "in_progress":
+            continue
+        for choice in placed.choices:
+            model.AddHint(choice.presence, int(choice.machine_id == assignment.machine_id))
+    for machine_id, members in builder.machine_choices.items():
+        chosen = [
+            (placed, choice, by_op[placed.op.id])
+            for placed, choice in members
+            if placed.op.id in by_op and by_op[placed.op.id].machine_id == machine_id
+        ]
+        blocks = _hint_batches(model, chosen)
+        if builder.sequenced(machine_id):
+            _hint_circuit(builder, builder.machines[machine_id], blocks)
+
+
+_HintBlock = list[tuple[_Placed, _Choice, Assignment]]
+
+
+def _hint_batches(
+    model: Any, chosen: Sequence[tuple[_Placed, _Choice, Assignment]]
+) -> list[_HintBlock]:
+    """Group the hint's assignments into machine blocks; hint batch leader and member links.
+
+    The leader of a hinted batch is its first member in model order, as in the model.
+    """
+    blocks: dict[str, _HintBlock] = {}
+    for placed, choice, assignment in chosen:
+        key = assignment.batch_id or f"op:{placed.op.id}"
+        block = blocks.setdefault(key, [])
+        leader_id = block[0][0].op.id if block else placed.op.id
+        link = next((lit for head, lit in choice.links if head == leader_id), None)
+        if link is not None:
+            model.AddHint(link, 1)
+        block.append((placed, choice, assignment))
+    return sorted(blocks.values(), key=lambda b: (b[0][2].start, b[0][2].end, b[0][0].op.id))
+
+
+def _hint_circuit(builder: _Builder, machine: Machine, blocks: Sequence[_HintBlock]) -> None:
+    """Hint the circuit arcs along the hinted order and each block's warm-up literals."""
+    model, rule = builder.model, machine.restart
+    previous: str | None = None
+    idle_since = builder.idle_base(machine)
+    for block in blocks:
+        head, _, assignment = block[0]
+        arc = builder.arcs.get((machine.id, previous, head.op.id))
+        if arc is not None:
+            model.AddHint(arc, 1)
+        start = builder.at(assignment.start)
+        if rule is not None:
+            warm = int(start - idle_since > _ticks(rule.idle_threshold_seconds))
+            for _, choice, _ in block:
+                model.AddHint(choice.warm, warm)
+        previous, idle_since = head.op.id, builder.at(assignment.end)
+    last = builder.arcs.get((machine.id, previous, None))
+    if previous is not None and last is not None:
+        model.AddHint(last, 1)
+
+
 # --- solver -----------------------------------------------------------------------------------
 
 
@@ -1057,15 +1447,16 @@ class ORToolsSolver:
     ) -> Schedule:
         """Optimize `objective` within the budget and `context.deadline`, whichever is first.
 
-        UNKNOWN with `unsupported_precision` or `unsupported_magnitude` when refused;
-        INFEASIBLE with `infeasible`; UNKNOWN with `time_limit` when time ran out before
-        any plan. A model CP-SAT finds invalid is a bug and raises.
+        UNKNOWN with `unsupported_precision`, `model_too_large` or `unsupported_magnitude`
+        when refused (in that order, all before a model is built); INFEASIBLE with
+        `infeasible`; UNKNOWN with `time_limit` when time ran out before any plan. A model
+        CP-SAT finds invalid is a bug and raises.
         """
         started = time.perf_counter()
-        refusals = _precision_refusals(problem, context)
+        scheduled = _scheduled(problem)
+        refusals = _precision_refusals(problem, context) or _size_refusals(problem, scheduled)
         if refusals:
             return _schedule("UNKNOWN", started, issues=refusals)
-        scheduled = _scheduled(problem)
         setups = _setup_tables(problem, scheduled)
         horizon = _horizon(problem, scheduled, setups, context.previous_plan)
         refusals = _magnitude_refusals(problem, context, horizon, setups)
@@ -1074,17 +1465,13 @@ class ORToolsSolver:
         stop_at = min(time.monotonic() + budget_seconds, context.deadline)
         if stop_at <= time.monotonic():
             return _schedule("UNKNOWN", started, issues=[_time_limit()])
-        origin = _ticks(problem.now)
-        builder = _Builder(self._cp_model, problem, horizon - origin, origin, setups)
-        builder.build(scheduled)
-        try:
-            plan = _plan(objective, _Terms(builder, context))
-        except _Unrepresentable as error:
-            issue = ScheduleIssue(
-                code="unsupported_precision", path=OBJECTIVE_PATH, message=str(error)
-            )
-            return _schedule("UNKNOWN", started, issues=[issue])
-        outcome = self._run(builder, plan, stop_at)
+        hint = _hint_schedule(problem, objective, context, stop_at)
+        cap = _makespan_cap(problem, objective, hint)
+        capped = horizon if cap is None else min(horizon, cap)
+        model = _ModelInput(problem, scheduled, setups, objective, context, hint)
+        outcome = self._optimize(model, capped, stop_at)
+        if outcome.status == "INFEASIBLE" and capped < horizon:
+            outcome = self._optimize(model, horizon, stop_at)  # tick rounding broke the cap
         if outcome.status not in ("OPTIMAL", "FEASIBLE"):
             return _schedule(
                 outcome.status, started, issues=outcome.issues, best_bound=outcome.best_bound
@@ -1098,8 +1485,58 @@ class ORToolsSolver:
             best_bound=outcome.best_bound,
         )
 
-    def _run(self, builder: _Builder, plan: _Plan, stop_at: float) -> _Outcome:
-        """Solve the stages in order; a later stage keeps earlier levels within tolerance."""
+    def _optimize(self, model: _ModelInput, horizon: int, stop_at: float) -> _Outcome:
+        """Build the model with this horizon (absolute ticks), hint it and run the stages."""
+        origin = _ticks(model.problem.now)
+        builder = _Builder(self._cp_model, model.problem, horizon - origin, origin, model.setups)
+        builder.build(model.scheduled)
+        try:
+            plan = _plan(model.objective, _Terms(builder, model.context))
+        except _Unrepresentable as error:
+            issue = ScheduleIssue(
+                code="unsupported_precision", path=OBJECTIVE_PATH, message=str(error)
+            )
+            return _Outcome("UNKNOWN", issues=[issue])
+        if model.hint is not None:
+            _add_hints(builder, model.hint)
+        return self._run(builder, plan, stop_at, hinted=model.hint is not None)
+
+    def _complete_hint(self, builder: _Builder, stop_at: float) -> list[Assignment]:
+        """Turn the structural hint into a complete one; its plan, or [] (T-138).
+
+        A partial hint is dropped by CP-SAT after a few conflicts, which left 40-job models
+        without any plan in 5 s. One solve with the hinted literals fixed finds the hint's
+        starts in milliseconds; its full assignment is then the hint the stages start from,
+        and its plan the answer when the first stage finds none in time (a 200-operation
+        model can spend the whole budget in presolve).
+        """
+        limit = HINT_BUDGET_SHARE * (stop_at - time.monotonic())
+        if limit <= 0:
+            return []
+        cp_solver = self._cp_solver(limit)
+        cp_solver.parameters.fix_variables_to_their_hinted_value = True
+        cp_solver.parameters.max_deterministic_time = HINT_DETERMINISTIC_TIME
+        status = self._status(cp_solver.Solve(builder.model), builder.model)
+        if status not in ("OPTIMAL", "FEASIBLE"):
+            return []
+        _hint_solution(builder.model, cp_solver)
+        return _assignments(cp_solver, builder)
+
+    def _cp_solver(self, limit: float) -> Any:
+        """A CP-SAT solver with this time limit and the adapter's workers, seed and LP level."""
+        cp_solver = self._cp_model.CpSolver()
+        cp_solver.parameters.max_time_in_seconds = limit
+        cp_solver.parameters.num_workers = self._workers
+        cp_solver.parameters.random_seed = self._seed
+        cp_solver.parameters.linearization_level = LINEARIZATION_LEVEL
+        return cp_solver
+
+    def _run(self, builder: _Builder, plan: _Plan, stop_at: float, *, hinted: bool) -> _Outcome:
+        """Solve the stages in order; a later stage keeps earlier levels within tolerance.
+
+        A hinted model is first completed under the hard bounds (`_complete_hint`); that plan
+        is kept as the answer if the first stage finds nothing.
+        """
         forms = [_integer_form(stage.objective) for stage in plan.stages]
         bounds = [(_integer_form(linear), upper) for linear, upper in plan.bounds]
         refused = [f for f in (*forms, *(f for f, _ in bounds)) if isinstance(f, ScheduleIssue)]
@@ -1114,6 +1551,8 @@ class ORToolsSolver:
             if isinstance(form, _IntegerForm)
         ]
         outcome = _Outcome("OPTIMAL")
+        if hinted:
+            outcome.assignments = self._complete_hint(builder, stop_at)
         for k, (stage, form) in enumerate(stages):
             limit = (stop_at - time.monotonic()) / (len(stages) - k)
             if limit <= 0:
@@ -1137,11 +1576,7 @@ class ORToolsSolver:
         """One CP-SAT solve; records the plan and bounds the level. False stops the stages."""
         model = builder.model
         model.Minimize(form.expression)
-        cp_solver = self._cp_model.CpSolver()
-        cp_solver.parameters.max_time_in_seconds = limit
-        cp_solver.parameters.num_workers = self._workers
-        cp_solver.parameters.random_seed = self._seed
-        cp_solver.parameters.linearization_level = LINEARIZATION_LEVEL
+        cp_solver = self._cp_solver(limit)
         status = self._status(cp_solver.Solve(model), model)
         if first and stage.bound_kind is not None:
             outcome.best_bound = _bound(cp_solver, stage.bound_kind, form)
@@ -1152,17 +1587,15 @@ class ORToolsSolver:
             outcome.issues = [_infeasible()]
             return False
         if status == "UNKNOWN":
-            if first:
-                outcome.status = "UNKNOWN"
+            outcome.status = "FEASIBLE" if outcome.assignments else "UNKNOWN"
+            if not outcome.assignments:
                 outcome.issues = [_time_limit()]
-            else:
-                outcome.status = "FEASIBLE"
+            elif first:
+                outcome.best_bound = None  # no search ran: CP-SAT's bound is not proven
             return False
         if status == "FEASIBLE":
             outcome.status = "FEASIBLE"
-        outcome.assignments = [
-            _assignment(cp_solver, p, builder.origin) for p in builder.placed.values()
-        ]
+        outcome.assignments = _assignments(cp_solver, builder)
         if stage.level is not None:
             _bound_level(model, stage.level, form, cp_solver.ObjectiveValue())
         _hint_solution(model, cp_solver)
@@ -1212,7 +1645,16 @@ def _time_limit() -> ScheduleIssue:
     return ScheduleIssue(code="time_limit", path="budget_seconds", message=message)
 
 
-def _assignment(cp_solver: Any, placed: _Placed, origin: int) -> Assignment:
+def _assignments(cp_solver: Any, builder: _Builder) -> list[Assignment]:
+    """The plan of the solver's current solution, with batch ids."""
+    batch_ids = _batch_ids(cp_solver, builder)
+    return [
+        _assignment(cp_solver, p, builder.origin, batch_ids.get(p.op.id))
+        for p in builder.placed.values()
+    ]
+
+
+def _assignment(cp_solver: Any, placed: _Placed, origin: int, batch_id: str | None) -> Assignment:
     """Model ticks after `origin` back to absolute seconds."""
     machine_id = next(c.machine_id for c in placed.choices if cp_solver.Value(c.presence))
     return Assignment(
@@ -1221,7 +1663,28 @@ def _assignment(cp_solver: Any, placed: _Placed, origin: int) -> Assignment:
         start=_seconds(origin + cp_solver.Value(placed.start)),
         setup_end=_seconds(origin + cp_solver.Value(placed.setup_end)),
         end=_seconds(origin + cp_solver.Value(placed.end)),
+        batch_id=batch_id,
     )
+
+
+def _batch_ids(cp_solver: Any, builder: _Builder) -> dict[str, str]:
+    """Batch id per batched operation, `{machine}#b{n}` with n counting leaders in model order.
+
+    A member always joins an earlier leader, so every leader is numbered before its members.
+    """
+    numbered: dict[str, str] = {}
+    opened: Counter[str] = Counter()
+    batch_of: dict[str, str] = {}
+    for placed in builder.placed.values():
+        for choice in placed.choices:
+            leader_id = next((h for h, lit in choice.links if cp_solver.Value(lit)), None)
+            if leader_id is None:
+                continue
+            if leader_id == placed.op.id:
+                opened[choice.machine_id] += 1
+                numbered[leader_id] = f"{choice.machine_id}#b{opened[choice.machine_id]}"
+            batch_of[placed.op.id] = numbered[leader_id]
+    return batch_of
 
 
 def _primary_value(

@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src" / "twinflow"
 FIXTURES = Path(__file__).parent / "fixtures"
 ORTOOLS_MODULES = ("ortools", "ortools.sat", "ortools.sat.python", "ortools.sat.python.cp_model")
-# The CP-SAT capability set today (TF-002 D-067); T-118 moves the file, not the model.
+# The CP-SAT v3 capability set: every feature but pause (COMP-016, D-075, T-136, T-137).
 ORTOOLS_CAPABILITIES = frozenset(
     {
         Feature.ALTERNATIVES,
@@ -38,8 +38,11 @@ ORTOOLS_CAPABILITIES = frozenset(
         Feature.DETACHED_SETUP,
         Feature.CALENDARS,
         Feature.OPERATORS,
+        Feature.BATCHING,
+        Feature.RESTART,
         Feature.LAGS,
         Feature.MAX_LAGS,
+        Feature.OVERLAP,
         Feature.PINS,
         Feature.IN_PROGRESS,
         Feature.MACHINE_STATE,

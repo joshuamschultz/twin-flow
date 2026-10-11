@@ -1,5 +1,5 @@
-"""CP-SAT adapter tests (T-103, T-134, T-135; COMP-010, COMP-016; REQ-076, REQ-078,
-REQ-104, REQ-106; D-067, D-068, D-075).
+"""CP-SAT adapter tests (T-103, T-134..T-138; COMP-010, COMP-016; REQ-076, REQ-078,
+REQ-104, REQ-105, REQ-106; D-067, D-068, D-074, D-075; TF-002 review item 3).
 
 Every plan goes through `solver.solve`, so the adapter's answers are checked by the
 independent verifier and evaluated, not trusted. Optimal values are compared with the
@@ -12,7 +12,9 @@ from __future__ import annotations
 import math
 import sys
 import time
+from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,17 +23,19 @@ import pytest
 
 pytest.importorskip("ortools")
 
+from bench.hmlv import hmlv_instance, scale_instance  # noqa: E402
 from oracle import (  # noqa: E402
     SequenceDeadlock,
     all_sequences,
     brute_force,
+    brute_force_least,
     combination_count,
     semi_active,
 )
 from oracle_math import objective_values  # noqa: E402
 
 from twinflow.scheduling import get_solver  # noqa: E402
-from twinflow.scheduling.algorithms.cpsat import ORToolsSolver  # noqa: E402
+from twinflow.scheduling.algorithms.cpsat import SCALE, ORToolsSolver  # noqa: E402
 from twinflow.scheduling.model import (  # noqa: E402
     Assignment,
     CompiledProblem,
@@ -139,8 +143,12 @@ def test_name_and_capabilities_are_exactly_the_sdd_set() -> None:
             Feature.MACHINE_STATE,
             Feature.SETUPS,
             Feature.DETACHED_SETUP,
+            Feature.OVERLAP,
+            Feature.RESTART,
+            Feature.BATCHING,
         }
     )
+    assert Feature.PAUSE not in solver.capabilities
 
 
 def test_constructor_rejects_bad_workers_and_seed() -> None:
@@ -1041,3 +1049,669 @@ def test_detached_setups_are_never_worse_than_attached(seed: int) -> None:
     _assert_optimal_verified(attached)
     detached_value = detached.objective_values[ObjectiveKind.MAKESPAN]
     assert detached_value <= attached.objective_values[ObjectiveKind.MAKESPAN] + EXACT
+
+
+# --- T-136: transfer-lot overlap and restart (REQ-105, D-074) ---------------------------------
+
+LEAST_EXACT = 2e-6
+"""A warm-up is due when idle passes the threshold by at least one tick (1e-6 s) in CP-SAT
+and in `oracle.brute_force_least`, so optima may sit one tick off an integer."""
+
+
+def _lot_op(op_id: str, machine_id: str, quantity: float, unit: float, **fields: Any) -> Operation:
+    """A lot of `quantity` units at `unit` seconds each (fixed 0) on one machine."""
+    option = {
+        "machine_id": machine_id,
+        "fixed_seconds": 0.0,
+        "unit_seconds": unit,
+        "preference_cost": 0.0,
+    }
+    data = {"id": op_id, "work_center_id": WC, "quantity": quantity, "options": [option]}
+    return Operation.model_validate(data | fields)
+
+
+def _restart_machine(machine_id: str, threshold: float, warmup: float) -> Machine:
+    rule = {"idle_threshold_seconds": threshold, "warmup_seconds": warmup}
+    return _machine(machine_id, restart=rule)
+
+
+def _compiled(problem: Problem) -> CompiledProblem:
+    return CompiledProblem(problem=problem, profile=SchedulingProfile())
+
+
+def test_transfer_lot_chain_overlaps_and_matches_the_oracle_makespan() -> None:
+    """a: 10 units x 1 s on M1; b: 10 x 1 s on M2 after a 2-unit lot: b runs [2, 12)."""
+    first = _lot_op("a", "M1", 10.0, 1.0)
+    second = _lot_op(
+        "b", "M2", 10.0, 1.0, predecessors=[{"operation_id": "a", "overlap_quantity": 2.0}]
+    )
+    problem = _problem([[first, second]])
+    oracle_value, _ = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+    assert oracle_value == pytest.approx(12.0, abs=EXACT)
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    placed = _placed(result)
+    assert placed["b"].start < placed["a"].end - 1.0  # a real overlap, not end-to-start
+    assert placed["b"].start == pytest.approx(2.0, abs=EXACT)
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(oracle_value, abs=EXACT)
+    assert "overlap" in result.features
+
+
+def test_transfer_lot_last_lot_bounds_the_successor_end() -> None:
+    """A fast successor (0.5 s per unit) cannot finish before a's end + its last lot."""
+    first = _lot_op("a", "M1", 10.0, 1.0)
+    second = _lot_op(
+        "b", "M2", 10.0, 0.5, predecessors=[{"operation_id": "a", "overlap_quantity": 2.0}]
+    )
+    problem = _problem([[first, second]])
+    oracle_value, _ = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    assert _placed(result)["b"].end == pytest.approx(11.0, abs=EXACT)  # 10 + 2 x 0.5
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(oracle_value, abs=EXACT)
+
+
+def test_restart_after_a_long_idle_gap_adds_the_warmup_and_verifies() -> None:
+    """b is released at 50 on R (threshold 10, warm-up 4); some idle above 10 is unavoidable.
+
+    Best: a warms up late, [36, 40) then runs [40, 45), so b at 50 idles only 5 and ends at
+    55; a at 0 would leave b a 45 s idle and a warm-up (59).
+    """
+    jobs = [
+        Job(id="A", operations=(_op("a", {"R": 5.0}),)),
+        Job(id="B", release=50.0, operations=(_op("b", {"R": 5.0}),)),
+    ]
+    problem = _problem(jobs, (_restart_machine("R", 10.0, 4.0),))
+    oracle_value, _ = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+    assert oracle_value == pytest.approx(55.0, abs=EXACT)
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    phases = sorted(a.setup_end - a.start for a in result.schedule.assignments)
+    assert phases == [pytest.approx(0.0, abs=EXACT), pytest.approx(4.0, abs=EXACT)]
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(55.0, abs=EXACT)
+    assert "restart" in result.features
+
+
+def _waiting_beats_warmup() -> Problem:
+    """a (5 s) at once, b (5 s) released at 20 on R (threshold 10, warm-up 30).
+
+    Earliest starts: a [0, 5), b idles 15 > 10 and pays 30: makespan 55. Delaying a to
+    [5, 10) keeps both idles within 10: no warm-up, makespan 25.
+    """
+    jobs = [
+        Job(id="A", operations=(_op("a", {"R": 5.0}),)),
+        Job(id="B", release=20.0, operations=(_op("b", {"R": 5.0}),)),
+    ]
+    return _problem(jobs, (_restart_machine("R", 10.0, 30.0),))
+
+
+def test_semi_active_oracle_is_not_exact_under_restart() -> None:
+    """Design guard: earliest starts miss the optimum, so the restart seeds use the least oracle."""
+    problem = _waiting_beats_warmup()
+
+    semi_active_value, _ = brute_force(problem, ObjectiveKind.MAKESPAN)
+    least_value, least = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+
+    assert semi_active_value == pytest.approx(55.0)
+    assert least_value == pytest.approx(25.0)
+    assert verify(_compiled(problem), (), least).valid
+
+
+def test_optimizer_waits_instead_of_paying_a_costlier_warmup() -> None:
+    result = _solve_spec(_waiting_beats_warmup(), _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(25.0, abs=EXACT)
+    assert all(a.setup_end == a.start for a in result.schedule.assignments)
+
+
+@pytest.mark.parametrize(("release", "warmed"), [(15.0, False), (15.000001, True)])
+def test_idle_equal_to_the_threshold_needs_no_warmup(release: float, warmed: bool) -> None:
+    """DEV-4: idle exactly at the threshold is cold; one tick more is warm (only b on R)."""
+    job = Job(id="B", release=release, operations=(_op("b", {"R": 5.0}),))
+    machine = _machine(
+        "R",
+        restart={"idle_threshold_seconds": 15.0, "warmup_seconds": 4.0},
+    )
+
+    result = _solve_spec(_problem([job], (machine,)), _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    b = _placed(result)["b"]
+    assert b.start == pytest.approx(release, abs=EXACT)
+    assert b.setup_end - b.start == pytest.approx(4.0 if warmed else 0.0, abs=EXACT)
+
+
+def _restart_job(rng: np.random.Generator, j: int) -> Job:
+    ops: list[Operation] = []
+    for k in range(int(rng.integers(1, 3))):
+        machines = ["M1", "M2"] if rng.random() < 0.3 else [("M1", "M2")[int(rng.integers(2))]]
+        quantity = float(rng.integers(1, 4))
+        options = [
+            {
+                "machine_id": m,
+                "fixed_seconds": float(rng.integers(0, 3)),
+                "unit_seconds": float(rng.integers(1, 4)),
+                "preference_cost": 0.0,
+            }
+            for m in machines
+        ]
+        links: list[dict[str, Any]] = []
+        if ops:
+            link: dict[str, Any] = {
+                "operation_id": ops[-1].id,
+                "min_lag": float(rng.integers(0, 3)),
+            }
+            if rng.random() < 0.5:
+                link["overlap_quantity"] = float(rng.integers(1, int(ops[-1].quantity) + 1))
+            links.append(link)
+        data = {
+            "id": f"J{j}-{k}",
+            "work_center_id": WC,
+            "quantity": quantity,
+            "options": options,
+            "predecessors": links,
+        }
+        ops.append(Operation.model_validate(data))
+    return Job(id=f"J{j}", release=float(rng.integers(0, 25)), operations=tuple(ops))
+
+
+def _restart_shop(seed: int) -> Problem:
+    """3 jobs of 1-2 lots on two restart machines (thresholds 2-6 s, warm-ups 3-14 s) with
+    alternatives, releases spread over 25 s (idle gaps), min lags and transfer lots."""
+    rng = np.random.default_rng((seed, 136))
+    jobs = [_restart_job(rng, j) for j in range(3)]
+    machines = tuple(
+        _restart_machine(m, float(rng.integers(2, 7)), float(rng.integers(3, 15)))
+        for m in ("M1", "M2")
+    )
+    return _problem(jobs, machines)
+
+
+_RESTART_SEEDS = range(10)
+
+
+@pytest.mark.parametrize("seed", _RESTART_SEEDS)
+def test_random_restart_shops_reach_the_least_oracle_optimum(seed: int) -> None:
+    problem = _restart_shop(seed)
+    oracle_value, oracle_schedule = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+    oracle_check = verify(_compiled(problem), (), oracle_schedule)
+    assert oracle_check.valid, oracle_check.issues  # oracle and verifier agree on the rules
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    makespan = result.objective_values[ObjectiveKind.MAKESPAN]
+    assert makespan == pytest.approx(oracle_value, abs=LEAST_EXACT)
+
+
+def test_random_restart_shops_exercise_warmups_waiting_and_overlap() -> None:
+    """Design guard: the seeds pay warm-ups, use transfer lots, and some optimum waits."""
+    warmups = overlaps = waits = 0
+    for seed in _RESTART_SEEDS:
+        problem = _restart_shop(seed)
+        _, best = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+        warmups += any(a.setup_end > a.start for a in best.assignments)
+        overlaps += any(
+            link.overlap_quantity is not None
+            for job in problem.jobs
+            for op in job.operations
+            for link in op.predecessors
+        )
+        waits += _optimum_needs_waiting(problem)
+    assert warmups >= 3
+    assert overlaps >= 3
+    assert waits >= 1
+
+
+def _optimum_needs_waiting(problem: Problem) -> bool:
+    """True when stripping overlap leaves a problem whose semi-active optimum is worse."""
+    jobs = tuple(
+        job.model_copy(
+            update={
+                "operations": tuple(
+                    op.model_copy(
+                        update={
+                            "predecessors": tuple(
+                                link.model_copy(update={"overlap_quantity": None})
+                                for link in op.predecessors
+                            )
+                        }
+                    )
+                    for op in job.operations
+                )
+            }
+        )
+        for job in problem.jobs
+    )
+    plain = problem.model_copy(update={"jobs": jobs})
+    least_value, _ = brute_force_least(plain, ObjectiveKind.MAKESPAN)
+    semi_value, _ = brute_force(plain, ObjectiveKind.MAKESPAN)
+    return least_value < semi_value - EXACT
+
+
+# --- T-137: batch machines (oven) -------------------------------------------------------------
+
+
+def _batch_op(op_id: str, family: str, quantity: float, run: float, **fields: Any) -> Operation:
+    option = {
+        "machine_id": "OVEN",
+        "fixed_seconds": run,
+        "unit_seconds": 0.0,
+        "preference_cost": 0.0,
+    }
+    data = {
+        "id": op_id,
+        "work_center_id": WC,
+        "quantity": quantity,
+        "batch_family": family,
+        "options": [option],
+    }
+    return Operation.model_validate(data | fields)
+
+
+def _oven(capacity: float = 10.0) -> Machine:
+    return _machine("OVEN", batch={"capacity": capacity, "unit": "kg"})
+
+
+def _oven_problem() -> Problem:
+    """Three family-A ops of 4 kg (30 s) and one family-B op of 3 kg (20 s), oven capacity 10.
+
+    Without batching 110 s; A fits two per batch: two A batches and one B batch, 80 s.
+    """
+    ops = [_batch_op(f"A{k}", "A", 4.0, 30.0) for k in range(3)]
+    ops.append(_batch_op("B0", "B", 3.0, 20.0))
+    return _problem([[op] for op in ops], (_oven(),))
+
+
+def _batches(result: SolveResult) -> dict[str, list[Assignment]]:
+    groups: dict[str, list[Assignment]] = defaultdict(list)
+    for a in result.schedule.assignments:
+        groups[a.batch_id or a.operation_id].append(a)
+    return dict(groups)
+
+
+def test_oven_forms_capacity_bounded_single_family_batches_at_the_oracle_makespan() -> None:
+    problem = _oven_problem()
+    oracle_value, _ = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+    assert oracle_value == pytest.approx(80.0, abs=EXACT)
+    ops = {op.id: op for job in problem.jobs for op in job.operations}
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(80.0, abs=EXACT)
+    groups = _batches(result)
+    assert any(len(members) > 1 for members in groups.values())  # it really batched
+    for members in groups.values():
+        first = members[0]
+        assert {(a.start, a.setup_end, a.end) for a in members} == {
+            (first.start, first.setup_end, first.end)
+        }
+        assert len({ops[a.operation_id].batch_family for a in members}) == 1
+        assert math.fsum(ops[a.operation_id].quantity for a in members) <= 10.0 + EXACT
+    assert "batching" in result.features
+
+
+def test_oven_never_puts_different_families_in_one_batch_even_when_they_would_fit() -> None:
+    """A (4 kg) and B (3 kg) fit 10 kg together and share a run length, but not a family."""
+    ops = [_batch_op("A0", "A", 4.0, 30.0), _batch_op("B0", "B", 3.0, 30.0)]
+    problem = _problem([[op] for op in ops], (_oven(),))
+    oracle_value, _ = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(60.0, abs=EXACT)
+    assert oracle_value == pytest.approx(60.0, abs=EXACT)
+    placed = _placed(result)
+    assert placed["A0"].batch_id is None or placed["A0"].batch_id != placed["B0"].batch_id
+
+
+def test_oven_batch_waits_for_its_latest_member() -> None:
+    """A0 ready at 0, A1 released at 10: one shared batch [10, 40) beats two batches (60)."""
+    ops = [
+        Job(id="J0", operations=(_batch_op("A0", "A", 4.0, 30.0),)),
+        Job(id="J1", release=10.0, operations=(_batch_op("A1", "A", 4.0, 30.0),)),
+    ]
+    problem = _problem(ops, (_oven(),))
+    oracle_value, _ = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    assert oracle_value == pytest.approx(40.0, abs=EXACT)
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(40.0, abs=EXACT)
+    placed = _placed(result)
+    assert placed["A0"].batch_id is not None
+    assert placed["A0"].batch_id == placed["A1"].batch_id
+
+
+def _batch_shop(seed: int) -> Problem:
+    """Up to 5 jobs: a prep op on M1 then an oven op (families A/B, 1-6 kg, capacity 10, the
+    family's run length), random releases; <= 6 oven ops for the oracle's partitions."""
+    rng = np.random.default_rng((seed, 137))
+    runs = {"A": 20.0, "B": 30.0}
+    jobs: list[Job] = []
+    for j in range(int(rng.integers(3, 6))):
+        family = str(rng.choice(["A", "B"]))
+        prep = _op(f"P{j}", {"M1": float(rng.integers(1, 12))})
+        bake = _batch_op(
+            f"O{j}",
+            family,
+            float(rng.integers(1, 7)),
+            runs[family],
+            predecessors=[{"operation_id": f"P{j}"}],
+        )
+        jobs.append(Job(id=f"J{j}", release=float(rng.integers(0, 10)), operations=(prep, bake)))
+    return _problem(jobs, (_machine("M1"), _oven()))
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_random_batch_shops_reach_the_least_oracle_optimum(seed: int) -> None:
+    problem = _batch_shop(seed)
+    oracle_value, oracle_schedule = brute_force_least(problem, ObjectiveKind.MAKESPAN)
+    oracle_check = verify(_compiled(problem), (), oracle_schedule)
+    assert oracle_check.valid, oracle_check.issues
+
+    result = _solve_spec(problem, _single(ObjectiveKind.MAKESPAN))
+
+    _assert_optimal_verified(result)
+    makespan = result.objective_values[ObjectiveKind.MAKESPAN]
+    assert makespan == pytest.approx(oracle_value, abs=EXACT)
+
+
+def test_pause_is_refused_alone_when_the_problem_also_batches() -> None:
+    calendar = {"id": "c", "intervals": [(0.0, 50.0), (60.0, 300.0)]}
+    paused = _op("X", {"M1": 6.0}, shift_crossing="pause")
+    problem = _problem(
+        [[paused], [_batch_op("A0", "A", 4.0, 30.0)]],
+        (_machine("M1", calendar_id="c"), _oven()),
+        calendars=(calendar,),
+    )
+
+    result = _solve(problem)
+
+    assert result.schedule.status == "UNKNOWN"
+    assert _codes(result) == ["unsupported_feature"]
+    assert "pause" in result.issues[0].message
+
+
+# --- T-138: churn, soft preference, warm-start hints, size guard (REQ-106) --------------------
+
+
+def _twin_machine_problem() -> Problem:
+    """Four 5 s ops on two identical machines: every 2+2 split has makespan 10 (a tie)."""
+    return _problem([[_op(f"T{k}", {"M1": 5.0, "M2": 5.0})] for k in range(4)])
+
+
+def _plan_of(assignments: Sequence[tuple[str, str, float]]) -> PreviousPlan:
+    rows = [{"operation_id": o, "machine_id": m, "start": s} for o, m, s in assignments]
+    return PreviousPlan.model_validate(
+        {"plan_id": "prev", "problem_digest": "d", "assignments": rows}
+    )
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        Lexicographic(
+            levels=(
+                LexicographicLevel(kind=ObjectiveKind.MAKESPAN),
+                LexicographicLevel(kind=ObjectiveKind.CHURN),
+            )
+        ),
+        WeightedSum(
+            terms=(
+                WeightedTerm(kind=ObjectiveKind.MAKESPAN, weight=1.0, scale=1.0),
+                WeightedTerm(kind=ObjectiveKind.CHURN, weight=1.0, scale=1.0),
+            )
+        ),
+    ],
+    ids=["lexicographic", "weighted_sum"],
+)
+def test_tied_resolve_with_churn_keeps_every_op_in_place(spec: ObjectiveSpec) -> None:
+    """The previous plan is one tied optimum (not the id-ordered one): nothing may move."""
+    previous = _plan_of(
+        [("T0", "M2", 5.0), ("T1", "M1", 0.0), ("T2", "M2", 0.0), ("T3", "M1", 5.0)]
+    )
+
+    makespan_only = _solve_spec(_twin_machine_problem(), _single(ObjectiveKind.MAKESPAN), previous)
+
+    result = _solve_spec(_twin_machine_problem(), spec, previous)
+
+    assert makespan_only.objective_values[ObjectiveKind.CHURN] > 0.0  # the churn term decides
+    _assert_optimal_verified(result)
+    assert result.objective_values[ObjectiveKind.CHURN] == 0.0
+    assert result.objective_values[ObjectiveKind.MAKESPAN] == pytest.approx(10.0, abs=EXACT)
+    placed = _placed(result)
+    for row in previous.assignments:
+        assert placed[row.operation_id].machine_id == row.machine_id
+        assert placed[row.operation_id].start == pytest.approx(row.start, abs=EXACT)
+
+
+def test_high_soft_penalty_weight_picks_the_preferred_machine() -> None:
+    """M1 is faster (5 s) but costs 10; M2 is slower (8 s) and free: weight 100 picks M2."""
+    op = _priced_op("A", {"M1": (5.0, 10.0), "M2": (8.0, 0.0)})
+    spec = WeightedSum(
+        terms=(
+            WeightedTerm(kind=ObjectiveKind.MAKESPAN, weight=1.0, scale=1.0),
+            WeightedTerm(kind=ObjectiveKind.SOFT_PENALTY, weight=100.0, scale=1.0),
+        )
+    )
+    makespan_only = _solve_spec(_problem([[op]]), _single(ObjectiveKind.MAKESPAN))
+
+    result = _solve_spec(_problem([[op]]), spec)
+
+    assert _placed(makespan_only)["A"].machine_id == "M1"  # the weight decides, not the data
+    _assert_optimal_verified(result)
+    assert _placed(result)["A"].machine_id == "M2"
+    assert result.objective_values[ObjectiveKind.SOFT_PENALTY] == 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class _SolveCall:
+    """What one `CpSolver.Solve` received: hinted variables and the largest domain bound."""
+
+    hints: int
+    largest_upper: int
+
+
+def _spy_solves(monkeypatch: pytest.MonkeyPatch) -> list[_SolveCall]:
+    """Record every CP-SAT solve the adapter starts (both API spellings, counted once)."""
+    from ortools.sat.python import cp_model
+
+    calls: list[_SolveCall] = []
+    depth = [0]
+
+    def wrap(original: Any) -> Any:
+        def spy(self: Any, model: Any, *args: Any, **kwargs: Any) -> Any:
+            if depth[0] == 0:
+                proto = model.Proto()
+                uppers = [v.domain[-1] for v in proto.variables if v.domain]
+                calls.append(_SolveCall(len(proto.solution_hint.vars), max(uppers, default=0)))
+            depth[0] += 1
+            try:
+                return original(self, model, *args, **kwargs)
+            finally:
+                depth[0] -= 1
+
+        return spy
+
+    for name in ("Solve", "solve"):
+        monkeypatch.setattr(cp_model.CpSolver, name, wrap(getattr(cp_model.CpSolver, name)))
+    return calls
+
+
+def test_warm_start_schedule_is_passed_to_cp_sat_as_hints(monkeypatch: pytest.MonkeyPatch) -> None:
+    problem = _mixed_problem()
+    request = _request(problem)
+    baseline = solve(request)
+    assert baseline.verified
+    calls = _spy_solves(monkeypatch)
+
+    result = solve(
+        request,
+        solver=_exact_solver(),
+        budget_seconds=10.0,
+        warm_start=baseline.schedule,
+    )
+
+    _assert_optimal_verified(result)
+    op_count = sum(len(job.operations) for job in problem.jobs)
+    assert calls, "CP-SAT was never called"
+    assert calls[0].hints >= op_count  # at least one hint per operation, before the first solve
+
+
+def _single_machine_jobs(count: int) -> Problem:
+    return _problem([[_op(f"O{k}", {"M1": 1.0})] for k in range(count)], (_machine("M1"),))
+
+
+def _forbid_model_building(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ortools.sat.python import cp_model
+
+    def no_model() -> Any:
+        raise AssertionError("the size guard must refuse before building a CP-SAT model")
+
+    monkeypatch.setattr(cp_model, "CpModel", no_model)
+
+
+def test_301_options_on_one_machine_is_model_too_large_without_building(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _request(_single_machine_jobs(301))
+    _forbid_model_building(monkeypatch)
+
+    started = time.monotonic()
+    result = solve(request, solver=_exact_solver(), budget_seconds=30.0)
+    elapsed = time.monotonic() - started
+
+    assert result.schedule.status == "UNKNOWN"
+    assert _codes(result) == ["model_too_large"]
+    assert result.schedule.assignments == ()
+    assert elapsed < 2.0
+
+
+def test_300_options_on_one_machine_is_not_refused() -> None:
+    """The guard is "more than 300": exactly 300 is modeled (any status but model_too_large)."""
+    result = solve(_request(_single_machine_jobs(300)), solver=_exact_solver(), budget_seconds=2.0)
+
+    assert "model_too_large" not in _codes(result)
+
+
+def test_alternative_options_count_toward_the_machine_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """301 ops that may each run on M1 or M2: M1 still carries 301 options."""
+    problem = _problem([[_op(f"O{k}", {"M1": 1.0, "M2": 1.0})] for k in range(301)])
+    _forbid_model_building(monkeypatch)
+
+    result = solve(_request(problem), solver=_exact_solver(), budget_seconds=30.0)
+
+    assert _codes(result) == ["model_too_large"]
+
+
+def test_more_than_two_million_circuit_arcs_is_model_too_large(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """300 ops on 23 setup machines: 300 options per machine (allowed), 23 x 300^2 > 2e6 arcs."""
+    machines = tuple(_machine(f"M{k}") for k in range(23))
+    function = {"id": "S", "terms": [{"kind": "mismatch", "param": "c", "seconds": 1.0}]}
+    ops = [
+        [_op(f"O{k}", {m.id: 1.0 for m in machines}, setup_params={"c": str(k % 3)})]
+        for k in range(300)
+    ]
+    problem = _problem(
+        ops,
+        machines,
+        work_centers=(WorkCenter(id=WC, setup_function_id="S"),),
+        setup_functions=(function,),
+    )
+    _forbid_model_building(monkeypatch)
+
+    started = time.monotonic()
+    result = solve(_request(problem), solver=_exact_solver(), budget_seconds=30.0)
+
+    assert _codes(result) == ["model_too_large"]
+    assert time.monotonic() - started < 5.0
+
+
+def test_tiny_time_limit_gives_feasible_with_a_bound_or_unknown_never_unverified() -> None:
+    request = _request(_random_job_shop(seed=7, jobs=20, machines=10))
+
+    result = solve(request, solver=ORToolsSolver(), budget_seconds=0.05)
+
+    assert result.schedule.status in {"UNKNOWN", "FEASIBLE"}
+    if result.schedule.status == "FEASIBLE":
+        assert result.verified, result.issues
+        assert result.schedule.best_bound is not None
+        assert result.schedule.primary_value is not None
+        assert result.schedule.best_bound <= result.schedule.primary_value + EXACT
+    else:
+        assert result.schedule.assignments == ()
+        assert _codes(result) == ["time_limit"]
+
+
+@pytest.mark.slow
+def test_600x8_scale_instance_is_model_too_large_in_under_two_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = scale_instance()
+    _forbid_model_building(monkeypatch)
+
+    started = time.monotonic()
+    result = solve(request, solver=_exact_solver(), budget_seconds=30.0)
+    elapsed = time.monotonic() - started
+
+    assert result.schedule.status == "UNKNOWN"
+    assert _codes(result) == ["model_too_large"]
+    assert elapsed < 2.0
+
+
+# --- TF-002 review item 3: baseline hint and horizon cap under calendars ----------------------
+
+
+def _calendared_request(jobs: int, ops: int, centers: int, machines: int) -> SolveRequest:
+    request = hmlv_instance(
+        1, jobs=jobs, ops_per_job=ops, centers=centers, machines_per_center=machines
+    )
+    profile = SchedulingProfile(objective=_single(ObjectiveKind.MAKESPAN))
+    return request.model_copy(update={"profile": profile})
+
+
+@pytest.mark.parametrize(
+    "size",
+    [(10, 4, 3, 2), (20, 5, 4, 3)],
+    ids=["10x4", "20x5"],
+)
+def test_short_budget_on_calendars_is_never_worse_than_the_verified_baseline(
+    size: tuple[int, int, int, int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With 1 s CP-SAT must return a verified plan no worse than the baseline's makespan.
+
+    Observable for the horizon cap: every variable of the model handed to CP-SAT is bounded
+    by the baseline makespan in ticks from `now` (the horizon caps starts, ends, completions
+    and the makespan variable alike). Measured before the fix: 10x4 FEASIBLE at 9,242 s
+    against the baseline's 3,154 s; 20x5 UNKNOWN `time_limit`.
+    """
+    request = _calendared_request(*size)
+    assert "calendars" in set(solve(request).features)
+    baseline = solve(request)
+    assert baseline.verified, baseline.issues
+    baseline_makespan = baseline.objective_values[ObjectiveKind.MAKESPAN]
+    calls = _spy_solves(monkeypatch)
+
+    result = solve(request, solver=_exact_solver(), budget_seconds=1.0)
+
+    assert result.schedule.status in {"FEASIBLE", "OPTIMAL"}, result.issues
+    assert result.verified, result.issues
+    assert result.objective_values[ObjectiveKind.MAKESPAN] <= baseline_makespan + 1e-6
+    assert calls, "CP-SAT was never called"
+    assert calls[0].largest_upper <= round(baseline_makespan * SCALE)
+    assert calls[0].hints > 0  # the baseline plan is the hint

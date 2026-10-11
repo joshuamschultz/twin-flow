@@ -223,10 +223,10 @@ def test_cpsat_runs_and_verifies_on_a_share_of_seeds() -> None:
     assert len(verified) >= MIN_CPSAT_VERIFIED, f"only {len(verified)} CP-SAT seeds verified"
 
 
-def test_restart_is_refused_by_cpsat_and_supported_by_the_baseline() -> None:
+def test_restart_is_supported_by_the_baseline_and_cpsat() -> None:
     restart_seeds = [s for s in SEEDS if Feature.RESTART in _compiled_features(s)]
     assert restart_seeds, "no seed uses restart"
     for seed in restart_seeds:
         assert "restart" not in _named_unsupported(_baseline(seed)), f"seed {seed}"
         cpsat = _cpsat(seed)
-        assert "restart" in _named_unsupported(cpsat), f"seed {seed}: {_issue_codes(cpsat)}"
+        assert "restart" not in _named_unsupported(cpsat), f"seed {seed}: {_issue_codes(cpsat)}"
