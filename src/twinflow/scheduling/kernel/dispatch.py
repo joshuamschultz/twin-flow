@@ -423,18 +423,40 @@ class DispatchState:
             raise ValueError(f"{op_id} is not a ready op with an option on {machine_id}")
         return self.place(p, m)
 
-    def place(self, p: int, m: int) -> ScheduleIssue | None:
-        """Place ready op `p` on machine position `m` (append-only, as the decoder does)."""
+    def place(self, p: int, m: int, *, gap_insertion: bool = False) -> ScheduleIssue | None:
+        """Place ready op `p` on machine position `m`; the issue when no slot exists.
+
+        Append-only by default, as the decoder places; `gap_insertion` lets the op take an
+        earlier idle gap that keeps every placed follower's setup (forward loading).
+        """
+        request, found = self._find_slot(p, m, gap_insertion)
+        if isinstance(found, ScheduleIssue):
+            return found
+        machine_id = self.static.index.machines[m].id
+        self._record(p, m, self.static.option_by_machine[p][machine_id], request, found)
+        return None
+
+    def trial_end(self, p: int, m: int, *, gap_insertion: bool = False) -> float | None:
+        """The end `place(p, m)` would give, without placing; None when no slot exists."""
+        _, found = self._find_slot(p, m, gap_insertion)
+        return None if isinstance(found, ScheduleIssue) else found.end
+
+    def _find_slot(
+        self, p: int, m: int, gap_insertion: bool
+    ) -> tuple[SlotRequest, Slot | ScheduleIssue]:
         static = self.static
         op, gate = static.index.ops[p], self._gates[p]
         if gate is None:
             raise AssertionError(f"{op.id}: placed before it was ready")
         machine_id = static.index.machines[m].id
         option = static.option_by_machine[p][machine_id]
+        floor = (
+            static.earliest[p] if gap_insertion else max(static.earliest[p], self._last_start[m])
+        )
         request = SlotRequest(
             op_id=op.id,
             run_seconds=option.run,
-            earliest_start=max(static.earliest[p], self._last_start[m]),
+            earliest_start=floor,
             gate_ready=gate.ready,
             quantity=op.quantity,
             calendar=static.calendar(machine_id, op, self._pools),
@@ -452,21 +474,31 @@ class DispatchState:
         )
         slot = self._timelines[m].find_slot(request, check)
         if slot is None:
-            return unplaceable_issue(op.id, check.missed_max_lag)
-        self._record(p, m, option, request, slot)
-        return None
+            return request, unplaceable_issue(op.id, check.missed_max_lag)
+        return request, slot
 
     def plan(self) -> tuple[dict[str, str], dict[str, tuple[str, ...]]]:
         """(choice, sequences) by ids; sequences in placement order, one per machine."""
         index = self.static.index
-        choice = {
-            index.op_ids[p]: index.machines[m].id for p, m in enumerate(self._choice) if m >= 0
-        }
         sequences = {
             machine.id: tuple(index.op_ids[p] for p in self._sequences[m])
             for m, machine in enumerate(index.machines)
         }
-        return choice, sequences
+        return self._choice_by_id(), sequences
+
+    def plan_by_start(self) -> tuple[dict[str, str], dict[str, tuple[str, ...]]]:
+        """(choice, sequences) with each sequence in start order (after gap insertion)."""
+        sequences = {timeline.machine_id: timeline.sequence() for timeline in self._timelines}
+        return self._choice_by_id(), sequences
+
+    def end_of(self, op_id: str) -> float | None:
+        """The placed op's end; None while it is unplaced."""
+        placed = self._placed[self.static.index.pos[op_id]]
+        return None if placed is None else placed.end
+
+    def _choice_by_id(self) -> dict[str, str]:
+        index = self.static.index
+        return {index.op_ids[p]: index.machines[m].id for p, m in enumerate(self._choice) if m >= 0}
 
     def _start_in_progress(self) -> ScheduleIssue | None:
         """In-progress ops by id on their machine at `now` (as the decoder places them)."""
@@ -508,7 +540,8 @@ class DispatchState:
             slot.setup_end, slot.end, option.fixed_seconds, option.unit_seconds
         )
         self._free[m] = max(self._free[m], slot.end)
-        self._last[m], self._last_start[m] = p, slot.start
+        if slot.start >= self._last_start[m]:  # a gap-inserted op is not the machine's last
+            self._last[m], self._last_start[m] = p, slot.start
         self._sequences[m].append(p)
         self._choice[p] = m
         self._remaining -= 1
@@ -624,7 +657,12 @@ class DispatchEngine:
 
     def run(self, deadline: float | None = None) -> Dispatched | ScheduleIssue:
         """Dispatch every op, then decode; `time_limit` once `deadline` (monotonic) passes."""
-        state = self.initial_state()
+        return self.complete(self.initial_state(), deadline)
+
+    def complete(
+        self, state: DispatchState, deadline: float | None = None
+    ) -> Dispatched | ScheduleIssue:
+        """Dispatch the rest of `state` (mutated in place), then decode (rollouts, beam)."""
         if state.issue is not None:
             return state.issue
         while not state.done:
@@ -776,6 +814,18 @@ def dispatch_schedule(
     `started` is the solve's `time.perf_counter()` start, for `elapsed_seconds`.
     """
     result = engine.run(deadline=context.deadline)
+    return dispatched_schedule(name, result, index, objective, context, started)
+
+
+def dispatched_schedule(
+    name: str,
+    result: Dispatched | ScheduleIssue,
+    index: ProblemIndex,
+    objective: ObjectiveSpec,
+    context: SolveContext,
+    started: float,
+) -> Schedule:
+    """A dispatch result as a `Schedule`: FEASIBLE with the primary value, else UNKNOWN."""
     if isinstance(result, ScheduleIssue):
         return Schedule(
             status="UNKNOWN",

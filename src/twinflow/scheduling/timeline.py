@@ -306,6 +306,10 @@ class MachineTimeline:
                 return joined
         return self._search(request, accept)
 
+    def sequence(self) -> tuple[str, ...]:
+        """Placed operation ids in start order (batch members together, in join order)."""
+        return tuple(op_id for occupation in self._occupations for op_id in occupation.members)
+
     def place(self, request: SlotRequest, slot: Slot) -> str | None:
         """Record ``slot`` for ``request``; returns its batch id (None when not batched).
 

@@ -21,8 +21,16 @@ import pytest
 
 from twinflow.scheduling import registry
 from twinflow.scheduling.baseline import CAPABILITIES as BASELINE_CAPABILITIES
+from twinflow.scheduling.kernel.dispatch import Dispatched, DispatchEngine
+from twinflow.scheduling.kernel.index import ProblemIndex
 from twinflow.scheduling.model import SolveRequest
-from twinflow.scheduling.registry import SolverInfo, SolverSpec, UnknownSolverError
+from twinflow.scheduling.registry import (
+    RuleSpec,
+    SolverInfo,
+    SolverSpec,
+    UnknownRuleError,
+    UnknownSolverError,
+)
 from twinflow.scheduling.seam import Feature
 from twinflow.scheduling.solver import solve
 
@@ -222,6 +230,80 @@ def test_solve_with_registry_ortools_verifies_pinedo_7_1_1() -> None:
     assert result.schedule.solver == "ortools"
 
 
+# --- priority rules by name (T-149 deviation: SDD COMP-002 has no rule registry) ----------------
+#
+# Construction and beam search need a dispatch rule object, not a solver: beam's rollout
+# continues a partial `DispatchState`, which a whole-solver call cannot start from. Leaves
+# export `RULES: tuple[RuleSpec, ...]` beside `SOLVERS`; `registry.rule(name, **params)`
+# builds a fresh rule (the engine prepares it per run).
+
+DISPATCH_RULE_NAMES = ("cr", "edd", "fifo", "lfj", "lpt", "ms", "spt", "sqno", "sst", "wspt")
+
+
+def test_rule_spec_has_name_and_factory_and_is_frozen() -> None:
+    assert {field.name for field in dataclasses.fields(RuleSpec)} == {"name", "factory"}
+    spec = RuleSpec(
+        name="probe",
+        factory=lambda: None,  # type: ignore[arg-type,return-value]  # never called
+    )
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        spec.name = "other"  # type: ignore[misc]  # proving the dataclass is frozen
+
+
+@pytest.mark.parametrize("name", [*DISPATCH_RULE_NAMES, "atc", "atcs"])
+def test_rule_builds_a_fresh_priority_rule_per_call(name: str) -> None:
+    first, second = registry.rule(name), registry.rule(name)
+
+    assert first is not second
+    assert callable(first.index)
+
+
+def test_every_dispatch_family_solver_has_a_rule_of_the_same_name() -> None:
+    dispatch = sorted(info.name for info in registry.available() if info.family == "dispatch")
+
+    assert dispatch == sorted(DISPATCH_RULE_NAMES)
+    for name in dispatch:
+        assert registry.rule(name) is not None
+
+
+def test_rule_unknown_name_raises_unknown_rule_error_naming_registered_rules() -> None:
+    with pytest.raises(UnknownRuleError) as caught:
+        registry.rule("baseline")
+
+    message = str(caught.value)
+    assert "baseline" in message
+    for name in (*DISPATCH_RULE_NAMES, "atc", "atcs"):
+        assert name in message
+    assert issubclass(UnknownRuleError, ValueError)
+
+
+def test_rule_with_an_invalid_param_raises_value_error_not_unknown_rule() -> None:
+    for name, params in (("edd", {"K1": 1.0}), ("atcs", {"K1": -1.0}), ("atcs", {"nope": 1})):
+        with pytest.raises(ValueError) as caught:
+            registry.rule(name, **params)
+        assert not isinstance(caught.value, UnknownRuleError), name
+
+
+def _first_on_m1(rule_name: str, **params: object) -> str:
+    request = _fixture("pinedo_14_3_4.json")
+    index = ProblemIndex.build(request.problem)
+    result = DispatchEngine(index, registry.rule(rule_name, **params)).run()
+    assert isinstance(result, Dispatched), result
+    return result.sequences["M1"][0]
+
+
+def test_atc_rule_takes_its_k1_param() -> None:
+    # Ex 14.3.4 with ATC K = 5 starts with job 4 (T-131); K1 reaches the rule.
+    assert _first_on_m1("atc", K1=5.0) == "4-1"
+
+
+def test_atcs_rule_is_prepared_per_run_on_each_problem() -> None:
+    rule = registry.rule("atcs")
+    for fixture in ("pinedo_14_3_4.json", "pinedo_7_1_1.json"):
+        index = ProblemIndex.build(_fixture(fixture).problem)
+        assert isinstance(DispatchEngine(index, rule).run(), Dispatched), fixture
+
+
 # --- discovery over a copied tree ---------------------------------------------------------------
 
 _LIST_SCRIPT = textwrap.dedent(
@@ -264,6 +346,30 @@ _OPTIONAL_IN_FACTORY = textwrap.dedent(
         ),
     )
     '''
+)
+
+_RULE_LEAF = textwrap.dedent(
+    '''
+    """Probe leaf: one priority rule and no solver."""
+    from twinflow.scheduling.registry import RuleSpec
+
+
+    class _Zero:
+        def index(self, state, op_id, machine_id, t, last_op_id):
+            return 0.0
+
+
+    SOLVERS = ()
+    RULES = (RuleSpec(name="zz_rule", factory=_Zero),)
+    '''
+)
+
+_RULE_SCRIPT = textwrap.dedent(
+    """
+    import json
+    from twinflow.scheduling import registry
+    print(json.dumps({"rule": type(registry.rule("zz_rule")).__name__}))
+    """
 )
 
 _BROKEN_AT_IMPORT = 'raise RuntimeError("probe-leaf-is-broken")\n'
@@ -324,3 +430,23 @@ def test_leaf_with_a_non_import_error_at_top_level_propagates(tmp_path: Path) ->
     assert done.returncode != 0
     assert "RuntimeError" in done.stderr
     assert "probe-leaf-is-broken" in done.stderr
+
+
+def test_leaf_rules_register_by_discovery_alone(tmp_path: Path) -> None:
+    root = _tree_with(tmp_path, "zz_rule_probe", _RULE_LEAF)
+    script = tmp_path / "rule_probe.py"
+    script.write_text(_RULE_SCRIPT)
+    env = {**os.environ, "PYTHONPATH": str(root), "PYTHONDONTWRITEBYTECODE": "1"}
+
+    done = subprocess.run(  # noqa: S603  # argv is sys.executable plus a path this test made
+        [sys.executable, str(script)],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=tmp_path,
+        timeout=120,
+        check=False,
+    )
+
+    assert done.returncode == 0, done.stderr
+    assert json.loads(done.stdout) == {"rule": "_Zero"}

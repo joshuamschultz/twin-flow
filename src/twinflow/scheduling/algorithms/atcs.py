@@ -34,7 +34,9 @@ Params (`SolveContext.params`): `K1`, `K2` (ATC reads its single K from `K1`), `
 An invalid or unknown param gives UNKNOWN with an `invalid_method_param` issue. Each solve
 returns one `AtcsRun` per work center with machines in `Schedule.atcs_runs`.
 
-A leaf of `algorithms/` (D-069): it registers through `SOLVERS` only.
+A leaf of `algorithms/` (D-069): it registers through `SOLVERS`, and the bare rules through
+`RULES` (`registry.rule("atcs", **params)`: the params above but `mode`, a fresh `AtcsRule`
+per call that the engine prepares per run; `k_lookup` is not offered there).
 """
 
 from __future__ import annotations
@@ -56,7 +58,7 @@ from twinflow.scheduling.kernel.dispatch import (
 from twinflow.scheduling.kernel.index import DEFAULT_PHI, OpData, ProblemIndex
 from twinflow.scheduling.kernel.stats import InstanceStats
 from twinflow.scheduling.model import AtcsRun, ObjectiveSpec, Problem, Schedule, ScheduleIssue
-from twinflow.scheduling.registry import SolverSpec
+from twinflow.scheduling.registry import RuleSpec, SolverSpec
 from twinflow.scheduling.seam import Feature, ParamValue, SolveContext
 
 KLookup = Callable[[float, float, float, int], tuple[float, float]]
@@ -484,3 +486,17 @@ SOLVERS = tuple(
     for name, setups in (("atc", False), ("atcs", True))
 )
 """Registry entries (D-069)."""
+
+
+def _rule(setups: bool, **params: ParamValue) -> AtcsRule:
+    """A fresh ATC/ATCS rule from method params; `mode` belongs to the solver, not the rule."""
+    if "mode" in params:
+        raise InvalidParamError("mode is a solver param, not a rule param")
+    return AtcsRule(_Settings.from_params(params), None, setups=setups)
+
+
+RULES = tuple(
+    RuleSpec(name=name, factory=functools.partial(_rule, setups))
+    for name, setups in (("atc", False), ("atcs", True))
+)
+"""Rule entries (`registry.rule`)."""

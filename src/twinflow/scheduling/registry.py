@@ -5,6 +5,12 @@
 call and cached; importing this module imports no leaf. A leaf whose top level raises
 propagates the error: only an optional dependency imported inside a factory is allowed to
 be missing, and it surfaces as `OptionalDependencyError` from `get`.
+
+Priority rules by name (T-149; SDD COMP-002 names no rule registry): a leaf may also export
+`RULES: tuple[RuleSpec, ...]`, and `rule(name, **params)` builds a fresh `PriorityRule`.
+Construction and beam search compose rules this way: beam's rollout continues a partial
+`DispatchState`, which a whole-solver call cannot start from, and leaves never import each
+other. The dispatch engine calls the rule's `prepare(index)` once per run.
 """
 
 from __future__ import annotations
@@ -14,6 +20,8 @@ import pkgutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import cache
+from types import ModuleType
+from typing import TYPE_CHECKING
 
 from twinflow.scheduling import algorithms
 from twinflow.scheduling.baseline import CAPABILITIES as BASELINE_CAPABILITIES
@@ -21,9 +29,16 @@ from twinflow.scheduling.baseline import NAME as BASELINE_NAME
 from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.seam import Feature, Solver
 
+if TYPE_CHECKING:
+    from twinflow.scheduling.kernel.dispatch import PriorityRule
+
 
 class UnknownSolverError(ValueError):
     """Raised by `get` for a name no solver registered; the message lists the registered."""
+
+
+class UnknownRuleError(ValueError):
+    """Raised by `rule` for a name no leaf registered as a rule; the message lists them."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -39,6 +54,17 @@ class SolverSpec:
     factory: Callable[..., Solver]
     deterministic: bool
     capabilities: frozenset[Feature]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RuleSpec:
+    """A priority rule a leaf contributes: `factory(**params)` builds a fresh rule.
+
+    The factory raises ValueError for an unknown or invalid param.
+    """
+
+    name: str
+    factory: Callable[..., PriorityRule]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -70,15 +96,31 @@ def _register(entries: dict[str, tuple[SolverSpec, str]], spec: SolverSpec, modu
 
 
 @cache
+def _leaves() -> tuple[ModuleType, ...]:
+    prefix = algorithms.__name__ + "."
+    found = sorted(pkgutil.iter_modules(algorithms.__path__, prefix), key=lambda m: m.name)
+    return tuple(importlib.import_module(leaf.name) for leaf in found)
+
+
+@cache
 def _entries() -> Mapping[str, tuple[SolverSpec, str]]:
     entries: dict[str, tuple[SolverSpec, str]] = {}
     _register(entries, _BASELINE, BaselineSolver.__module__)
-    prefix = algorithms.__name__ + "."
-    for leaf in sorted(pkgutil.iter_modules(algorithms.__path__, prefix), key=lambda m: m.name):
-        module = importlib.import_module(leaf.name)
+    for module in _leaves():
         for spec in module.SOLVERS:
-            _register(entries, spec, leaf.name)
+            _register(entries, spec, module.__name__)
     return entries
+
+
+@cache
+def _rules() -> Mapping[str, RuleSpec]:
+    rules: dict[str, RuleSpec] = {}
+    for module in _leaves():
+        for spec in getattr(module, "RULES", ()):
+            if spec.name in rules:
+                raise ValueError(f"rule {spec.name!r} from {module.__name__} is registered twice")
+            rules[spec.name] = spec
+    return rules
 
 
 def available() -> tuple[SolverInfo, ...]:
@@ -111,3 +153,15 @@ def get(name: str, **params: object) -> Solver:
         registered = ", ".join(sorted(_entries()))
         raise UnknownSolverError(f"unknown solver {name!r}; registered: {registered}")
     return entry[0].factory(**params)
+
+
+def rule(name: str, **params: object) -> PriorityRule:
+    """A fresh priority rule built with `params`; `UnknownRuleError` for an unknown name.
+
+    An unknown or invalid param raises ValueError from the rule's factory.
+    """
+    spec = _rules().get(name)
+    if spec is None:
+        registered = ", ".join(sorted(_rules()))
+        raise UnknownRuleError(f"unknown rule {name!r}; registered: {registered}")
+    return spec.factory(**params)

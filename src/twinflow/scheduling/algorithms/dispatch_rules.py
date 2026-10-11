@@ -17,7 +17,8 @@ deterministic, every `Feature`). Readings, for op o of job j on machine i at tim
 - `sqno`: shortest queue (ready, unplaced ops) at the next op's work center; a job's last
   op has queue 0.
 
-A leaf of `algorithms/` (D-069): it registers through `SOLVERS` only.
+A leaf of `algorithms/` (D-069): it registers through `SOLVERS`, and each rule also through
+`RULES` (`registry.rule(name)`, no params) for methods that compose rules (construction, beam).
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from twinflow.scheduling.kernel.dispatch import (
     PriorityRule,
 )
 from twinflow.scheduling.kernel.index import ProblemIndex
-from twinflow.scheduling.registry import SolverSpec
+from twinflow.scheduling.registry import RuleSpec, SolverSpec
 from twinflow.scheduling.seam import Feature
 
 
@@ -141,7 +142,7 @@ class ShortestQueueNext:
         return 0.0 if center is None else -float(state.queue_length(center))
 
 
-RULES: Mapping[str, Callable[[], PriorityRule]] = {
+_RULE_CLASSES: Mapping[str, Callable[[], PriorityRule]] = {
     "fifo": Fifo,
     "edd": Edd,
     "wspt": Wspt,
@@ -162,6 +163,20 @@ SOLVERS = tuple(
         deterministic=True,
         capabilities=frozenset(Feature),
     )
-    for name, rule in RULES.items()
+    for name, rule in _RULE_CLASSES.items()
 )
 """Registry entries (D-069)."""
+
+
+def _without_params(name: str, rule: Callable[[], PriorityRule], **params: object) -> PriorityRule:
+    """A fresh rule; these rules take no params, so any param is refused by name."""
+    if params:
+        raise ValueError(f"rule {name} takes no params, got {sorted(params)[0]}")
+    return rule()
+
+
+RULES = tuple(
+    RuleSpec(name=name, factory=functools.partial(_without_params, name, rule))
+    for name, rule in _RULE_CLASSES.items()
+)
+"""Rule entries (`registry.rule`)."""
