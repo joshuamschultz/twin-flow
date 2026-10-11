@@ -1642,7 +1642,7 @@ def test_more_than_two_million_circuit_arcs_is_model_too_large(
     assert time.monotonic() - started < 5.0
 
 
-def test_tiny_time_limit_gives_feasible_with_a_bound_or_unknown_never_unverified() -> None:
+def test_tiny_time_limit_gives_a_verified_feasible_or_unknown_never_unverified() -> None:
     request = _request(_random_job_shop(seed=7, jobs=20, machines=10))
 
     result = solve(request, solver=ORToolsSolver(), budget_seconds=0.05)
@@ -1650,9 +1650,10 @@ def test_tiny_time_limit_gives_feasible_with_a_bound_or_unknown_never_unverified
     assert result.schedule.status in {"UNKNOWN", "FEASIBLE"}
     if result.schedule.status == "FEASIBLE":
         assert result.verified, result.issues
-        assert result.schedule.best_bound is not None
         assert result.schedule.primary_value is not None
-        assert result.schedule.best_bound <= result.schedule.primary_value + EXACT
+        # The hint floor (T-139) may answer FEASIBLE before CP-SAT has a bound (DEV-18).
+        bound = result.schedule.best_bound
+        assert bound is None or bound <= result.schedule.primary_value + EXACT
     else:
         assert result.schedule.assignments == ()
         assert _codes(result) == ["time_limit"]
