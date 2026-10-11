@@ -510,6 +510,33 @@ def test_workers_1_and_3_give_identical_results(ev: Any) -> None:
     assert one.replications == 3
 
 
+@pytest.mark.parametrize("source", ["stalling", "dying"])
+def test_pool_stops_waiting_at_the_budget_and_terminates_its_workers(ev: Any, source: str) -> None:
+    # A worker that stalls (or dies, as an OOM kill would) must not hold the call past its
+    # budget: in-flight replications are dropped, the workers are terminated, and with no
+    # replication finished the call raises `BudgetExhausted` instead of waiting forever.
+    import multiprocessing
+    import time
+
+    from _worker_faults import POLICY, DyingSource, StallingSource
+
+    faulty = StallingSource(POLICY) if source == "stalling" else DyingSource(POLICY)
+    started = time.monotonic()
+
+    with pytest.raises(ev.BudgetExhausted):
+        _evaluate(
+            ev,
+            _inputs(ev, PLAN_231, PLAN_123),
+            source=faulty,
+            policy=POLICY,
+            workers=2,
+            budget_seconds=3.0,
+        )
+
+    assert time.monotonic() - started < 20.0
+    assert multiprocessing.active_children() == []
+
+
 # --- baseline and paired deltas (REQ-138, D-103) ----------------------------------------------
 
 

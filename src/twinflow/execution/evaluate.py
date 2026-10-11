@@ -14,7 +14,9 @@ REQ-138).
 - Replication-major tasks under a budget (D-099): rep 0 of every candidate in input order,
   then the baseline, then rep 1, and so on. `clock` is read once at the start and once
   before each submission; a task goes out only while `clock() - start < budget_seconds`.
-  Only replications every candidate and the baseline finished are kept.
+  Only replications every candidate and the baseline finished are kept. A pool also reads
+  it while waiting for a result and stops waiting when the budget is spent, so a stalled
+  or dead worker cannot hold the call (its workers are terminated).
 - Workers (D-099, D-028): with `workers == 1` tasks run in process; otherwise a spawn pool
   whose initializer receives the shop models, controls and source once per worker, and at
   most `workers` tasks are in flight so the budget check stays meaningful. Replication r
@@ -267,33 +269,50 @@ def _run_in_process(
 
 
 def _run_in_pool(
-    work: _Work, tasks: Sequence[Task], workers: int, may_submit: Callable[[], bool]
+    work: _Work, tasks: Sequence[Task], workers: int, time_left: Callable[[], float]
 ) -> dict[Task, Outcome]:
-    """Run tasks in a spawn pool, at most `workers` in flight, oldest collected first."""
+    """Run tasks in a spawn pool, at most `workers` in flight, oldest collected first.
+
+    Waiting for a result also stops at the budget: a stalled or dead worker (the pool never
+    completes a task whose worker died) drops the work still in flight, and leaving the
+    `with` block terminates and joins every worker.
+    """
     outcomes: dict[Task, Outcome] = {}
     context = multiprocessing.get_context("spawn")
     processes = min(workers, len(tasks))
     with context.Pool(processes, initializer=_init_worker, initargs=(work,)) as pool:
         in_flight: deque[tuple[Task, AsyncResult[Outcome]]] = deque()
-        for task in tasks:
-            if len(in_flight) >= processes:
-                done, result = in_flight.popleft()
-                outcomes[done] = result.get()
-            if not may_submit():
-                break
-            in_flight.append((task, pool.apply_async(_replicate_in_worker, task)))
-        for done, result in in_flight:
-            outcomes[done] = result.get()
+        try:
+            for task in tasks:
+                if len(in_flight) >= processes:
+                    _collect(in_flight.popleft(), outcomes, time_left)
+                if time_left() <= 0.0:
+                    break
+                in_flight.append((task, pool.apply_async(_replicate_in_worker, task)))
+            while in_flight:
+                _collect(in_flight.popleft(), outcomes, time_left)
+        except multiprocessing.TimeoutError:
+            pass  # budget spent with work in flight; only finished replications are kept
     return outcomes
 
 
+def _collect(
+    entry: tuple[Task, AsyncResult[Outcome]],
+    outcomes: dict[Task, Outcome],
+    time_left: Callable[[], float],
+) -> None:
+    """Store one in-flight result, waiting no longer than the budget left."""
+    task, result = entry
+    outcomes[task] = result.get(timeout=max(time_left(), 0.0))
+
+
 def _run_tasks(
-    work: _Work, tasks: Sequence[Task], workers: int, may_submit: Callable[[], bool]
+    work: _Work, tasks: Sequence[Task], workers: int, time_left: Callable[[], float]
 ) -> dict[Task, Outcome]:
     """In process for one worker, else a spawn pool (D-099)."""
     if workers == 1 or len(tasks) <= 1:
-        return _run_in_process(work, tasks, may_submit)
-    return _run_in_pool(work, tasks, workers, may_submit)
+        return _run_in_process(work, tasks, lambda: time_left() > 0.0)
+    return _run_in_pool(work, tasks, workers, time_left)
 
 
 def _complete_replications(outcomes: Mapping[Task, Outcome], runs: int, replications: int) -> int:
@@ -512,7 +531,7 @@ def evaluate_candidates(
     deterministic = not any(source.is_stochastic(shop) for shop in work.shops)
     planned_reps = 1 if deterministic else replications
     tasks = [(run, r) for r in range(planned_reps) for run in range(len(work.runs))]
-    outcomes = _run_tasks(work, tasks, workers, lambda: clock() - start < budget_seconds)
+    outcomes = _run_tasks(work, tasks, workers, lambda: budget_seconds - (clock() - start))
     kept = _complete_replications(outcomes, len(work.runs), planned_reps)
     if kept == 0:
         raise BudgetExhausted("budget_exhausted: no replication finished for every plan")
