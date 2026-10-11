@@ -51,6 +51,13 @@ params.
 Without a previous plan: UNKNOWN `previous_plan_required`. When the improver finds no plan,
 the warm start is returned.
 
+Fallback chain [mine]: when the warm start's dispatch finds no plan, the warm start is
+`rush_insert`'s construction instead (the previous sequences with the absent ops inserted;
+its relaxations are not reported, reschedule keeps due dates), so reschedule answers
+whenever one of its constructions decodes. Measured on the 208 reactive sweep variants
+(seed % 5 == 1, frozen pins): UNKNOWN 61 before the kernel's pinned-window guard, 14 after
+it, 4 with this fallback (the baseline fails on 14).
+
 Warm start [mine; the SDD's "new ops by cheapest insertion" gave 2 to 3 times the scratch
 weighted tardiness on the machine-down bench, and tabu did not recover it]: the
 `unaffected_prefix` (the start-ordered part of the previous plan that no displaced or new
@@ -768,6 +775,14 @@ def warm_start_plan(
     return best
 
 
+def _previous_sequences_plan(
+    index: ProblemIndex, previous: PreviousPlan, issue: ScheduleIssue
+) -> Dispatched | ScheduleIssue:
+    """`rush_insert`'s plan (previous sequences, absent ops inserted); else `issue`."""
+    result = rush_insert_plan(index, previous)
+    return issue if isinstance(result, ScheduleIssue) else result[0]
+
+
 class RescheduleSolver:
     """`reschedule` behind the `Solver` seam (COMP-020); `churn_weight` is the default."""
 
@@ -809,6 +824,8 @@ class RescheduleSolver:
             churn_tolerance=context.churn_tolerance,
             deadline=warm_deadline,
         )
+        if isinstance(warm, ScheduleIssue):
+            warm = _previous_sequences_plan(index, previous, warm)
         warm_schedule = (
             None if isinstance(warm, ScheduleIssue) else warm.decoded.schedule(RESCHEDULE)
         )

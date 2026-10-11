@@ -68,7 +68,7 @@ class Portfolio:
 
 BENCH_PORTFOLIO = Portfolio(("atcs", "atcs->tabu", "sb_wt", "edd"))
 """The default bench portfolio (T-166): deterministic pipelines on one worker, so its answer
-is the same for every seed; beam and sa stay out (beam answers by its deadline, sa by seed)."""
+is the same for every seed; sa stays out (it answers by seed), and so does beam (T-166)."""
 
 Method = str | Callable[[], Solver] | Portfolio
 Values = Mapping[ObjectiveKind, float]

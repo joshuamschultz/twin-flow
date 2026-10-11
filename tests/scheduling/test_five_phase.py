@@ -467,3 +467,12 @@ def test_five_phase_on_generated_problems_keeps_the_contract(seed: int) -> None:
         assert len(ops) == len(set(ops)), seed
     else:
         assert result.schedule.issues or result.issues, seed
+
+
+def test_five_phase_takes_the_atcs_k_formula_and_ranges_from_the_kernel() -> None:
+    # One owner of Pinedo's p.376 K formula and its clamps (kernel.stats); no local copy.
+    from twinflow.scheduling.kernel import stats
+
+    leaf = importlib.import_module("twinflow.scheduling.algorithms.five_phase")
+    assert leaf.atcs_k is stats.atcs_k
+    assert not hasattr(leaf, "K1_RANGE") and not hasattr(leaf, "K2_RANGE")

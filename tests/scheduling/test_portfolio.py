@@ -437,3 +437,34 @@ def test_wall_time_within_budget_plus_ten_percent_plus_one_second_at_30_seconds(
     elapsed = time.monotonic() - started
     assert elapsed <= 30.0 * 1.1 + 1.0, elapsed
     assert any(c.verified for c in result.candidates)
+
+
+# --- bounded pipelines (OWASP LLM10: unbounded consumption) ----------------------------------
+
+
+def test_pipelines_beyond_the_cap_are_refused_with_too_many_pipelines_and_not_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = _runner()
+    edd = _Spy()
+    _patch_registry(monkeypatch, {"edd": edd})
+    result = runner.solve_portfolio(_request(), budget_seconds=5.0, pipelines=("edd",) * 66)
+    assert _codes(result.issues).count("too_many_pipelines") == 1, _codes(result.issues)
+    ids = [c.id for c in _pipeline_candidates(result)]
+    assert ids == [f"{i:02d}:edd" for i in range(runner.MAX_PIPELINES)]
+    assert len(edd.contexts) == runner.MAX_PIPELINES
+
+
+def test_a_pipeline_longer_than_the_cap_is_refused_with_pipeline_too_long() -> None:
+    runner = _runner()
+    longest = runner.STAGE_SEPARATOR.join(["edd"] * runner.MAX_STAGES)
+    too_long = runner.STAGE_SEPARATOR.join(["edd"] * (runner.MAX_STAGES + 1))
+    result = runner.solve_portfolio(
+        _request(), budget_seconds=5.0, pipelines=("edd", too_long, longest)
+    )
+    issues = [i for i in result.issues if i.code == "pipeline_too_long"]
+    assert len(issues) == 1 and "1" in issues[0].message, _codes(result.issues)
+    ids = [c.id for c in _pipeline_candidates(result)]
+    assert not any(i.startswith("01:") for i in ids), ids
+    assert ids[0] == "00:edd"
+    assert sum(i.startswith("02:") for i in ids) == runner.MAX_STAGES

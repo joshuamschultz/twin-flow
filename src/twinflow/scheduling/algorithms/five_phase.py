@@ -18,7 +18,7 @@ SDD pseudo-code "Five-phase flexible line" (p.443-447):
    numbers: the machine with the smallest t = max(free, smallest r_b of its pending ops)
    decides (ties: machine id) and takes the op with r_b <= t of highest
    (w / p_i) exp(-max(d_b - p_i - t, 0) / (K1 pbar)) exp(-s_i(l, o) / (K2 sbar)) flex(o),
-   K1 and K2 by Pinedo p.376 from the center's statistics (clamped as in `atcs`), then K2
+   K1 and K2 by Pinedo p.376 from the center's statistics (`kernel.stats.atcs_k`), then K2
    times `k2_scale` (default 6, tuned on the flow-line training seeds 0-19: a weaker setup
    factor than the single-stage formula), flex = 1 + 0.5 (1 - eligible / m); an op without
    d_b ranks after every op with one (as ATCS); ties by op id. Faster machines get larger
@@ -69,15 +69,13 @@ from twinflow.scheduling.kernel.dispatch import (
 )
 from twinflow.scheduling.kernel.index import DEFAULT_PHI, ProblemIndex
 from twinflow.scheduling.kernel.score import fast_values
-from twinflow.scheduling.kernel.stats import InstanceStats
+from twinflow.scheduling.kernel.stats import InstanceStats, atcs_k
 from twinflow.scheduling.model import ObjectiveKind, ObjectiveSpec, Problem, Schedule, ScheduleIssue
 from twinflow.scheduling.objectives import JobOutcome, job_terms, primary_kind
 from twinflow.scheduling.registry import SolverSpec
 from twinflow.scheduling.seam import Feature, ParamValue, SolveContext
 
 NAME = "five_phase"
-K1_RANGE = (0.5, 10.0)
-K2_RANGE = (0.05, 10.0)
 FLEXIBILITY_BETA = 0.5
 K2_SCALE = 6.0
 """Default `k2_scale` (tuned on the flow-line training seeds 0-19, D-083)."""
@@ -178,22 +176,16 @@ class _Factors:
 
 
 def _atcs_factors(index: ProblemIndex, center_id: str, k2_scale: float) -> _Factors:
-    """K1, K2 by Pinedo p.376 (clamped as `atcs` does), K2 times `k2_scale`; setup factor 1
-    without setups."""
+    """K1, K2 by Pinedo p.376 (`kernel.stats.atcs_k`, clamped), K2 times `k2_scale`; setup
+    factor 1 without setups."""
     stats = InstanceStats.for_center(index, center_id, index.now)
-    k1 = 4.5 + stats.R if stats.R <= 0.5 else 6.0 - 2.0 * stats.R
-    k2 = stats.tau / (2.0 * math.sqrt(stats.eta)) if stats.eta > 0 else K2_RANGE[1]
-    k1, k2 = _clamp(k1, K1_RANGE), _clamp(k2, K2_RANGE)
+    k1, k2 = atcs_k(stats.tau, stats.R, stats.eta)
     setup_on = stats.sbar > 0 and stats.eta > 0
     return _Factors(
         m=stats.m,
         inv_urgency=_reciprocal(k1 * stats.pbar),
         inv_setup=_reciprocal(k2_scale * k2 * stats.sbar) if setup_on else 0.0,
     )
-
-
-def _clamp(value: float, bounds: tuple[float, float]) -> float:
-    return min(max(value, bounds[0]), bounds[1])
 
 
 def _reciprocal(value: float) -> float:

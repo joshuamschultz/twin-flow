@@ -53,6 +53,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+import test_properties
 from bench.hmlv import HELD_OUT_SEEDS, hmlv_instance, scale_instance
 from kernel_cases import compile_request, machine, op, request_from
 
@@ -605,3 +606,33 @@ def test_reschedule_unregistered_improver_is_unknown_subsolver_unavailable() -> 
     result = _run("reschedule", SolveRequest.model_validate(data), budget=5.0)
     assert result.schedule.status == "UNKNOWN"
     assert "subsolver_unavailable" in _codes(result)
+
+
+# --- realistic previous plans with frozen pins (property sweep reactive variants) -----------
+
+
+def _sweep_variant(seed: int) -> SolveRequest:
+    """The property sweep's reactive variant: a baseline plan minus a rush job, frozen zone."""
+    request = test_properties._sweep_request(seed)
+    assert request.previous_plan is not None and request.profile.frozen_zone is not None
+    return request
+
+
+def test_reschedule_keeps_pinned_windows_on_seed_16() -> None:
+    # Seed 16: a free op dispatched on M1 ran over the pinned J2-1 (30) and J5-0 (50), so
+    # every dispatch, the warm start included, failed `no_feasible_slot`.
+    _leaf()
+    result = _run("reschedule", _sweep_variant(16), budget=1.0)
+    assert result.verified, result.issues
+
+
+def test_reschedule_falls_back_to_the_previous_sequences_when_dispatch_finds_no_plan() -> None:
+    # Seed 61: the atcs dispatch (warm start and improver) finds no plan; the previous
+    # sequences with the rush job inserted (rush_insert's construction) verify.
+    _leaf()
+    request = _sweep_variant(61)
+    assert not _run("atcs", request, budget=1.0).verified
+    assert _run("rush_insert", request, budget=1.0).verified
+    result = _run("reschedule", request, budget=1.0)
+    assert result.verified, result.issues
+    assert result.schedule.solver == "reschedule"

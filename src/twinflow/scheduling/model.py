@@ -501,7 +501,10 @@ class SchedulingProfile(_Contract):
     horizon_end: float | None = None
     time_budget_seconds: float = Field(default=10.0, gt=0, le=300)
     robustness_load_targets: tuple[LoadTarget, ...] = Field(default=(0.9, 0.8, 0.7), min_length=1)
-    default_portfolio: tuple[Pipeline, ...] = Field(default=("baseline",), min_length=1)
+    # max_length: portfolio.runner.MAX_PIPELINES (bounded consumption, OWASP LLM10)
+    default_portfolio: tuple[Pipeline, ...] = Field(
+        default=("baseline",), min_length=1, max_length=64
+    )
     method_params: MethodParams = Field(default_factory=dict)
     menu_axes: MenuAxes = (ObjectiveKind.WEIGHTED_TARDINESS, ObjectiveKind.TOTAL_SETUP)
     load_weights: LoadWeights | None = None

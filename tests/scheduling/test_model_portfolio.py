@@ -165,3 +165,19 @@ def test_portfolio_result_collections_are_tuples() -> None:
     assert isinstance(result.menu, tuple)
     assert isinstance(result.atcs_runs, tuple)
     assert isinstance(result.issues, tuple)
+
+
+# --- bounded pipelines (OWASP LLM10: unbounded consumption) ----------------------------------
+
+
+def test_profile_default_portfolio_accepts_64_pipelines_and_refuses_65() -> None:
+    assert len(model.SchedulingProfile(default_portfolio=("edd",) * 64).default_portfolio) == 64
+    with pytest.raises(ValidationError):
+        model.SchedulingProfile(default_portfolio=("edd",) * 65)
+
+
+def test_profile_pipeline_cap_matches_the_runner_cap() -> None:
+    from twinflow.scheduling.portfolio import runner
+
+    assert runner.MAX_PIPELINES == 64
+    assert runner.MAX_STAGES == 8

@@ -17,7 +17,10 @@ Sec 17.3 p.463-466, Sec 18.3 p.492-495).
    exactly like `solve()` (`solver.solve_prepared`). `k_lookup` goes to every `atcs`
    stage's constructor, `churn_weight=profile.churn_weight` to every `reschedule` stage.
    An unknown name is an `unknown_solver` candidate; a solver or worker failure is a
-   `solver_error` candidate whose message is the exception class name only.
+   `solver_error` candidate whose message is the exception class name only. Bounded work
+   (OWASP LLM10): pipelines past the first `MAX_PIPELINES` are not run (one
+   `too_many_pipelines` issue), and a pipeline of more than `MAX_STAGES` stages is not run
+   (a `pipeline_too_long` issue naming its index).
 4. Budget: each pipeline gets budget * min(1, workers / len(pipelines)) * 0.9 from its own
    start, and no pipeline runs past 90 percent of the budget from the run's start; the rest
    is for Pareto search. A stage gets what its pipeline has left (at least 0.01 s).
@@ -78,6 +81,10 @@ PIPELINE_SHARE = 0.9
 MIN_STAGE_SECONDS = 0.01
 """Budget a stage gets when its pipeline has no time left (a budget must be > 0)."""
 STAGE_SEPARATOR = "->"
+MAX_PIPELINES = 64
+"""Pipelines one portfolio run takes; `SchedulingProfile.default_portfolio` has the same cap."""
+MAX_STAGES = 8
+"""Stages one pipeline may have."""
 ATCS = "atcs"
 RESCHEDULE = "reschedule"
 DISPATCH_FAMILIES = frozenset({"dispatch", "composite"})
@@ -163,24 +170,41 @@ def _jobs(
     k_lookup: KLookup | None,
 ) -> tuple[list[_PipelineJob], list[ScheduleIssue]]:
     """A work item per valid pipeline (indices kept) and an issue per invalid one."""
+    issues = _too_many(names)
+    names = names[:MAX_PIPELINES]
     workers = prepared.request.profile.workers
     share = budget * min(1.0, workers / max(len(names), 1)) * PIPELINE_SHARE
     end = started + budget * PIPELINE_SHARE
     churn_weight = prepared.request.profile.churn_weight
     jobs: list[_PipelineJob] = []
-    issues: list[ScheduleIssue] = []
     for index, name in enumerate(names):
-        try:
-            pipeline = _PIPELINE.validate_python(name)
-        except ValidationError:
-            message = f"pipeline {index} is not registry names joined by '->'"
-            issues.append(
-                ScheduleIssue(code="invalid_pipeline", path=PIPELINES_PATH, message=message)
-            )
+        stages = _stages(index, name)
+        if isinstance(stages, ScheduleIssue):
+            issues.append(stages)
             continue
-        stages = tuple(pipeline.split(STAGE_SEPARATOR))
         jobs.append(_PipelineJob(index, stages, prepared, share, end, seed, k_lookup, churn_weight))
     return jobs, issues
+
+
+def _too_many(names: Sequence[str]) -> list[ScheduleIssue]:
+    if len(names) <= MAX_PIPELINES:
+        return []
+    message = f"{len(names)} pipelines; only the first {MAX_PIPELINES} run"
+    return [ScheduleIssue(code="too_many_pipelines", path=PIPELINES_PATH, message=message)]
+
+
+def _stages(index: int, name: str) -> tuple[str, ...] | ScheduleIssue:
+    """The stage names of pipeline `index`, or the issue that refuses it."""
+    try:
+        pipeline = _PIPELINE.validate_python(name)
+    except ValidationError:
+        message = f"pipeline {index} is not registry names joined by '->'"
+        return ScheduleIssue(code="invalid_pipeline", path=PIPELINES_PATH, message=message)
+    stages = tuple(pipeline.split(STAGE_SEPARATOR))
+    if len(stages) > MAX_STAGES:
+        message = f"pipeline {index} has {len(stages)} stages; at most {MAX_STAGES}"
+        return ScheduleIssue(code="pipeline_too_long", path=PIPELINES_PATH, message=message)
+    return stages
 
 
 # --- pipelines -------------------------------------------------------------------------------

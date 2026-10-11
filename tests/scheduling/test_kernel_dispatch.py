@@ -450,6 +450,55 @@ def test_dispatch_state_commit_rejects_unready_or_ineligible(op_id: str, machine
         _state_7_1_1().commit(op_id, machine_id)
 
 
+# --- pinned windows (TF-003 polish: reschedule failed where a plan exists) ---------------------
+#
+# A machine with an unplaced op pinned to it (one option, a latest start) reserves that start:
+# the engine places another op there only when it ends, with the setup to the pinned op, by
+# the pinned op's latest start. Without it, a free op dispatched first runs over the window.
+
+
+def _pinned_case(free_run: float) -> dict[str, Any]:
+    pinned = op(
+        "B-1", {"M1": 5.0}, pin={"machine_id": "M1", "earliest_start": 10.0, "latest_start": 10.0}
+    )
+    later = op(
+        "C-1", {"M1": 5.0}, pin={"machine_id": "M1", "earliest_start": 30.0, "latest_start": 30.0}
+    )
+    jobs = [_job("A", [op("A-1", {"M1": free_run})]), _job("B", [pinned]), _job("C", [later])]
+    return _problem(jobs, ["M1"])
+
+
+@pytest.mark.parametrize("mode", ["nondelay", "active"])
+def test_dispatch_keeps_a_pinned_window_free_of_an_op_that_would_overrun_it(mode: str) -> None:
+    request = request_from(_pinned_case(free_run=20.0))
+    compiled = compile_request(request)
+    result = DispatchEngine(ProblemIndex.build(compiled.problem), TableRule(), mode=mode).run()
+    assert isinstance(result, Dispatched), result
+    assert _sequence(result, "M1") == ["B-1", "C-1", "A-1"]
+    verdict = verify(compiled, request.overrides, result.decoded.schedule("dispatch-test"))
+    assert verdict.valid, verdict.issues
+
+
+@pytest.mark.parametrize("mode", ["nondelay", "active"])
+def test_dispatch_places_an_op_before_a_pinned_window_when_it_fits(mode: str) -> None:
+    result = _dispatch(_pinned_case(free_run=8.0), TableRule(), mode=mode)
+    assert _sequence(result, "M1") == ["A-1", "B-1", "C-1"]
+
+
+@pytest.mark.parametrize("mode", ["nondelay", "active"])
+def test_dispatch_never_runs_a_pinned_op_over_an_earlier_pinned_window(mode: str) -> None:
+    # C-1 may start from 5 (until 30) and is ready first, but 5 + 8 runs over B-1's 10.
+    tight = op(
+        "B-1", {"M1": 5.0}, pin={"machine_id": "M1", "earliest_start": 10.0, "latest_start": 10.0}
+    )
+    loose = op(
+        "C-1", {"M1": 8.0}, pin={"machine_id": "M1", "earliest_start": 5.0, "latest_start": 30.0}
+    )
+    problem = _problem([_job("B", [tight]), _job("C", [loose])], ["M1"])
+    result = _dispatch(problem, TableRule(), mode=mode)
+    assert _sequence(result, "M1") == ["B-1", "C-1"]
+
+
 # --- fifo ------------------------------------------------------------------------------------
 
 

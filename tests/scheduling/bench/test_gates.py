@@ -851,10 +851,9 @@ def test_format_verdict_names_the_method_mean_wins_and_cv() -> None:
 # the same runs. D-083: a method registered deterministic runs seed 0 plus the identical-output
 # check for seeds 0 and 1 on 3 instances; a stochastic one (sa) runs seeds 0-4 with CV <= 0.05.
 # Anytime methods get the smallest per-instance budget that passed reliably on the TRAINING
-# seeds (measured, T-166): beam stops at its deadline, so its budget sets its answer and its
-# seeds 0/1 identity check depends on the clock (2 of 20 training instances differed); tabu
-# (iteration limit 30), rolling_horizon (atcs->tabu windows), CP-SAT at 3 s and the portfolio
-# finish before their deadline, so their output does not depend on the clock.
+# seeds (measured, T-166): beam (rollout limit 60, at most 0.52 s), tabu (iteration limit
+# 30), rolling_horizon (atcs->tabu windows), CP-SAT at 3 s and the portfolio finish before
+# their deadline, so their output does not depend on the clock.
 
 ATCS_EXTENDED = (("flexibility", True), ("suitability", True), ("macro_jobs", True))
 RULE_ATCS = (("rule", "atcs"),)

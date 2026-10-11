@@ -37,6 +37,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+from bench.hmlv import TRAINING_SEEDS, hmlv_instance
 from generators import random_request
 from kernel_cases import compile_request, load_request
 
@@ -231,3 +232,38 @@ def test_beam_verifies_or_names_its_issue_on_generated_problems(seed: int) -> No
         assert result.verified, (seed, result.issues)
     else:
         assert codes, seed
+
+
+# --- rollout limit (D-083 determinism) ------------------------------------------------------------
+
+
+def test_beam_search_stops_at_its_rollout_limit_counting_the_root() -> None:
+    # Filter off, width 2: 4 children at level 1, 6 at level 2; a limit of 6 is the root,
+    # all 4 level-1 rollouts and 1 level-2 rollout, so level 2 stops mid-level, none kept.
+    result = _book_search(rollout_limit=6)
+    assert [len(level) for level in result.levels] == [4, 1]
+    assert not any(node.kept for node in result.levels[1])
+
+
+def test_beam_search_with_a_rollout_limit_of_1_returns_the_root_rollout() -> None:
+    result = _book_search(rollout_limit=1)
+    assert result.levels == ()
+    assert result.best_value == pytest.approx(440.0)
+
+
+@pytest.mark.parametrize("params", [{"rollout_limit": 0}, {"rollout_limit": 1.5}])
+def test_beam_invalid_rollout_limits_are_refused_by_name(params: dict[str, Any]) -> None:
+    result = _solve(load_request("pinedo_14_3_4"), params)
+    assert result.schedule.status == "UNKNOWN"
+    codes = [i.code for i in (*result.schedule.issues, *result.issues)]
+    assert "invalid_method_param" in codes, codes
+
+
+def test_beam_default_answer_does_not_depend_on_the_budget() -> None:
+    # Training seed 0 (D-083 training set): before the rollout limit the answer at 1 s and
+    # 2 s differed. Both budgets here exceed the default work bound, so the answers match.
+    request = hmlv_instance(TRAINING_SEEDS[0])
+    short = solve(request, solver=get_solver("beam"), budget_seconds=3.0)
+    long = solve(request, solver=get_solver("beam"), budget_seconds=6.0, seed=1)
+    assert short.verified and long.verified, (short.issues, long.issues)
+    assert short.schedule.assignments == long.schedule.assignments

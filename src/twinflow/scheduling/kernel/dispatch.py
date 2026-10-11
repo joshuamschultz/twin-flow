@@ -27,6 +27,15 @@ returns `C` for beam search.
 the earliest start the engine assumes, computed once when o becomes ready (all scheduled
 predecessors placed).
 
+**Pinned windows** [mine]: an unplaced op with one machine and a pin latest start reserves
+that start on its machine. The engine places a ready op on such a machine only when its
+trial end there is at most the pinned op's latest start (a start includes the setup;
+`DispatchState.admits`, the policy's `accepted` plus this check), so a free op (or a
+later-pinned one) never runs over an earlier pinned window; the machine waits for the
+pinned op instead. Callers placing with gap insertion read `accepted` (policy only).
+Without the guard every dispatch method failed `no_feasible_slot` on a frozen zone whose
+pins left gaps (61 of 208 reactive sweep variants for `reschedule`).
+
 **Machine policy `PreferredUnlessLate`** (D-072, Pinedo p.523; this module's reading): an op
 with a due date is accepted on its lowest `preference_cost` options whose estimated finish
 `max(f_k, est(o, k)) + p_k(o)` meets `local_due(o)`; when none does, on the option(s) with the
@@ -126,6 +135,8 @@ class _Static:
     machines_of: tuple[tuple[int, ...], ...]
     lowest_of: tuple[tuple[int, ...], ...]
     earliest: tuple[float, ...]
+    reserved: tuple[tuple[tuple[int, float], ...], ...]
+    """Per machine position, (op position, latest start) of the ops pinned to it alone."""
     option_by_machine: tuple[Mapping[str, OpOption], ...]
     calendars: dict[tuple[str, tuple[str, ...]], Intervals]
 
@@ -142,6 +153,7 @@ class _Static:
             machines_of=machines_of,
             lowest_of=tuple(_lowest(op, ms) for op, ms in zip(index.ops, machines_of, strict=True)),
             earliest=tuple(_earliest(op, index.now) for op in index.ops),
+            reserved=_reserved(index, machines_of),
             option_by_machine=tuple({o.machine_id: o for o in op.options} for op in index.ops),
             calendars={},
         )
@@ -171,6 +183,18 @@ def _lowest(op: OpData, machines: tuple[int, ...]) -> tuple[int, ...]:
     return tuple(
         m for m, o in zip(machines, op.options, strict=True) if o.preference_cost == lowest
     )
+
+
+def _reserved(
+    index: ProblemIndex, machines_of: tuple[tuple[int, ...], ...]
+) -> tuple[tuple[tuple[int, float], ...], ...]:
+    """Per machine, the not-running ops whose only option it is and that have a latest start."""
+    reserved: list[list[tuple[int, float]]] = [[] for _ in index.machines]
+    for p, op in enumerate(index.ops):
+        latest = op.pin.latest_start if op.pin else None
+        if latest is not None and len(machines_of[p]) == 1 and op.in_progress is None:
+            reserved[machines_of[p][0]].append((p, latest))
+    return tuple(tuple(r) for r in reserved)
 
 
 def _earliest(op: OpData, now: float) -> float:
@@ -367,6 +391,21 @@ class DispatchState:
     def accepted(self, p: int) -> tuple[int, ...]:
         return self._policy.accepted(self, p)
 
+    def admits(self, p: int, m: int) -> bool:
+        """Whether the engine may place ready op `p` on `m` now: policy and pinned windows."""
+        return m in self.accepted(p) and self.keeps_pinned_windows(p, m)
+
+    def keeps_pinned_windows(self, p: int, m: int) -> bool:
+        """Whether placing ready op `p` on `m` still lets each unplaced op pinned there start."""
+        reserved = self.static.reserved[m]
+        pending = [(q, latest) for q, latest in reserved if q != p and self._placed[q] is None]
+        if not pending:
+            return True
+        end = self.trial_end(p, m)
+        if end is None:  # no slot at all: placing it reports the issue
+            return True
+        return all(end <= latest + _EPS for _, latest in pending)
+
     def candidates(self, m: int) -> Mapping[int, float]:
         """Ready ops eligible on machine `m` with their est on it."""
         return self._cands[m]
@@ -376,7 +415,7 @@ class DispatchState:
         cached = self._start[m]
         if cached is None:
             best = min(
-                (est for p, est in self._cands[m].items() if m in self.accepted(p)), default=_INF
+                (est for p, est in self._cands[m].items() if self.admits(p, m)), default=_INF
             )
             cached = max(self._free[m], best)
             self._start[m] = cached
@@ -389,7 +428,7 @@ class DispatchState:
             cached = (_INF, _NONE)
             rank = self.static.op_rank
             for p in self._cands[m]:
-                if m not in self.accepted(p):
+                if not self.admits(p, m):
                     continue
                 completion = self.estimated_completion(p, m)
                 if completion < cached[0] or (
@@ -606,7 +645,7 @@ def _conflict_set(state: DispatchState) -> tuple[int, float, list[int]] | None:
     conflict = [
         p
         for p in state.candidates(m)
-        if p == argmin or (state.estimated_start(p, m) < t_star and m in state.accepted(p))
+        if p == argmin or (state.estimated_start(p, m) < t_star and state.admits(p, m))
     ]
     return m, t_star, conflict
 
@@ -697,9 +736,7 @@ class DispatchEngine:
             return None
         t, _, m = best
         conflict = [
-            p
-            for p, est in state.candidates(m).items()
-            if est <= t + _EPS and m in state.accepted(p)
+            p for p, est in state.candidates(m).items() if est <= t + _EPS and state.admits(p, m)
         ]
         return m, t, conflict
 
@@ -736,7 +773,9 @@ class DispatchEngine:
         for follower in self._followers(state, index.op_ids[last], machine_id):
             q = index.pos[follower]
             est = state.candidates(m).get(q)
-            if est is not None and est <= free + _EPS and state.place(q, m) is None:
+            if est is None or est > free + _EPS or not state.keeps_pinned_windows(q, m):
+                continue
+            if state.place(q, m) is None:
                 return True
         return False
 

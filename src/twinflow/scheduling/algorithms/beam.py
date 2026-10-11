@@ -17,14 +17,20 @@ the SDD pseudo-code (p.396-398):
   `beam_width` best rollouts (ties: key) form the next beam; finished nodes are not
   expanded again.
 - Anytime incumbent: the root rollout, always computed (even past the deadline), then the
-  best rollout seen. The search stops at the deadline, mid-level if need be (that level's
-  rolled-out nodes are recorded with `kept` False), or when the beam is empty.
+  best rollout seen. The search stops after `rollout_limit` rollouts (the root counts), or
+  at the deadline, mid-level if need be (that level's rolled-out nodes are recorded with
+  `kept` False), or when the beam is empty.
+- Work bound [mine]: the rollout limit, not the clock, ends the search in normal use, so the
+  answer does not depend on the budget or the machine's speed (D-083: a deterministic method
+  gives identical output across seeds). The default (60, at most 0.52 s on the 40x5x4 training
+  instances) finishes inside the 1 s gate budget; the deadline stays as a safety stop.
 
 The solver stops its search 5 percent of the budget before `context.deadline` [mine], so
 building and verifying the plan stays inside the budget. Params (`SolveContext.params`):
-`beam_width` (int >= 1, default 4), `filter_width` (int >= 0, default 12; 0 = off), `rule`
-(`atcs` | `atc`) and `K1` (positive number); anything else gives UNKNOWN with
-`invalid_method_param`. A missing rollout-rule leaf gives UNKNOWN `subsolver_unavailable`.
+`beam_width` (int >= 1, default 4), `filter_width` (int >= 0, default 12; 0 = off),
+`rollout_limit` (int >= 1, default 60), `rule` (`atcs` | `atc`) and `K1` (positive number);
+anything else gives UNKNOWN with `invalid_method_param`. A missing rollout-rule leaf gives
+UNKNOWN `subsolver_unavailable`.
 
 A leaf of `algorithms/` (D-069): it registers through `SOLVERS` and composes rules by name.
 """
@@ -54,6 +60,8 @@ from twinflow.scheduling.seam import Feature, ParamValue, SolveContext
 NAME = "beam"
 DEFAULT_BEAM_WIDTH = 4
 DEFAULT_FILTER_WIDTH = 12
+DEFAULT_ROLLOUT_LIMIT = 60
+"""Rollouts per search, the root included: the work bound (module docstring)."""
 DEFAULT_RULE = "atcs"
 ROLLOUT_RULES = ("atc", "atcs")
 SEARCH_SHARE = 0.95
@@ -100,6 +108,7 @@ def beam_search(
     *,
     beam_width: int = DEFAULT_BEAM_WIDTH,
     filter_width: int | None = DEFAULT_FILTER_WIDTH,
+    rollout_limit: int = DEFAULT_ROLLOUT_LIMIT,
     rule: str = DEFAULT_RULE,
     K1: float | None = None,  # noqa: N803  # Pinedo's name, as the ATCS param
     deadline: float | None = None,
@@ -115,7 +124,21 @@ def beam_search(
     params = {} if K1 is None else {"K1": K1}
     engine = DispatchEngine(index, registry.rule(rule, **params))
     search = _Search(index, objective, engine, previous_plan, churn_tolerance)
-    return search.run(beam_width, filter_width or None, deadline)
+    return search.run(beam_width, filter_width or None, _Stop(rollout_limit, deadline))
+
+
+class _Stop:
+    """When the search stops: after `limit` rollouts, or past `deadline` (a safety stop)."""
+
+    __slots__ = ("deadline", "limit", "rollouts")
+
+    def __init__(self, limit: int, deadline: float | None) -> None:
+        self.limit = limit
+        self.deadline = deadline
+        self.rollouts = 0
+
+    def reached(self) -> bool:
+        return self.rollouts >= self.limit or _past(self.deadline)
 
 
 class _Search:
@@ -138,21 +161,22 @@ class _Search:
         self.best: _Rolled | None = None
 
     def run(
-        self, beam_width: int, filter_width: int | None, deadline: float | None
+        self, beam_width: int, filter_width: int | None, stop: _Stop
     ) -> BeamResult | ScheduleIssue:
         root = _Child((), self.engine.initial_state())
         rolled = self._rollout(root, None)
+        stop.rollouts = 1
         if isinstance(rolled, ScheduleIssue):
             return rolled
         self.scorer = Scorer(self.objective, rolled.values)
         self.best = rolled
         levels: list[tuple[BeamNode, ...]] = []
         beam = [root]
-        while beam and not _past(deadline):
+        while beam and not stop.reached():
             children = self._filtered(_children(beam), filter_width)
             if not children:
                 break
-            scored, finished = self._roll_level(children, deadline)
+            scored, finished = self._roll_level(children, stop)
             kept = {r.child.key for r in sorted(scored, key=self._rank)[:beam_width]}
             if not finished:
                 kept = set()
@@ -161,13 +185,14 @@ class _Search:
         best = self._best()
         return BeamResult(best=best.plan, best_value=self._primary(best), levels=tuple(levels))
 
-    def _roll_level(
-        self, children: Sequence[_Child], deadline: float | None
-    ) -> tuple[list[_Rolled], bool]:
-        """Rollouts of `children` until the deadline; (rolled, whether every child rolled)."""
+    def _roll_level(self, children: Sequence[_Child], stop: _Stop) -> tuple[list[_Rolled], bool]:
+        """Rollouts of `children` until `stop`; (rolled, whether every child rolled)."""
         scored: list[_Rolled] = []
         for child in children:
-            rolled = self._rollout(child, deadline)
+            if stop.rollouts >= stop.limit:
+                return scored, False
+            stop.rollouts += 1
+            rolled = self._rollout(child, stop.deadline)
             if isinstance(rolled, ScheduleIssue):
                 if rolled.code == "time_limit":
                     return scored, False
@@ -258,12 +283,14 @@ class InvalidParamError(ValueError):
 class _Settings:
     beam_width: int = DEFAULT_BEAM_WIDTH
     filter_width: int = DEFAULT_FILTER_WIDTH
+    rollout_limit: int = DEFAULT_ROLLOUT_LIMIT
     rule: str = DEFAULT_RULE
     k1: float | None = None
 
     @classmethod
     def from_params(cls, params: Mapping[str, ParamValue]) -> _Settings:
-        unknown = sorted(set(params) - {"beam_width", "filter_width", "rule", "K1"})
+        names = {"beam_width", "filter_width", "rollout_limit", "rule", "K1"}
+        unknown = sorted(set(params) - names)
         if unknown:
             raise InvalidParamError(f"unknown param {unknown[0]}")
         rule = params.get("rule", DEFAULT_RULE)
@@ -272,6 +299,7 @@ class _Settings:
         return cls(
             beam_width=_int(params, "beam_width", DEFAULT_BEAM_WIDTH, lowest=1),
             filter_width=_int(params, "filter_width", DEFAULT_FILTER_WIDTH, lowest=0),
+            rollout_limit=_int(params, "rollout_limit", DEFAULT_ROLLOUT_LIMIT, lowest=1),
             rule=str(rule),
             k1=_k1(params),
         )
@@ -342,6 +370,7 @@ class BeamSolver:
                 objective,
                 beam_width=settings.beam_width,
                 filter_width=settings.filter_width,
+                rollout_limit=settings.rollout_limit,
                 rule=settings.rule,
                 K1=settings.k1,
                 deadline=context.deadline - (1.0 - SEARCH_SHARE) * budget_seconds,
