@@ -17,7 +17,11 @@ setup(previous op or None for the machine state, op) + run (the setup is attache
 - `wt_atc_sequence`: 1|r_j,s_jk,dp|sum w (C - d^k)^+ dispatched by the multi-due ATC index
   (Pinedo p.199) whenever the machine frees, times the SDD setup factor exp(-s /
   setup_scale) with s the setup after the machine's previous op (`setup_scale` = K2 sbar;
-  the default inf gives factor 1, the book's index).
+  the default inf gives factor 1, the book's index). One change from the book: its slack
+  is (d - p + (r - t))^+, here it is (d - p + (r - t)^+)^+, so a released op's slack d - p
+  does not shrink with t. Measured with `sb_wt` on the bench training seeds 0-19 (mean
+  D-083 score, lower is better): this reading 0.936, the book's 1.073, d - p - max(t, r)
+  0.949.
 - `solve_center_parallel`: the Pm|r_j,s_jk,M_j,dp| version of a multi-machine center
   (p.212), non-delay at t = the earliest possible start: for Lmax the ready op with the
   earliest due goes to the eligible machine that completes it first; for weighted
@@ -380,7 +384,10 @@ def _atc(run: float, release: float, dues: Dues, t: float, scale: float) -> floa
 
 
 def multi_due_atc_index(op: SubOp, t: float, *, pbar: float, K: float) -> float:  # noqa: N803
-    """sum over (w, d) in `op.dues` of (w / p) exp(-(d - p + (r - t)^+)^+ / (K pbar)), p.199."""
+    """sum over (w, d) in `op.dues` of (w / p) exp(-(d - p + (r - t)^+)^+ / (K pbar)).
+
+    Pinedo p.199 with the (r - t) term clipped at 0 (module docstring: the measured reason).
+    """
     if K <= 0.0 or pbar <= 0.0:
         raise ValueError("K and pbar must be positive")
     return _atc(op.run, op.release, op.dues, t, K * pbar)

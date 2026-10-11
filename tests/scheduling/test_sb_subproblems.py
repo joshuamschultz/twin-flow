@@ -432,6 +432,16 @@ def test_wt_atc_sequence_respects_delayed_precedence() -> None:
     assert result.value == 5.0 * (2.0 + 1.0 + 2.0 - 2.0)
 
 
+def test_multi_due_atc_index_keeps_a_released_ops_slack_at_d_minus_p() -> None:
+    # The module's documented change from p.199: (r - t) is clipped at 0, so the index of a
+    # released op does not change with t (the book's would grow to w / p by t = d - p).
+    op_ = SubOp(id="x", release=0.0, run=1.0, dues=((1.0, 5.0),))
+    for t in (0.0, 3.0, 10.0):
+        assert multi_due_atc_index(op_, t, pbar=1.0, K=1.0) == pytest.approx(math.exp(-4.0))
+    unreleased = SubOp(id="y", release=2.0, run=1.0, dues=((1.0, 5.0),))
+    assert multi_due_atc_index(unreleased, 0.0, pbar=1.0, K=1.0) == pytest.approx(math.exp(-6.0))
+
+
 # --- parallel-machine center (p.212) ------------------------------------------------------------
 
 
