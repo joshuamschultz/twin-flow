@@ -74,7 +74,7 @@ def lever_label(
     return f"Set {path} to {value}"
 
 
-def _point_label(
+def point_label(
     levers: Mapping[str, Any], base: Mapping[str, Any], names: Mapping[str, str]
 ) -> str:
     changed = [(p, v) for p, v in levers.items() if base.get(p, _MISSING) != v]
@@ -144,7 +144,7 @@ def lever_rows(
         rows.append(
             {
                 "id": ",".join(f"{p}={v}" for p, v in point["levers"].items()),
-                "label": _point_label(point["levers"], base_values, names),
+                "label": point_label(point["levers"], base_values, names),
                 "tested": True,
                 "on_time": round(on_time, 3),
                 "gain_points": gain,
@@ -160,7 +160,10 @@ def lever_rows(
     _prefer_small_changes(rows)
     for row in rows:
         del row["_size"], row["_paths"]
-    today = {"on_time": today_on_time, "late_orders_per_run": today_late}
+    today = {
+        "on_time": None if today_on_time is None else round(today_on_time, 3),
+        "late_orders_per_run": None if today_late is None else round(today_late, 1),
+    }
     return rows, today
 
 
@@ -194,4 +197,4 @@ def _opt(value: Any, default: float | None) -> float | None:
     return float(value) if isinstance(value, (int, float)) else default
 
 
-__all__ = ["lever_label", "lever_rows", "plain"]
+__all__ = ["lever_label", "lever_rows", "plain", "point_label"]

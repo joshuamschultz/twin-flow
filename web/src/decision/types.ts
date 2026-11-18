@@ -618,3 +618,64 @@ export interface RunProblem {
   fix?: string | null;
   [k: string]: unknown;
 }
+
+/**
+ * The sweep view model (DESIGN.md 4.4, BUILD-PLAN.md B-35). Built by twinflow.report.sweep_view.sweep_view_model.
+ */
+export interface SweepViewModel {
+  view: "sweep";
+  schema_version: 1;
+  about: {
+    title: string;
+    project: string;
+    sweep_id: string;
+    kind: "balance" | "optimize";
+    base_run_id: string | null;
+    reps: number;
+    levers: string[];
+    objective: string | null;
+    method: string;
+  };
+  answer: {
+    headline: string;
+    lede: string;
+    today: {
+      on_time: number | null;
+      late_orders_per_run: number | null;
+    };
+    best: SweepLever | null;
+  };
+  levers: SweepLever[];
+  points: SweepPoint[];
+  agent_summary: string[];
+  warnings: string[];
+  problems: {}[];
+}
+/**
+ * This interface was referenced by `SweepViewModel`'s JSON-Schema
+ * via the `definition` "SweepLever".
+ */
+export interface SweepLever {
+  id: string;
+  label: string;
+  tested: boolean;
+  on_time: number | null;
+  gain_points: number | null;
+  late_orders_per_run: number | null;
+  note: string;
+  command?: string;
+}
+/**
+ * This interface was referenced by `SweepViewModel`'s JSON-Schema
+ * via the `definition` "SweepPoint".
+ */
+export interface SweepPoint {
+  id: string;
+  levers: {};
+  label: string;
+  today: boolean;
+  reps: number;
+  on_time: number;
+  late_orders_per_run: number | null;
+  busy_hours: number | null;
+}

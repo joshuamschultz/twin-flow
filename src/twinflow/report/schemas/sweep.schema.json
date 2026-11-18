@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "twinflow/sweep.schema.json",
+  "title": "SweepViewModel",
+  "description": "The sweep view model (DESIGN.md 4.4, BUILD-PLAN.md B-35). Built by twinflow.report.sweep_view.sweep_view_model.",
+  "type": "object",
+  "$defs": {
+    "SweepLever": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "tested": {
+          "type": "boolean"
+        },
+        "on_time": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "gain_points": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "late_orders_per_run": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "note": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "tested",
+        "on_time",
+        "gain_points",
+        "late_orders_per_run",
+        "note"
+      ],
+      "additionalProperties": false,
+      "title": "SweepLever"
+    },
+    "SweepPoint": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "levers": {
+          "type": "object"
+        },
+        "label": {
+          "type": "string"
+        },
+        "today": {
+          "type": "boolean"
+        },
+        "reps": {
+          "type": "integer"
+        },
+        "on_time": {
+          "type": "number"
+        },
+        "late_orders_per_run": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "busy_hours": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "levers",
+        "label",
+        "today",
+        "reps",
+        "on_time",
+        "late_orders_per_run",
+        "busy_hours"
+      ],
+      "additionalProperties": false,
+      "title": "SweepPoint"
+    }
+  },
+  "properties": {
+    "view": {
+      "const": "sweep"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "about": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "sweep_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "balance",
+            "optimize"
+          ]
+        },
+        "base_run_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reps": {
+          "type": "integer"
+        },
+        "levers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "objective": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "method": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "project",
+        "sweep_id",
+        "kind",
+        "base_run_id",
+        "reps",
+        "levers",
+        "objective",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "answer": {
+      "type": "object",
+      "properties": {
+        "headline": {
+          "type": "string"
+        },
+        "lede": {
+          "type": "string"
+        },
+        "today": {
+          "type": "object",
+          "properties": {
+            "on_time": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "late_orders_per_run": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "on_time",
+            "late_orders_per_run"
+          ],
+          "additionalProperties": false
+        },
+        "best": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SweepLever"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "headline",
+        "lede",
+        "today",
+        "best"
+      ],
+      "additionalProperties": false
+    },
+    "levers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SweepLever"
+      }
+    },
+    "points": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SweepPoint"
+      }
+    },
+    "agent_summary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "view",
+    "schema_version",
+    "about",
+    "answer",
+    "levers",
+    "points",
+    "agent_summary",
+    "warnings",
+    "problems"
+  ],
+  "additionalProperties": false
+}

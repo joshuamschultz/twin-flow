@@ -30,9 +30,9 @@ from twinflow.model import load_model, validate_model
 from twinflow.plan.driver import RunDriver
 from twinflow.plan.loader import load_plan
 from twinflow.plan.replication import ReplicationRunner
-from twinflow.report import write_kpi_json, write_run_report
+from twinflow.report import write_kpi_json, write_run_report, write_sweep_report
 from twinflow.report.assumptions import AssumptionsCollector
-from twinflow.report.run_detail import shown_path, write_run_detail
+from twinflow.report.run_detail import labels, shown_path, write_run_detail
 from twinflow.run_stamp import RunStamp
 from twinflow.scenario import import_legacy
 from twinflow.scenario import load as load_capsule
@@ -149,6 +149,7 @@ def _build_parser() -> argparse.ArgumentParser:
     optimize_parser.add_argument("--budget", type=int, default=12)
     optimize_parser.add_argument("--reps", type=int, default=12)
     optimize_parser.add_argument("--seed", type=int, default=0)
+    optimize_parser.add_argument("--run", default=None, help="base run id the search belongs to")
     optimize_parser.set_defaults(handler=_handle_optimize)
 
     scenario_parser = subparsers.add_parser("scenario")
@@ -378,13 +379,25 @@ def _handle_balance(args: argparse.Namespace) -> int:
     )
     summary = _sweep_summary(result)
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    _write_sweep_meta(run_dir, args, sweep, model_path, plan_path)
+    _write_sweep_meta(run_dir, args.run, args.reps, list(sweep), model_path, plan_path)
     for line in _sweep_summary_lines(summary):
         print(line)
     print(f"\nsweep {run_dir.name}")
     print(f"  dir:     {run_dir}")
     print(f"  summary: {run_dir / 'summary.json'}")
+    _write_sweep_pages(run_dir, args.run)
     return 0
+
+
+def _write_sweep_pages(sweep_dir: Path, base_run_id: str | None) -> None:
+    """B-35: `sweep.html` in the sweep folder, and the linked base run's viewer again so it
+    lists the tested changes."""
+    print(f"  page:    {write_sweep_report(sweep_dir)}")
+    base = sweep_dir.parent / base_run_id if base_run_id else None
+    if base is not None and (base / "kpis.json").is_file():
+        print(f"  run:     {write_run_report(base)}")
+    elif base_run_id:
+        print(f"  note:    base run {base_run_id!r} not found next to this sweep")
 
 
 def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
@@ -418,10 +431,12 @@ def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
 
 def _write_sweep_meta(
     run_dir: Path,
-    args: argparse.Namespace,
-    sweep: dict[str, list[Any]],
+    base_run_id: str | None,
+    reps: int,
+    lever_paths: list[str],
     model_path: str,
     plan_path: str,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     """B-26 G6: link the sweep to its base run and keep each lever's value today, so the
     base run's viewer can show the levers measured against what the plant does now."""
@@ -431,16 +446,19 @@ def _write_sweep_meta(
     data = cast(dict[str, Any], load_raw_model(model_path).data)
     defaults = {"capacity": 1, "dispatch": "fifo"}
     base_values = {
-        path: lever_value(data, path, defaults.get(path.rsplit(".", 1)[-1])) for path in sweep
+        path: lever_value(data, path, defaults.get(path.rsplit(".", 1)[-1])) for path in lever_paths
     }
     meta = {
         "schema_version": 1,
-        "base_run_id": args.run,
+        "kind": "balance",
+        "project": Path(model_path).resolve().parent.name,
+        "base_run_id": base_run_id,
         "model_path": shown_path(model_path),
         "plan_path": shown_path(plan_path),
-        "reps": args.reps,
-        "sweep": sweep,
+        "reps": reps,
         "base_values": base_values,
+        "labels": labels(model_path),
+        **(extra or {}),
     }
     (run_dir / "sweep_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
@@ -531,7 +549,47 @@ def _handle_optimize(args: argparse.Namespace) -> int:
     print(f"  on-time%: {band.mean:.1f}  (band {band.lo:.1f}-{band.hi:.1f}, {band.n} reps)")
     print(f"  evals:    {result.evaluations_used} of budget {args.budget}")
     print("  (the twin scores the options; the decision stays yours)")
+    out_dir = Path.cwd() / "runs" / _new_run_id()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "summary.json").write_text(
+        json.dumps(_optimize_summary(result, args.reps), indent=2), encoding="utf-8"
+    )
+    _write_sweep_meta(
+        out_dir,
+        args.run,
+        args.reps,
+        list(domains),
+        model_path,
+        plan_path,
+        {"kind": "optimize", "objective": result.objective_name},
+    )
+    print(f"\noptimize {out_dir.name}")
+    print(f"  dir:     {out_dir}")
+    _write_sweep_pages(out_dir, args.run)
     return 0
+
+
+def _optimize_summary(result: Any, reps: int) -> list[dict[str, object]]:
+    """Each scenario the optimizer scored, as `summary.json` rows (same shape as balance).
+    Late orders per run are not kept per test run here, so that field is null."""
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for i, evaluation in enumerate(result.evaluations):
+        key = json.dumps(evaluation.scenario.levers, sort_keys=True, default=str)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(
+            {
+                "sweep_point": f"eval-{i:04d}",
+                "levers": {str(k): v for k, v in evaluation.scenario.levers.items()},
+                "reps": evaluation.intervals.reps or reps,
+                "on_time_pct": round(evaluation.intervals.on_time_pct.mean, 1),
+                "busy_hours": round(evaluation.kpis.run_hours, 1),
+                "late_orders_per_run": None,
+            }
+        )
+    return rows
 
 
 def _parse_lever(spec: str) -> tuple[str, IntRange]:

@@ -1,6 +1,6 @@
 // The run viewer (DESIGN.md section 4): answer, orders at risk, choke point, best fix,
 // details. Data: RunViewModel (DATA-CONTRACT.md section 2).
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect } from "react";
 import type { RunViewModel } from "../types";
 import { ChokeFlow } from "./ChokeFlow";
 import { LeverList } from "./LeverList";
@@ -13,94 +13,15 @@ import {
   sideRows,
   unitShort,
 } from "./runText";
+import {
+  Facts,
+  initialTheme,
+  Section,
+  Takeaway,
+  TopBar,
+  type SectionLink,
+} from "./parts";
 import "./run.css";
-
-type SectionLink = { id: string; label: string };
-
-function useScrollSpy(ids: string[]): string {
-  const [on, setOn] = useState(ids[0]);
-  useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) if (e.isIntersecting) setOn(e.target.id);
-      },
-      { rootMargin: "-110px 0px -65% 0px" },
-    );
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
-    }
-    return () => io.disconnect();
-  }, [ids.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
-  return on;
-}
-
-function initialTheme(): void {
-  const q =
-    new URLSearchParams(location.search).get("theme") ??
-    new URLSearchParams(location.hash.slice(1)).get("theme");
-  if (q === "dark" || q === "light") document.documentElement.dataset.theme = q;
-}
-
-function TopBar({
-  model,
-  sections,
-}: {
-  model: RunViewModel;
-  sections: SectionLink[];
-}) {
-  const on = useScrollSpy(sections.map((s) => s.id));
-  const { about } = model;
-  const toggle = () => {
-    const root = document.documentElement;
-    const dark =
-      root.dataset.theme === "dark" ||
-      (!root.dataset.theme &&
-        matchMedia("(prefers-color-scheme: dark)").matches);
-    root.dataset.theme = dark ? "light" : "dark";
-  };
-  return (
-    <header className="rv-top">
-      <div className="rv-wrap rv-top-row">
-        <span className="rv-brand">
-          twinflow<i>.</i>
-        </span>
-        <span className="rv-crumb">
-          <b>Run viewer</b> · {about.project}{" "}
-          <span className="rv-opt">
-            · {model.orders.length} orders · {about.reps} test{" "}
-            {about.reps === 1 ? "run" : "runs"} · times in {about.time_unit}
-          </span>
-        </span>
-        <span className="rv-spacer" />
-        <button
-          type="button"
-          className="rv-btn"
-          onClick={toggle}
-          aria-label="Switch light or dark theme"
-        >
-          Light / dark
-        </button>
-        <button type="button" className="rv-btn" onClick={() => print()}>
-          Print
-        </button>
-      </div>
-      <nav className="rv-wrap rv-tabs" aria-label="Sections">
-        {sections.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className={on === s.id ? "rv-on" : undefined}
-            aria-current={on === s.id ? "true" : undefined}
-          >
-            {s.label}
-          </a>
-        ))}
-      </nav>
-    </header>
-  );
-}
 
 function Hero({ model }: { model: RunViewModel }) {
   const { answer } = model;
@@ -158,66 +79,6 @@ function Hero({ model }: { model: RunViewModel }) {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Section({
-  id,
-  eyebrow,
-  question,
-  hint,
-  children,
-}: {
-  id: string;
-  eyebrow: string;
-  question: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rv-s" id={id} aria-labelledby={`${id}-h`}>
-      <div className="rv-s-head">
-        <div className="rv-eyebrow">{eyebrow}</div>
-        <h2 id={`${id}-h`}>{question}</h2>
-        {hint && <p>{hint}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Takeaway({
-  text,
-  warn = false,
-}: {
-  text: string | undefined;
-  warn?: boolean;
-}) {
-  if (!text) return null;
-  const cut = text.indexOf(". ");
-  return (
-    <div className={`rv-takeaway${warn ? " rv-warn" : ""}`}>
-      {cut > 0 ? (
-        <>
-          <b>{text.slice(0, cut + 1)}</b> {text.slice(cut + 2)}
-        </>
-      ) : (
-        text
-      )}
-    </div>
-  );
-}
-
-function Facts({ items }: { items: [string, ReactNode][] }) {
-  return (
-    <div className="rv-facts">
-      {items.map(([k, v]) => (
-        <div key={k}>
-          <div className="rv-k">{k}</div>
-          <div className="rv-v">{v}</div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -555,7 +416,12 @@ export function RunView({ model }: { model: RunViewModel }) {
   const runs = model.sweep?.reps ?? about.reps;
   return (
     <div className="rv-root" data-view="run">
-      <TopBar model={model} sections={sections} />
+      <TopBar
+        view="Run viewer"
+        scope={about.project}
+        detail={`${model.orders.length} orders · ${about.reps} test ${about.reps === 1 ? "run" : "runs"} · times in ${about.time_unit}`}
+        sections={sections}
+      />
       <main>
         <Hero model={model} />
         <div className="rv-wrap">

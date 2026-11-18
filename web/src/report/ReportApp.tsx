@@ -1,5 +1,6 @@
 import { RunView } from "../decision/run/RunView";
-import type { RunViewModel } from "../decision/types";
+import { SweepView } from "../decision/run/SweepView";
+import type { RunViewModel, SweepViewModel } from "../decision/types";
 
 // Picks the view from the inlined view model (DESIGN.md 11.2).
 export type AnyViewModel = { view?: string; [key: string]: unknown };
@@ -23,6 +24,8 @@ export function ReportApp({ model }: { model: AnyViewModel | null }) {
     );
   }
   const view = model.view ?? "race";
+  if (view === "sweep")
+    return <SweepView model={model as unknown as SweepViewModel} />;
   if (view === "run")
     return <RunView model={model as unknown as RunViewModel} />;
   return (
