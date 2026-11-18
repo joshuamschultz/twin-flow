@@ -61,19 +61,19 @@ labor:
 locations:
   # Hydraulic fitting FTG-2201: saw -> lathe -> inspect
   - {name: saw_FTG, consumes: [{thing: steel_bar, qty: 1, uom: piece}], emits: [{thing: FTG-2201_cut, qty: 1, uom: piece}],
-     setup_key: band_saw, time_model: {kind: rate_based, rate: 0.0166667, load: 600},
+     setup_key: saw_bar, time_model: {kind: rate_based, rate: 0.0166667, load: 600},
      machine: band_saw, labor_skill: saw, shift_crossing: pause}
   - {name: lathe_FTG, consumes: [{thing: FTG-2201_cut, qty: 1, uom: piece}], emits: [{thing: FTG-2201_turned, qty: 1, uom: piece}],
      setup_key: lathe, time_model: {kind: rate_based, rate: 0.0041667, load: 1800},
      machine: lathe, labor_skill: lathe, dispatch: edd, shift_crossing: pause}
   - {name: inspect_FTG, consumes: [{thing: FTG-2201_turned, qty: 1, uom: piece}], emits: [{thing: FTG-2201, uom: piece}],
      scrap: {rate: 0.01, thing: scrap, uom: piece},
-     setup_key: cmm, time_model: {kind: rate_based, rate: 0.0166667},
+     setup_key: cmm_FTG, time_model: {kind: rate_based, rate: 0.0166667},
      machine: cmm, labor_skill: inspect, shift_crossing: pause}
 
   # Valve body VB-3107: saw -> mill -> deburr -> inspect
   - {name: saw_VB, consumes: [{thing: aluminum_block, qty: 1, uom: piece}], emits: [{thing: VB-3107_cut, qty: 1, uom: piece}],
-     setup_key: band_saw, time_model: {kind: rate_based, rate: 0.0111111, load: 600},
+     setup_key: saw_block, time_model: {kind: rate_based, rate: 0.0111111, load: 600},
      machine: band_saw, labor_skill: saw, shift_crossing: pause}
   - {name: mill_VB, consumes: [{thing: VB-3107_cut, qty: 1, uom: piece}], emits: [{thing: VB-3107_milled, qty: 1, uom: piece}],
      setup_key: mill_valve, time_model: {kind: rate_based, rate: 0.0003704, load: 2700},
@@ -83,19 +83,19 @@ locations:
      machine: deburr_bench, labor_skill: deburr, shift_crossing: pause}
   - {name: inspect_VB, consumes: [{thing: VB-3107_deburred, qty: 1, uom: piece}], emits: [{thing: VB-3107, uom: piece}],
      scrap: {rate: 0.02, thing: scrap, uom: piece},
-     setup_key: cmm, time_model: {kind: rate_based, rate: 0.0055556},
+     setup_key: cmm_VB, time_model: {kind: rate_based, rate: 0.0055556},
      machine: cmm, labor_skill: inspect, shift_crossing: pause}
 
   # Mounting bracket MB-4410: saw -> mill -> inspect
   - {name: saw_MB, consumes: [{thing: steel_plate, qty: 1, uom: piece}], emits: [{thing: MB-4410_cut, qty: 1, uom: piece}],
-     setup_key: band_saw, time_model: {kind: rate_based, rate: 0.0166667, load: 600},
+     setup_key: saw_plate, time_model: {kind: rate_based, rate: 0.0166667, load: 600},
      machine: band_saw, labor_skill: saw, shift_crossing: pause}
   - {name: mill_MB, consumes: [{thing: MB-4410_cut, qty: 1, uom: piece}], emits: [{thing: MB-4410_milled, qty: 1, uom: piece}],
      setup_key: mill_bracket, time_model: {kind: rate_based, rate: 0.0013889, load: 2700},
      machine: mill_bracket, labor_skill: mill, dispatch: edd, shift_crossing: pause}
   - {name: inspect_MB, consumes: [{thing: MB-4410_milled, qty: 1, uom: piece}], emits: [{thing: MB-4410, uom: piece}],
      scrap: {rate: 0.01, thing: scrap, uom: piece},
-     setup_key: cmm, time_model: {kind: rate_based, rate: 0.0166667},
+     setup_key: cmm_MB, time_model: {kind: rate_based, rate: 0.0166667},
      machine: cmm, labor_skill: inspect, shift_crossing: pause}
 
 routing:                     # the order of steps for each part

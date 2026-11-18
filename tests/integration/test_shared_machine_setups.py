@@ -14,7 +14,7 @@ from pathlib import Path
 
 from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.sweep import orders_frame
-from twinflow.model import load_model
+from twinflow.model import load_model, plan_origin
 from twinflow.plan.driver import RunDriver
 from twinflow.plan.loader import load_plan
 
@@ -77,3 +77,29 @@ def test_switching_setup_groups_on_a_shared_machine_pays_the_changeover(
     assert completions["wo-2"] == 65.0
     # wo-3 arrives at 100 on a saw now set for blade_b: it changes back.
     assert completions["wo-3"] == 115.0
+
+
+_SHOWCASE = Path(__file__).resolve().parents[2] / "examples" / "showcase" / "cnc-job-shop"
+
+
+def test_the_cnc_job_shop_finishes_every_order_with_a_setup_per_part() -> None:
+    """The showcase's band saw and CMM each serve three parts with their own setups."""
+    compiled = load_model(str(_SHOWCASE / "shop.yaml"))
+    keys_by_machine: dict[str, set[str]] = {}
+    for spec in compiled.locations:
+        keys_by_machine.setdefault(spec.machine.machine_id, set()).update(
+            spec.pull_rule.setup_key_of.values()
+        )
+    assert len(keys_by_machine["band_saw"]) == 3
+    assert len(keys_by_machine["cmm"]) == 3
+
+    work_orders = load_plan(
+        str(_SHOWCASE / "data" / "open-orders.csv"),
+        compiled.registry,
+        origin=plan_origin(compiled),
+    )
+    result = RunDriver(compiled).run(work_orders, seed=0, replication_index=0)
+    orders = orders_frame(work_orders, compiled, result.event_log_path)
+    kpis = compute_kpis(result.event_log_path, orders, result.horizon)
+    assert len(kpis.completion_by_order) == 15
+    assert all(done is not None for done in kpis.completion_by_order.values())
