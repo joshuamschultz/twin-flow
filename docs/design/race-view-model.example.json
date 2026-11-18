@@ -17,7 +17,7 @@
   "observation": "full",
   "view": "family",
   "policies_raced": 12,
-  "method": "Every policy ran 40 times on the same customer orders, each run 60 days long. Policies with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
+  "method": "Every rule ran 40 times on the same customer orders, each run 60 days long. Rules with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
  },
  "recommendation": {
   "policy": "family_campaign",
@@ -1278,7 +1278,8 @@
     }
    ],
    "spread": 6480,
-   "touchy": false
+   "touchy": false,
+   "words": "Target days 16 gave the most profit. Target days 20 gave the least, $6,479 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "lowest_cover",
@@ -1397,7 +1398,8 @@
     }
    ],
    "spread": 3220,
-   "touchy": false
+   "touchy": false,
+   "words": "Stop days 10 gave the most profit. Stop days 4 gave the least, $3,220 less per run. The settings were close, so a wrong pick costs little."
   }
  ],
  "views": {
@@ -1516,5 +1518,10 @@
   "You will hold 2.6 times more stock. About 3,400 units on the shelf, up from 1,300. Check the room and the cash first.",
   "Natural products still run short. Each natural product is out about 1 day in 6. With today's rule it is about 1 day in 7.",
   "The race ran 12 rules, 40 times each, 60 days per run."
- ]
+ ],
+ "early_leader": {
+  "policy": "dollar_shortfall",
+  "label": "Biggest dollar shortfall",
+  "words": "Biggest dollar shortfall led after day 1. Leaders early are not always leaders late. Family campaign passed it on day 51."
+ }
 }

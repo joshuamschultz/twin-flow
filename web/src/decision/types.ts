@@ -90,6 +90,7 @@ export interface RaceViewModel {
   economics?: Economics;
   problems: Problem[];
   agent_summary: string[];
+  early_leader?: EarlyLeader | null;
   [k: string]: unknown;
 }
 export interface RaceAbout {
@@ -361,6 +362,7 @@ export interface Tuning {
   spread?: number;
   touchy?: boolean;
   trials: Trial[];
+  words?: string;
 }
 /**
  * This interface was referenced by `RaceViewModel`'s JSON-Schema
@@ -447,4 +449,13 @@ export interface Problem {
   line?: number | null;
   message: string;
   fix: string;
+}
+/**
+ * This interface was referenced by `RaceViewModel`'s JSON-Schema
+ * via the `definition` "EarlyLeader".
+ */
+export interface EarlyLeader {
+  policy: string;
+  label: string;
+  words: string;
 }

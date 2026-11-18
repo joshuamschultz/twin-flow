@@ -16,7 +16,7 @@
   "observation": "full",
   "view": "family",
   "policies_raced": 12,
-  "method": "Every policy ran 40 times on the same customer orders, each run 60 days long. Policies with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
+  "method": "Every rule ran 40 times on the same customer orders, each run 60 days long. Rules with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
  },
  "recommendation": {
   "policy": "family_campaign",
@@ -18400,7 +18400,8 @@
     }
    ],
    "spread": 30646,
-   "touchy": true
+   "touchy": true,
+   "words": "Days per slot 2 gave the most profit. Days per slot 6 gave the least, $30,646 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "dollar_shortfall",
@@ -18519,7 +18520,8 @@
     }
    ],
    "spread": 16215,
-   "touchy": true
+   "touchy": true,
+   "words": "Target days 8 gave the most profit. Target days 28 gave the least, $16,215 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "family_campaign",
@@ -18575,7 +18577,8 @@
     }
    ],
    "spread": 6480,
-   "touchy": false
+   "touchy": false,
+   "words": "Target days 16 gave the most profit. Target days 20 gave the least, $6,479 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "fixed_wheel",
@@ -18640,7 +18643,8 @@
     }
    ],
    "spread": 23891,
-   "touchy": true
+   "touchy": true,
+   "words": "Days per slot 3 gave the most profit. Days per slot 6 gave the least, $23,891 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "kanban",
@@ -18772,7 +18776,8 @@
     }
    ],
    "spread": 5036,
-   "touchy": false
+   "touchy": false,
+   "words": "Target days 14, trigger share 0.7 gave the most profit. Target days 6, trigger share 0.5 gave the least, $5,036 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "lowest_cover",
@@ -18891,7 +18896,8 @@
     }
    ],
    "spread": 3220,
-   "touchy": false
+   "touchy": false,
+   "words": "Stop days 10 gave the most profit. Stop days 4 gave the least, $3,220 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "lowest_stock_first",
@@ -18938,7 +18944,8 @@
     }
    ],
    "spread": 2184,
-   "touchy": false
+   "touchy": false,
+   "words": "Stop days 10 gave the most profit. Stop days 6 gave the least, $2,184 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "s_big_s",
@@ -19070,7 +19077,8 @@
     }
    ],
    "spread": 5877,
-   "touchy": false
+   "touchy": false,
+   "words": "Safety days 10, eoq scale 0.5 gave the most profit. Safety days 10, eoq scale 1 gave the least, $5,877 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "setup_aware_runout",
@@ -19202,7 +19210,8 @@
     }
    ],
    "spread": 39127,
-   "touchy": true
+   "touchy": true,
+   "words": "Cross penalty days 0.5, within penalty days 0 gave the most profit. Cross penalty days 0.5, within penalty days 2 gave the least, $39,128 less per run. This rule is touchy. Check its setting again when demand changes."
   }
  ],
  "views": {
@@ -19522,5 +19531,10 @@
   "You will hold 2.6 times more stock. About 3,400 units on the shelf, up from 1,300. Check the room and the cash first.",
   "Natural products still run short. Each natural product is out about 1 day in 6. With today's rule it is about 1 day in 7.",
   "The race ran 12 rules, 40 times each, 60 days per run."
- ]
+ ],
+ "early_leader": {
+  "policy": "dollar_shortfall",
+  "label": "Biggest dollar shortfall",
+  "words": "Biggest dollar shortfall led after day 1. Leaders early are not always leaders late. Family campaign passed it on day 51."
+ }
 }

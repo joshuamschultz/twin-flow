@@ -17,6 +17,7 @@ const SECTION_BAR = [
   "Floor replay",
   "State map",
   "Money leaks",
+  "Tuning",
   "Details",
 ];
 
@@ -60,13 +61,13 @@ test("the section bar follows the design order and every section is there", asyn
     "replay",
     "states",
     "leaks",
+    "tuning",
     "details",
   ])
     await expect(page.locator(`#${id}`)).toBeAttached();
   await expect(
     page.getByText("More of this report is on the way."),
-  ).toHaveCount(1);
-  await expect(page.locator("#details")).toContainText("Tuning");
+  ).toHaveCount(0);
   expect(errors).toEqual([]);
   expect(blocked).toEqual([]);
 });

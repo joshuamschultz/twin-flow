@@ -1,14 +1,16 @@
 // The race view (DESIGN.md section 3): the decision, the cautions, why it wins, all rules,
-// compare two, what if, floor replay, the state map and money leaks. Tuning and the full
-// Details come with B-23 and B-24. View state (a, b, day, map, state, tab) is in the URL.
+// compare two, what if, floor replay, the state map, money leaks, tuning and details.
+// View state (a, b, day, map, state, tab) is in the URL.
 import { CautionCards } from "../CautionCards";
 import { CompareTable } from "../CompareTable";
+import { Details } from "../Details";
 import { GapLine } from "../GapLine";
 import { DecisionHero } from "../hero";
 import { Leaderboard } from "../Leaderboard";
+import { TuningView } from "../TuningView";
 import { Page, type SectionRef } from "../Page";
 import { STATE_SECTIONS, StateSections } from "../StateSections";
-import { Card, EmptyState, Section, SectionLink } from "../primitives";
+import { Card, Section, SectionLink } from "../primitives";
 import { replayRuns } from "../replay";
 import { ReplayLanes } from "../ReplayLanes";
 import {
@@ -27,6 +29,7 @@ const EXPLORE: SectionRef[] = [
   { id: "whatif", label: "What if" },
   { id: "replay", label: "Floor replay" },
   ...STATE_SECTIONS,
+  { id: "tuning", label: "Tuning" },
 ];
 const SECTIONS: SectionRef[] = [
   { id: "decision", label: "Decision" },
@@ -41,8 +44,6 @@ const NO_COMPARE: SectionRef[] = [
   ...EXPLORE,
   { id: "details", label: "Details" },
 ];
-
-const COMING = ["Tuning", "Full tables, method note and downloads"];
 
 function ProblemsBar({ model }: { model: RaceViewModel }) {
   const n = model.problems?.length ?? 0;
@@ -212,28 +213,8 @@ export function RaceView({ model }: { model: RaceViewModel }) {
           </Section>
         )}
         <StateSections model={model} />
-        <Section id="details" eyebrow="Details" question="The full numbers">
-          <EmptyState
-            title="More of this report is on the way."
-            body={
-              <>
-                <p>
-                  This build shows every section but Tuning and the full
-                  numbers. The next build adds:
-                </p>
-                <ul>
-                  {COMING.map((c) => (
-                    <li key={c}>{c}</li>
-                  ))}
-                </ul>
-                <p style={{ marginTop: 8 }}>
-                  Until then, the full numbers are in race.json next to this
-                  file.
-                </p>
-              </>
-            }
-          />
-        </Section>
+        <TuningView model={model} />
+        <Details model={model} />
       </div>
     </Page>
   );
