@@ -575,10 +575,25 @@ class _Builder:
         return {"t": [self.t(t) for t in times], "by_centre": by_centre}
 
     def assumptions(self) -> list[str]:
-        out = []
+        """One line per kind of default. The same default for many locations becomes one
+        line that counts them and names them (as the old report grouped them)."""
+        groups: dict[tuple[str, str], list[tuple[str, str]]] = {}
         for a in self.detail.get("assumptions") or []:
-            out.append(f"{a['default_used'].capitalize()}: {a['why_absent']}.")
-        return sorted(set(out))
+            why = str(a["why_absent"])
+            pattern = re.sub(r"for location '.*?'", "for a location", why)
+            name = re.search(r"for location '(.*?)'", why)
+            groups.setdefault((str(a["default_used"]), pattern), []).append(
+                (why, name.group(1) if name else why)
+            )
+        out = []
+        for (used, pattern), items in sorted(groups.items()):
+            head = used[:1].upper() + used[1:]
+            if len(items) == 1:
+                out.append(f"{head}: {items[0][0]}.")
+            else:
+                names = ", ".join(sorted(n for _w, n in items))
+                out.append(f"{head}: {pattern} ({len(items)} locations: {names}).")
+        return out
 
     # -- the model -------------------------------------------------------------
 

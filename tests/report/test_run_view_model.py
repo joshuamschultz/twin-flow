@@ -333,3 +333,11 @@ def test_lever_rows_use_the_sweep_base_point_and_rank_best_first() -> None:
     assert rows[0]["gain_points"] == 15.0
     assert rows[0]["note"] == "Late orders drop from 2.0 to 0.5 per run."
     assert rows[1]["note"] == "Only 1 point better than: add a second m. Not worth the extra."
+
+
+def test_repeated_assumptions_collapse_to_a_counted_line(model: dict[str, Any]) -> None:
+    lines = model["about"]["assumptions"]
+    pull = [line for line in lines if "no pull rule declared for a location" in line]
+    assert len(pull) == 1
+    assert "(8 locations: deburr_bracket, deburr_shaft," in pull[0]
+    assert len(lines) == len(set(lines))
