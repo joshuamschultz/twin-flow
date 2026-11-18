@@ -1,5 +1,7 @@
 # Read the Markov map
 
+![Round discs of different sizes joined by curved arrows, some looping back to the same disc](../images/headers/how-to-read-the-markov-map.webp)
+
 This guide shows how to read a Markov map. The map shows how the plant moves from one kind of day to the next, and where the money goes.
 
 ## What this does
@@ -16,6 +18,8 @@ It takes the record of a run and draws a map of the states. It also shows which 
 - **State**: a short label that describes the plant on one day. For example, `grey:ok black:low natural:ok | grey` means the grey and natural families have enough stock, the black family is low, and the press is set up for grey.
 - **Move**: one step from one state to the next state.
 - **Sticky state**: a state the plant stays in at least half the time. The text list marks it with `(sticky)`.
+
+![A state is a label for one day, a move is one step to the next day, and the Markov map shows the share of days in each state and the chance of each move](../images/diagrams/state-move-markov-map.svg)
 
 ## Steps
 

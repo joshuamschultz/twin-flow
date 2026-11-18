@@ -1,5 +1,7 @@
 # Run your twin
 
+![One bright press line in front of a row of fading copies of the same line](../images/headers/how-to-run-your-twin.webp)
+
 This guide runs a plant many times and saves the results. It also shows how to turn on state capture for a job shop, and how to read what it recorded.
 
 ## What this does

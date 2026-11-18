@@ -1,75 +1,75 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="610" viewBox="0 0 1200 610" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif">
 <title>Twinflow: which engine answers which question</title>
-<rect x="0" y="0" width="1200" height="610" fill="#f3f4f2"/>
-<text x="36.0" y="46.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#1f5f8b" text-anchor="start" letter-spacing="1"><tspan x="36.0" y="46.0">twinflow · proposed architecture · draft</tspan></text>
-<text x="36.0" y="88.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="32" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="36.0" y="88.0">Which engine answers which question</tspan></text>
-<rect x="36.0" y="112.0" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
-<text x="56.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="56.0" y="124.8">Have</tspan></text>
-<text x="84.0" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="84.0" y="125.0">built today</tspan></text>
-<rect x="188.1" y="112.0" width="53.1" height="18.0" rx="4" fill="#fbf0d9"/>
-<text x="214.7" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#a26a00" text-anchor="middle" font-weight="600"><tspan x="214.7" y="124.8">Extend</tspan></text>
-<text x="249.2" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="249.2" y="125.0">exists, needs more</tspan></text>
-<rect x="404.2" y="112.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="421.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="421.0" y="124.8">New</tspan></text>
-<text x="445.8" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="445.8" y="125.0">to build</tspan></text>
-<circle cx="535.0" cy="121" r="6" fill="#1f5f8b"/>
-<text x="558.0" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="558.0" y="125.0">engine answers it</tspan></text>
-<circle cx="712.8" cy="121" r="5.2" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<text x="735.8" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="735.8" y="125.0">engine does not</tspan></text>
-<rect x="36.0" y="156.0" width="1128.0" height="414.0" rx="10" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="52.0" y="200.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="52.0" y="200.0">QUESTION</tspan></text>
-<text x="551.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="middle" font-weight="600"><tspan x="551.5" y="186.0">Discrete event</tspan></text>
-<rect x="531.5" y="200.0" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
-<text x="551.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="551.5" y="212.8">Have</tspan></text>
-<text x="726.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="middle" font-weight="600"><tspan x="726.5" y="186.0">Schedule</tspan></text>
-<rect x="706.5" y="200.0" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
-<text x="726.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="726.5" y="212.8">Have</tspan></text>
-<text x="901.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="middle" font-weight="600"><tspan x="901.5" y="186.0">Step / Markov</tspan></text>
-<rect x="884.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="901.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="901.5" y="212.8">New</tspan></text>
-<text x="1076.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="middle" font-weight="600"><tspan x="1076.5" y="186.0">Continuous</tspan></text>
-<rect x="1059.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="1076.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="1076.5" y="212.8">New</tspan></text>
-<line x1="36.0" y1="234.0" x2="1164.0" y2="234.0" stroke="#d5d9dc" stroke-width="1" fill="none"/>
-<text x="52.0" y="263.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="52.0" y="263.0">When will this order finish?</tspan></text>
-<circle cx="551.5" cy="258.0" r="7" fill="#1f5f8b"/>
-<circle cx="726.5" cy="258.0" r="7" fill="#1f5f8b"/>
-<circle cx="901.5" cy="258.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="1076.5" cy="258.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<line x1="36.0" y1="282.0" x2="1164.0" y2="282.0" stroke="#d5d9dc" stroke-width="1" fill="none"/>
-<text x="52.0" y="311.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="52.0" y="311.0">Where is the bottleneck?</tspan></text>
-<circle cx="551.5" cy="306.0" r="7" fill="#1f5f8b"/>
-<circle cx="726.5" cy="306.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="901.5" cy="306.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="1076.5" cy="306.0" r="7" fill="#1f5f8b"/>
-<line x1="36.0" y1="330.0" x2="1164.0" y2="330.0" stroke="#d5d9dc" stroke-width="1" fill="none"/>
-<text x="52.0" y="359.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="52.0" y="359.0">Which policy makes the most money?</tspan></text>
-<circle cx="551.5" cy="354.0" r="7" fill="#1f5f8b"/>
-<circle cx="726.5" cy="354.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="901.5" cy="354.0" r="7" fill="#1f5f8b"/>
-<circle cx="1076.5" cy="354.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<line x1="36.0" y1="378.0" x2="1164.0" y2="378.0" stroke="#d5d9dc" stroke-width="1" fill="none"/>
-<text x="52.0" y="407.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="52.0" y="407.0">How does the plant move between states?</tspan></text>
-<circle cx="551.5" cy="402.0" r="7" fill="#1f5f8b"/>
-<circle cx="726.5" cy="402.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="901.5" cy="402.0" r="7" fill="#1f5f8b"/>
-<circle cx="1076.5" cy="402.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<line x1="36.0" y1="426.0" x2="1164.0" y2="426.0" stroke="#d5d9dc" stroke-width="1" fill="none"/>
-<text x="52.0" y="455.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="52.0" y="455.0">Train an RL policy fast</tspan></text>
-<circle cx="551.5" cy="450.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="726.5" cy="450.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="901.5" cy="450.0" r="7" fill="#1f5f8b"/>
-<circle cx="1076.5" cy="450.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<line x1="36.0" y1="474.0" x2="1164.0" y2="474.0" stroke="#d5d9dc" stroke-width="1" fill="none"/>
-<text x="52.0" y="503.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="52.0" y="503.0">What if demand grows 20% next year?</tspan></text>
-<circle cx="551.5" cy="498.0" r="7" fill="#1f5f8b"/>
-<circle cx="726.5" cy="498.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="901.5" cy="498.0" r="7" fill="#1f5f8b"/>
-<circle cx="1076.5" cy="498.0" r="7" fill="#1f5f8b"/>
-<line x1="36.0" y1="522.0" x2="1164.0" y2="522.0" stroke="#d5d9dc" stroke-width="1" fill="none"/>
-<text x="52.0" y="551.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="52.0" y="551.0">Best plan for this week's orders</tspan></text>
-<circle cx="551.5" cy="546.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="726.5" cy="546.0" r="7" fill="#1f5f8b"/>
-<circle cx="901.5" cy="546.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
-<circle cx="1076.5" cy="546.0" r="6" fill="#ffffff" stroke="#aab2b9" stroke-width="2"/>
+<rect x="0" y="0" width="1200" height="610" fill="#f6f8fb"/>
+<text x="36.0" y="46.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#0055bc" text-anchor="start" letter-spacing="1"><tspan x="36.0" y="46.0">twinflow · proposed architecture · draft</tspan></text>
+<text x="36.0" y="88.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="32" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="36.0" y="88.0">Which engine answers which question</tspan></text>
+<rect x="36.0" y="112.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
+<text x="56.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="56.0" y="124.8">Have</tspan></text>
+<text x="84.0" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="84.0" y="125.0">built today</tspan></text>
+<rect x="188.1" y="112.0" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<text x="214.7" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="214.7" y="124.8">Extend</tspan></text>
+<text x="249.2" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="249.2" y="125.0">exists, needs more</tspan></text>
+<rect x="404.2" y="112.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="421.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="421.0" y="124.8">New</tspan></text>
+<text x="445.8" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="445.8" y="125.0">to build</tspan></text>
+<circle cx="535.0" cy="121" r="6" fill="#0055bc"/>
+<text x="558.0" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="558.0" y="125.0">engine answers it</tspan></text>
+<circle cx="712.8" cy="121" r="5.2" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<text x="735.8" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="735.8" y="125.0">engine does not</tspan></text>
+<rect x="36.0" y="156.0" width="1128.0" height="414.0" rx="10" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="52.0" y="200.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="52.0" y="200.0">QUESTION</tspan></text>
+<text x="551.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="middle" font-weight="600"><tspan x="551.5" y="186.0">Discrete event</tspan></text>
+<rect x="531.5" y="200.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
+<text x="551.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="551.5" y="212.8">Have</tspan></text>
+<text x="726.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="middle" font-weight="600"><tspan x="726.5" y="186.0">Schedule</tspan></text>
+<rect x="706.5" y="200.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
+<text x="726.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="726.5" y="212.8">Have</tspan></text>
+<text x="901.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="middle" font-weight="600"><tspan x="901.5" y="186.0">Step / Markov</tspan></text>
+<rect x="884.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="901.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="901.5" y="212.8">New</tspan></text>
+<text x="1076.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="middle" font-weight="600"><tspan x="1076.5" y="186.0">Continuous</tspan></text>
+<rect x="1059.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="1076.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1076.5" y="212.8">New</tspan></text>
+<line x1="36.0" y1="234.0" x2="1164.0" y2="234.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
+<text x="52.0" y="263.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="263.0">When will this order finish?</tspan></text>
+<circle cx="551.5" cy="258.0" r="7" fill="#0055bc"/>
+<circle cx="726.5" cy="258.0" r="7" fill="#0055bc"/>
+<circle cx="901.5" cy="258.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="1076.5" cy="258.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<line x1="36.0" y1="282.0" x2="1164.0" y2="282.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
+<text x="52.0" y="311.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="311.0">Where is the bottleneck?</tspan></text>
+<circle cx="551.5" cy="306.0" r="7" fill="#0055bc"/>
+<circle cx="726.5" cy="306.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="901.5" cy="306.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="1076.5" cy="306.0" r="7" fill="#0055bc"/>
+<line x1="36.0" y1="330.0" x2="1164.0" y2="330.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
+<text x="52.0" y="359.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="359.0">Which policy makes the most money?</tspan></text>
+<circle cx="551.5" cy="354.0" r="7" fill="#0055bc"/>
+<circle cx="726.5" cy="354.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="901.5" cy="354.0" r="7" fill="#0055bc"/>
+<circle cx="1076.5" cy="354.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<line x1="36.0" y1="378.0" x2="1164.0" y2="378.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
+<text x="52.0" y="407.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="407.0">How does the plant move between states?</tspan></text>
+<circle cx="551.5" cy="402.0" r="7" fill="#0055bc"/>
+<circle cx="726.5" cy="402.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="901.5" cy="402.0" r="7" fill="#0055bc"/>
+<circle cx="1076.5" cy="402.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<line x1="36.0" y1="426.0" x2="1164.0" y2="426.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
+<text x="52.0" y="455.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="455.0">Train an RL policy fast</tspan></text>
+<circle cx="551.5" cy="450.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="726.5" cy="450.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="901.5" cy="450.0" r="7" fill="#0055bc"/>
+<circle cx="1076.5" cy="450.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<line x1="36.0" y1="474.0" x2="1164.0" y2="474.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
+<text x="52.0" y="503.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="503.0">What if demand grows 20% next year?</tspan></text>
+<circle cx="551.5" cy="498.0" r="7" fill="#0055bc"/>
+<circle cx="726.5" cy="498.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="901.5" cy="498.0" r="7" fill="#0055bc"/>
+<circle cx="1076.5" cy="498.0" r="7" fill="#0055bc"/>
+<line x1="36.0" y1="522.0" x2="1164.0" y2="522.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
+<text x="52.0" y="551.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="551.0">Best plan for this week's orders</tspan></text>
+<circle cx="551.5" cy="546.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="726.5" cy="546.0" r="7" fill="#0055bc"/>
+<circle cx="901.5" cy="546.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
+<circle cx="1076.5" cy="546.0" r="6" fill="#ffffff" stroke="#c7d6e8" stroke-width="2"/>
 </svg>

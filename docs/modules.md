@@ -1,5 +1,7 @@
 # The module surface
 
+![A rail of sockets with blocks plugged in and one block ready to slot into an empty socket](images/headers/modules.webp)
+
 `twinflow.modules` is one unified seam that many optimizers, objective functions, cost
 functions, and machine-learning models all attach to the same way. The idea: the twin
 already turns a **scenario** (a set of config lever overrides) into **KPIs with a

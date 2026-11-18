@@ -1,5 +1,7 @@
 # Modeling a floor
 
+![A flat floor plan with machines and a conveyor rising out of it in 3D](images/headers/modeling.webp)
+
 A floor is one `model.yaml` plus a production plan (`.xlsx`/`.csv`). The engine has no
 per-client code — every capability below is declarative config the Layer-2 compiler
 turns into pure primitives. This page is the config reference; the README's "building

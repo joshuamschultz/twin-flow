@@ -1,6 +1,6 @@
 # Concepts — data & structure
 
-![A factory floor and its glowing digital twin](images/twin-concept.png)
+![A factory floor and its glowing digital twin](images/headers/concepts.webp)
 
 What the twin is made of, so the config in [modeling.md](modeling.md) makes sense. You
 never write simulation code; you declare *what the floor does* and the engine turns it

@@ -1,5 +1,7 @@
 # Active control
 
+![A queue of crates on a conveyor, with a robot arm moving one crate ahead of the others](images/headers/active-control.webp)
+
 By default a twinflow floor runs **passive rules**: each work center takes its queue in
 arrival order, and every order is released on its plan date. Active control lets the twin
 *make decisions* instead: sequence the queue by a rule, hold work back to cap WIP, and
