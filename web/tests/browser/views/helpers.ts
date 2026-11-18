@@ -1,5 +1,6 @@
 // Shared by the states, improve and project browser tests: open a fixture in the built
 // offline template, and take the four screenshots (1280 and 820, light and dark).
+import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -36,4 +37,19 @@ export async function shoot(page: Page, base: string): Promise<void> {
       });
     }
   }
+}
+
+/** WCAG 2.2 AA check in both themes; returns the rule ids that failed. */
+export async function axeFailures(page: Page): Promise<string[]> {
+  const out: string[] = [];
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    const result = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+    out.push(
+      ...result.violations.map((v) => `${scheme}: ${v.id} (${v.nodes.length})`),
+    );
+  }
+  return out;
 }

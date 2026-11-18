@@ -2,8 +2,9 @@
 // built on branch feat/TF-006-ui-statemap and replaces this file at merge. The props are the
 // chain data on purpose, so the swap is one import: nodes, edges and lanes.
 import { useState } from "react";
+import { usd } from "../format";
 import type { StatesStateEdge, StatesStateNode } from "../types";
-import { money, percent } from "../viewkit/format";
+import { share } from "../viewkit/words";
 import { nodeTitle, type Lanes } from "./derive";
 
 export type StatesMapSlotProps = {
@@ -14,7 +15,7 @@ export type StatesMapSlotProps = {
   average?: number;
 };
 
-function box(node: StatesStateNode, average: number | undefined): string {
+function boxState(node: StatesStateNode, average: number | undefined): string {
   if (node.losing) return "loses";
   if (average === undefined || node.per_day === undefined) return "same";
   return node.per_day >= average ? "better" : "worse";
@@ -28,24 +29,23 @@ export function StatesMapSlot({
 }: StatesMapSlotProps) {
   const [picked, setPicked] = useState<string | null>(null);
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const current = picked ? byId.get(picked) : undefined;
   const out = edges.filter((e) => e.from === picked && !e.self);
-  const stay = nodes.find((n) => n.id === picked)?.stay;
   return (
     <div data-testid="states-map-slot">
       <div
+        className="vk-lane-grid"
         role="group"
         aria-label={`Situations in ${lanes.lanes.length} lanes, grouped by ${lanes.kind}`}
         style={{
-          display: "grid",
           gridTemplateColumns: `repeat(${Math.min(lanes.lanes.length, 3)}, minmax(0, 1fr))`,
-          gap: 12,
         }}
       >
         {lanes.lanes.map((lane) => (
           <div key={lane.name} data-lane={lane.name}>
-            <p className="vk-eyebrow" style={{ marginBottom: 8 }}>
+            <div className="tf-eyebrow" style={{ marginBottom: 8 }}>
               {lane.name}
-            </p>
+            </div>
             <div className="vk-list">
               {lane.nodes.map((n) => (
                 <div
@@ -53,7 +53,7 @@ export function StatesMapSlot({
                   role="button"
                   tabIndex={0}
                   aria-pressed={picked === n.id}
-                  data-state={box(n, average)}
+                  data-state={boxState(n, average)}
                   className="vk-box"
                   onClick={() => setPicked(n.id)}
                   onKeyDown={(e) => {
@@ -62,26 +62,10 @@ export function StatesMapSlot({
                       setPicked(n.id);
                     }
                   }}
-                  style={{
-                    border: `2px solid ${
-                      box(n, average) === "loses"
-                        ? "var(--tf-loss)"
-                        : box(n, average) === "better"
-                          ? "var(--tf-pick)"
-                          : "var(--tf-today)"
-                    }`,
-                    borderRadius: 4,
-                    padding: "8px 10px",
-                    background:
-                      picked === n.id
-                        ? "var(--ba-tint-strong)"
-                        : "var(--ba-surface)",
-                    cursor: "pointer",
-                  }}
                 >
-                  <b style={{ color: "var(--ba-headline)" }}>{nodeTitle(n)}</b>
-                  <div className="vk-num" style={{ fontSize: 13 }}>
-                    {percent(n.share)} . {money(n.per_day)} a day
+                  <b>{nodeTitle(n)}</b>
+                  <div className="tf-num" style={{ fontSize: 13 }}>
+                    {share(n.share)} . {usd(n.per_day)} a day
                   </div>
                 </div>
               ))}
@@ -90,38 +74,43 @@ export function StatesMapSlot({
         ))}
       </div>
       <div aria-live="polite" style={{ marginTop: 14 }}>
-        {picked && byId.get(picked) ? (
-          <div className="vk-card" data-testid="states-next">
-            <h3>
-              Where the plant goes next from "{nodeTitle(byId.get(picked)!)}"
-            </h3>
-            <p className="vk-sub">Stays here {percent(stay)} of the time.</p>
+        {current ? (
+          <div className="tf-card" data-testid="states-next">
+            <h3>Where the plant goes next from "{nodeTitle(current)}"</h3>
+            <p className="tf-sub">
+              Stays here {share(current.stay)} of the time.
+            </p>
             <ul className="vk-list">
               {out.map((e) => (
                 <li key={`${e.from}-${e.to}`}>
-                  {percent(e.prob)} to {nodeTitle(byId.get(e.to)!)}
+                  {share(e.prob)} to {nodeTitle(byId.get(e.to)!)}
                 </li>
               ))}
-              {out.length === 0 ? (
-                <li>No likely moves to other states.</li>
-              ) : null}
+              {out.length === 0 && <li>No likely moves to other states.</li>}
             </ul>
           </div>
         ) : (
-          <p className="vk-note">
+          <p className="tf-note">
             Pick a box to see where the plant goes next.
           </p>
         )}
       </div>
       <details style={{ marginTop: 14 }}>
         <summary>Show moves as a table</summary>
-        <div className="vk-scroll">
-          <table className="vk-table">
+        <div
+          className="tf-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label="Moves table"
+        >
+          <table className="tf-table">
             <thead>
               <tr>
-                <th>From</th>
-                <th>To</th>
-                <th className="r">Chance</th>
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+                <th scope="col" className="tf-r">
+                  Chance
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -129,7 +118,7 @@ export function StatesMapSlot({
                 <tr key={`${e.from}-${e.to}`}>
                   <td>{nodeTitle(byId.get(e.from)!)}</td>
                   <td>{e.self ? "Stays here" : nodeTitle(byId.get(e.to)!)}</td>
-                  <td className="r vk-num">{percent(e.prob)}</td>
+                  <td className="tf-r tf-num">{share(e.prob)}</td>
                 </tr>
               ))}
             </tbody>

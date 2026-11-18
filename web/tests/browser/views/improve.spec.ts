@@ -9,7 +9,7 @@ test("a win says yes and every check passes", async ({ page }) => {
   await expect(page.getByText("Pass", { exact: true })).toHaveCount(4);
   await expect(page.getByText("Fail", { exact: true })).toHaveCount(0);
   await expect(
-    page.getByRole("img", { name: /test runs made more money/ }),
+    page.getByRole("group", { name: /Each dot is one test run/ }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Open the full race" }),

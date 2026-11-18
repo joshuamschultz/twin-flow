@@ -254,3 +254,35 @@ def test_profit_by_view_table(golden_race: tuple[Project, RaceResult], race_gold
             assert row[policy] == pytest.approx(by_mask[row["observation"]], abs=1e-6)
     loss = analysis.profit_by_view(result, loss=True)
     assert loss.filter(pl.col("observation") == "full")["s_big_s"].item() == 0.0
+
+
+def _colours(value: Any) -> set[str]:
+    """Every `#rrggbb` colour written anywhere in a figure."""
+    import json
+    import re
+
+    return {c.lower() for c in re.findall(r"#[0-9a-fA-F]{6}\b", json.dumps(value, default=str))}
+
+
+def test_figures_draw_with_token_colours_only(
+    project: Project, campaign_episodes: list[Any]
+) -> None:
+    """B-38: the analysis figures use the design tokens, not Viridis, teal or plotly_white."""
+    from twinflow.report import theme
+
+    allowed = {
+        v.lower()
+        for mode in theme.MODES
+        for v in theme.tokens()[mode].values()
+        if isinstance(v, str) and v.startswith("#") and len(v) == 7
+    }
+    moves = [m for episode in campaign_episodes for m in episode]
+    family = project.markov(moves, "family", top_k=15)
+    figures = [
+        analysis.markov_heatmap({"family": family}),
+        analysis.markov_network({"family": family}),
+        analysis.inventory_grid(project, campaign_episodes[0]),
+    ]
+    for figure in figures:
+        assert _colours(figure.to_plotly_json()) <= allowed
+        assert tuple(figure.layout.template.layout.colorway) == theme.palette("light").series

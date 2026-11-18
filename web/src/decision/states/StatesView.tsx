@@ -1,18 +1,13 @@
 // The states view (DESIGN.md 5, DATA-CONTRACT 3): which situations does the plant live in,
 // and which ones cost money?
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { usd } from "../format";
+import { Page, type SectionRef } from "../Page";
+import { Card, EmptyState, Section } from "../primitives";
 import type { StatesViewModel } from "../types";
-import {
-  Card,
-  Hero,
-  Missing,
-  Page,
-  Pill,
-  Problems,
-  Section,
-  Stepper,
-} from "../viewkit";
-import { count, money, percent } from "../viewkit/format";
+import { useViewState } from "../viewState";
+import { AnswerHero, Problems, Stepper } from "../viewkit";
+import { count, share } from "../viewkit/words";
 import {
   lanesOf,
   moneyRows,
@@ -37,10 +32,14 @@ function leakName(model: StatesViewModel, i: number): string {
 
 export function StatesView({ model, onViewChange }: StatesViewProps) {
   const { about, chain } = model;
-  const [top, setTop] = useState(
-    Math.min(about.top, chain.nodes.length) || about.top,
+  const built = chain.nodes.length;
+  const [topText, setTop] = useViewState(
+    "top",
+    String(Math.min(about.top, built) || about.top),
   );
-  const [minProb, setMinProb] = useState(about.min_prob);
+  const [probText, setProb] = useViewState("hide", String(about.min_prob));
+  const top = Math.min(built || 1, Math.max(1, Number(topText) || about.top));
+  const minProb = Math.min(1, Math.max(about.min_prob, Number(probText) || 0));
   const nodes = useMemo(() => visibleNodes(chain, top), [chain, top]);
   const ids = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes]);
   const edges = useMemo(
@@ -51,10 +50,10 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
     () => lanesOf(nodes, model.levels !== null),
     [nodes, model.levels],
   );
-  const empty = chain.nodes.length === 0;
+  const empty = built === 0;
   const shown = nodes.reduce((sum, n) => sum + n.share, 0);
   const rows = moneyRows(model.money);
-  const sections = [
+  const sections: SectionRef[] = [
     { id: "answer", label: "Answer" },
     ...(empty
       ? []
@@ -65,240 +64,241 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
     ...(model.leaks.length ? [{ id: "leaks", label: "Leaks" }] : []),
     { id: "details", label: "Details" },
   ];
+  const lead = model.leaks[0];
   return (
     <Page
       view="states"
-      viewName="States"
+      title="States"
       project={about.project}
       scope={
         empty ? "no moves" : `${about.moves} moves, ${about.view_name} view`
       }
       sections={sections}
+      footer={
+        <>
+          twinflow states · {about.project} · {about.moves} moves
+        </>
+      }
     >
-      <Hero
-        eyebrow={`What situations does the plant live in? . ${about.view_name} view`}
+      <AnswerHero
+        eyebrow={`What situations does the plant live in? · ${about.view_name} view`}
         headline={model.headline}
         lede={
           empty
-            ? (model.problems[0]?.fix ?? "")
-            : `The map shows the ${count(nodes.length, "most common situation")}. They cover ${percent(shown)} of all days.`
+            ? model.problems[0]?.fix
+            : `The map shows the ${count(nodes.length, "most common situation")}. They cover ${share(shown)} of all days.`
         }
         aside={
-          !empty && model.leaks[0] ? (
+          !empty && lead ? (
             <>
               <h3>Where it loses the most</h3>
               <p>
-                {leakName(model, 0)}: {money(model.leaks[0].per_run)} per run,
-                mostly {model.leaks[0].cause_words}.
+                {leakName(model, 0)}: {usd(lead.per_run)} per run, mostly{" "}
+                {lead.cause_words}.
               </p>
-              <p style={{ marginTop: 8 }}>{model.leaks[0].try}</p>
+              <p>{lead.try}</p>
             </>
           ) : undefined
         }
-        badge={
-          about.note
-            ? { text: "Read the note under the map", warn: true }
-            : undefined
-        }
       />
-      {empty ? (
-        <Section id="map" eyebrow="Map" title="No moves to draw">
-          <Missing
-            said="No moves were captured for this run."
-            fix={model.problems[0]?.fix}
-          />
-        </Section>
-      ) : (
-        <>
-          <Section
-            id="map"
-            eyebrow="Map"
-            title="What situations does the plant live in, and which ones cost money?"
-          >
-            <div className="vk-controls">
-              <label className="vk-field">
-                <span>View</span>
-                <select
-                  value={about.view_name}
-                  disabled={!onViewChange}
-                  onChange={(e) => onViewChange?.(e.target.value)}
-                  aria-label="View"
-                >
-                  {about.views_available.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Stepper
-                label="Top states"
-                value={top}
-                min={1}
-                max={chain.nodes.length}
-                onChange={setTop}
-              />
-              <Stepper
-                label="Hide rare moves under"
-                value={minProb}
-                min={0}
-                max={1}
-                step={0.05}
-                format={percent}
-                onChange={setMinProb}
-              />
-            </div>
-            {!onViewChange ? (
-              <p className="vk-note" style={{ marginBottom: 12 }}>
-                To see another view, run: twinflow states {about.project} --view
-                NAME --html
-              </p>
-            ) : null}
-            <div className="vk-card">
-              <StatesMapSlot
-                nodes={nodes}
-                edges={edges}
-                lanes={lanes}
-                average={model.avg_per_period}
-              />
-              <p className="vk-takeaway">
-                The map shows the {count(nodes.length, "most common state")}.
-                They cover {percent(shown)} of all days.
-                {about.note ? ` ${about.note}` : ""}
-              </p>
-            </div>
+      <div className="tf-wrap">
+        {empty ? (
+          <Section id="map" eyebrow="Map" question="No moves to draw">
+            <EmptyState
+              title="No moves were captured for this run."
+              body={<p>{model.problems[0]?.fix}</p>}
+            />
           </Section>
-          <Section
-            id="money"
-            eyebrow="Money"
-            title="Where does the money go, and which states are common?"
-          >
-            <div className="vk-grid2">
+        ) : (
+          <>
+            <Section
+              id="map"
+              eyebrow="Map"
+              question="What situations does the plant live in, and which ones cost money?"
+            >
+              <div className="vk-controls">
+                <label className="vk-field">
+                  <span>View</span>
+                  <select
+                    value={about.view_name}
+                    disabled={!onViewChange}
+                    onChange={(e) => onViewChange?.(e.target.value)}
+                    aria-label="View"
+                  >
+                    {about.views_available.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Stepper
+                  label="Top states"
+                  value={top}
+                  min={1}
+                  max={built}
+                  onChange={(n) => setTop(String(n))}
+                />
+                <Stepper
+                  label="Hide rare moves under"
+                  value={minProb}
+                  min={about.min_prob}
+                  max={1}
+                  step={0.05}
+                  format={share}
+                  onChange={(n) => setProb(String(n))}
+                />
+              </div>
+              {!onViewChange && (
+                <p className="tf-note" style={{ marginBottom: 12 }}>
+                  To see another view, run: twinflow states {about.project}{" "}
+                  --view NAME --html
+                </p>
+              )}
               <Card
-                title="Where does the money go?"
-                sub="Dollars per run, by part."
-                takeaway={`A normal day makes ${money(model.avg_per_period)}.`}
+                takeaway={`The map shows the ${count(nodes.length, "most common state")}. They cover ${share(shown)} of all days.${about.note ? ` ${about.note}` : ""}`}
+                tone={about.note ? "warn" : "info"}
               >
-                <ul className="vk-list" aria-label="Money by part">
-                  {rows.map((r) => (
-                    <li key={r.part}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <span>{r.label}</span>
-                        <span className="vk-num">{money(r.value)}</span>
-                      </div>
-                      <div
-                        className={`vk-bar${r.part === "revenue" ? "" : " loss"}`}
-                      >
-                        <i style={{ width: `${Math.round(r.width * 100)}%` }} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <StatesMapSlot
+                  nodes={nodes}
+                  edges={edges}
+                  lanes={lanes}
+                  average={model.avg_per_period}
+                />
               </Card>
-              <Card title="Top states" sub="The most common situations.">
-                <div className="vk-scroll">
-                  <table className="vk-table">
-                    <thead>
-                      <tr>
-                        <th>State</th>
-                        <th className="r">Days</th>
-                        <th className="r">Money a day</th>
-                        <th className="r">Stays</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {nodes.map((n) => (
-                        <tr key={n.id}>
-                          <td>
-                            {nodeTitle(n)}
-                            {n.words?.setup ? (
-                              <div className="vk-note">{n.words.setup}</div>
-                            ) : null}
-                          </td>
-                          <td className="r vk-num">{percent(n.share)}</td>
-                          <td className="r vk-num">{money(n.per_day)}</td>
-                          <td className="r vk-num">{percent(n.stay)}</td>
+            </Section>
+            <Section
+              id="money"
+              eyebrow="Money"
+              question="Where does the money go, and which states are common?"
+            >
+              <div className="tf-grid2">
+                <Card
+                  question="Where does the money go?"
+                  sub="Dollars per run, by part."
+                  takeaway={`A normal day makes ${usd(model.avg_per_period)}.`}
+                >
+                  <ul className="vk-list" aria-label="Money by part">
+                    {rows.map((r) => (
+                      <li key={r.part}>
+                        <div className="vk-row">
+                          <span>{r.label}</span>
+                          <span className="tf-num">{usd(r.value)}</span>
+                        </div>
+                        <div className="tf-track" aria-hidden="true">
+                          <div
+                            className={
+                              "tf-bar " +
+                              (r.part === "revenue" ? "tf-gain" : "tf-loss")
+                            }
+                            style={{
+                              left: 0,
+                              width: `${Math.round(r.width * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+                <Card question="Top states" sub="The most common situations.">
+                  <div
+                    className="tf-scroll"
+                    tabIndex={0}
+                    role="region"
+                    aria-label="Top states table"
+                  >
+                    <table className="tf-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">State</th>
+                          <th scope="col">Days</th>
+                          <th scope="col">Money a day</th>
+                          <th scope="col">Stays</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </div>
+                      </thead>
+                      <tbody>
+                        {nodes.map((n) => (
+                          <tr key={n.id}>
+                            <td>
+                              {nodeTitle(n)}
+                              {n.words?.setup && (
+                                <div className="tf-note">{n.words.setup}</div>
+                              )}
+                            </td>
+                            <td className="tf-num">{share(n.share)}</td>
+                            <td className="tf-num">{usd(n.per_day)}</td>
+                            <td className="tf-num">{share(n.stay)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            </Section>
+          </>
+        )}
+        {model.leaks.length > 0 && (
+          <Section
+            id="leaks"
+            eyebrow="Leaks"
+            question="Where does the plant lose money?"
+          >
+            <Card>
+              <ol className="vk-list" style={{ paddingLeft: 0 }}>
+                {model.leaks.map((l, i) => (
+                  <li key={l.state}>
+                    <b>{leakName(model, i)}</b>{" "}
+                    <span className="tf-pill tf-l">
+                      {usd(l.per_run)} per run · {l.cause_words}
+                    </span>
+                    {l.try && <p className="tf-note">{l.try}</p>}
+                  </li>
+                ))}
+              </ol>
+            </Card>
           </Section>
-        </>
-      )}
-      {model.leaks.length ? (
-        <Section
-          id="leaks"
-          eyebrow="Leaks"
-          title="Where does the plant lose money?"
-        >
-          <div className="vk-card">
-            <ol className="vk-list" style={{ paddingLeft: 0 }}>
-              {model.leaks.map((l) => (
-                <li key={l.state}>
-                  <b>
-                    {chain.nodes.find((n) => n.id === l.state_id)?.words
-                      ?.title ?? l.state}
-                  </b>{" "}
-                  <Pill tone="bad">
-                    {money(l.per_run)} per run . {l.cause_words}
-                  </Pill>
-                  {l.try ? <p className="vk-note">{l.try}</p> : null}
-                </li>
+        )}
+        <Section id="details" eyebrow="Details" question="How this was made">
+          <div className="tf-grid2">
+            <Card question="Run facts">
+              <dl className="vk-kv">
+                <dt>Run folders</dt>
+                <dd className="tf-num">{about.runs}</dd>
+                <dt>Test runs</dt>
+                <dd className="tf-num">{about.episodes}</dd>
+                <dt>Moves</dt>
+                <dd className="tf-num">{about.moves}</dd>
+                <dt>States seen</dt>
+                <dd className="tf-num">{about.states_seen}</dd>
+                {about.time_span && (
+                  <>
+                    <dt>Time span</dt>
+                    <dd className="tf-num">
+                      {about.time_span.from} to {about.time_span.to}{" "}
+                      {about.time_span.unit}
+                    </dd>
+                  </>
+                )}
+                <dt>View</dt>
+                <dd>{about.view_name}</dd>
+              </dl>
+            </Card>
+            <Card question="Problems and warnings">
+              {model.problems.length ? (
+                <Problems problems={model.problems} />
+              ) : (
+                <p>No problems.</p>
+              )}
+              {model.warnings.map((w) => (
+                <p className="tf-note" key={w.text}>
+                  {w.text} {w.fix}
+                </p>
               ))}
-            </ol>
+            </Card>
           </div>
         </Section>
-      ) : null}
-      <Section id="details" eyebrow="Details" title="How this was made">
-        <div className="vk-grid2">
-          <Card title="Run facts">
-            <dl className="vk-kv">
-              <dt>Run folders</dt>
-              <dd className="vk-num">{about.runs}</dd>
-              <dt>Test runs</dt>
-              <dd className="vk-num">{about.episodes}</dd>
-              <dt>Moves</dt>
-              <dd className="vk-num">{about.moves}</dd>
-              <dt>States seen</dt>
-              <dd className="vk-num">{about.states_seen}</dd>
-              {about.time_span ? (
-                <>
-                  <dt>Time span</dt>
-                  <dd className="vk-num">
-                    {about.time_span.from} to {about.time_span.to}{" "}
-                    {about.time_span.unit}
-                  </dd>
-                </>
-              ) : null}
-              <dt>View</dt>
-              <dd>{about.view_name}</dd>
-            </dl>
-          </Card>
-          <Card title="Problems and warnings">
-            {model.problems.length ? (
-              <Problems problems={model.problems} />
-            ) : (
-              <p>No problems.</p>
-            )}
-            {model.warnings.map((w) => (
-              <p className="vk-note" key={w.text}>
-                {w.text} {w.fix}
-              </p>
-            ))}
-          </Card>
-        </div>
-      </Section>
-      <div className="vk-wrap vk-foot">
-        Made by twinflow {model.twinflow_version ?? ""}{" "}
-        {model.generated_at ?? ""}
       </div>
     </Page>
   );

@@ -29,6 +29,7 @@ from twinflow.state.records import LEDGER_PARTS
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
 
 STATES_PAGE = "states.html"
+_FEW_MOVES_PER_EPISODE = 5  # fewer than this per run is too little to read
 
 
 class _UserError(Exception):
@@ -41,6 +42,7 @@ def add_states_subcommands(subparsers: argparse._SubParsersAction[ParserT]) -> N
     states.add_argument("run_dir")
     states.add_argument("--view", default="family")
     states.add_argument("--top", type=int, default=10)
+    states.add_argument("--project", help="a project folder whose views/ files --view can use")
     states.add_argument("--min-prob", type=float, default=0.05)
     states.add_argument("--html", action="store_true", help="also write states.html")
     states.set_defaults(handler=lambda args: _guarded(_handle_states, args))
@@ -49,6 +51,7 @@ def add_states_subcommands(subparsers: argparse._SubParsersAction[ParserT]) -> N
     markov.add_argument("run_dir")
     markov.add_argument("--view", default="family")
     markov.add_argument("--top", type=int, default=15)
+    markov.add_argument("--project", help="a project folder whose views/ files --view can use")
     markov.add_argument("--min-prob", type=float, default=0.05)
     markov.add_argument("--out", default=None)
     markov.add_argument("--html", action="store_true", help="also write states.html")
@@ -66,9 +69,43 @@ def _guarded(handler: Any, args: argparse.Namespace) -> int:
         return 2
 
 
-def _write_page(args: argparse.Namespace, folder: Path, top: int, min_prob: float) -> None:
+def _project_chain(
+    gathered: Gathered, project_dir: str, view_name: str, top: int, min_prob: float
+) -> MarkovChain:
+    """The chain under a view of the project: its YAML views and its view files."""
+    from twinflow.cli._common import UserError, open_project
+    from twinflow.extensions.checker import ExtensionFailed
+    from twinflow.extensions.loader import ExtensionNotFound
+    from twinflow.extensions.project import ProjectError
+
+    try:
+        project = open_project(project_dir)
+        return project.markov(gathered.moves, view_name, top_k=top, min_prob=min_prob)
+    except ExtensionNotFound as exc:
+        raise _UserError(f"{exc} Fix: check the --view name and the views/ folder.") from exc
+    except (ExtensionFailed, ProjectError, UserError) as exc:
+        raise _UserError(str(exc)) from exc
+
+
+def _estimate(
+    gathered: Gathered, args: argparse.Namespace, top: int, min_prob: float
+) -> tuple[MarkovChain, str | None]:
+    """The chain for `--view`, through the project's views when `--project` is given."""
+    if args.project is not None:
+        return _project_chain(gathered, args.project, args.view, top, min_prob), None
+    return estimate_chain(gathered, args.view, top, min_prob)
+
+
+def _write_page(
+    args: argparse.Namespace, gathered: Gathered | None, folder: Path, top: int, min_prob: float
+) -> None:
     """`--html`: write the states page next to the run (or into `--out`)."""
-    model = states_view_model(args.run_dir, view=args.view, top=top, min_prob=min_prob)
+    chain = note = None
+    if gathered is not None and args.project is not None:
+        chain, note = _estimate(gathered, args, top, min_prob)
+    model = states_view_model(
+        args.run_dir, view=args.view, top=top, min_prob=min_prob, chain=chain, note=note
+    )
     page = decision.write(folder / STATES_PAGE, model)
     print(f"Wrote {page}")
 
@@ -79,7 +116,7 @@ def _gather_or_page(args: argparse.Namespace, folder: Path, top: int, min_prob: 
         return gather(args.run_dir)
     except NoMovesError:
         if args.html and Path(args.run_dir).is_dir():
-            _write_page(args, folder, top, min_prob)
+            _write_page(args, None, folder, top, min_prob)
         raise
 
 
@@ -90,7 +127,7 @@ def _handle_states(args: argparse.Namespace) -> int:
     if args.top < 1:
         raise _UserError(f"--top is {args.top}. Fix: give a whole number of 1 or more.")
     gathered = _gather_or_page(args, Path(args.run_dir), args.top, args.min_prob)
-    chain, note = estimate_chain(gathered, args.view, args.top, 0.05)
+    chain, note = _estimate(gathered, args, args.top, 0.05)
     moves = gathered.moves
     unique = {s.digest for m in moves for s in (m.before, m.after)}
     start = min(m.before.t for m in moves)
@@ -103,6 +140,10 @@ def _handle_states(args: argparse.Namespace) -> int:
     print(f"Unique states: {len(unique)}")
     if note:
         print(note)
+    if len(moves) < _FEW_MOVES_PER_EPISODE * gathered.episodes:
+        print(
+            f"Only {len(moves)} moves. Lower experiment.state_capture.every_hours to record more."
+        )
     print(f"Top states (view {chain.view}), share of moves:")
     for label, share in list(chain.share.items())[: args.top]:
         print(f"  {share:6.1%}  {label}")
@@ -111,7 +152,7 @@ def _handle_states(args: argparse.Namespace) -> int:
         print(f"  {part:<10} {sum(getattr(m.ledger, part) for m in moves):>14,.2f}")
     print(f"  {'total':<10} {sum(m.ledger.total for m in moves):>14,.2f}")
     if args.html:
-        _write_page(args, gathered.folder, args.top, args.min_prob)
+        _write_page(args, gathered, gathered.folder, args.top, args.min_prob)
     return 0
 
 
@@ -125,7 +166,7 @@ def _handle_markov(args: argparse.Namespace) -> int:
         raise _UserError(f"--min-prob is {args.min_prob}. Fix: give a number from 0 to 1.")
     target = Path(args.out) if args.out else Path(args.run_dir)
     gathered = _gather_or_page(args, target, args.top, args.min_prob)
-    chain, note = estimate_chain(gathered, args.view, args.top, args.min_prob)
+    chain, note = _estimate(gathered, args, args.top, args.min_prob)
     target.mkdir(parents=True, exist_ok=True)
     (target / "markov.json").write_text(
         json.dumps(chain.to_json(), indent=2) + "\n", encoding="utf-8"
@@ -133,7 +174,7 @@ def _handle_markov(args: argparse.Namespace) -> int:
     (target / "markov.mmd").write_text(chain.to_mermaid(), encoding="utf-8")
     _print_chain(chain, note, target)
     if args.html:
-        _write_page(args, target, args.top, args.min_prob)
+        _write_page(args, gathered, target, args.top, args.min_prob)
     return 0
 
 

@@ -618,6 +618,16 @@ def _capacity_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
     ]
 
 
+# (field, must be above 0). Seconds and rates are plain numbers; strings like "slow" fail.
+_NUMERIC_TIME_FIELDS = (("rate", True), ("seconds", True), ("load", False), ("unload", False))
+
+
+def _is_number(value: object, positive: bool) -> bool:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    return value > 0 if positive else value >= 0
+
+
 def _time_model_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
     """Pre-flight the declared cycle-time variation (COMP-038): a `cv` must be a
     non-negative number, and a `distribution` must name a known shape with valid
@@ -628,6 +638,18 @@ def _time_model_checks(idx: int, loc: RawLocation) -> list[ValidationError]:
 
     errors: list[ValidationError] = []
     path = f"locations[{idx}].time_model"
+
+    for key, positive in _NUMERIC_TIME_FIELDS:
+        if key in time_model and not _is_number(time_model[key], positive):
+            kind = "a number above 0" if positive else "a number of 0 or more"
+            errors.append(
+                ValidationError(
+                    path=f"{path}.{key}",
+                    message=f"{key} is {time_model[key]!r}; it must be {kind}. "
+                    f"Fix: write {key}: with a plain number, for example {key}: "
+                    f"{'0.5' if positive else '0'}.",
+                )
+            )
 
     if "cv" in time_model:
         try:

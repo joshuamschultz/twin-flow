@@ -1,52 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="568" viewBox="0 0 1200 568" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif">
 <title>Twinflow: what a person does</title>
-<rect x="0" y="0" width="1200" height="568" fill="#f3f4f2"/>
-<text x="36.0" y="46.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#1f5f8b" text-anchor="start" letter-spacing="1"><tspan x="36.0" y="46.0">twinflow · proposed architecture · draft</tspan></text>
-<text x="36.0" y="88.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="32" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="36.0" y="88.0">What a person does</tspan></text>
-<text x="36.0" y="118.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5d6670" text-anchor="start"><tspan x="36.0" y="118.0">Describe the factory once. Run it through any engine. Every engine writes the same state record, so every</tspan><tspan x="36.0" dy="22.0">report, policy contest, Markov map and agent works the same way.</tspan></text>
-<rect x="36.0" y="164.0" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
-<text x="56.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="56.0" y="176.8">Have</tspan></text>
-<text x="84.0" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="84.0" y="177.0">built today</tspan></text>
-<rect x="188.1" y="164.0" width="53.1" height="18.0" rx="4" fill="#fbf0d9"/>
-<text x="214.7" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#a26a00" text-anchor="middle" font-weight="600"><tspan x="214.7" y="176.8">Extend</tspan></text>
-<text x="249.2" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="249.2" y="177.0">exists, needs more</tspan></text>
-<rect x="404.2" y="164.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="421.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="421.0" y="176.8">New</tspan></text>
-<text x="445.8" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="445.8" y="177.0">to build</tspan></text>
-<rect x="36.0" y="208.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="54.0" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#1f5f8b" text-anchor="start" font-weight="600"><tspan x="54.0" y="244.0">1</tspan></text>
-<text x="84.0" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="84.0" y="244.0">Build a factory</tspan></text>
-<rect x="54.0" y="260.0" width="202.3" height="28.0" rx="5" fill="#e3edf4"/>
-<text x="64.0" y="279.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#1f5f8b" text-anchor="start"><tspan x="64.0" y="279.0">twinflow new my-plant</tspan></text>
-<text x="54.0" y="312.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#5d6670" text-anchor="start"><tspan x="54.0" y="312.0">Start from a template or import data.</tspan><tspan x="54.0" dy="19.0">Answer plain questions.</tspan></text>
-<rect x="418.7" y="208.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="436.7" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#1f5f8b" text-anchor="start" font-weight="600"><tspan x="436.7" y="244.0">2</tspan></text>
-<text x="466.7" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="466.7" y="244.0">Check it</tspan></text>
-<rect x="436.7" y="260.0" width="141.5" height="28.0" rx="5" fill="#e3edf4"/>
-<text x="446.7" y="279.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#1f5f8b" text-anchor="start"><tspan x="446.7" y="279.0">twinflow check</tspan></text>
-<text x="436.7" y="312.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#5d6670" text-anchor="start"><tspan x="436.7" y="312.0">Plain-word errors: what is missing and</tspan><tspan x="436.7" dy="19.0">where.</tspan></text>
-<rect x="801.3" y="208.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="819.3" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#1f5f8b" text-anchor="start" font-weight="600"><tspan x="819.3" y="244.0">3</tspan></text>
-<text x="849.3" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="849.3" y="244.0">Run it</tspan></text>
-<rect x="819.3" y="260.0" width="124.2" height="28.0" rx="5" fill="#e3edf4"/>
-<text x="829.3" y="279.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#1f5f8b" text-anchor="start"><tspan x="829.3" y="279.0">twinflow run</tspan></text>
-<text x="819.3" y="312.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#5d6670" text-anchor="start"><tspan x="819.3" y="312.0">Utilization, bottlenecks, waits, profit.</tspan></text>
-<rect x="36.0" y="378.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="54.0" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#1f5f8b" text-anchor="start" font-weight="600"><tspan x="54.0" y="414.0">4</tspan></text>
-<text x="84.0" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="84.0" y="414.0">Test orders</tspan></text>
-<rect x="54.0" y="430.0" width="228.3" height="28.0" rx="5" fill="#e3edf4"/>
-<text x="64.0" y="449.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#1f5f8b" text-anchor="start"><tspan x="64.0" y="449.0">twinflow orders test.csv</tspan></text>
-<text x="54.0" y="482.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#5d6670" text-anchor="start"><tspan x="54.0" y="482.0">A completion date for each order, with a</tspan><tspan x="54.0" dy="19.0">range.</tspan></text>
-<rect x="418.7" y="378.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="436.7" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#1f5f8b" text-anchor="start" font-weight="600"><tspan x="436.7" y="414.0">5</tspan></text>
-<text x="466.7" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="466.7" y="414.0">Race policies</tspan></text>
-<rect x="436.7" y="430.0" width="202.3" height="28.0" rx="5" fill="#e3edf4"/>
-<text x="446.7" y="449.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#1f5f8b" text-anchor="start"><tspan x="446.7" y="449.0">twinflow policies run</tspan></text>
-<text x="436.7" y="482.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#5d6670" text-anchor="start"><tspan x="436.7" y="482.0">Every rule, same random demand, ranked by</tspan><tspan x="436.7" dy="19.0">dollars.</tspan></text>
-<rect x="801.3" y="378.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="819.3" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#1f5f8b" text-anchor="start" font-weight="600"><tspan x="819.3" y="414.0">6</tspan></text>
-<text x="849.3" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="849.3" y="414.0">Improve</tspan></text>
-<rect x="819.3" y="430.0" width="158.9" height="28.0" rx="5" fill="#e3edf4"/>
-<text x="829.3" y="449.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#1f5f8b" text-anchor="start"><tspan x="829.3" y="449.0">twinflow improve</tspan></text>
-<text x="819.3" y="482.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#5d6670" text-anchor="start"><tspan x="819.3" y="482.0">An agent proposes a better policy. It is</tspan><tspan x="819.3" dy="19.0">kept only if it wins.</tspan></text>
+<rect x="0" y="0" width="1200" height="568" fill="#f6f8fb"/>
+<text x="36.0" y="46.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#0055bc" text-anchor="start" letter-spacing="1"><tspan x="36.0" y="46.0">twinflow · proposed architecture · draft</tspan></text>
+<text x="36.0" y="88.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="32" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="36.0" y="88.0">What a person does</tspan></text>
+<text x="36.0" y="118.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15.5" fill="#54585c" text-anchor="start"><tspan x="36.0" y="118.0">Describe the factory once. Run it through any engine. Every engine writes the same state record, so every</tspan><tspan x="36.0" dy="22.0">report, policy contest, Markov map and agent works the same way.</tspan></text>
+<rect x="36.0" y="164.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
+<text x="56.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="56.0" y="176.8">Have</tspan></text>
+<text x="84.0" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="84.0" y="177.0">built today</tspan></text>
+<rect x="188.1" y="164.0" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
+<text x="214.7" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="214.7" y="176.8">Extend</tspan></text>
+<text x="249.2" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="249.2" y="177.0">exists, needs more</tspan></text>
+<rect x="404.2" y="164.0" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="421.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="421.0" y="176.8">New</tspan></text>
+<text x="445.8" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="445.8" y="177.0">to build</tspan></text>
+<rect x="36.0" y="208.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="54.0" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#0055bc" text-anchor="start" font-weight="600"><tspan x="54.0" y="244.0">1</tspan></text>
+<text x="84.0" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="84.0" y="244.0">Build a factory</tspan></text>
+<rect x="54.0" y="260.0" width="202.3" height="28.0" rx="5" fill="#d6e6ff"/>
+<text x="64.0" y="279.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#0055bc" text-anchor="start"><tspan x="64.0" y="279.0">twinflow new my-plant</tspan></text>
+<text x="54.0" y="312.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#54585c" text-anchor="start"><tspan x="54.0" y="312.0">Start from a template or import data.</tspan><tspan x="54.0" dy="19.0">Answer plain questions.</tspan></text>
+<rect x="418.7" y="208.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="436.7" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#0055bc" text-anchor="start" font-weight="600"><tspan x="436.7" y="244.0">2</tspan></text>
+<text x="466.7" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="466.7" y="244.0">Check it</tspan></text>
+<rect x="436.7" y="260.0" width="141.5" height="28.0" rx="5" fill="#d6e6ff"/>
+<text x="446.7" y="279.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#0055bc" text-anchor="start"><tspan x="446.7" y="279.0">twinflow check</tspan></text>
+<text x="436.7" y="312.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#54585c" text-anchor="start"><tspan x="436.7" y="312.0">Plain-word errors: what is missing and</tspan><tspan x="436.7" dy="19.0">where.</tspan></text>
+<rect x="801.3" y="208.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="819.3" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#0055bc" text-anchor="start" font-weight="600"><tspan x="819.3" y="244.0">3</tspan></text>
+<text x="849.3" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="849.3" y="244.0">Run it</tspan></text>
+<rect x="819.3" y="260.0" width="124.2" height="28.0" rx="5" fill="#d6e6ff"/>
+<text x="829.3" y="279.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#0055bc" text-anchor="start"><tspan x="829.3" y="279.0">twinflow run</tspan></text>
+<text x="819.3" y="312.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#54585c" text-anchor="start"><tspan x="819.3" y="312.0">Utilization, bottlenecks, waits, profit.</tspan></text>
+<rect x="36.0" y="378.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="54.0" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#0055bc" text-anchor="start" font-weight="600"><tspan x="54.0" y="414.0">4</tspan></text>
+<text x="84.0" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="84.0" y="414.0">Test orders</tspan></text>
+<rect x="54.0" y="430.0" width="228.3" height="28.0" rx="5" fill="#d6e6ff"/>
+<text x="64.0" y="449.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#0055bc" text-anchor="start"><tspan x="64.0" y="449.0">twinflow orders test.csv</tspan></text>
+<text x="54.0" y="482.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#54585c" text-anchor="start"><tspan x="54.0" y="482.0">A completion date for each order, with a</tspan><tspan x="54.0" dy="19.0">range.</tspan></text>
+<rect x="418.7" y="378.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="436.7" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#0055bc" text-anchor="start" font-weight="600"><tspan x="436.7" y="414.0">5</tspan></text>
+<text x="466.7" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="466.7" y="414.0">Race policies</tspan></text>
+<rect x="436.7" y="430.0" width="202.3" height="28.0" rx="5" fill="#d6e6ff"/>
+<text x="446.7" y="449.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#0055bc" text-anchor="start"><tspan x="446.7" y="449.0">twinflow policies run</tspan></text>
+<text x="436.7" y="482.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#54585c" text-anchor="start"><tspan x="436.7" y="482.0">Every rule, same random demand, ranked by</tspan><tspan x="436.7" dy="19.0">dollars.</tspan></text>
+<rect x="801.3" y="378.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="819.3" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#0055bc" text-anchor="start" font-weight="600"><tspan x="819.3" y="414.0">6</tspan></text>
+<text x="849.3" y="414.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="19" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="849.3" y="414.0">Improve</tspan></text>
+<rect x="819.3" y="430.0" width="158.9" height="28.0" rx="5" fill="#d6e6ff"/>
+<text x="829.3" y="449.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="14" fill="#0055bc" text-anchor="start"><tspan x="829.3" y="449.0">twinflow improve</tspan></text>
+<text x="819.3" y="482.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13.5" fill="#54585c" text-anchor="start"><tspan x="819.3" y="482.0">An agent proposes a better policy. It is</tspan><tspan x="819.3" dy="19.0">kept only if it wins.</tspan></text>
 </svg>

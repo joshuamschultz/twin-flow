@@ -1,8 +1,10 @@
 // The project view (DESIGN.md 7, DATA-CONTRACT 5): is this twin ready to trust, and what do
 // I fix first?
+import { Page, type SectionRef } from "../Page";
+import { Card, EmptyState, Section, Tag } from "../primitives";
 import type { ProjectViewModel } from "../types";
-import { Card, Hero, Missing, Page, Pill, Problems, Section } from "../viewkit";
-import { count } from "../viewkit/format";
+import { AnswerHero, Problems } from "../viewkit";
+import { count } from "../viewkit/words";
 import { ruleCounts, viewsByKind } from "./derive";
 
 export function ProjectView({ model }: { model: ProjectViewModel }) {
@@ -11,7 +13,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
   const { stateViews, observations } = viewsByKind(model.views);
   const hasProblems = model.problems.length > 0;
   const ready = status.level === "ready";
-  const sections = [
+  const sections: SectionRef[] = [
     { id: "answer", label: "Answer" },
     ...(hasProblems ? [{ id: "problems", label: "Problems" }] : []),
     { id: "twin", label: "The twin" },
@@ -22,208 +24,212 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
   return (
     <Page
       view="project"
-      viewName="Project"
+      title="Project"
       project={about.project}
       scope={about.capsule}
       sections={sections}
+      footer={<>twinflow project · {about.project}</>}
     >
-      <Hero
-        eyebrow={`Project . ${about.project}`}
+      <AnswerHero
+        eyebrow={`Project · ${about.project}`}
         headline={status.headline}
         lede={about.summary}
-        badge={
-          ready
-            ? { text: "Ready to race" }
-            : {
-                text: status.level === "broken" ? "Cannot open" : "Needs fixes",
-                warn: true,
-              }
-        }
+        badge={{
+          level: ready ? "very_likely_better" : "maybe_worse",
+          words: ready
+            ? "Ready to race"
+            : status.level === "broken"
+              ? "Cannot open"
+              : "Needs fixes",
+        }}
       />
-      {hasProblems ? (
-        <Section
-          id="problems"
-          eyebrow="Fix first"
-          title="Problems to fix"
-          intro="Errors come first. Each one says where it is and how to fix it."
-        >
-          <Problems problems={model.problems} />
-        </Section>
-      ) : null}
-      <Section id="twin" eyebrow="The twin" title="What does the twin hold?">
-        <div className="vk-grid2">
-          <Card title="Shape">
-            <dl className="vk-kv">
-              <dt>Lines</dt>
-              <dd>
-                {twin.lines.length
-                  ? twin.lines.map((l) => l.label).join(", ")
-                  : "none"}
-              </dd>
-              <dt>Products</dt>
-              <dd className="vk-num">{twin.products}</dd>
-              <dt>Families</dt>
-              <dd>
-                {twin.families.length
-                  ? twin.families
-                      .map((f) => `${f.name} (${f.products})`)
-                      .join(", ")
-                  : "none"}
-              </dd>
-              <dt>One run</dt>
-              <dd className="vk-num">
-                {twin.horizon.value} {twin.horizon.unit}
-              </dd>
-            </dl>
-          </Card>
-          <Card title="What things cost">
-            {twin.costs.length ? (
-              <dl className="vk-kv">
-                {twin.costs.map((c) => (
-                  <div key={c.label} style={{ display: "contents" }}>
-                    <dt>{c.label}</dt>
-                    <dd>{c.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p>No costs were found.</p>
-            )}
-          </Card>
-        </div>
-      </Section>
-      <Section
-        id="rules"
-        eyebrow="Rules"
-        title="Which rules can race, and how are they scored?"
-      >
-        <div className="vk-list">
-          <Card
-            title="Rules"
-            sub={`${count(counts.own, "rule")} of your own, ${counts.builtIn} built in.${
-              counts.today ? ` Today you run: ${counts.today}.` : ""
-            }`}
+      <div className="tf-wrap">
+        {hasProblems && (
+          <Section
+            id="problems"
+            eyebrow="Fix first"
+            question="Problems to fix"
+            hint="Errors come first. Each one says where it is and how to fix it."
           >
-            {model.rules_note ? <Missing said={model.rules_note} /> : null}
-            <div className="vk-scroll">
-              <table className="vk-table">
-                <thead>
-                  <tr>
-                    <th>Rule</th>
-                    <th>Where</th>
-                    <th className="r">Settings tried</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rules.map((r) => (
-                    <tr key={r.policy}>
-                      <td>
-                        {r.label}{" "}
-                        {r.is_baseline ? (
-                          <Pill tone="neutral">Today</Pill>
-                        ) : null}{" "}
-                        {r.ok ? null : <Pill tone="bad">Problem</Pill>}
-                        <div className="vk-note">{r.about}</div>
-                      </td>
-                      <td>{r.file ?? "built in"}</td>
-                      <td className="r vk-num">{r.settings_tried}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-          <Card title="Score and views">
-            <dl className="vk-kv">
-              <dt>Score</dt>
-              <dd>
-                {score.is_dollars ? "dollars" : score.name}
-                {score.file ? ` (${score.file})` : ""}
-              </dd>
-              <dt>State views</dt>
-              <dd>{stateViews.map((v) => v.name).join(", ") || "none"}</dd>
-              <dt>What rules see</dt>
-              <dd>
-                {observations.map((v) => v.name).join(", ") || "everything"}
-              </dd>
-            </dl>
-            <ul className="vk-list" style={{ marginTop: 12 }}>
-              {stateViews.map((v) => (
-                <li key={v.name} className="vk-note">
-                  <b>{v.name}</b>: {v.about}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
-      </Section>
-      <Section
-        id="results"
-        eyebrow="Last results"
-        title="What did the last runs say?"
-      >
-        {model.recent.length ? (
-          <div className="vk-card">
-            <ul className="vk-list">
-              {model.recent.map((r) => (
-                <li
-                  key={r.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <span>
-                    <span className="vk-note">{r.when.slice(0, 10)}</span>{" "}
-                    {r.sentence}
-                  </span>
-                  {r.href ? <a href={r.href}>Open</a> : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <Missing
-            said="No results yet."
-            fix="Run a race with `twinflow policies race`, then make this page again."
-          />
+            <Problems problems={model.problems} />
+          </Section>
         )}
-      </Section>
-      <Section id="details" eyebrow="Details" title="Files and notes">
-        <div className="vk-grid2">
-          <Card title="Your own files">
-            {model.extensions.length ? (
-              <ul className="vk-list">
-                {model.extensions.map((e) => (
-                  <li key={`${e.kind}-${e.name}`}>
-                    {e.kind} <b>{e.name}</b>{" "}
-                    <span className="vk-note">{e.file}</span>{" "}
-                    {e.ok ? null : <Pill tone="bad">Problem</Pill>}
+        <Section
+          id="twin"
+          eyebrow="The twin"
+          question="What does the twin hold?"
+        >
+          <div className="tf-grid2">
+            <Card question="Shape">
+              <dl className="vk-kv">
+                <dt>Lines</dt>
+                <dd>
+                  {twin.lines.length
+                    ? twin.lines.map((l) => l.label).join(", ")
+                    : "none"}
+                </dd>
+                <dt>Products</dt>
+                <dd className="tf-num">{twin.products}</dd>
+                <dt>Families</dt>
+                <dd>
+                  {twin.families.length
+                    ? twin.families
+                        .map((f) => `${f.name} (${f.products})`)
+                        .join(", ")
+                    : "none"}
+                </dd>
+                <dt>One run</dt>
+                <dd className="tf-num">
+                  {twin.horizon.value} {twin.horizon.unit}
+                </dd>
+              </dl>
+            </Card>
+            <Card question="What things cost">
+              {twin.costs.length ? (
+                <dl className="vk-kv">
+                  {twin.costs.map((c) => (
+                    <div key={c.label} style={{ display: "contents" }}>
+                      <dt>{c.label}</dt>
+                      <dd>{c.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p>No costs were found.</p>
+              )}
+            </Card>
+          </div>
+        </Section>
+        <Section
+          id="rules"
+          eyebrow="Rules"
+          question="Which rules can race, and how are they scored?"
+        >
+          <div className="vk-list">
+            <Card
+              question="Rules"
+              sub={`${count(counts.own, "rule")} of your own, ${counts.builtIn} built in.${
+                counts.today ? ` Today you run: ${counts.today}.` : ""
+              }`}
+            >
+              {model.rules_note && <EmptyState title={model.rules_note} />}
+              <div
+                className="tf-scroll"
+                tabIndex={0}
+                role="region"
+                aria-label="Rules table"
+              >
+                <table className="tf-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Rule</th>
+                      <th scope="col">Where</th>
+                      <th scope="col">Settings tried</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rules.map((r) => (
+                      <tr key={r.policy}>
+                        <td>
+                          {r.label}{" "}
+                          {r.is_baseline && <Tag kind="today">Today</Tag>}{" "}
+                          {!r.ok && <Tag kind="plain">Problem</Tag>}
+                          <div className="tf-note">{r.about}</div>
+                        </td>
+                        <td>{r.file ?? "built in"}</td>
+                        <td className="tf-num">{r.settings_tried}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+            <Card question="Score and views">
+              <dl className="vk-kv">
+                <dt>Score</dt>
+                <dd>
+                  {score.is_dollars ? "dollars" : score.name}
+                  {score.file ? ` (${score.file})` : ""}
+                </dd>
+                <dt>State views</dt>
+                <dd>{stateViews.map((v) => v.name).join(", ") || "none"}</dd>
+                <dt>What rules see</dt>
+                <dd>
+                  {observations.map((v) => v.name).join(", ") || "everything"}
+                </dd>
+              </dl>
+              <ul className="vk-list" style={{ marginTop: 12 }}>
+                {stateViews.map((v) => (
+                  <li key={v.name} className="tf-note">
+                    <b>{v.name}</b>: {v.about}
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p>No engines, scores or features of your own.</p>
-            )}
-          </Card>
-          <Card title="Assumptions">
-            {twin.assumptions.length ? (
+            </Card>
+          </div>
+        </Section>
+        <Section
+          id="results"
+          eyebrow="Last results"
+          question="What did the last runs say?"
+        >
+          {model.recent.length ? (
+            <Card>
               <ul className="vk-list">
-                {twin.assumptions.map((a) => (
-                  <li key={a}>{a}</li>
+                {model.recent.map((r) => (
+                  <li key={r.id} className="vk-row">
+                    <span>
+                      <span className="tf-note">{r.when.slice(0, 10)}</span>{" "}
+                      {r.sentence}
+                    </span>
+                    {r.href && <a href={r.href}>Open</a>}
+                  </li>
                 ))}
               </ul>
-            ) : (
-              <p>No assumptions were written down.</p>
-            )}
-            {twin.provenance ? (
-              <p className="vk-note">Source: {twin.provenance}</p>
-            ) : null}
-            <p className="vk-note">Folder: {about.folder}</p>
-          </Card>
-        </div>
-      </Section>
+            </Card>
+          ) : (
+            <EmptyState
+              title="No results yet."
+              fix="twinflow policies race <project>"
+              body={<p>Run a race, then make this page again.</p>}
+            />
+          )}
+        </Section>
+        <Section id="details" eyebrow="Details" question="Files and notes">
+          <div className="tf-grid2">
+            <Card question="Your own files">
+              {model.extensions.length ? (
+                <ul className="vk-list">
+                  {model.extensions.map((e) => (
+                    <li key={`${e.kind}-${e.name}`}>
+                      {e.kind} <b>{e.name}</b>{" "}
+                      <span className="tf-note">{e.file}</span>{" "}
+                      {!e.ok && <Tag kind="plain">Problem</Tag>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No engines, scores or features of your own.</p>
+              )}
+            </Card>
+            <Card question="Assumptions">
+              {twin.assumptions.length ? (
+                <ul className="vk-list">
+                  {twin.assumptions.map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No assumptions were written down.</p>
+              )}
+              {twin.provenance && (
+                <p className="tf-note">Source: {twin.provenance}</p>
+              )}
+              <p className="tf-note">Folder: {about.folder}</p>
+            </Card>
+          </div>
+        </Section>
+      </div>
     </Page>
   );
 }

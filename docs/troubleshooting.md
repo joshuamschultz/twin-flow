@@ -1,5 +1,7 @@
 # Troubleshooting
 
+![A machine with its side panel open, one gear marked, beside a magnifying lens and a wrench](images/headers/troubleshooting.webp)
+
 Symptom, cause, fix. Most problems are caught before a run by `twinflow validate`; run it
 first.
 

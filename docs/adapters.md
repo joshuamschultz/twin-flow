@@ -1,5 +1,7 @@
 # Adapter surfaces
 
+![Three plugs from server racks docking into one socket block that feeds a factory](images/headers/adapters.webp)
+
 `twinflow.adapters` holds the **unified seams external systems plug into**. Each is a
 protocol + a registry + reference implementations. A real ERP or forecaster
 is then a single class and one `register(...)` call — never a change to the core. The

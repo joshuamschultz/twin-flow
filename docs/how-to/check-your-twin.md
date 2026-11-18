@@ -1,5 +1,7 @@
 # Check your twin
 
+![A molding press under a scanning gate, with one part marked by the light](../images/headers/how-to-check-your-twin.webp)
+
 This guide shows how to find mistakes in your plant file and rule files before you run anything.
 
 ## What this does

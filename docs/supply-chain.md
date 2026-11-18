@@ -1,5 +1,7 @@
 # Supply chain & inventory
 
+![A silo, a warehouse with stock racks and a factory joined by routes, with one rack marked](images/headers/supply-chain.webp)
+
 Most floors run on material that is not infinite: a resin, a sand, a bar stock that gets
 used up and reordered. twinflow models that material as **stock** you can make finite,
 self-refilling, and even fed by an upstream warehouse with a real delivery lead time. Then

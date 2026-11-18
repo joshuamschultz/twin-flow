@@ -5,7 +5,7 @@ import type {
   StatesStateEdge,
   StatesStateNode,
 } from "../types";
-import { sentence } from "../viewkit/format";
+import { sentence } from "../viewkit/words";
 
 export type Lane = { name: string; nodes: StatesStateNode[] };
 export type Lanes = { kind: "setup" | "level" | "grid"; lanes: Lane[] };

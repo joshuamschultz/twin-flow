@@ -28,7 +28,7 @@ test("a bad policy file shows file, line and fix before anything else", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "to fix before you can race.",
   );
-  const sections = page.locator("section.vk-section");
+  const sections = page.locator("section.tf-section");
   await expect(sections.first()).toHaveAttribute("id", "problems");
   await expect(sections.first()).toContainText("policies/my_rule.py line 4");
   await expect(sections.first()).toContainText("Fix: Make decide return");

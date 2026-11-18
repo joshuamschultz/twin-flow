@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 484" width="800" height="484" role="img" aria-labelledby="title desc">
+  <title id="title">What wins by a clear margin means</title>
+  <desc id="desc">A number line of the candidate's lead over the previous best. With 200 runs the 95% range runs from +676.71 to +2,037.82, with a mean of +1,357.26. The whole range is above zero, so the rule is copied. With 40 runs the range runs from -822.04 to +1,575.49. It starts below zero, so the rule is not copied, because the lead may be luck.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #f68d2e; fill-opacity: 0.1; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="483" rx="4"/>
+
+  <text class="h" x="36" y="44">What "wins by a clear margin" means</text>
+  <text class="sub" x="36" y="66">The lead is the candidate's score minus the previous best's score, on the same runs.</text>
+
+  <rect x="140" y="92" width="171.4" height="216" fill="#f68d2e" fill-opacity="0.1"/>
+  <rect x="311.4" y="92" width="428.6" height="216" fill="#eef4ff"/>
+  <text class="bad" x="152" y="112" style="font-weight: 500">Candidate is behind</text>
+  <text class="good" x="728" y="112" text-anchor="end" style="font-weight: 500">Candidate is ahead</text>
+  <path d="M311.4 92 V316" stroke="#002550" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+
+  <text class="t" x="36" y="160">200 runs</text>
+  <path d="M427.4 156 H660.8" stroke="#0073fe" stroke-width="6" stroke-linecap="butt" fill="none"/>
+  <path d="M427.4 145 V167 M660.8 145 V167" stroke="#0073fe" stroke-width="2" fill="none"/>
+  <circle cx="544.1" cy="156" r="6" fill="#ffffff" stroke="#002550" stroke-width="2"/>
+  <text class="num" x="427.4" y="188" text-anchor="middle">+676.71</text>
+  <text class="num" x="544.1" y="136" text-anchor="middle">+1,357.26</text>
+  <text class="num" x="660.8" y="188" text-anchor="middle">+2,037.82</text>
+
+  <text class="t" x="36" y="256">40 runs</text>
+  <path d="M170.5 252 H581.5" stroke="#f68d2e" stroke-width="6" fill="none"/>
+  <path d="M170.5 241 V263 M581.5 241 V263" stroke="#f68d2e" stroke-width="2" fill="none"/>
+  <text class="num" x="170.5" y="284" text-anchor="middle">-822.04</text>
+  <text class="num" x="581.5" y="284" text-anchor="middle">+1,575.49</text>
+
+  <path class="axis" d="M140 316 H740"/>
+  <path class="axis" d="M140.0 316 v6 M311.4 316 v6 M482.9 316 v6 M654.3 316 v6"/>
+  <text class="num" x="140.0" y="338" text-anchor="middle">-1,000</text>
+  <text class="num" x="311.4" y="338" text-anchor="middle" style="font-weight: 700">0</text>
+  <text class="num" x="482.9" y="338" text-anchor="middle">+1,000</text>
+  <text class="num" x="654.3" y="338" text-anchor="middle">+2,000</text>
+  <text class="m" x="440" y="358" text-anchor="middle">Lead over the previous best (score). The bar is the 95% range.</text>
+
+  <rect class="pick" x="36" y="376" width="356" height="62" rx="4"/>
+  <text class="good" x="52" y="401">Won. The rule is copied.</text>
+  <text class="m" x="52" y="422">The whole range is above zero. The lead is probably real.</text>
+  <rect class="warn" x="408" y="376" width="356" height="62" rx="4"/>
+  <text class="bad" x="424" y="401">Not copied.</text>
+  <text class="m" x="424" y="422">The range starts below zero. The lead may be luck.</text>
+  <text class="m" x="36" y="462">More runs make the range narrower. The candidate must also rank first.</text>
+</svg>

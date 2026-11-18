@@ -1,5 +1,7 @@
 # Front end
 
+![Three floating glass panels showing a floor map, a band chart and bars](images/headers/frontend.webp)
+
 A React + TypeScript + Vite app in `web/` that manages the whole twin from the browser:
 map the floor, run it, sweep a lever, and optimize — with the confidence band as the
 central visual throughout.

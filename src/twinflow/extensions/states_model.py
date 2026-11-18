@@ -132,7 +132,10 @@ def choose_view(name: str, facts: Facts) -> tuple[GroupedView, str | None]:
     """The view to use, and a note when it had to fall back to `full`."""
     if name not in facts.views:
         known = ", ".join(sorted(facts.views))
-        raise StatesError(f"No view named {name!r}. Fix: use one of: {known}.")
+        raise StatesError(
+            f"No view named {name!r}. Fix: use one of: {known}. "
+            "A view file in a project's views/ folder needs --project DIR."
+        )
     if name != "full" and facts.demand_rate is None:
         return facts.views["full"], NO_FACTS.format(view=name)
     return facts.views[name], None
@@ -254,20 +257,32 @@ def _empty(folder: Path, view: str, top: int, min_prob: float) -> dict[str, Any]
 
 
 def states_view_model(
-    run_dir: str | Path, view: str = "family", top: int = 15, min_prob: float = 0.05
+    run_dir: str | Path,
+    view: str = "family",
+    top: int = 15,
+    min_prob: float = 0.05,
+    *,
+    chain: MarkovChain | None = None,
+    note: str | None = None,
 ) -> dict[str, Any]:
-    """The states view model for a run folder (DATA-CONTRACT 3, S1 to S4)."""
+    """The states view model for a run folder (DATA-CONTRACT 3, S1 to S4). Pass `chain` (and
+    its `note`) when the chain came from a project's own views."""
     folder = Path(run_dir)
     try:
         gathered = gather(folder)
     except NoMovesError:
         return _empty(folder, view, top, min_prob)
-    chain, note = estimate_chain(gathered, view, top, min_prob)
     facts = facts_near(gathered.folder)
-    chosen, _ = choose_view(view, facts)
+    if chain is None:
+        chain, note = estimate_chain(gathered, view, top, min_prob)
+    chosen = (
+        facts.views.get(chain.view)
+        if isinstance(facts.views.get(chain.view), GroupedView)
+        else None
+    )
     moves, episodes = gathered.moves, max(1, gathered.episodes)
     line = facts.line or "line"
-    has_families = facts.families is not None and chosen.stock is not None
+    has_families = facts.families is not None and chosen is not None and chosen.stock is not None
     leaks = money_leaks(chain, gathered.episodes)
     nodes_chain = markov_view(chain, gathered.episodes, {x.state for x in leaks[:1]}, line)
     if not has_families:  # exact labels are not "levels | setup": show them as they are
@@ -309,7 +324,7 @@ def states_view_model(
             for part in LEDGER_PARTS
         },
         "chain": nodes_chain,
-        "levels": _levels(chosen) if has_families else None,
+        "levels": _levels(chosen) if has_families and chosen is not None else None,
         "families": families,
         "leaks": leak_rows(leaks, chain, line),
         "warnings": [],

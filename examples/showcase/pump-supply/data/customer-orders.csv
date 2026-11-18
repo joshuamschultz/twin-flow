@@ -1,0 +1,8 @@
+id,customer,item_id,site_id,quantity,uom,due_at,priority,unit_price
+SO-4410,Prairie Well Service,PMP-100,plant,20,each,2026-11-25T17:00:00-06:00,2,385
+SO-4412,Big Sky Irrigation,PMP-300,plant,8,each,2026-11-27T17:00:00-06:00,3,1240
+SO-4415,Hometown Hardware,PMP-100,plant,15,each,2026-12-04T17:00:00-06:00,1,385
+SO-4418,Valley Farm Supply,PMP-300,plant,12,each,2026-12-08T17:00:00-06:00,3,1240
+SO-4421,Prairie Well Service,PMP-100,plant,25,each,2026-12-11T17:00:00-06:00,2,385
+SO-4423,Big Sky Irrigation,PMP-300,plant,14,each,2026-12-11T17:00:00-06:00,3,1240
+SO-4426,Lakeshore Rentals,PMP-100,plant,10,each,2026-12-18T17:00:00-06:00,1,385

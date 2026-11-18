@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 420" width="800" height="420" role="img" aria-labelledby="title desc">
+  <title id="title">Same random demand for every rule</title>
+  <desc id="desc">A grid. Each column is one run with one random demand draw. Each row is one rule: family_campaign, s_big_s and setup_aware_runout. Every rule in a column plays the same demand draw. The right column shows average dollars per run: 64,803, 56,562 and 51,185.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #f68d2e; fill-opacity: 0.1; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="419" rx="4"/>
+
+  <text class="h" x="36" y="44">Same random demand for every rule</text>
+  <text class="sub" x="36" y="66">The race draws the demand once for each run number. Every rule plays that same draw.</text>
+  <text class="m" x="36" y="122">Random demand,</text>
+  <text class="m" x="36" y="138">drawn once per run</text>
+  <text class="m" x="648" y="122">Average dollars</text>
+  <text class="m" x="648" y="138">per run</text>
+
+  <rect class="pick" x="236" y="92" width="112" height="62" rx="4"/>
+  <text class="t" x="250" y="113" style="font-size: 12px">Run 1</text>
+  <polyline transform="translate(250,122)" points="0,20 12,8 24,16 36,4 48,18 60,10 72,22 84,6" fill="none" stroke="#0073fe" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M292 154 V176" marker-end="url(#arrow)" stroke-dasharray="3 3"/>
+  <rect class="pick" x="366" y="92" width="112" height="62" rx="4"/>
+  <text class="t" x="380" y="113" style="font-size: 12px">Run 2</text>
+  <polyline transform="translate(380,122)" points="0,6 12,18 24,10 36,22 48,8 60,20 72,4 84,14" fill="none" stroke="#0073fe" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M422 154 V176" marker-end="url(#arrow)" stroke-dasharray="3 3"/>
+  <rect class="pick" x="496" y="92" width="112" height="62" rx="4"/>
+  <text class="t" x="510" y="113" style="font-size: 12px">Run 3</text>
+  <polyline transform="translate(510,122)" points="0,14 12,22 24,4 36,12 48,24 60,6 72,16 84,10" fill="none" stroke="#0073fe" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M552 154 V176" marker-end="url(#arrow)" stroke-dasharray="3 3"/>
+  <text class="t" x="626" y="128" text-anchor="middle" style="fill: #8fa6c4">...</text>
+  <rect class="card" x="36" y="180" width="728" height="54" rx="4"/>
+  <text class="code" x="52" y="212">family_campaign</text>
+  <rect x="236" y="188" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(250,193)" points="0,20 12,8 24,16 36,4 48,18 60,10 72,22 84,6" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M292 226 V252" stroke-dasharray="3 3"/>
+  <rect x="366" y="188" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(380,193)" points="0,6 12,18 24,10 36,22 48,8 60,20 72,4 84,14" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M422 226 V252" stroke-dasharray="3 3"/>
+  <rect x="496" y="188" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(510,193)" points="0,14 12,22 24,4 36,12 48,24 60,6 72,16 84,10" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M552 226 V252" stroke-dasharray="3 3"/>
+  <text class="t" x="626" y="212" text-anchor="middle" style="fill: #8fa6c4">...</text>
+  <rect x="648" y="210" width="100" height="8" rx="1" fill="#0073fe"/>
+  <text class="num" x="648" y="203" style="font-weight: 700">$64,803</text>
+  <rect class="card" x="36" y="246" width="728" height="54" rx="4"/>
+  <text class="code" x="52" y="278">s_big_s</text>
+  <rect x="236" y="254" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(250,259)" points="0,20 12,8 24,16 36,4 48,18 60,10 72,22 84,6" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M292 292 V318" stroke-dasharray="3 3"/>
+  <rect x="366" y="254" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(380,259)" points="0,6 12,18 24,10 36,22 48,8 60,20 72,4 84,14" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M422 292 V318" stroke-dasharray="3 3"/>
+  <rect x="496" y="254" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(510,259)" points="0,14 12,22 24,4 36,12 48,24 60,6 72,16 84,10" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="line" d="M552 292 V318" stroke-dasharray="3 3"/>
+  <text class="t" x="626" y="278" text-anchor="middle" style="fill: #8fa6c4">...</text>
+  <rect x="648" y="276" width="83" height="8" rx="1" fill="#9cc2ff"/>
+  <text class="num" x="648" y="269" style="font-weight: 500">$56,562</text>
+  <rect class="card" x="36" y="312" width="728" height="54" rx="4"/>
+  <text class="code" x="52" y="344">setup_aware_runout</text>
+  <rect x="236" y="320" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(250,325)" points="0,20 12,8 24,16 36,4 48,18 60,10 72,22 84,6" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <rect x="366" y="320" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(380,325)" points="0,6 12,18 24,10 36,22 48,8 60,20 72,4 84,14" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <rect x="496" y="320" width="112" height="38" rx="2" fill="#eef4ff"/>
+  <polyline transform="translate(510,325)" points="0,14 12,22 24,4 36,12 48,24 60,6 72,16 84,10" fill="none" stroke="#5a9cff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <text class="t" x="626" y="344" text-anchor="middle" style="fill: #8fa6c4">...</text>
+  <rect x="648" y="342" width="72" height="8" rx="1" fill="#9cc2ff"/>
+  <text class="num" x="648" y="335" style="font-weight: 500">$51,185</text>
+  <text class="m" x="36" y="398">If one rule wins, it won on the same orders as the others. It did not get lucky orders.</text>
+</svg>

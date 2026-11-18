@@ -10,6 +10,12 @@ starts) form one continuous working run with no break between them.
 Lookups use :mod:`bisect`, so locating ``t`` costs O(log n). Functions that walk
 forward (``work_seconds``, ``finish_after_work``, ``fits_within``) then cost O(k) in
 the number of intervals they actually cross. No function keeps state.
+
+``fits_within`` and ``finish_after_work`` take an explicit ``slack``: work may run up to
+``slack`` seconds past the end of a working run, so float noise such as
+``0.1 + 0.2 = 0.30000000000000004`` still fits ``[0, 0.3)``. The default is 0 (exact);
+the verifier passes its tolerance and the solvers a smaller slack, so every slot a solver
+builds sits strictly inside what the verifier accepts.
 """
 
 from __future__ import annotations
@@ -58,12 +64,13 @@ def next_working(intervals: Intervals, t: float) -> float | None:
     return max(t, intervals[index][0])
 
 
-def fits_within(intervals: Intervals, start: float, end: float) -> bool:
+def fits_within(intervals: Intervals, start: float, end: float, slack: float = 0.0) -> bool:
     """True when ``[start, end)`` holds no non-working time (the ``forbid`` rule).
 
     The range may span touching intervals, since no break separates them. A
     zero-length range fits exactly when ``start`` is a working instant, so it never
-    fits at an interval end or inside a break.
+    fits at an interval end or inside a break. ``end`` may pass the end of the working
+    run by up to ``slack`` seconds; ``start`` is checked exactly.
     """
     _check_range(start, end)
     if intervals is None:
@@ -75,7 +82,7 @@ def fits_within(intervals: Intervals, start: float, end: float) -> bool:
     while reach < end and index + 1 < len(intervals) and intervals[index + 1][0] == reach:
         index += 1
         reach = intervals[index][1]
-    return end <= reach
+    return end <= reach + slack
 
 
 def work_seconds(intervals: Intervals, start: float, end: float) -> float:
@@ -92,14 +99,18 @@ def work_seconds(intervals: Intervals, start: float, end: float) -> float:
     return total
 
 
-def finish_after_work(intervals: Intervals, start: float, seconds: float) -> float | None:
+def finish_after_work(
+    intervals: Intervals, start: float, seconds: float, slack: float = 0.0
+) -> float | None:
     """Earliest ``end`` with ``work_seconds(start, end) == seconds`` (the ``pause`` rule).
 
     Returns None when the calendar runs out before ``seconds`` of work is done. When
     ``seconds`` is 0 the result is ``start`` itself, even inside a break: zero work
     takes no time, so ``start`` is not moved to the next working instant. Callers that
     need a working start call :func:`next_working` first. When the work ends exactly
-    on an interval end, that end is returned, not the next interval's start.
+    on an interval end, that end is returned, not the next interval's start. Work that
+    overruns an interval end by at most ``slack`` seconds ends there (past the end by
+    the overrun) instead of carrying the remainder to the next interval.
     """
     if seconds < 0:
         raise ValueError(f"work seconds {seconds} is negative")
@@ -111,7 +122,7 @@ def finish_after_work(intervals: Intervals, start: float, seconds: float) -> flo
     for index in range(_first_ending_after(intervals, start), len(intervals)):
         lo, hi = intervals[index]
         begin = max(lo, start)
-        if remaining <= hi - begin:
+        if remaining <= hi - begin + slack:
             return begin + remaining
         remaining -= hi - begin
     return None

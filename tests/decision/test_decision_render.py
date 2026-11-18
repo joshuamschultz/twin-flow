@@ -83,7 +83,9 @@ def _parse(text: str) -> _Collect:
 
 def _network_urls(text: str) -> list[str]:
     hits = re.findall(r"https?://[^\s\"'`<>)\\]*", text)
-    return [h for h in hits if not any(h.startswith(ns) and len(h) <= len(ns) + 1 for ns in NAMESPACES)]
+    return [
+        h for h in hits if not any(h.startswith(ns) and len(h) <= len(ns) + 1 for ns in NAMESPACES)
+    ]
 
 
 def test_render_parses_and_the_json_round_trips() -> None:

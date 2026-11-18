@@ -1,5 +1,7 @@
 # Modeling a floor
 
+![A flat floor plan with machines and a conveyor rising out of it in 3D](images/headers/modeling.webp)
+
 A floor is one `model.yaml` plus a production plan (`.xlsx`/`.csv`). The engine has no
 per-client code — every capability below is declarative config the Layer-2 compiler
 turns into pure primitives. This page is the config reference; the README's "building
@@ -156,6 +158,11 @@ A table (`.xlsx` first sheet, or `.csv`) with these columns:
 | work_order_id | part | qty | start_date | due_date |
 |---|---|---|---|---|
 | WO-1001 | carton | 500 | 0 | 3600 |
+
+Times are seconds from the start. When the model has a labor calendar, `start_date` and
+`due_date` may instead be calendar dates (`2026-11-20`, `2026-11-20 15:30`), counted from
+the calendar's `origin`; a due date with no time means the end of that day. An optional
+`priority` column marks rush orders.
 
 Optional snapshot columns are `completed_good_qty`, `initial_wip_location`,
 `initial_wip_qty`, and `initial_wip_remaining_time`. The three initial-WIP fields appear

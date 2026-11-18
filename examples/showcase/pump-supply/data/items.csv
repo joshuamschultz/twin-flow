@@ -1,0 +1,10 @@
+id,kind,uom,description
+PMP-100,assembly,each,Home well pump 1/2 hp
+PMP-300,assembly,each,Farm irrigation pump 2 hp
+MTR-05,purchased,each,Electric motor 1/2 hp
+MTR-20,purchased,each,Electric motor 2 hp
+HSG-100,purchased,each,Cast iron pump housing small
+HSG-300,purchased,each,Cast iron pump housing large
+IMP-100,purchased,each,Bronze impeller small
+IMP-300,purchased,each,Bronze impeller large
+SEAL-KIT,purchased,each,Shaft seal and gasket kit

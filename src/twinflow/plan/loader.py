@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import math
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import openpyxl  # type: ignore[import-untyped]  # no stub package; see D-052 lib choice
@@ -73,10 +74,16 @@ class WorkOrder:
             raise ValueError("completed good plus initial WIP exceeds order quantity")
 
 
-def load_plan(path: str, registry: PartTypeRegistry) -> list[WorkOrder]:
+def load_plan(
+    path: str, registry: PartTypeRegistry, *, origin: datetime | None = None
+) -> list[WorkOrder]:
     """Read a plan `.xlsx`/`.csv` into `WorkOrder`s, validated against `registry`.
 
-    See module docstring for the fail-closed rules (D-054, D-007).
+    See module docstring for the fail-closed rules (D-054, D-007). With `origin` (the
+    shop's work-calendar start, see `twinflow.model.plan_origin`), a `start_date` or
+    `due_date` written as a calendar date becomes seconds from that moment: a date with
+    no time is the start of the day for a start and the end of the day for a due date,
+    and a start before the origin releases at once. Without it the cells are read as-is.
     """
     suffix = Path(path).suffix.lower()
     if suffix == ".csv":
@@ -100,7 +107,7 @@ def load_plan(path: str, registry: PartTypeRegistry) -> list[WorkOrder]:
             column: (raw_row[index] if index < len(raw_row) else None)
             for index, column in enumerate(header)
         }
-        work_orders.append(_parse_row(row, row_number, registry))
+        work_orders.append(_parse_row(row, row_number, registry, origin))
     return work_orders
 
 
@@ -118,7 +125,12 @@ def _read_xlsx_rows(path: str) -> list[tuple[object, ...]]:
         workbook.close()
 
 
-def _parse_row(row: dict[str, object], row_number: int, registry: PartTypeRegistry) -> WorkOrder:
+def _parse_row(
+    row: dict[str, object],
+    row_number: int,
+    registry: PartTypeRegistry,
+    origin: datetime | None = None,
+) -> WorkOrder:
     for value in row.values():
         _reject_formula(value, row_number)
 
@@ -143,8 +155,8 @@ def _parse_row(row: dict[str, object], row_number: int, registry: PartTypeRegist
         work_order_id=_to_str(row.get("work_order_id")),
         part=part,
         qty=_to_int(row.get("qty"), row_number, "qty"),
-        start_date=_to_str(row.get("start_date")),
-        due_date=_to_str(row.get("due_date")),
+        start_date=_plan_time(row.get("start_date"), row_number, "start_date", origin),
+        due_date=_plan_time(row.get("due_date"), row_number, "due_date", origin),
         initial_wip_location=location,
         initial_wip_qty=wip_qty,
         initial_wip_remaining_time=remaining_time,
@@ -169,6 +181,42 @@ def _parse_wip(
         row["initial_wip_remaining_time"], row_number, "initial_wip_remaining_time"
     )
     return location, qty, remaining_time
+
+
+def _plan_time(value: object, row_number: int, column: str, origin: datetime | None) -> str:
+    """The cell as seconds from `origin` when it is a calendar date; else the cell as-is."""
+    if origin is None or _is_blank(value):
+        return _to_str(value)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return _to_str(value)
+    if isinstance(value, datetime):
+        moment = value
+    elif isinstance(value, date):
+        moment = datetime.combine(value, time())
+        if column == "due_date":
+            moment += timedelta(days=1)
+    else:
+        text = str(value).strip()
+        try:
+            float(text)
+            return text
+        except ValueError:
+            pass
+        try:
+            moment = datetime.fromisoformat(text)
+        except ValueError:
+            raise ValueError(
+                f"row {row_number}: {column} {text!r} is not a date. "
+                "Write it like 2026-11-20 or 2026-11-20 15:30, or as seconds from the start."
+            ) from None
+        if column == "due_date" and len(text) == len("2026-11-20"):
+            moment += timedelta(days=1)  # a due day with no time: due by the end of that day
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=origin.tzinfo)
+    seconds = (moment - origin).total_seconds()
+    if column == "start_date":
+        seconds = max(seconds, 0.0)  # released before the calendar starts: release at once
+    return str(int(seconds)) if seconds.is_integer() else str(seconds)
 
 
 def _reject_formula(value: object, row_number: int) -> None:

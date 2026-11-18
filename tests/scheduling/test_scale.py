@@ -11,7 +11,8 @@ import time
 import pytest
 from generators import SCALE_JOBS, SCALE_OPERATIONS, scale_request
 
-from twinflow.scheduling.solver import Feature, solve
+from twinflow.scheduling.seam import Feature
+from twinflow.scheduling.solver import solve
 
 WALL_LIMIT_SECONDS = 10.0
 
