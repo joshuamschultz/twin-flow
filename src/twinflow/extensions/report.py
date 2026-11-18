@@ -431,15 +431,35 @@ def write_legacy_race_report(result: RaceResult, path: Path | str) -> Path:
     return out
 
 
-def write_race_report(result: RaceResult, path: Path | str, *, long_check: bool = True) -> Path:
-    """Write the race as the decision view (TF-006 T-270, B-14): `race.html` next to
-    `race.json`. With `long_check`, the pick and the baseline also run for 180 days so the
-    yearly figure can be checked on the first screen (owner decision 1)."""
+def race_report_model(result: RaceResult, *, long_check: bool = True) -> dict[str, Any]:
+    """The race view model (TF-006 T-270). With `long_check`, the pick and the baseline also
+    run for 180 days so the yearly figure can be checked on the first screen (owner
+    decision 1)."""
     from twinflow.extensions.report_model import horizon_check, race_view_model
-    from twinflow.report import decision
 
     check = horizon_check(result.project, result) if long_check else None
-    return decision.write(path, race_view_model(result, result.project, long_check=check))
+    return race_view_model(result, result.project, long_check=check)
 
 
-__all__ = ["SECTIONS", "race_html", "write_legacy_race_report", "write_race_report"]
+def write_race_report(
+    result: RaceResult,
+    path: Path | str,
+    *,
+    long_check: bool = True,
+    model: dict[str, Any] | None = None,
+) -> Path:
+    """Write the race as the decision view (B-14): `race.html` next to `race.json`.
+    Pass `model` when it is already built, so the long check runs once."""
+    from twinflow.report import decision
+
+    view = model if model is not None else race_report_model(result, long_check=long_check)
+    return decision.write(path, view)
+
+
+__all__ = [
+    "SECTIONS",
+    "race_html",
+    "race_report_model",
+    "write_legacy_race_report",
+    "write_race_report",
+]

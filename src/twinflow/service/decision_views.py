@@ -5,59 +5,21 @@ a builder that returns the view model, and a summary that makes one row for the 
 A new view plugs in with one `registry.register(...)` call. The routes never change.
 
 View models are stored as JSON under `<workspace>/decisions/<kind>/<id>.json`.
-`DecisionStore.publish` writes one. The routes only read.
+`DecisionStore.publish` (in `twinflow.report.decision_store`, so the CLI can publish without
+the `api` extra) writes one. `twinflow policies race --workspace` publishes races. The routes
+only read.
 """
 
 from __future__ import annotations
 
-import json
-import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from twinflow.report import decision
-
-_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
-
-
-class DecisionStore:
-    """View models on disk, one JSON file per view and id."""
-
-    def __init__(self, root: Path | str) -> None:
-        self.root = Path(root) / "decisions"
-
-    def _path(self, kind: str, item_id: str) -> Path:
-        if not _ID.fullmatch(item_id) or not _ID.fullmatch(kind):
-            raise ValueError("The id may hold letters, digits, dots, dashes and underscores.")
-        return self.root / kind / f"{item_id}.json"
-
-    def publish(self, kind: str, item_id: str, view_model: Mapping[str, Any]) -> Path:
-        path = self._path(kind, item_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(view_model, ensure_ascii=False), encoding="utf-8")
-        return path
-
-    def load(self, kind: str, item_id: str) -> dict[str, Any]:
-        """The stored view model. Raises `KeyError` when it is missing or unreadable."""
-        try:
-            path = self._path(kind, item_id)
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (ValueError, OSError) as exc:
-            raise KeyError(item_id) from exc
-        if not isinstance(data, dict):
-            raise KeyError(item_id)
-        return data
-
-    def ids(self, kind: str) -> list[str]:
-        folder = self.root / kind
-        if not folder.is_dir():
-            return []
-        return sorted(p.stem for p in folder.glob("*.json") if _ID.fullmatch(p.stem))
-
+from twinflow.report.decision_store import DecisionStore as DecisionStore  # re-exported
 
 Params = Mapping[str, str]
 Builder = Callable[[DecisionStore, str, Params], dict[str, Any]]

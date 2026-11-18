@@ -8,9 +8,10 @@ can fix, 2 an internal failure.
 from __future__ import annotations
 
 import argparse
+import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from twinflow.cli._common import (
     UserError,
@@ -24,7 +25,7 @@ from twinflow.extensions.checker import check_project
 from twinflow.extensions.loader import Problem
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import PolicyResult, RaceResult, Stat, race
-from twinflow.extensions.report import write_race_report
+from twinflow.extensions.report import race_report_model, write_race_report
 from twinflow.state.issues import did_you_mean
 
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
@@ -53,6 +54,11 @@ def add_policies_subcommands(subparsers: argparse._SubParsersAction[ParserT]) ->
     race_parser.add_argument("--seed", help="the random seed for the demand draws")
     race_parser.add_argument("--out", help="where to write race.json and race.html")
     race_parser.add_argument("--observation", help="what the policies may see, like bucketed")
+    race_parser.add_argument(
+        "--workspace",
+        help="a workspace folder to publish the race into, so it shows in DECISIONS "
+        "(default: $TWINFLOW_WORKSPACE_ROOT, if set)",
+    )
     race_parser.set_defaults(handler=lambda args: guarded(_handle_race, args))
 
 
@@ -174,10 +180,25 @@ def _handle_race(args: argparse.Namespace) -> int:
         )
         out.mkdir(parents=True, exist_ok=True)
         result.write(out)
-        report = write_race_report(result, out / "race.html")
+        model = race_report_model(result)
+        report = write_race_report(result, out / "race.html", model=model)
+        published = _publish(args, model, f"{model['about']['project']}-{stamp}")
     _print_result(result)
     print(f"Report: {report}")
+    if published:
+        print(f"Workspace: {published} (open DECISIONS > Races in twinflow serve)")
     return 0
+
+
+def _publish(args: argparse.Namespace, model: dict[str, Any], race_id: str) -> str | None:
+    """Put the race in the workspace store when a workspace is named. Returns its id."""
+    root = args.workspace or os.environ.get("TWINFLOW_WORKSPACE_ROOT", "").strip()
+    if not root:
+        return None
+    from twinflow.report.decision_store import DecisionStore
+
+    DecisionStore(root).publish("race", race_id, model)
+    return race_id
 
 
 def _print_result(result: RaceResult) -> None:

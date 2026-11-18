@@ -203,3 +203,59 @@ def test_race_moves_can_be_read_with_the_plants_own_views(
 
     assert code == 0
     assert "Top states (view simple)" in printed
+
+
+# --- B-31/B-32: the race shows up in the workspace DECISIONS pages ------------------------------
+
+
+def _stored_races(workspace: Path) -> list[Path]:
+    return sorted((workspace / "decisions" / "race").glob("*.json"))
+
+
+def test_race_publishes_its_view_into_the_workspace_store(
+    project: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from twinflow.report.decision_store import DecisionStore
+
+    workspace = tmp_path / "ws"
+    code, out, _ = _run(
+        capsys, "policies", "race", str(project), "--episodes", "3",
+        "--out", str(tmp_path / "out"), "--workspace", str(workspace),
+    )  # fmt: skip
+    assert code == 0
+    stored = _stored_races(workspace)
+    assert len(stored) == 1
+    race_id = stored[0].stem
+    model = DecisionStore(workspace).load("race", race_id)
+    assert model["view"] == "race"
+    assert race_id.startswith(f"{model['about']['project']}-")  # molding-press-<stamp>
+    assert f"Workspace: {race_id}" in out
+
+
+def test_race_publishes_to_the_workspace_named_in_the_environment(
+    project: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "env-ws"
+    monkeypatch.setenv("TWINFLOW_WORKSPACE_ROOT", str(workspace))
+    code, _, _ = _run(
+        capsys, "policies", "race", str(project), "--episodes", "3", "--out", str(tmp_path / "o")
+    )
+    assert code == 0 and len(_stored_races(workspace)) == 1
+
+
+def test_race_without_a_workspace_writes_no_store(
+    project: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("TWINFLOW_WORKSPACE_ROOT", raising=False)
+    monkeypatch.chdir(tmp_path)
+    code, out, _ = _run(
+        capsys, "policies", "race", str(project), "--episodes", "3", "--out", str(tmp_path / "o")
+    )
+    assert code == 0 and "Workspace:" not in out
+    assert not list(tmp_path.rglob("decisions"))
