@@ -57,7 +57,7 @@ Accept: one HTML file, no external URL, under 900 KB; opens from `file://` with 
 blocked and renders a stub "race" page from the golden JSON; CI job fails when the committed
 template differs from a fresh build.
 
-**B-03 Python render.** Sonnet. [P with B-02 once the placeholder name is fixed]
+[x] **B-03 Python render.** Sonnet. [P with B-02 once the placeholder name is fixed]
 `twinflow.report.decision.render(view_model) -> str` and `write(path, view_model)`. Escapes
 `</`, U+2028, U+2029. Fills `<title>`, `<meta name="description">` and `<noscript>` from
 `agent_summary`.
