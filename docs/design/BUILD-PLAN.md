@@ -96,32 +96,32 @@ the same numbers; tooltip opens on keyboard focus.
 
 ## Phase B. Race view, the decision (first screen)
 
-**B-08 DecisionHero, MoneyFigure, ConfidenceBadge, CautionLine, FloorChanges.** Sonnet.
+[x] **B-08 DecisionHero, MoneyFigure, ConfidenceBadge, CautionLine, FloorChanges.** Sonnet.
 Per `DESIGN.md` 3.1 with all headline variants and empty states.
 Accept: with the golden JSON the hero reads "Switch to Family campaign.", "+$22,088",
 "+$134,400", "Very likely better", the caution line, four or five floor rows; variants for
 `same_policy`, `maybe_better`, no baseline and one rule are covered by fixture tests; screenshot
 matches the mockup hero at 1280 and 820, light and dark.
 
-**B-09 RunDots.** Opus.
+[x] **B-09 RunDots.** Opus.
 Dot strip with stacking, likely-range band, mean line, zero label, caption that changes when
 some dots are left of zero.
 Accept: 40 dots drawn, none overlap, hover and focus read "One run: +$22,133 vs today"; with a
 fixture where 6 gaps are negative the caption says so; table view lists the gaps.
 
-**B-10 CautionCards.** Sonnet. [P]
+[x] **B-10 CautionCards.** Sonnet. [P]
 Accept: up to three cards from `cautions`; the neutral card when the list is empty.
 
-**B-11 Waterfall.** Sonnet. [P]
+[x] **B-11 Waterfall.** Sonnet. [P]
 Accept: rows sorted gains first; bars start where the last one ended; total row equals
 `delta.per_run`; takeaway sentence from `recommendation.why`.
 
-**B-12 GapLine.** Sonnet. [P] (Recharts)
+[x] **B-12 GapLine.** Sonnet. [P] (Recharts)
 Accept: zero line labelled "Today"; pick line bold; the two marks ("Day 42: $23,545 behind",
 "Passes today on day 54") come from `timing`; direct labels at line ends do not overlap at
 820 px.
 
-**B-13 Leaderboard.** Sonnet. [P]
+[x] **B-13 Leaderboard.** Sonnet. [P]
 Accept: today is the zero row; whiskers from `vs_baseline.low/high`; axis cut and fold for weak
 rules; "same as today" for a zero gap; hover text has range and runs won.
 
