@@ -91,15 +91,16 @@ def test_stats_equal_a_hand_computation(trio: tuple[Project, RaceResult]) -> Non
     project, result = trio
     plan = project.episodes(QUICK["episodes"], QUICK["seed"])
     policy = project.extensions.get("policy", "lowest_cover")
+    row = result.result("lowest_cover")  # raced at its tuned settings (T-240)
+    decide = project.decider(policy, plan.engine, settings=row.settings)
     totals, sold, asked, switches = [], 0.0, 0.0, 0
     for seed in plan.seeds:
-        moves = run_episode(plan.engine, project.decider(policy, plan.engine), seed)
+        moves = run_episode(plan.engine, decide, seed)
         totals.append(sum(m.ledger.total for m in moves))
         for m in moves:
             sold += sum(v for k, v in m.events.items() if k.startswith("sold."))
             asked += sum(v for k, v in m.events.items() if k.startswith("demand."))
             switches += m.before.setup != m.after.setup
-    row = result.result("lowest_cover")
     n = len(totals)
     mean, std = float(np.mean(totals)), float(np.std(totals, ddof=1))
     half = scipy.stats.t.ppf(0.975, n - 1) * std / math.sqrt(n)

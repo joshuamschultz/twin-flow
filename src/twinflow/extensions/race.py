@@ -34,6 +34,7 @@ import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from itertools import product
 from pathlib import Path
 from types import FrameType, MappingProxyType
 from typing import Any
@@ -180,6 +181,34 @@ class PolicyResult:
             "cumulative_dollars": self.cumulative_dollars.to_json(),
             **{k: v for k, v in self.extra.items()},
         }
+
+
+@dataclass(frozen=True)
+class Trial:
+    """One tuning trial: a policy at one grid point of its SETTINGS, on the tuning draws
+    (D-143). `score` and `dollars` are means per episode; None when the trial broke."""
+
+    policy: str
+    settings: Mapping[str, Any]
+    score: float | None
+    dollars: float | None
+    problem: Problem | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "policy": self.policy,
+            "settings": dict(self.settings),
+            "score": self.score,
+            "dollars": self.dollars,
+            "problem": None if self.problem is None else self.problem.to_json(),
+        }
+
+
+def grid_points(grid: Mapping[str, Sequence[Any]]) -> list[dict[str, Any]]:
+    """Every combination of a SETTINGS grid, in file order (the last name changes fastest,
+    like `itertools.product` and the RL repo's `grid_settings`)."""
+    keys = list(grid)
+    return [dict(zip(keys, values, strict=True)) for values in product(*grid.values())]
 
 
 # --- running one policy ------------------------------------------------------------------------
@@ -375,6 +404,7 @@ class RaceResult:
     problems: tuple[Problem, ...] = ()
     kept_moves: Mapping[str, tuple[Move, ...]] = field(default=_EMPTY)
     kept_episodes: Mapping[str, tuple[int, ...]] = field(default=_EMPTY)
+    trials: tuple[Trial, ...] = ()
 
     @property
     def observation(self) -> str:
@@ -450,6 +480,7 @@ class RaceResult:
             "early_leader": leader,
             "ranking": [r.policy for r in ranking],
             "results": rows,
+            "tuning": [t.to_json() for t in self.trials],
             "skipped": [p.to_json() for p in self.skipped],
             "problems": [p.to_json() for p in self.problems],
         }
@@ -610,6 +641,40 @@ def _policies(
     return chosen, problems
 
 
+def tune(
+    project: Project,
+    policy: Extension,
+    plan: EpisodePlan,
+    observation: str,
+    race_settings: RaceSettings,
+) -> tuple[dict[str, Any] | None, list[Trial], Problem | None]:
+    """Try every grid point of a policy's SETTINGS on the tuning plan (D-143).
+
+    Returns the best settings (the first best on a tie; None when every point broke), the
+    trials, and the first problem when every point broke. A policy without SETTINGS gets
+    `{}` and no trials: it runs once, untuned."""
+    if not policy.grid:
+        return {}, [], None
+    trials: list[Trial] = []
+    best: tuple[float, dict[str, Any]] | None = None
+    first_problem: Problem | None = None
+    for point in grid_points(policy.grid):
+        run = _run_one(project, policy, plan, point, observation, race_settings)
+        if isinstance(run, Problem):
+            trials.append(Trial(policy.name, MappingProxyType(point), None, None, run))
+            first_problem = first_problem or run
+            continue
+        result = run[0]
+        trials.append(
+            Trial(policy.name, MappingProxyType(point), result.score.mean, result.dollars.mean)
+        )
+        if best is None or result.score.mean > best[0]:
+            best = (result.score.mean, point)
+    if best is None:
+        return None, trials, first_problem
+    return best[1], trials, None
+
+
 def race(
     project: Project,
     policies: Sequence[str] | None = None,
@@ -631,10 +696,22 @@ def race(
     extensions, problems = _policies(project, policies)
     skipped = list(problems)
     plan = project.episodes(chosen.episodes, chosen.seed)
+    tune_plan: EpisodePlan | None = None
     results: list[PolicyResult] = []
+    trials: list[Trial] = []
     kept: dict[str, tuple[list[list[Move]], float]] = {}
     for policy in extensions:
-        policy_settings = dict((fixed or {}).get(policy.name, {}))
+        if fixed is not None and policy.name in fixed:
+            policy_settings = dict(fixed[policy.name])
+        else:
+            if tune_plan is None and policy.grid:
+                tune_plan = project.episodes(chosen.tune_episodes, chosen.tune_seed)
+            best, tried, broke = tune(project, policy, tune_plan or plan, masks[0], chosen)
+            trials += tried
+            if best is None:
+                skipped.append(broke or _missing(project, policy.name))
+                continue
+            policy_settings = best
         runs: list[Run] = []
         for mask in masks:
             run = _run_one(project, policy, plan, policy_settings, mask, chosen)
@@ -668,6 +745,7 @@ def race(
         problems=tuple(skipped),
         kept_moves=MappingProxyType(kept_moves),
         kept_episodes=MappingProxyType(kept_episodes),
+        trials=tuple(trials),
     )
 
 
@@ -691,10 +769,13 @@ __all__ = [
     "PolicyResult",
     "RaceResult",
     "Stat",
+    "Trial",
     "band",
+    "grid_points",
     "first_day_passed",
     "race",
     "rank_by_day",
     "run_policy",
     "stat",
+    "tune",
 ]
