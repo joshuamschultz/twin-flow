@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 450" width="800" height="450" role="img" aria-labelledby="title desc">
+  <title id="title">Inside a twin folder</title>
+  <desc id="desc">A folder tree. my-plant holds README.md, the plant file my-plant.twin.yaml, and a policies folder with two rule files. A runs folder appears later and holds results.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #fdf1e4; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="449" rx="4"/>
+
+  <text class="h" x="36" y="44">Inside a twin folder</text>
+  <text class="sub" x="36" y="66">What the make-to-stock starter puts in the folder, and what each file is for.</text>
+
+  <path class="tree" d="M56 126 V408 M56 158 H72 M56 208 H72 M56 258 H72 M56 408 H72"/>
+  <path class="tree" d="M88 276 V358 M88 308 H104 M88 358 H104"/>
+
+  <rect class="card" x="36" y="90" width="150" height="36" rx="4"/>
+  <text class="code" x="50" y="113" style="font-weight: 700">my-plant/</text>
+  <text class="b" x="350" y="113">Your twin. One folder holds everything.</text>
+
+  <rect class="card" x="72" y="140" width="250" height="36" rx="4"/>
+  <text class="code" x="86" y="163">README.md</text>
+  <text class="b" x="350" y="163">The starter's notes, in plain words.</text>
+
+  <rect class="pick" x="72" y="190" width="250" height="36" rx="4"/>
+  <text class="code" x="86" y="213">my-plant.twin.yaml</text>
+  <text class="t" x="350" y="207">The plant: products, demand, money.</text>
+  <text class="m" x="350" y="224">This is the file you edit.</text>
+
+  <rect class="card" x="72" y="240" width="250" height="36" rx="4"/>
+  <text class="code" x="86" y="263">policies/</text>
+  <text class="b" x="350" y="263">Rules. Each file picks what to make next.</text>
+
+  <rect class="card" x="104" y="290" width="218" height="36" rx="4"/>
+  <text class="code" x="118" y="313">family_campaign.py</text>
+  <text class="b" x="350" y="313">A rule that stays with one color.</text>
+
+  <rect class="card" x="104" y="340" width="218" height="36" rx="4"/>
+  <text class="code" x="118" y="363">lowest_stock_first.py</text>
+  <text class="b" x="350" y="363">A rule that makes what runs out first.</text>
+
+  <rect class="later" x="72" y="390" width="250" height="36" rx="4"/>
+  <text class="code" x="86" y="413">runs/</text>
+  <text class="b" x="350" y="407">Not there yet. It appears later.</text>
+  <text class="m" x="350" y="424">Each race or test saves its results here.</text>
+</svg>

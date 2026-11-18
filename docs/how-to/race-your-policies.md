@@ -1,5 +1,7 @@
 # Race your policies
 
+![Five conveyor lanes side by side like a race track, each with one crate, and one crate in the lead](../images/headers/how-to-race-your-policies.webp)
+
 This guide runs every rule on the same random demand. Then it ranks the rules by how much money they make.
 
 ## What this does
@@ -76,6 +78,8 @@ It plays each rule in your `policies/` folder, plus the built-in rules, over man
 - **Changeovers**: how many times the press switched products in one run.
 
 ## What "same random demand" means
+
+![A grid where each column is one run with one demand draw, and every rule in that column plays the same draw](../images/diagrams/same-demand-race.svg)
 
 Every rule gets the same customer orders in each run. The race draws the random demand once for each run number. Then every rule plays that same set of draws. So if one rule wins, it won on the same orders as the others. It did not get lucky orders.
 
