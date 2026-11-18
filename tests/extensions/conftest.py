@@ -47,3 +47,24 @@ def random_states(model: StepModel, count: int, seed: int) -> list[Snapshot]:
 def sample_states(press_model: StepModel) -> list[Snapshot]:
     """500 sample states of the press (T-236: built-ins equal their rules on these)."""
     return random_states(press_model, 500, seed=11)
+
+
+@pytest.fixture
+def make_project(tmp_path: Path):  # type: ignore[no-untyped-def]
+    """A project folder: the molding-press capsule with experiment changes, plus files."""
+    from twinflow.scenario import ScenarioCapsule as Capsule
+
+    def make(experiment: dict | None = None, files: dict | None = None, model: dict | None = None):  # type: ignore[no-untyped-def]
+        data = Capsule.load(CAPSULE).to_dict()
+        data["experiment"].update(experiment or {})
+        data["model"].update(model or {})
+        folder = tmp_path / "project"
+        folder.mkdir(exist_ok=True)
+        Capsule.from_dict(data).dump(folder / "press.twin.yaml")
+        for name, text in (files or {}).items():
+            path = folder / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        return folder
+
+    return make
