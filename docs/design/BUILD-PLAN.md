@@ -82,13 +82,13 @@ values, all above zero; `timing.pass_day == 54`; `timing.lowest == {day: 42, dol
 `example_runs` use one episode for both rules; `markov` has an entry for the baseline; memory
 stays flat when policies grow (the T-239 streaming rule still holds).
 
-**B-06 Shell primitives.** Sonnet.
+[x] **B-06 Shell primitives.** Sonnet.
 `Page`, `Section`, `Card`, `Takeaway`, `Money`, `Delta`, `Tag`, `StatusPill`, `Segmented`,
 `EmptyState`, `useViewState` (query in the workspace, hash in the offline file), scroll spy.
 Accept: fixtures page shows each; `Money` unit tests (`+$22,088`, real minus sign, rounding);
 section bar highlights on scroll and works by keyboard; print style makes bars static.
 
-**B-07 ChartFrame and Tooltip.** Opus.
+[x] **B-07 ChartFrame and Tooltip.** Opus.
 Measures width with `ResizeObserver` and passes it down; `role="img"` and `aria-label`; "Show as
 table" toggle; tooltip on hover, focus and tap; honours reduced motion.
 Accept: Playwright: resize from 1280 to 820 redraws without clipped text; the table toggle shows
