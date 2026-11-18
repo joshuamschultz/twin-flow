@@ -37,6 +37,7 @@ each folder's own README for the exact lever and what it's testing.
 
 | Folder | Domain / decision | Run it |
 |---|---|---|
+| [`molding-press/`](molding-press/) | One molding press, 12 products in 3 colors: which rule for "what do I make next" earns the most? Make-to-stock capsule with two readable policy files | `twinflow scenario run examples/molding-press/molding-press.twin.yaml --reps 50 --seed 2024` |
 | [`capsules/`](capsules/) | Four `.twin.yaml` capsules (office workflow, two supply-chain networks, one manufacturing floor) bundling model + snapshot + experiment + assumptions + provenance in one portable file | `twinflow scenario run examples/capsules/office.twin.yaml --seed 42` |
 
 ## Scheduling
