@@ -1,0 +1,51 @@
+{
+  "view": "states",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "States: empty-run",
+    "project": "empty-run",
+    "runs": 0,
+    "episodes": 0,
+    "moves": 0,
+    "time_span": null,
+    "states_seen": 0,
+    "view_name": "family",
+    "views_available": [],
+    "top": 15,
+    "min_prob": 0.05,
+    "note": "No moves were captured for this run."
+  },
+  "headline": "No moves were captured for this run.",
+  "avg_per_period": 0,
+  "money": {
+    "revenue": 0,
+    "production": 0,
+    "setup": 0,
+    "holding": 0,
+    "lost_sales": 0,
+    "late": 0
+  },
+  "chain": {
+    "view": "family",
+    "moves": 0,
+    "coverage": 0.0,
+    "nodes": [],
+    "edges": []
+  },
+  "levels": null,
+  "families": null,
+  "leaks": [],
+  "agent_summary": [
+    "No moves were captured for this run.",
+    "Turn on state capture: experiment.state_capture: {every_hours: 4} for a factory model, then run again. A make-to-stock run writes moves by itself."
+  ],
+  "warnings": [],
+  "problems": [
+    {
+      "message": "No moves were captured for this run.",
+      "fix": "Turn on state capture: experiment.state_capture: {every_hours: 4} for a factory model, then run again. A make-to-stock run writes moves by itself."
+    }
+  ]
+}

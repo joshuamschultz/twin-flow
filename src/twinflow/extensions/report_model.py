@@ -26,6 +26,7 @@ import polars as pl
 
 from twinflow import __version__
 from twinflow.extensions.analysis import with_horizon
+from twinflow.extensions.markov_view import leak_rows, markov_view, round_dollars, round_share
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import (
     MoveTable,
@@ -36,7 +37,6 @@ from twinflow.extensions.race import (
     stat,
 )
 from twinflow.state.groups import GroupedView
-from twinflow.state.markov import MarkovChain
 from twinflow.state.records import LEDGER_PARTS, Move, unflatten
 
 SCHEMA_VERSION = 1
@@ -100,28 +100,20 @@ COLOURS = frozenset(
     "black white grey gray red blue green yellow orange purple pink brown natural clear "
     "beige silver gold tan navy".split()
 )  # families named like this are colours, so a change between them is a colour change
-LEAK_TRY = {  # one thing to try, keyed on a leak's biggest cause (R19)
-    "setup": "Try longer runs of one family so the {line} changes over less.",
-    "holding": "Try smaller lots or lower targets so less stock sits on the shelf.",
-    "lost_sales": "Try starting the short products sooner so they do not run out.",
-    "late": "Try putting the late orders first.",
-}
 TOUCHY_SPREAD = 0.25  # tuning is touchy when settings spread more than 25% of the best
 
 
 # --- rounding ----------------------------------------------------------------------------------
 
 
-def _dollars(value: float | None) -> int | None:
-    return None if value is None else int(round(value))
+_dollars = round_dollars
 
 
 def _units(value: float | None) -> float | None:
     return None if value is None else round(float(value), 1)
 
 
-def _share(value: float | None) -> float | None:
-    return None if value is None else round(float(value), 4)
+_share = round_share
 
 
 def _money(value: float) -> str:
@@ -821,105 +813,6 @@ def _example_runs(project: Project, result: RaceResult, episode: int | None) -> 
     return runs
 
 
-def _label_parts(text: str) -> dict[str, Any] | None:
-    """`grey:ok black:high | natural` as levels and setup, when a label has that shape."""
-    stock, _, setup = text.partition(" | ")
-    pairs = [p.split(":", 1) for p in stock.split()]
-    if not pairs or any(len(p) != 2 for p in pairs):
-        return None
-    return {"levels": {k: v for k, v in pairs}, "setup": setup or None}
-
-
-def _node_words(text: str, parts: Mapping[str, Any] | None, line: str) -> dict[str, str]:
-    """`grey:high black:ok natural:low | black` as "Grey high, natural low" and
-    "Press on black" (R18). Levels named "ok" are left out of the title."""
-    if parts is None:
-        return {"title": text, "setup": ""}
-    shown = [f"{k} {v}" for k, v in parts["levels"].items() if v != "ok"]
-    title = ", ".join(shown).capitalize() if shown else "All stock ok"
-    setup = parts["setup"]
-    if setup is None:
-        where = ""
-    elif setup == "idle":
-        where = f"{line.capitalize()} rests"
-    else:
-        where = f"{line.capitalize()} on {setup}"
-    return {"title": title, "setup": where}
-
-
-def _graph(
-    chain: MarkovChain, episodes: int, leak_states: set[str], line: str = "line"
-) -> dict[str, Any]:
-    ids = {state: f"s{i}" for i, state in enumerate(chain.states)}
-    sticky = set(chain.sticky)
-    nodes = []
-    for i, state in enumerate(chain.states):
-        money = chain.money.get(state)
-        per_day = money.total if money is not None else 0.0
-        visits = money.visits if money is not None else 0
-        parts = {p: _dollars(getattr(money, p)) for p in LEDGER_PARTS} if money else {}
-        leak = (
-            visits * sum(getattr(money, p) for p in ("setup", "holding", "lost_sales", "late"))
-            if money is not None
-            else 0.0
-        )
-        nodes.append(
-            {
-                "id": ids[state],
-                "label": state,
-                "parts_of_label": _label_parts(state),
-                "words": _node_words(state, _label_parts(state), line),
-                "share": _share(chain.share[state]),
-                "visits": visits,
-                "sticky": state in sticky,
-                "stay": _share(float(chain.matrix[i, i])),
-                "per_day": _dollars(per_day),
-                "per_run": _dollars(visits * per_day / max(1, episodes)),
-                "leak_per_run": _dollars(leak / max(1, episodes)),
-                "money_per_day": parts,
-                "losing": per_day < 0,
-                "top_leak": state in leak_states,
-            }
-        )
-    edges = [
-        {
-            "from": ids[e.source],
-            "to": ids[e.target],
-            "prob": _share(e.prob),
-            "self": e.source == e.target,
-        }
-        for e in chain.edges
-    ]
-    return {
-        "view": chain.view,
-        "moves": chain.moves,
-        "coverage": _share(chain.coverage),
-        "nodes": nodes,
-        "edges": edges,
-    }
-
-
-def _leak_rows(
-    row: PolicyResult, chain: MarkovChain | None, line: str = "line"
-) -> list[dict[str, Any]]:
-    ids = {state: f"s{i}" for i, state in enumerate(chain.states)} if chain is not None else {}
-    return [
-        {
-            "state": leak.state,
-            "state_id": ids.get(leak.state),
-            "share": _share(leak.share),
-            "visits": leak.visits,
-            "per_visit": _dollars(leak.per_visit),
-            "per_run": _dollars(leak.per_run),
-            "parts": {k: _dollars(v) for k, v in leak.parts.items()},
-            "cause": leak.cause,
-            "cause_words": leak.cause_words,
-            "try": LEAK_TRY.get(leak.cause, "Look at what the {line} does here.").format(line=line),
-        }
-        for leak in row.leaks
-    ]
-
-
 def _tuning(result: RaceResult) -> list[dict[str, Any]]:
     chosen = {r.policy: _settings(r.settings) for r in result.ranking()}
     groups: dict[str, list[dict[str, Any]]] = {}
@@ -1196,10 +1089,10 @@ def race_view_model(
         families=_families(project),
         example_runs=_example_runs(project, result, None if same else _typical(gaps)),
         markov={
-            name: _graph(chain, settings.episodes, leak_states.get(name, set()), line)
+            name: markov_view(chain, settings.episodes, leak_states.get(name, set()), line)
             for name, chain in result.chains.items()
         },
-        leaks={r.policy: _leak_rows(r, result.chains.get(r.policy), line) for r in ranked},
+        leaks={r.policy: leak_rows(r.leaks, result.chains.get(r.policy), line) for r in ranked},
         tuning=tuning,
         views=_views(result, project),
         what_if=_what_if(),

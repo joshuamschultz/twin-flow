@@ -1,3 +1,6 @@
+import { StatesView } from "../decision/states/StatesView";
+import type { StatesViewModel } from "../decision/types";
+
 // Picks the view from the inlined view model (DESIGN.md 11.2).
 export type AnyViewModel = { view?: string; [key: string]: unknown };
 
@@ -20,6 +23,8 @@ export function ReportApp({ model }: { model: AnyViewModel | null }) {
     );
   }
   const view = model.view ?? "race";
+  if (view === "states")
+    return <StatesView model={model as unknown as StatesViewModel} />;
   return (
     <main className="tf-root tf-wrap" data-view={view}>
       <h1>{view === "race" ? "Policy race" : view}</h1>

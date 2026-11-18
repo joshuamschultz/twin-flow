@@ -1,0 +1,98 @@
+{
+  "view": "states",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "States: cnc-shop",
+    "project": "cnc-shop",
+    "runs": 2,
+    "episodes": 2,
+    "moves": 2,
+    "time_span": {
+      "from": 0.0,
+      "to": 3614.879012142165,
+      "unit": "seconds"
+    },
+    "states_seen": 3,
+    "view_name": "full",
+    "views_available": ["family", "full"],
+    "top": 12,
+    "min_prob": 0.05,
+    "note": "Note: no product facts (families, demand rates) were found for this run, so view family cannot be built. Showing view full instead. Add `state_groups` to your model to get a clearer map."
+  },
+  "headline": "The plant spends 100% of its days in \u201cround_bar:0 square_billet:0 | idle,idle,idle,idle,idle,idle,idle,grp_saw_shaft\u201d. A normal day makes $0.",
+  "avg_per_period": 0,
+  "money": {
+    "revenue": 0,
+    "production": 0,
+    "setup": 0,
+    "holding": 0,
+    "lost_sales": 0,
+    "late": 0
+  },
+  "chain": {
+    "view": "full",
+    "moves": 2,
+    "coverage": 1.0,
+    "nodes": [
+      {
+        "id": "s0",
+        "label": "round_bar:0 square_billet:0 | idle,idle,idle,idle,idle,idle,idle,grp_saw_shaft",
+        "parts_of_label": null,
+        "words": {
+          "title": "round_bar:0 square_billet:0 | idle,idle,idle,idle,idle,idle,idle,grp_saw_shaft",
+          "setup": ""
+        },
+        "share": 1.0,
+        "visits": 2,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 0,
+        "per_run": 0,
+        "leak_per_run": 0,
+        "money_per_day": {
+          "revenue": 0,
+          "production": 0,
+          "setup": 0,
+          "holding": 0,
+          "lost_sales": 0,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": true
+      }
+    ],
+    "edges": []
+  },
+  "levels": null,
+  "families": null,
+  "leaks": [
+    {
+      "state": "round_bar:0 square_billet:0 | idle,idle,idle,idle,idle,idle,idle,grp_saw_shaft",
+      "state_id": "s0",
+      "share": 1.0,
+      "visits": 2,
+      "per_visit": 0,
+      "per_run": 0,
+      "parts": {
+        "setup": 0,
+        "holding": 0,
+        "lost_sales": 0,
+        "late": 0
+      },
+      "cause": "setup",
+      "cause_words": "changeovers",
+      "try": "Try longer runs of one family so the line changes over less."
+    }
+  ],
+  "warnings": [],
+  "problems": [],
+  "agent_summary": [
+    "The plant spends 100% of its days in \u201cround_bar:0 square_billet:0 | idle,idle,idle,idle,idle,idle,idle,grp_saw_shaft\u201d. A normal day makes $0.",
+    "The map shows the 1 most common situations. They cover 100% of all days.",
+    "The data holds 2 moves from 2 run folders (2 test runs), seen through the full view.",
+    "The costliest leak is \"round_bar:0 square_billet:0 | idle,idle,idle,idle,idle,idle,idle,grp_saw_shaft\": $0 per run, mostly changeovers.",
+    "Note: no product facts (families, demand rates) were found for this run, so view family cannot be built. Showing view full instead. Add `state_groups` to your model to get a clearer map."
+  ]
+}

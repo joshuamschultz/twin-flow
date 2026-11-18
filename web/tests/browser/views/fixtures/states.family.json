@@ -1,0 +1,990 @@
+{
+  "view": "states",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "States: molding-press",
+    "project": "molding-press",
+    "runs": 5,
+    "episodes": 5,
+    "moves": 300,
+    "time_span": {
+      "from": 0.0,
+      "to": 60.0,
+      "unit": "days"
+    },
+    "states_seen": 301,
+    "view_name": "family",
+    "views_available": ["family", "full", "simple"],
+    "top": 15,
+    "min_prob": 0.05,
+    "note": null
+  },
+  "headline": "The plant spends 28% of its days in \u201cGrey low, black low, natural low\u201d. Those days make $303. A normal day makes $598.",
+  "avg_per_period": 598,
+  "money": {
+    "revenue": 248926,
+    "production": 141698,
+    "setup": 55200,
+    "holding": 9029,
+    "lost_sales": 7108,
+    "late": 0
+  },
+  "chain": {
+    "view": "family",
+    "moves": 300,
+    "coverage": 0.9767,
+    "nodes": [
+      {
+        "id": "s0",
+        "label": "grey:low black:low natural:low | grey",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "low",
+            "natural": "low"
+          },
+          "setup": "grey"
+        },
+        "words": {
+          "title": "Grey low, black low, natural low",
+          "setup": "Press on grey"
+        },
+        "share": 0.2767,
+        "visits": 83,
+        "sticky": false,
+        "stay": 0.3253,
+        "per_day": 303,
+        "per_run": 5027,
+        "leak_per_run": 19070,
+        "money_per_day": {
+          "revenue": 3925,
+          "production": 2473,
+          "setup": 851,
+          "holding": 133,
+          "lost_sales": 166,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": true
+      },
+      {
+        "id": "s1",
+        "label": "grey:low black:low natural:low | black",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "low",
+            "natural": "low"
+          },
+          "setup": "black"
+        },
+        "words": {
+          "title": "Grey low, black low, natural low",
+          "setup": "Press on black"
+        },
+        "share": 0.1767,
+        "visits": 53,
+        "sticky": false,
+        "stay": 0.2075,
+        "per_day": 438,
+        "per_run": 4641,
+        "leak_per_run": 12343,
+        "money_per_day": {
+          "revenue": 4068,
+          "production": 2466,
+          "setup": 879,
+          "holding": 134,
+          "lost_sales": 151,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s2",
+        "label": "grey:low black:low natural:low | natural",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "low",
+            "natural": "low"
+          },
+          "setup": "natural"
+        },
+        "words": {
+          "title": "Grey low, black low, natural low",
+          "setup": "Press on natural"
+        },
+        "share": 0.11,
+        "visits": 33,
+        "sticky": false,
+        "stay": 0.1515,
+        "per_day": 513,
+        "per_run": 3389,
+        "leak_per_run": 8095,
+        "money_per_day": {
+          "revenue": 4113,
+          "production": 2373,
+          "setup": 927,
+          "holding": 138,
+          "lost_sales": 161,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s3",
+        "label": "grey:low black:low natural:ok | grey",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "low",
+            "natural": "ok"
+          },
+          "setup": "grey"
+        },
+        "words": {
+          "title": "Grey low, black low",
+          "setup": "Press on grey"
+        },
+        "share": 0.0933,
+        "visits": 28,
+        "sticky": false,
+        "stay": 0.3571,
+        "per_day": 698,
+        "per_run": 3908,
+        "leak_per_run": 5293,
+        "money_per_day": {
+          "revenue": 4284,
+          "production": 2641,
+          "setup": 700,
+          "holding": 168,
+          "lost_sales": 77,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s4",
+        "label": "grey:low black:low natural:ok | natural",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "low",
+            "natural": "ok"
+          },
+          "setup": "natural"
+        },
+        "words": {
+          "title": "Grey low, black low",
+          "setup": "Press on natural"
+        },
+        "share": 0.06,
+        "visits": 18,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 919,
+        "per_run": 3309,
+        "leak_per_run": 5240,
+        "money_per_day": {
+          "revenue": 4189,
+          "production": 1814,
+          "setup": 1200,
+          "holding": 159,
+          "lost_sales": 97,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s5",
+        "label": "grey:low black:ok natural:low | black",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "ok",
+            "natural": "low"
+          },
+          "setup": "black"
+        },
+        "words": {
+          "title": "Grey low, natural low",
+          "setup": "Press on black"
+        },
+        "share": 0.06,
+        "visits": 18,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 866,
+        "per_run": 3118,
+        "leak_per_run": 5286,
+        "money_per_day": {
+          "revenue": 4215,
+          "production": 1881,
+          "setup": 1200,
+          "holding": 140,
+          "lost_sales": 128,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s6",
+        "label": "grey:ok black:ok natural:ok | grey",
+        "parts_of_label": {
+          "levels": {
+            "grey": "ok",
+            "black": "ok",
+            "natural": "ok"
+          },
+          "setup": "grey"
+        },
+        "words": {
+          "title": "All stock ok",
+          "setup": "Press on grey"
+        },
+        "share": 0.0467,
+        "visits": 14,
+        "sticky": true,
+        "stay": 0.5,
+        "per_day": 967,
+        "per_run": 2708,
+        "leak_per_run": 2380,
+        "money_per_day": {
+          "revenue": 4577,
+          "production": 2760,
+          "setup": 629,
+          "holding": 222,
+          "lost_sales": 0,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s7",
+        "label": "grey:low black:low natural:ok | black",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "low",
+            "natural": "ok"
+          },
+          "setup": "black"
+        },
+        "words": {
+          "title": "Grey low, black low",
+          "setup": "Press on black"
+        },
+        "share": 0.0333,
+        "visits": 10,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 973,
+        "per_run": 1946,
+        "leak_per_run": 2605,
+        "money_per_day": {
+          "revenue": 4328,
+          "production": 2052,
+          "setup": 1100,
+          "holding": 158,
+          "lost_sales": 45,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s8",
+        "label": "grey:ok black:low natural:low | grey",
+        "parts_of_label": {
+          "levels": {
+            "grey": "ok",
+            "black": "low",
+            "natural": "low"
+          },
+          "setup": "grey"
+        },
+        "words": {
+          "title": "Black low, natural low",
+          "setup": "Press on grey"
+        },
+        "share": 0.03,
+        "visits": 9,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 1146,
+        "per_run": 2064,
+        "leak_per_run": 2517,
+        "money_per_day": {
+          "revenue": 4451,
+          "production": 1906,
+          "setup": 1200,
+          "holding": 151,
+          "lost_sales": 47,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s9",
+        "label": "grey:ok black:ok natural:ok | black",
+        "parts_of_label": {
+          "levels": {
+            "grey": "ok",
+            "black": "ok",
+            "natural": "ok"
+          },
+          "setup": "black"
+        },
+        "words": {
+          "title": "All stock ok",
+          "setup": "Press on black"
+        },
+        "share": 0.02,
+        "visits": 6,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 1156,
+        "per_run": 1387,
+        "leak_per_run": 1689,
+        "money_per_day": {
+          "revenue": 4575,
+          "production": 2012,
+          "setup": 1200,
+          "holding": 207,
+          "lost_sales": 0,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s10",
+        "label": "grey:low black:ok natural:low | grey",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "ok",
+            "natural": "low"
+          },
+          "setup": "grey"
+        },
+        "words": {
+          "title": "Grey low, natural low",
+          "setup": "Press on grey"
+        },
+        "share": 0.02,
+        "visits": 6,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 144,
+        "per_run": 172,
+        "leak_per_run": 1199,
+        "money_per_day": {
+          "revenue": 3940,
+          "production": 2797,
+          "setup": 700,
+          "holding": 147,
+          "lost_sales": 151,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s11",
+        "label": "grey:ok black:ok natural:ok | natural",
+        "parts_of_label": {
+          "levels": {
+            "grey": "ok",
+            "black": "ok",
+            "natural": "ok"
+          },
+          "setup": "natural"
+        },
+        "words": {
+          "title": "All stock ok",
+          "setup": "Press on natural"
+        },
+        "share": 0.0167,
+        "visits": 5,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 914,
+        "per_run": 914,
+        "leak_per_run": 1209,
+        "money_per_day": {
+          "revenue": 4587,
+          "production": 2463,
+          "setup": 1000,
+          "holding": 209,
+          "lost_sales": 0,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s12",
+        "label": "grey:low black:ok natural:ok | black",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "ok",
+            "natural": "ok"
+          },
+          "setup": "black"
+        },
+        "words": {
+          "title": "Grey low",
+          "setup": "Press on black"
+        },
+        "share": 0.0167,
+        "visits": 5,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 1326,
+        "per_run": 1326,
+        "leak_per_run": 1384,
+        "money_per_day": {
+          "revenue": 4525,
+          "production": 1814,
+          "setup": 1200,
+          "holding": 184,
+          "lost_sales": 0,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s13",
+        "label": "grey:ok black:low natural:low | black",
+        "parts_of_label": {
+          "levels": {
+            "grey": "ok",
+            "black": "low",
+            "natural": "low"
+          },
+          "setup": "black"
+        },
+        "words": {
+          "title": "Black low, natural low",
+          "setup": "Press on black"
+        },
+        "share": 0.01,
+        "visits": 3,
+        "sticky": false,
+        "stay": 0.3333,
+        "per_day": 642,
+        "per_run": 385,
+        "leak_per_run": 646,
+        "money_per_day": {
+          "revenue": 4488,
+          "production": 2769,
+          "setup": 867,
+          "holding": 200,
+          "lost_sales": 10,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      },
+      {
+        "id": "s14",
+        "label": "grey:low black:low natural:high | natural",
+        "parts_of_label": {
+          "levels": {
+            "grey": "low",
+            "black": "low",
+            "natural": "high"
+          },
+          "setup": "natural"
+        },
+        "words": {
+          "title": "Grey low, black low, natural high",
+          "setup": "Press on natural"
+        },
+        "share": 0.0067,
+        "visits": 2,
+        "sticky": false,
+        "stay": 0.0,
+        "per_day": 910,
+        "per_run": 364,
+        "leak_per_run": 582,
+        "money_per_day": {
+          "revenue": 4236,
+          "production": 1871,
+          "setup": 1200,
+          "holding": 178,
+          "lost_sales": 78,
+          "late": 0
+        },
+        "losing": false,
+        "top_leak": false
+      }
+    ],
+    "edges": [
+      {
+        "from": "s0",
+        "to": "s0",
+        "prob": 0.3253,
+        "self": true
+      },
+      {
+        "from": "s0",
+        "to": "s1",
+        "prob": 0.3373,
+        "self": false
+      },
+      {
+        "from": "s0",
+        "to": "s2",
+        "prob": 0.1446,
+        "self": false
+      },
+      {
+        "from": "s0",
+        "to": "s4",
+        "prob": 0.0602,
+        "self": false
+      },
+      {
+        "from": "s0",
+        "to": "s5",
+        "prob": 0.1084,
+        "self": false
+      },
+      {
+        "from": "s1",
+        "to": "s0",
+        "prob": 0.5283,
+        "self": false
+      },
+      {
+        "from": "s1",
+        "to": "s1",
+        "prob": 0.2075,
+        "self": true
+      },
+      {
+        "from": "s1",
+        "to": "s2",
+        "prob": 0.1132,
+        "self": false
+      },
+      {
+        "from": "s1",
+        "to": "s5",
+        "prob": 0.1132,
+        "self": false
+      },
+      {
+        "from": "s2",
+        "to": "s0",
+        "prob": 0.4242,
+        "self": false
+      },
+      {
+        "from": "s2",
+        "to": "s1",
+        "prob": 0.2424,
+        "self": false
+      },
+      {
+        "from": "s2",
+        "to": "s2",
+        "prob": 0.1515,
+        "self": true
+      },
+      {
+        "from": "s2",
+        "to": "s4",
+        "prob": 0.0909,
+        "self": false
+      },
+      {
+        "from": "s2",
+        "to": "s8",
+        "prob": 0.0606,
+        "self": false
+      },
+      {
+        "from": "s3",
+        "to": "s0",
+        "prob": 0.1429,
+        "self": false
+      },
+      {
+        "from": "s3",
+        "to": "s3",
+        "prob": 0.3571,
+        "self": true
+      },
+      {
+        "from": "s3",
+        "to": "s7",
+        "prob": 0.3214,
+        "self": false
+      },
+      {
+        "from": "s3",
+        "to": "s12",
+        "prob": 0.1071,
+        "self": false
+      },
+      {
+        "from": "s4",
+        "to": "s0",
+        "prob": 0.2222,
+        "self": false
+      },
+      {
+        "from": "s4",
+        "to": "s1",
+        "prob": 0.1667,
+        "self": false
+      },
+      {
+        "from": "s4",
+        "to": "s3",
+        "prob": 0.5,
+        "self": false
+      },
+      {
+        "from": "s4",
+        "to": "s7",
+        "prob": 0.0556,
+        "self": false
+      },
+      {
+        "from": "s4",
+        "to": "s12",
+        "prob": 0.0556,
+        "self": false
+      },
+      {
+        "from": "s5",
+        "to": "s0",
+        "prob": 0.1667,
+        "self": false
+      },
+      {
+        "from": "s5",
+        "to": "s2",
+        "prob": 0.2222,
+        "self": false
+      },
+      {
+        "from": "s5",
+        "to": "s4",
+        "prob": 0.1111,
+        "self": false
+      },
+      {
+        "from": "s5",
+        "to": "s8",
+        "prob": 0.0556,
+        "self": false
+      },
+      {
+        "from": "s5",
+        "to": "s10",
+        "prob": 0.2778,
+        "self": false
+      },
+      {
+        "from": "s6",
+        "to": "s6",
+        "prob": 0.5,
+        "self": true
+      },
+      {
+        "from": "s6",
+        "to": "s9",
+        "prob": 0.2857,
+        "self": false
+      },
+      {
+        "from": "s6",
+        "to": "s11",
+        "prob": 0.2143,
+        "self": false
+      },
+      {
+        "from": "s7",
+        "to": "s0",
+        "prob": 0.3,
+        "self": false
+      },
+      {
+        "from": "s7",
+        "to": "s3",
+        "prob": 0.5,
+        "self": false
+      },
+      {
+        "from": "s7",
+        "to": "s8",
+        "prob": 0.1,
+        "self": false
+      },
+      {
+        "from": "s7",
+        "to": "s12",
+        "prob": 0.1,
+        "self": false
+      },
+      {
+        "from": "s8",
+        "to": "s1",
+        "prob": 0.3333,
+        "self": false
+      },
+      {
+        "from": "s8",
+        "to": "s2",
+        "prob": 0.1111,
+        "self": false
+      },
+      {
+        "from": "s8",
+        "to": "s4",
+        "prob": 0.1111,
+        "self": false
+      },
+      {
+        "from": "s8",
+        "to": "s5",
+        "prob": 0.2222,
+        "self": false
+      },
+      {
+        "from": "s8",
+        "to": "s14",
+        "prob": 0.1111,
+        "self": false
+      },
+      {
+        "from": "s9",
+        "to": "s2",
+        "prob": 0.1667,
+        "self": false
+      },
+      {
+        "from": "s9",
+        "to": "s4",
+        "prob": 0.1667,
+        "self": false
+      },
+      {
+        "from": "s9",
+        "to": "s6",
+        "prob": 0.3333,
+        "self": false
+      },
+      {
+        "from": "s9",
+        "to": "s11",
+        "prob": 0.3333,
+        "self": false
+      },
+      {
+        "from": "s10",
+        "to": "s0",
+        "prob": 0.3333,
+        "self": false
+      },
+      {
+        "from": "s10",
+        "to": "s2",
+        "prob": 0.1667,
+        "self": false
+      },
+      {
+        "from": "s10",
+        "to": "s4",
+        "prob": 0.3333,
+        "self": false
+      },
+      {
+        "from": "s10",
+        "to": "s8",
+        "prob": 0.1667,
+        "self": false
+      },
+      {
+        "from": "s11",
+        "to": "s4",
+        "prob": 0.2,
+        "self": false
+      },
+      {
+        "from": "s11",
+        "to": "s8",
+        "prob": 0.2,
+        "self": false
+      },
+      {
+        "from": "s11",
+        "to": "s9",
+        "prob": 0.4,
+        "self": false
+      },
+      {
+        "from": "s11",
+        "to": "s13",
+        "prob": 0.2,
+        "self": false
+      },
+      {
+        "from": "s12",
+        "to": "s3",
+        "prob": 0.4,
+        "self": false
+      },
+      {
+        "from": "s12",
+        "to": "s10",
+        "prob": 0.2,
+        "self": false
+      },
+      {
+        "from": "s13",
+        "to": "s2",
+        "prob": 0.6667,
+        "self": false
+      },
+      {
+        "from": "s13",
+        "to": "s13",
+        "prob": 0.3333,
+        "self": true
+      },
+      {
+        "from": "s14",
+        "to": "s7",
+        "prob": 0.5,
+        "self": false
+      }
+    ]
+  },
+  "levels": [
+    {
+      "name": "low",
+      "below": 3.0
+    },
+    {
+      "name": "ok",
+      "below": 10.0
+    },
+    {
+      "name": "high",
+      "below": null
+    }
+  ],
+  "families": ["grey", "black", "natural"],
+  "leaks": [
+    {
+      "state": "grey:low black:low natural:low | grey",
+      "state_id": "s0",
+      "share": 0.2767,
+      "visits": 83,
+      "per_visit": 1149,
+      "per_run": 19070,
+      "parts": {
+        "setup": 14120,
+        "holding": 2202,
+        "lost_sales": 2748,
+        "late": 0
+      },
+      "cause": "setup",
+      "cause_words": "changeovers",
+      "try": "Try longer runs of one family so the press changes over less."
+    },
+    {
+      "state": "grey:low black:low natural:low | black",
+      "state_id": "s1",
+      "share": 0.1767,
+      "visits": 53,
+      "per_visit": 1164,
+      "per_run": 12343,
+      "parts": {
+        "setup": 9320,
+        "holding": 1424,
+        "lost_sales": 1599,
+        "late": 0
+      },
+      "cause": "setup",
+      "cause_words": "changeovers",
+      "try": "Try longer runs of one family so the press changes over less."
+    },
+    {
+      "state": "grey:low black:low natural:low | natural",
+      "state_id": "s2",
+      "share": 0.11,
+      "visits": 33,
+      "per_visit": 1227,
+      "per_run": 8095,
+      "parts": {
+        "setup": 6120,
+        "holding": 909,
+        "lost_sales": 1066,
+        "late": 0
+      },
+      "cause": "setup",
+      "cause_words": "changeovers",
+      "try": "Try longer runs of one family so the press changes over less."
+    },
+    {
+      "state": "grey:low black:low natural:ok | grey",
+      "state_id": "s3",
+      "share": 0.0933,
+      "visits": 28,
+      "per_visit": 945,
+      "per_run": 5293,
+      "parts": {
+        "setup": 3920,
+        "holding": 941,
+        "lost_sales": 433,
+        "late": 0
+      },
+      "cause": "setup",
+      "cause_words": "changeovers",
+      "try": "Try longer runs of one family so the press changes over less."
+    },
+    {
+      "state": "grey:low black:ok natural:low | black",
+      "state_id": "s5",
+      "share": 0.06,
+      "visits": 18,
+      "per_visit": 1468,
+      "per_run": 5286,
+      "parts": {
+        "setup": 4320,
+        "holding": 504,
+        "lost_sales": 461,
+        "late": 0
+      },
+      "cause": "setup",
+      "cause_words": "changeovers",
+      "try": "Try longer runs of one family so the press changes over less."
+    }
+  ],
+  "warnings": [],
+  "problems": [],
+  "agent_summary": [
+    "The plant spends 28% of its days in \u201cGrey low, black low, natural low\u201d. Those days make $303. A normal day makes $598.",
+    "The map shows the 15 most common situations. They cover 98% of all days.",
+    "The data holds 300 moves from 5 run folders (5 test runs), seen through the family view.",
+    "The costliest leak is \"Grey low, black low, natural low\": $19,070 per run, mostly changeovers."
+  ]
+}

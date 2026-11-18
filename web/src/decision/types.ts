@@ -440,3 +440,145 @@ export interface Problem {
   message: string;
   fix: string;
 }
+
+/**
+ * This interface was referenced by `StatesViewModel`'s JSON-Schema
+ * via the `definition` "StatesLedgerPart".
+ */
+export type StatesLedgerPart =
+  "revenue" | "production" | "setup" | "holding" | "lost_sales" | "late";
+
+/**
+ * The states view model (docs/design/DATA-CONTRACT.md section 3). Built by twinflow.extensions.states_model.states_view_model.
+ */
+export interface StatesViewModel {
+  view: "states";
+  schema_version: 1;
+  generated_at?: string;
+  twinflow_version?: string;
+  about: {
+    title: string;
+    project: string;
+    runs: number;
+    episodes: number;
+    moves: number;
+    time_span?: {
+      from: number;
+      to: number;
+      unit: string;
+    } | null;
+    states_seen: number;
+    view_name: string;
+    views_available: string[];
+    top: number;
+    min_prob: number;
+    note?: string | null;
+  };
+  headline: string;
+  avg_per_period: number;
+  money: {
+    [k: string]: number;
+  };
+  chain: StatesMarkovView;
+  levels:
+    | {
+        name: string;
+        below: number | null;
+      }[]
+    | null;
+  families: string[] | null;
+  leaks: StatesLeak[];
+  agent_summary: string[];
+  warnings: StatesWarning[];
+  problems: StatesProblem[];
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `StatesViewModel`'s JSON-Schema
+ * via the `definition` "StatesMarkovView".
+ */
+export interface StatesMarkovView {
+  view: string;
+  moves: number;
+  coverage: number;
+  nodes: StatesStateNode[];
+  edges: StatesStateEdge[];
+}
+/**
+ * This interface was referenced by `StatesViewModel`'s JSON-Schema
+ * via the `definition` "StatesStateNode".
+ */
+export interface StatesStateNode {
+  id: string;
+  label: string;
+  parts_of_label: {
+    levels: {
+      [k: string]: string;
+    };
+    setup: string | null;
+  } | null;
+  words?: {
+    title: string;
+    setup: string;
+  };
+  share: number;
+  visits: number;
+  sticky?: boolean;
+  stay: number;
+  per_day: number;
+  per_run?: number;
+  leak_per_run?: number;
+  money_per_day: {
+    [k: string]: number;
+  };
+  losing?: boolean;
+  top_leak?: boolean;
+}
+/**
+ * This interface was referenced by `StatesViewModel`'s JSON-Schema
+ * via the `definition` "StatesStateEdge".
+ */
+export interface StatesStateEdge {
+  from: string;
+  to: string;
+  prob: number;
+  self: boolean;
+}
+/**
+ * This interface was referenced by `StatesViewModel`'s JSON-Schema
+ * via the `definition` "StatesLeak".
+ */
+export interface StatesLeak {
+  state: string;
+  state_id?: string | null;
+  share: number;
+  visits?: number;
+  per_visit?: number;
+  per_run: number;
+  parts: {
+    [k: string]: number;
+  };
+  cause: string;
+  cause_words: string;
+  try?: string;
+}
+/**
+ * This interface was referenced by `StatesViewModel`'s JSON-Schema
+ * via the `definition` "StatesWarning".
+ */
+export interface StatesWarning {
+  kind: string;
+  text: string;
+  fix: string;
+}
+/**
+ * This interface was referenced by `StatesViewModel`'s JSON-Schema
+ * via the `definition` "StatesProblem".
+ */
+export interface StatesProblem {
+  policy?: string | null;
+  file?: string | null;
+  line?: number | null;
+  message: string;
+  fix: string;
+}

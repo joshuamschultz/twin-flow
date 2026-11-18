@@ -1,0 +1,468 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "twinflow/states.schema.json",
+  "title": "StatesViewModel",
+  "description": "The states view model (docs/design/DATA-CONTRACT.md section 3). Built by twinflow.extensions.states_model.states_view_model.",
+  "type": "object",
+  "properties": {
+    "view": {
+      "const": "states"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "twinflow_version": {
+      "type": "string"
+    },
+    "about": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "runs": {
+          "type": "integer"
+        },
+        "episodes": {
+          "type": "integer"
+        },
+        "moves": {
+          "type": "integer"
+        },
+        "time_span": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "from": {
+              "type": "number"
+            },
+            "to": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        "states_seen": {
+          "type": "integer"
+        },
+        "view_name": {
+          "type": "string"
+        },
+        "views_available": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "top": {
+          "type": "integer"
+        },
+        "min_prob": {
+          "type": "number"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "project",
+        "runs",
+        "episodes",
+        "moves",
+        "states_seen",
+        "view_name",
+        "views_available",
+        "top",
+        "min_prob"
+      ],
+      "additionalProperties": false
+    },
+    "headline": {
+      "type": "string"
+    },
+    "avg_per_period": {
+      "type": "number"
+    },
+    "money": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "chain": {
+      "$ref": "#/$defs/StatesMarkovView"
+    },
+    "levels": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "below": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "below"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "families": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "leaks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StatesLeak"
+      }
+    },
+    "agent_summary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StatesWarning"
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StatesProblem"
+      }
+    }
+  },
+  "required": [
+    "view",
+    "schema_version",
+    "about",
+    "headline",
+    "avg_per_period",
+    "money",
+    "chain",
+    "levels",
+    "families",
+    "leaks",
+    "agent_summary",
+    "warnings",
+    "problems"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "StatesStateNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "parts_of_label": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "levels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "setup": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "levels",
+            "setup"
+          ],
+          "additionalProperties": false
+        },
+        "words": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "setup": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "setup"
+          ],
+          "additionalProperties": false
+        },
+        "share": {
+          "type": "number"
+        },
+        "visits": {
+          "type": "integer"
+        },
+        "sticky": {
+          "type": "boolean"
+        },
+        "stay": {
+          "type": "number"
+        },
+        "per_day": {
+          "type": "number"
+        },
+        "per_run": {
+          "type": "number"
+        },
+        "leak_per_run": {
+          "type": "number"
+        },
+        "money_per_day": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "losing": {
+          "type": "boolean"
+        },
+        "top_leak": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "parts_of_label",
+        "share",
+        "visits",
+        "stay",
+        "per_day",
+        "money_per_day"
+      ],
+      "additionalProperties": false,
+      "title": "StatesStateNode"
+    },
+    "StatesStateEdge": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "prob": {
+          "type": "number"
+        },
+        "self": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "prob",
+        "self"
+      ],
+      "additionalProperties": false,
+      "title": "StatesStateEdge"
+    },
+    "StatesMarkovView": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "type": "string"
+        },
+        "moves": {
+          "type": "integer"
+        },
+        "coverage": {
+          "type": "number"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatesStateNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatesStateEdge"
+          }
+        }
+      },
+      "required": [
+        "view",
+        "moves",
+        "coverage",
+        "nodes",
+        "edges"
+      ],
+      "additionalProperties": false,
+      "title": "StatesMarkovView"
+    },
+    "StatesLeak": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "state_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "share": {
+          "type": "number"
+        },
+        "visits": {
+          "type": "integer"
+        },
+        "per_visit": {
+          "type": "number"
+        },
+        "per_run": {
+          "type": "number"
+        },
+        "parts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "cause": {
+          "type": "string"
+        },
+        "cause_words": {
+          "type": "string"
+        },
+        "try": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "share",
+        "per_run",
+        "parts",
+        "cause",
+        "cause_words"
+      ],
+      "additionalProperties": false,
+      "title": "StatesLeak"
+    },
+    "StatesLedgerPart": {
+      "type": "string",
+      "enum": [
+        "revenue",
+        "production",
+        "setup",
+        "holding",
+        "lost_sales",
+        "late"
+      ],
+      "title": "StatesLedgerPart"
+    },
+    "StatesProblem": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message",
+        "fix"
+      ],
+      "additionalProperties": false,
+      "title": "StatesProblem"
+    },
+    "StatesWarning": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "fix"
+      ],
+      "additionalProperties": false,
+      "title": "StatesWarning"
+    }
+  }
+}

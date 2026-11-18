@@ -1,0 +1,422 @@
+/* Small shared layout for the states, improve and project views (DESIGN.md 0.1).
+   Class names start with vk-. Tokens come from index.css (--ba-*) and tokens.css (--tf-*). */
+.vk-page {
+  background: var(--tf-page);
+  color: var(--ba-body);
+  font: 400 15px/1.55 var(--ba-font-body);
+  min-height: 100vh;
+}
+.vk-page h1,
+.vk-page h2,
+.vk-page h3 {
+  font-family: var(--ba-font-display);
+  color: var(--ba-headline);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0;
+  font-weight: 500;
+}
+.vk-page p {
+  margin: 0;
+}
+.vk-page button,
+.vk-page select,
+.vk-page input {
+  font: inherit;
+  color: inherit;
+}
+.vk-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.vk-num {
+  font-family: var(--ba-font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.vk-top {
+  background: var(--ba-surface);
+  border-bottom: 1px solid var(--tf-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.vk-top-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+}
+.vk-brand {
+  font: 650 20px var(--ba-font-display);
+  letter-spacing: -1px;
+  color: var(--ba-headline);
+}
+.vk-brand i {
+  color: var(--ba-accent);
+  font-style: normal;
+}
+.vk-crumb {
+  color: var(--tf-meta);
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-crumb b {
+  color: var(--ba-body);
+  font-weight: 500;
+}
+.vk-spacer {
+  flex: 1;
+}
+.vk-btn {
+  border: 1px solid var(--tf-border);
+  background: var(--ba-surface);
+  border-radius: var(--ba-radius-control);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--ba-headline);
+  white-space: nowrap;
+  min-height: 36px;
+}
+.vk-btn:hover {
+  background: var(--ba-tint);
+}
+.vk-btn:focus-visible,
+.vk-tabs a:focus-visible,
+.vk-box:focus-visible {
+  outline: 2px solid var(--ba-focus);
+  outline-offset: 2px;
+}
+.vk-tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vk-tabs a {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--ba-body-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.vk-tabs a:hover {
+  color: var(--ba-headline);
+  border-color: var(--ba-accent);
+}
+
+.vk-hero {
+  background: var(--tf-hero-bg);
+  color: var(--tf-hero-ink);
+  border-bottom: 1px solid var(--tf-hero-line);
+  padding: 40px 0 36px;
+}
+.vk-eyebrow {
+  font: 500 11px var(--ba-font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tf-meta);
+}
+.vk-hero .vk-eyebrow {
+  color: var(--tf-hero-accent);
+}
+.vk-hero h1 {
+  color: #fff;
+  font-size: clamp(32px, 4vw, 48px);
+  margin: 10px 0 12px;
+}
+.vk-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+.vk-lede {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--tf-hero-sub);
+  max-width: 60ch;
+}
+.vk-lede b {
+  color: #fff;
+  font-weight: 600;
+}
+.vk-aside {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--tf-hero-line);
+  border-radius: var(--ba-radius-surface);
+  padding: 16px 18px;
+}
+.vk-aside h3 {
+  color: #fff;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.vk-aside p,
+.vk-aside li {
+  color: var(--tf-hero-sub);
+  font-size: 14px;
+}
+.vk-aside ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.vk-hero .vk-btn {
+  background: transparent;
+  border-color: var(--tf-hero-line);
+  color: #fff;
+}
+.vk-hero .vk-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.vk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 12px var(--ba-font-mono);
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: var(--tf-hero-accent);
+}
+.vk-badge.warn {
+  color: var(--tf-hero-warn);
+}
+
+.vk-section {
+  padding: 44px 0 8px;
+}
+.vk-s-head {
+  margin-bottom: 16px;
+}
+.vk-s-head h2 {
+  font-size: 26px;
+  margin-top: 6px;
+}
+.vk-s-head p {
+  color: var(--ba-body-2);
+  max-width: 62ch;
+  margin-top: 6px;
+}
+.vk-grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.vk-grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.vk-card {
+  background: var(--ba-surface);
+  border: 1px solid var(--tf-border);
+  border-radius: var(--ba-radius-surface);
+  padding: 20px;
+  min-width: 0;
+}
+.vk-card h3 {
+  font-size: 17px;
+}
+.vk-sub {
+  color: var(--ba-body-2);
+  font-size: 13.5px;
+  margin: 4px 0 14px;
+}
+.vk-takeaway {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--ba-tint);
+  border-left: 2px solid var(--ba-accent);
+  font-size: 13.5px;
+  border-radius: 0 2px 2px 0;
+}
+.vk-note {
+  font-size: 12.5px;
+  color: var(--tf-meta);
+  margin-top: 10px;
+}
+.vk-dashed {
+  border: 1px dashed var(--tf-border);
+  border-radius: var(--ba-radius-surface);
+  padding: 18px;
+  color: var(--ba-body-2);
+}
+.vk-dashed b {
+  color: var(--ba-headline);
+}
+.vk-scroll {
+  overflow-x: auto;
+}
+.vk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.vk-table th {
+  text-align: left;
+  font: 500 11px var(--ba-font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tf-meta);
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--tf-border);
+  white-space: nowrap;
+}
+.vk-table td {
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--tf-border);
+  vertical-align: top;
+}
+.vk-table td.r,
+.vk-table th.r {
+  text-align: right;
+}
+.vk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 12px var(--ba-font-mono);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.vk-pill.good {
+  color: var(--tf-gain);
+}
+.vk-pill.bad {
+  color: var(--tf-loss-text);
+}
+.vk-pill.neutral {
+  color: var(--ba-body-2);
+}
+.vk-controls {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin-bottom: 16px;
+}
+.vk-field {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--ba-body-2);
+}
+.vk-field select,
+.vk-field input {
+  border: 1px solid var(--tf-border);
+  background: var(--ba-surface);
+  border-radius: var(--ba-radius-control);
+  padding: 6px 8px;
+  min-height: 36px;
+}
+.vk-step {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.vk-step .vk-btn {
+  padding: 4px 10px;
+}
+.vk-step output {
+  min-width: 3.5ch;
+  text-align: center;
+  font-family: var(--ba-font-mono);
+}
+.vk-bar {
+  height: 10px;
+  background: var(--ba-tint);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.vk-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--tf-gain-fill);
+}
+.vk-bar.loss > i {
+  background: var(--tf-loss);
+}
+.vk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.vk-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  font-size: 14px;
+  margin: 0;
+}
+.vk-kv dt {
+  color: var(--ba-body-2);
+}
+.vk-kv dd {
+  margin: 0;
+  color: var(--ba-headline);
+}
+.vk-problem {
+  border: 1px solid var(--ba-signal-border);
+  background: var(--ba-signal-wash);
+  border-radius: var(--ba-radius-surface);
+  padding: 12px 14px;
+}
+.vk-problem .where {
+  font: 500 12.5px var(--ba-font-mono);
+  color: var(--tf-loss-text);
+}
+.vk-problem .fix {
+  margin-top: 4px;
+}
+.vk-problem .fix b {
+  color: var(--ba-headline);
+}
+.vk-foot {
+  padding: 44px 0 56px;
+  color: var(--tf-meta);
+  font-size: 12.5px;
+}
+
+@media (max-width: 900px) {
+  .vk-wrap {
+    padding: 0 20px;
+  }
+  .vk-hero-grid,
+  .vk-grid2,
+  .vk-grid3 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media print {
+  .vk-top {
+    position: static;
+  }
+  .vk-controls,
+  .vk-tabs,
+  .vk-print-hide {
+    display: none !important;
+  }
+  .vk-section {
+    break-before: auto;
+  }
+}
