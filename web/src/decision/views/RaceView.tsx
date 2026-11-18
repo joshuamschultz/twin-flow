@@ -1,6 +1,7 @@
 // The race view (DESIGN.md section 3). This build has the decision, the cautions, why it
 // wins and all rules. The explore sections come in the next builds (BUILD-PLAN phase C).
 import { CautionCards } from "../CautionCards";
+import { CompareTable } from "../CompareTable";
 import { GapLine } from "../GapLine";
 import { DecisionHero } from "../hero";
 import { Leaderboard } from "../Leaderboard";
@@ -15,22 +16,25 @@ import {
 } from "../race";
 import type { RaceViewModel } from "../types";
 import { Waterfall } from "../Waterfall";
+import { WhatIf } from "../WhatIfPanel";
 
 const SECTIONS: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "why", label: "Why it wins" },
   { id: "rules", label: "All rules" },
+  { id: "compare", label: "Compare two" },
+  { id: "whatif", label: "What if" },
   { id: "details", label: "Details" },
 ];
 const NO_COMPARE: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "rules", label: "All rules" },
+  { id: "compare", label: "Compare two" },
+  { id: "whatif", label: "What if" },
   { id: "details", label: "Details" },
 ];
 
 const COMING = [
-  "Compare two rules side by side",
-  "What if my costs are different",
   "Floor replay, day by day",
   "State map",
   "Money leaks",
@@ -155,14 +159,37 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             />
           </Card>
         </Section>
+        <Section
+          id="compare"
+          eyebrow="Compare two"
+          question="How do two rules differ, side by side?"
+        >
+          <CompareTable
+            policies={model.policies}
+            runs={a.episodes}
+            horizonDays={a.horizon_days}
+          />
+        </Section>
+        <Section
+          id="whatif"
+          eyebrow="What if"
+          question="Does the winner change if my costs are different?"
+          hint="Move a slider. The ranking updates at once."
+        >
+          <WhatIf
+            policies={model.policies}
+            config={model.what_if}
+            runs={a.episodes}
+          />
+        </Section>
         <Section id="details" eyebrow="Details" question="The full numbers">
           <EmptyState
             title="More of this report is on the way."
             body={
               <>
                 <p>
-                  This build shows the decision, the cautions, why it wins and
-                  all rules. The next builds add:
+                  This build shows the decision, the cautions, why it wins, all
+                  rules, compare two and what if. The next builds add:
                 </p>
                 <ul>
                   {COMING.map((c) => (
