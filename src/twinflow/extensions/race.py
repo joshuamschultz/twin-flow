@@ -41,6 +41,7 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+import polars as pl
 import scipy.stats  # type: ignore[import-untyped]  # no stub; D-036 interval library
 
 from twinflow.engines.contract import Decide, Engine
@@ -49,9 +50,9 @@ from twinflow.extensions.kinds import check_return
 from twinflow.extensions.loader import Extension, Problem
 from twinflow.extensions.project import EpisodePlan, Project, ProjectError, RaceSettings
 from twinflow.state.issues import did_you_mean
-from twinflow.state.markov import MarkovChain
+from twinflow.state.markov import ChainCounter, MarkovChain
 from twinflow.state.recorder import StateRecorder
-from twinflow.state.records import LEDGER_PARTS, Move
+from twinflow.state.records import LEDGER_PARTS, Move, flatten, unflatten
 
 RACE_FILE = "race.json"
 POLICY_FOLDER = "policies"  # under the race folder: policies/<name>/moves.parquet
@@ -340,6 +341,31 @@ def _episode(engine: Engine, decide: Decide, seed: int) -> list[Move]:
     return moves
 
 
+def iter_episodes(
+    project: Project,
+    policy: Extension,
+    plan: EpisodePlan,
+    *,
+    settings: Mapping[str, Any] | None = None,
+    observation: str | None = None,
+    timeout_s: float | None = None,
+) -> Iterator[list[Move]]:
+    """The episodes of `plan` with one policy, one list of moves at a time, so a caller
+    that only sums them never holds a whole race (the race streams, COMP-157).
+
+    Raises `ExtensionFailed` when the policy raises or returns a bad action and
+    `DecisionTimeout` when one decision takes longer than `timeout_s`."""
+    decide = project.decider(policy, plan.engine, settings=settings, observation=observation)
+    if timeout_s is None:
+        for seed in plan.seeds:
+            yield _episode(plan.engine, decide, seed)
+        return
+    with _alarm_handler() as alarm:
+        guarded = timed(decide, timeout_s, alarm)
+        for seed in plan.seeds:
+            yield _episode(plan.engine, guarded, seed)
+
+
 def run_policy(
     project: Project,
     policy: Extension,
@@ -350,15 +376,57 @@ def run_policy(
     timeout_s: float | None = None,
 ) -> list[list[Move]]:
     """Every episode of `plan` with one policy, as lists of moves (in-process Python).
+    Holds them all: for long runs use `iter_episodes`."""
+    return list(
+        iter_episodes(
+            project,
+            policy,
+            plan,
+            settings=settings,
+            observation=observation,
+            timeout_s=timeout_s,
+        )
+    )
 
-    Raises `ExtensionFailed` when the policy raises or returns a bad action and
-    `DecisionTimeout` when one decision takes longer than `timeout_s`."""
-    decide = project.decider(policy, plan.engine, settings=settings, observation=observation)
-    if timeout_s is None:
-        return [_episode(plan.engine, decide, seed) for seed in plan.seeds]
-    with _alarm_handler() as alarm:
-        guarded = timed(decide, timeout_s, alarm)
-        return [_episode(plan.engine, guarded, seed) for seed in plan.seeds]
+
+class MoveTable:
+    """Moves kept as polars columns (one `flatten` row per move plus `episode`), far
+    smaller than `Move` objects; `moves()` builds the objects again on demand."""
+
+    def __init__(self) -> None:
+        self._parts: list[pl.DataFrame] = []
+        self._frame: pl.DataFrame | None = None
+
+    def add(self, moves: Sequence[Move], episode: int) -> None:
+        if moves:
+            rows = [{"episode": episode, **flatten(m)} for m in moves]
+            self._parts.append(pl.from_dicts(rows, infer_schema_length=None))
+            self._frame = None
+
+    @property
+    def frame(self) -> pl.DataFrame:
+        if self._frame is None:
+            self._frame = (
+                pl.concat(self._parts, how="diagonal_relaxed")
+                if self._parts
+                else pl.DataFrame(schema={"episode": pl.Int64})
+            )
+            self._parts = [self._frame]
+        return self._frame
+
+    def __len__(self) -> int:
+        return self.frame.height
+
+    def episodes(self) -> Iterator[tuple[int, list[Move]]]:
+        """(episode, moves) in order, one episode at a time."""
+        frame = self.frame
+        if frame.height == 0:
+            return
+        for (episode,), part in frame.group_by("episode", maintain_order=True):
+            yield int(episode), [unflatten(row) for row in part.to_dicts()]
+
+    def moves(self) -> tuple[Move, ...]:
+        return tuple(unflatten(row) for row in self.frame.to_dicts())
 
 
 def _score_check(value: Any, args: Sequence[Any]) -> str | None:
@@ -467,8 +535,7 @@ class RaceResult:
     results: tuple[PolicyResult, ...]
     skipped: tuple[Problem, ...] = ()
     problems: tuple[Problem, ...] = ()
-    kept_moves: Mapping[str, tuple[Move, ...]] = field(default=_EMPTY)
-    kept_episodes: Mapping[str, tuple[int, ...]] = field(default=_EMPTY)
+    kept: Mapping[str, MoveTable] = field(default=_EMPTY)
     trials: tuple[Trial, ...] = ()
     chains: Mapping[str, MarkovChain] = field(default=_EMPTY)
 
@@ -491,11 +558,12 @@ class RaceResult:
         raise KeyError(f"no result for {policy!r} under {seen!r}. {did_you_mean(policy, known)}")
 
     def moves(self, policy: str) -> tuple[Move, ...]:
-        """The kept moves of one of the top policies (first observation), in episode order."""
-        if policy not in self.kept_moves:
-            kept = ", ".join(self.kept_moves) or "none"
+        """The moves of one of the top policies (first observation), in episode order,
+        built again from their compact columns."""
+        if policy not in self.kept:
+            kept = ", ".join(self.kept) or "none"
             raise KeyError(f"the moves of {policy!r} were not kept; kept: {kept}")
-        return self.kept_moves[policy]
+        return self.kept[policy].moves()
 
     def cumulative(
         self, measure: str = "score", observation: str | None = None
@@ -577,12 +645,11 @@ class RaceResult:
             json.dumps(self.to_json(), indent=1, allow_nan=False) + "\n", encoding="utf-8"
         )
         written = [race_file]
-        for name, moves in self.kept_moves.items():
+        for name, table in self.kept.items():
             recorder = StateRecorder(run_id=f"race:{name}")
-            episodes = self.kept_episodes.get(name, ())
-            for i, move in enumerate(moves):
-                episode = episodes[i] if i < len(episodes) else 0
-                recorder.add(self.project.annotate(move), episode=episode, policy=name)
+            for episode, moves in table.episodes():
+                for move in moves:
+                    recorder.add(self.project.annotate(move), episode=episode, policy=name)
             target = out / POLICY_FOLDER / _safe(name)
             recorder.flush(target)
             written.append(target / "moves.parquet")
@@ -600,19 +667,16 @@ def chain_json(chain: MarkovChain) -> dict[str, Any]:
     return data
 
 
-def _chain(project: Project, moves: Sequence[Move], policy: Extension) -> MarkovChain | Problem:
-    """The policy's chain on `experiment.markov.view`; a view file that breaks is a
-    problem, never a crash."""
-    try:
-        return project.markov(moves)
-    except Exception as exc:  # a view file is user code
-        return Problem(
-            "view",
-            "raised",
-            f"The Markov map for {policy.name} could not be drawn: {type(exc).__name__}: {exc}.",
-            "Run `twinflow extensions check` and fix the view file it names.",
-            name=project.config.markov.view,
-        )
+def _view_problem(project: Project, policy: Extension, exc: Exception) -> Problem:
+    """A view file that breaks while the race counts its Markov map: a problem, never a
+    crash."""
+    return Problem(
+        "view",
+        "raised",
+        f"The Markov map for {policy.name} could not be drawn: {type(exc).__name__}: {exc}.",
+        "Run `twinflow extensions check` and fix the view file it names.",
+        name=project.config.markov.view,
+    )
 
 
 def _dollar_band(row: PolicyResult) -> Band:
@@ -663,7 +727,15 @@ def _slow(policy: Extension, limit: float, seconds: float) -> Problem:
     )
 
 
-Run = tuple[PolicyResult, list[list[Move]]]  # one policy's result and its episodes
+@dataclass
+class Run:
+    """One policy under one observation: its result, and (first observation only) its
+    compact moves and Markov counts."""
+
+    result: PolicyResult
+    table: MoveTable | None = None
+    counter: ChainCounter | None = None
+    view_problem: Problem | None = None
 
 
 def _run_one(
@@ -673,25 +745,40 @@ def _run_one(
     settings: Mapping[str, Any],
     observation: str,
     race_settings: RaceSettings,
+    *,
+    keep: bool = False,
 ) -> Run | Problem:
+    """Race one policy, summing each episode as it ends (COMP-157 streams: memory does not
+    grow with episodes). With `keep`, the moves are kept as compact columns and counted
+    into the policy's Markov map."""
+    tally = _Tally(project, project.reward)
+    table = MoveTable() if keep else None
+    counter = project.markov_counter() if keep else None
+    view_problem: Problem | None = None
+    episodes = iter_episodes(
+        project,
+        policy,
+        plan,
+        settings=settings,
+        observation=observation,
+        timeout_s=race_settings.decision_timeout_s,
+    )
     try:
-        episodes = run_policy(
-            project,
-            policy,
-            plan,
-            settings=settings,
-            observation=observation,
-            timeout_s=race_settings.decision_timeout_s,
-        )
+        for episode, moves in enumerate(episodes):
+            tally.add(moves)
+            if table is not None:
+                table.add(moves, episode)
+            if counter is not None:
+                try:
+                    counter.add(moves)
+                except Exception as exc:  # a view file is user code
+                    view_problem, counter = _view_problem(project, policy, exc), None
     except ExtensionFailed as failed:
         return failed.problem
     except DecisionTimeout as late:
         return _slow(policy, race_settings.decision_timeout_s, late.seconds)
-    tally = _Tally(project, project.reward)
-    for moves in episodes:
-        tally.add(moves)
     result = _result(tally, policy, observation, settings, race_settings.interval)
-    return result, episodes
+    return Run(result, table, counter, view_problem)
 
 
 def _ranked(rows: Sequence[PolicyResult], level: float) -> list[PolicyResult]:
@@ -773,7 +860,7 @@ def tune(
             trials.append(Trial(policy.name, MappingProxyType(point), None, None, run))
             first_problem = first_problem or run
             continue
-        result = run[0]
+        result = run.result
         trials.append(
             Trial(policy.name, MappingProxyType(point), result.score.mean, result.dollars.mean)
         )
@@ -808,7 +895,7 @@ def race(
     tune_plan: EpisodePlan | None = None
     results: list[PolicyResult] = []
     trials: list[Trial] = []
-    kept: dict[str, tuple[list[list[Move]], float]] = {}
+    kept: dict[str, tuple[MoveTable, float]] = {}
     chains: dict[str, MarkovChain] = {}
     for policy in extensions:
         if fixed is not None and policy.name in fixed:
@@ -824,34 +911,31 @@ def race(
             policy_settings = best
         runs: list[Run] = []
         for mask in masks:
-            run = _run_one(project, policy, plan, policy_settings, mask, chosen)
+            run = _run_one(
+                project, policy, plan, policy_settings, mask, chosen, keep=mask == masks[0]
+            )
             if isinstance(run, Problem):
                 skipped.append(run)
                 break
             runs.append(run)
             if progress is not None:
-                progress(f"{policy.name} ({mask}): {run[0].score.mean:,.2f}")
+                progress(f"{policy.name} ({mask}): {run.result.score.mean:,.2f}")
         else:
-            first, moves = runs[0]
-            chain = _chain(project, [m for episode in moves for m in episode], policy)
-            if isinstance(chain, Problem):
-                skipped.append(chain)
-            else:
+            first = runs[0]
+            if first.view_problem is not None:
+                skipped.append(first.view_problem)
+            elif first.counter is not None:
+                markov = project.config.markov
+                chain = first.counter.chain(top_k=markov.top_k, min_prob=markov.min_prob)
                 chains[policy.name] = chain
                 leaks = tuple(money_leaks(chain, chosen.episodes))
-                runs[0] = (replace(first, leaks=leaks), moves)
-            results += [result for result, _ in runs]
-            _keep(kept, policy.name, moves, first.score.mean, chosen.top_policies)
+                first.result = replace(first.result, leaks=leaks)
+            results += [run.result for run in runs]
+            if first.table is not None:
+                _keep(kept, policy.name, first.table, first.result.score.mean, chosen.top_policies)
     ranked: list[PolicyResult] = []
     for mask in masks:
         ranked += _ranked([r for r in results if r.observation == mask], chosen.interval)
-    kept_moves = {
-        name: tuple(m for episode in moves for m in episode) for name, (moves, _) in kept.items()
-    }
-    kept_episodes = {
-        name: tuple(i for i, episode in enumerate(moves) for _ in episode)
-        for name, (moves, _) in kept.items()
-    }
     return RaceResult(
         project=project,
         settings=chosen,
@@ -860,8 +944,7 @@ def race(
         results=tuple(ranked),
         skipped=tuple(skipped),
         problems=tuple(skipped),
-        kept_moves=MappingProxyType(kept_moves),
-        kept_episodes=MappingProxyType(kept_episodes),
+        kept=MappingProxyType({name: table for name, (table, _) in kept.items()}),
         trials=tuple(trials),
         chains=MappingProxyType(
             {
@@ -874,14 +957,14 @@ def race(
 
 
 def _keep(
-    kept: dict[str, tuple[list[list[Move]], float]],
+    kept: dict[str, tuple[MoveTable, float]],
     name: str,
-    moves: list[list[Move]],
+    table: MoveTable,
     score: float,
     top: int,
 ) -> None:
-    """Keep the moves of the best `top` policies so far (memory stays small)."""
-    kept[name] = (moves, score)
+    """Keep the compact moves of the best `top` policies so far."""
+    kept[name] = (table, score)
     while len(kept) > top:
         worst = min(kept, key=lambda n: kept[n][1])
         del kept[worst]
@@ -892,6 +975,7 @@ __all__ = [
     "DecisionTimeout",
     "LEAK_PARTS",
     "Leak",
+    "MoveTable",
     "PolicyResult",
     "RaceResult",
     "Stat",
@@ -899,6 +983,7 @@ __all__ = [
     "band",
     "chain_json",
     "grid_points",
+    "iter_episodes",
     "money_leaks",
     "first_day_passed",
     "race",

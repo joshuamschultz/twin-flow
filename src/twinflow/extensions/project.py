@@ -52,7 +52,7 @@ from twinflow.extensions.view import ModelFacts, PolicyState, policy_state
 from twinflow.scenario import ScenarioCapsule
 from twinflow.state.groups import GroupedView, parse_state_groups
 from twinflow.state.issues import did_you_mean
-from twinflow.state.markov import MarkovChain, estimate
+from twinflow.state.markov import ChainCounter, MarkovChain, estimate
 from twinflow.state.records import Move, Snapshot
 
 FEATURE_PREFIX = "feature."  # feature values in a snapshot's `extra` (REQ-219)
@@ -755,6 +755,14 @@ class Project:
             families=self.facts.family,
             top_k=settings.top_k if top_k is None else top_k,
             min_prob=settings.min_prob if min_prob is None else min_prob,
+        )
+
+    def markov_counter(self, view: str | None = None) -> ChainCounter:
+        """A `ChainCounter` on a named view (default `experiment.markov.view`), for moves
+        that arrive one batch at a time (the race counts each episode as it ends)."""
+        name = self.config.markov.view if view is None else view
+        return ChainCounter(
+            self.view(name), demand_rate=self.facts.demand_rate, families=self.facts.family
         )
 
 

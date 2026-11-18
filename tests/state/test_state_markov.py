@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Iterator
 
 import numpy as np
 import pytest
 
 from twinflow.state.groups import GroupedView, Level, StockGroups, default_views
-from twinflow.state.markov import MarkovChain, estimate
+from twinflow.state.markov import ChainCounter, MarkovChain, estimate
 from twinflow.state.records import Ledger, Move, Snapshot
 
 VIEW = GroupedView(
@@ -159,27 +160,49 @@ def test_to_mermaid_escapes_labels() -> None:
     assert "#quot;" in node and "#lt;" in node and "#gt;" in node and "#35;1" in node
 
 
-def test_estimate_handles_100k_moves_in_under_two_seconds() -> None:
+def _stream(count: int, batch: int) -> Iterator[list[Move]]:
+    """`count` moves in batches, each built only when it is counted (memory stays small)."""
     rng = np.random.default_rng(0)
-    levels = rng.integers(0, 40, size=100_001)
-    snaps = [
-        Snapshot(t=float(i), period=i, stock={"A": float(v), "B": float(v % 7)}, setup={"l": "A"})
-        for i, v in enumerate(levels)
-    ]
-    moves = [
-        Move(i, snaps[i], "A", "l", "period", {}, snaps[i + 1], Ledger(revenue=1.0))
-        for i in range(100_000)
-    ]
+    levels = rng.integers(0, 40, size=count + 1)
+
+    def snap(i: int) -> Snapshot:
+        v = int(levels[i])
+        return Snapshot(t=float(i), period=i, stock={"A": float(v), "B": float(v % 7)},
+                        setup={"l": "A"})  # fmt: skip
+
+    after = snap(0)
+    for first in range(0, count, batch):
+        moves = []
+        for i in range(first, min(count, first + batch)):
+            before, after = after, snap(i + 1)
+            moves.append(Move(i, before, "A", "l", "period", {}, after, Ledger(revenue=1.0)))
+        yield moves
+
+
+def test_a_chain_of_100k_moves_counts_in_under_two_seconds() -> None:
+    """100,000 distinct snapshots are labelled and counted, one batch at a time
+    (`ChainCounter`, the race's streaming path); `estimate` gives the same chain."""
     view = GroupedView(
         "two",
         stock=StockGroups(by="units", levels=(Level("lo", 10.0), Level("mid", 30.0), Level("hi"))),
         setup="thing",
     )
     start = time.perf_counter()
-    chain = estimate(moves, view)
+    counter = ChainCounter(view)
+    for batch in _stream(100_000, 2_000):
+        counter.add(batch)
+    chain = counter.chain()
     elapsed = time.perf_counter() - start
     assert chain.moves == 100_000
     assert elapsed < 2.0, elapsed
+    small = [m for batch in _stream(3_000, 3_000) for m in batch]
+    counted = ChainCounter(view)
+    for batch in _stream(3_000, 500):
+        counted.add(batch)
+    once, streamed = estimate(small, view), counted.chain()
+    assert once.states == streamed.states and once.share == streamed.share
+    assert np.array_equal(once.matrix, streamed.matrix)
+    assert dict(once.money) == dict(streamed.money)
 
 
 def test_a_plain_function_can_be_the_view() -> None:

@@ -107,58 +107,115 @@ def mermaid_escape(text: str) -> str:
     )
 
 
-def _labels(
-    moves: Sequence[Move],
+def _labeller(
     view: GroupedView | Labeller,
     demand_rate: Mapping[str, float],
     families: Mapping[str, str],
-) -> tuple[list[str], list[str]]:
-    """Labels of every move's before and after snapshot; each snapshot object is labelled
-    once (an engine's `after` is usually the next move's `before`)."""
-    cache: dict[int, str] = {}
-    make: Labeller
+) -> Labeller:
     if isinstance(view, GroupedView):
         grouped = view
 
         def make(snapshot: Snapshot) -> str:
             return grouped.label(snapshot, demand_rate, families)
-    else:
-        make = view
 
-    def label(snapshot: Snapshot) -> str:
-        key = id(snapshot)
-        found = cache.get(key)
-        if found is None:
-            found = cache[key] = make(snapshot)
-        return found
-
-    return [label(m.before) for m in moves], [label(m.after) for m in moves]
-
-
-def _money(moves: Sequence[Move], now: list[str]) -> dict[str, StateMoney]:
-    sums: dict[str, np.ndarray] = {}
-    visits: Counter[str] = Counter(now)
-    for move, state in zip(moves, now, strict=True):
-        ledger = move.ledger
-        parts = [getattr(ledger, p) for p in LEDGER_PARTS]
-        row = sums.get(state)
-        if row is None:
-            sums[state] = np.array(parts, dtype=float)
-        else:
-            row += parts
-    out: dict[str, StateMoney] = {}
-    for state, total in sums.items():
-        mean = total / visits[state]
-        means = dict(zip(LEDGER_PARTS, (float(x) for x in mean), strict=True))
-        net = means["revenue"] - sum(v for k, v in means.items() if k != "revenue")
-        out[state] = StateMoney(visits=visits[state], total=net, **means)
-    return out
+        return make
+    return view
 
 
 def view_name(view: GroupedView | Labeller) -> str:
     """A view's name: its `name`, or the function's name."""
     name = getattr(view, "name", None) or getattr(view, "__name__", None)
     return str(name) if name else "custom"
+
+
+class ChainCounter:
+    """Counts a chain as moves stream in, so a long run never has to be held in memory
+    (the race adds one episode at a time). `chain()` gives the same `MarkovChain` that
+    `estimate` gives on all the moves at once."""
+
+    def __init__(
+        self,
+        view: GroupedView | Labeller,
+        *,
+        demand_rate: Mapping[str, float] | None = None,
+        families: Mapping[str, str] | None = None,
+    ) -> None:
+        self.view = view
+        self._label = _labeller(view, demand_rate or {}, families or {})
+        self._visits: Counter[str] = Counter()  # insertion order = first seen
+        self._pairs: Counter[tuple[str, str]] = Counter()
+        self._money: dict[str, npt.NDArray[np.float64]] = {}
+        self.moves = 0
+
+    def add(self, moves: Sequence[Move]) -> None:
+        """Count a batch of moves; each snapshot object in the batch is labelled once (an
+        engine's `after` is usually the next move's `before`)."""
+        cache: dict[int, str] = {}
+
+        def label(snapshot: Snapshot) -> str:
+            key = id(snapshot)
+            found = cache.get(key)
+            if found is None:
+                found = cache[key] = self._label(snapshot)
+            return found
+
+        for move in moves:
+            now, nxt = label(move.before), label(move.after)
+            self._visits[now] += 1
+            self._pairs[(now, nxt)] += 1
+            ledger = move.ledger
+            parts = [getattr(ledger, p) for p in LEDGER_PARTS]
+            row = self._money.get(now)
+            if row is None:
+                self._money[now] = np.array(parts, dtype=float)
+            else:
+                row += parts
+            self.moves += 1
+
+    def chain(self, *, top_k: int = 15, min_prob: float = 0.05) -> MarkovChain:
+        if top_k < 1:
+            raise ValueError(f"top_k must be at least 1, got {top_k}")
+        if not 0.0 <= min_prob <= 1.0:
+            raise ValueError(f"min_prob must be between 0 and 1, got {min_prob}")
+        counts, total = self._visits, self.moves
+        # most visited first; ties keep first-seen order (Counter preserves insertion order)
+        ranked = sorted(counts, key=lambda s: -counts[s])
+        share = {s: counts[s] / total for s in ranked}
+        states = tuple(ranked[:top_k])
+        position = {s: k for k, s in enumerate(states)}
+        matrix = np.zeros((len(states), len(states)))
+        for (a, b), n in self._pairs.items():
+            i, j = position.get(a), position.get(b)
+            if i is not None and j is not None:
+                matrix[i, j] = n
+        out_totals = np.array([counts[s] for s in states], dtype=float)
+        matrix /= np.maximum(out_totals, 1.0)[:, None]
+        edges = tuple(
+            Edge(states[i], states[j], float(matrix[i, j]))
+            for i in range(len(states))
+            for j in range(len(states))
+            if matrix[i, j] > 0 and matrix[i, j] >= min_prob
+        )
+        sticky = tuple(s for k, s in enumerate(states) if matrix[k, k] >= STICKY_SELF_LOOP)
+        return MarkovChain(
+            view=view_name(self.view),
+            moves=total,
+            states=states,
+            share=MappingProxyType(share),
+            matrix=matrix,
+            edges=edges,
+            sticky=sticky,
+            money=MappingProxyType(self._state_money()),
+        )
+
+    def _state_money(self) -> dict[str, StateMoney]:
+        out: dict[str, StateMoney] = {}
+        for state, total in self._money.items():
+            mean = total / self._visits[state]
+            means = dict(zip(LEDGER_PARTS, (float(x) for x in mean), strict=True))
+            net = means["revenue"] - sum(v for k, v in means.items() if k != "revenue")
+            out[state] = StateMoney(visits=self._visits[state], total=net, **means)
+        return out
 
 
 def estimate(
@@ -175,47 +232,12 @@ def estimate(
     `view` is a grouped view or a plain function from snapshot to label (T-259).
     `demand_rate` and `families` are the static model facts a grouped view's labels need
     (days of cover, family of each thing); both may be omitted for views that use neither.
+    For a stream of moves too long to hold, use `ChainCounter`.
     """
     if top_k < 1:
         raise ValueError(f"top_k must be at least 1, got {top_k}")
     if not 0.0 <= min_prob <= 1.0:
         raise ValueError(f"min_prob must be between 0 and 1, got {min_prob}")
-    now, nxt = _labels(moves, view, demand_rate or {}, families or {})
-    counts = Counter(now)
-    total = len(now)
-    # most visited first; ties keep first-seen order (Counter preserves insertion order)
-    ranked = sorted(counts, key=lambda s: -counts[s])
-    share = {s: counts[s] / total for s in ranked}
-    states = tuple(ranked[:top_k])
-
-    position = {s: k for k, s in enumerate(states)}
-    pair_counts: Counter[tuple[int, int]] = Counter()
-    for a, b in zip(now, nxt, strict=True):
-        i = position.get(a)
-        if i is not None:
-            j = position.get(b)
-            if j is not None:
-                pair_counts[(i, j)] += 1
-    matrix = np.zeros((len(states), len(states)))
-    for (i, j), n in pair_counts.items():
-        matrix[i, j] = n
-    out_totals = np.array([counts[s] for s in states], dtype=float)
-    matrix /= np.maximum(out_totals, 1.0)[:, None]
-
-    edges = tuple(
-        Edge(states[i], states[j], float(matrix[i, j]))
-        for i in range(len(states))
-        for j in range(len(states))
-        if matrix[i, j] > 0 and matrix[i, j] >= min_prob
-    )
-    sticky = tuple(s for k, s in enumerate(states) if matrix[k, k] >= STICKY_SELF_LOOP)
-    return MarkovChain(
-        view=view_name(view),
-        moves=total,
-        states=states,
-        share=MappingProxyType(share),
-        matrix=matrix,
-        edges=edges,
-        sticky=sticky,
-        money=MappingProxyType(_money(moves, now)),
-    )
+    counter = ChainCounter(view, demand_rate=demand_rate, families=families)
+    counter.add(moves)
+    return counter.chain(top_k=top_k, min_prob=min_prob)
