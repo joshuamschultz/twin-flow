@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="522" viewBox="0 0 1200 522" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif">
+<title>Twinflow: the two contracts</title>
+<rect x="0" y="0" width="1200" height="522" fill="#f3f4f2"/>
+<text x="36.0" y="46.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#1f5f8b" text-anchor="start" letter-spacing="1"><tspan x="36.0" y="46.0">twinflow · proposed architecture · draft</tspan></text>
+<text x="36.0" y="88.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="32" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="36.0" y="88.0">The two contracts that keep it simple</tspan></text>
+<rect x="36.0" y="112.0" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
+<text x="56.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="56.0" y="124.8">Have</tspan></text>
+<text x="84.0" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="84.0" y="125.0">built today</tspan></text>
+<rect x="188.1" y="112.0" width="53.1" height="18.0" rx="4" fill="#fbf0d9"/>
+<text x="214.7" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#a26a00" text-anchor="middle" font-weight="600"><tspan x="214.7" y="124.8">Extend</tspan></text>
+<text x="249.2" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="249.2" y="125.0">exists, needs more</tspan></text>
+<rect x="404.2" y="112.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
+<text x="421.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="421.0" y="124.8">New</tspan></text>
+<text x="445.8" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="445.8" y="125.0">to build</tspan></text>
+<rect x="36.0" y="156.0" width="552.0" height="326.0" rx="10" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
+<text x="52.0" y="190.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="17" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="52.0" y="190.0">A policy file</tspan></text>
+<rect x="538.5" y="174.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
+<text x="555.2" y="186.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="555.2" y="186.8">New</tspan></text>
+<text x="52.0" y="218.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#5d6670" text-anchor="start"><tspan x="52.0" y="218.0">This is everything a person writes. Save it in policies/. It is</tspan><tspan x="52.0" dy="20.0">found, checked and raced on its own.</tspan></text>
+<rect x="52.0" y="262.0" width="520.0" height="184.0" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
+<text x="64.0" y="288.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#5d6670" text-anchor="start"><tspan x="64.0" y="288.0"># policies/lowest_stock_first.py</tspan></text>
+<text x="64.0" y="308.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="64.0" y="308.0">def</tspan></text>
+<text x="94.0" y="308.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="94.0" y="308.0">decide(state):</tspan></text>
+<text x="94.0" y="328.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#5d6670" text-anchor="start"><tspan x="94.0" y="328.0"># make the product that runs out soonest</tspan></text>
+<text x="94.0" y="348.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="94.0" y="348.0">low = min(state.products,</tspan></text>
+<text x="169.0" y="368.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="169.0" y="368.0">key=</tspan></text>
+<text x="199.0" y="368.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="199.0" y="368.0">lambda</tspan></text>
+<text x="251.5" y="368.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="251.5" y="368.0">p: state.days_of_cover[p])</tspan></text>
+<text x="94.0" y="388.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="94.0" y="388.0">if</tspan></text>
+<text x="116.5" y="388.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="116.5" y="388.0">state.days_of_cover[low] &gt;</tspan></text>
+<text x="319.0" y="388.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="319.0" y="388.0">10</tspan></text>
+<text x="334.0" y="388.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="334.0" y="388.0">:</tspan></text>
+<text x="124.0" y="408.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="124.0" y="408.0">return</tspan></text>
+<text x="176.5" y="408.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="176.5" y="408.0">"idle"</tspan></text>
+<text x="94.0" y="428.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="94.0" y="428.0">return</tspan></text>
+<text x="146.5" y="428.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="146.5" y="428.0">low</tspan></text>
+<rect x="612.0" y="156.0" width="552.0" height="326.0" rx="10" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
+<text x="628.0" y="190.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="17" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="628.0" y="190.0">An engine</tspan></text>
+<rect x="1114.5" y="174.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
+<text x="1131.2" y="186.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="1131.2" y="186.8">New</tspan></text>
+<text x="628.0" y="218.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#5d6670" text-anchor="start"><tspan x="628.0" y="218.0">Every engine does the same three things. A new engine only has to</tspan><tspan x="628.0" dy="20.0">meet this contract.</tspan></text>
+<rect x="628.0" y="262.0" width="520.0" height="204.0" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
+<text x="640.0" y="288.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="640.0" y="288.0">class</tspan></text>
+<text x="685.0" y="288.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="685.0" y="288.0">Engine:</tspan></text>
+<text x="670.0" y="308.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="670.0" y="308.0">def</tspan></text>
+<text x="700.0" y="308.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="700.0" y="308.0">start(model, seed, from_state=None)</tspan></text>
+<text x="670.0" y="328.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="670.0" y="328.0">def</tspan></text>
+<text x="700.0" y="328.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="700.0" y="328.0">step(policy) -&gt; Move</tspan></text>
+<text x="872.5" y="328.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#5d6670" text-anchor="start"><tspan x="872.5" y="328.0"># before, action,</tspan></text>
+<text x="880.0" y="348.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#5d6670" text-anchor="start"><tspan x="880.0" y="348.0"># after, dollars</tspan></text>
+<text x="670.0" y="368.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1f5f8b" text-anchor="start"><tspan x="670.0" y="368.0">def</tspan></text>
+<text x="700.0" y="368.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#1b2128" text-anchor="start"><tspan x="700.0" y="368.0">done() -&gt; bool</tspan></text>
+<text x="640.0" y="408.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#5d6670" text-anchor="start"><tspan x="640.0" y="408.0"># the state layer records every Move.</tspan></text>
+<text x="640.0" y="428.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#5d6670" text-anchor="start"><tspan x="640.0" y="428.0"># reports, races, Markov and agents</tspan></text>
+<text x="640.0" y="448.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12.5" fill="#5d6670" text-anchor="start"><tspan x="640.0" y="448.0"># read only Moves, never engine insides.</tspan></text>
+</svg>
