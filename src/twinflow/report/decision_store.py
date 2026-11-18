@@ -8,6 +8,7 @@ publishes (`twinflow policies race --workspace`); the service reads
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -51,4 +52,18 @@ class DecisionStore:
         return sorted(p.stem for p in folder.glob("*.json") if _ID.fullmatch(p.stem))
 
 
-__all__ = ["DecisionStore"]
+WORKSPACE_ENV = "TWINFLOW_WORKSPACE_ROOT"
+
+
+def publish_to_workspace(
+    kind: str, item_id: str, view_model: Mapping[str, Any], root: str | Path | None = None
+) -> Path | None:
+    """Publish into the workspace named by `root`, else by $TWINFLOW_WORKSPACE_ROOT.
+    Does nothing and returns None when neither is set."""
+    folder = root or os.environ.get(WORKSPACE_ENV, "").strip()
+    if not folder:
+        return None
+    return DecisionStore(folder).publish(kind, item_id, view_model)
+
+
+__all__ = ["WORKSPACE_ENV", "DecisionStore", "publish_to_workspace"]

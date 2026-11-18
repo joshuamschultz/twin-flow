@@ -162,3 +162,29 @@ def test_a_sweep_with_no_gain_says_so(tmp_path: Path) -> None:
     )
     view = sweep_view_model(folder)
     assert view["answer"]["headline"] == "No tested change helps."
+
+
+def test_runs_and_sweeps_publish_to_the_workspace_when_one_is_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from twinflow.report.decision_store import DecisionStore
+
+    workspace = tmp_path / "ws"
+    monkeypatch.setenv("TWINFLOW_WORKSPACE_ROOT", str(workspace))
+    base = _new(tmp_path, ["run", str(SHOP / "model.yaml"), *MODEL, "--reps", "3"])
+    sweep = _new(
+        tmp_path,
+        ["balance", str(SHOP / "model.yaml"), *MODEL, "--sweep", str(SHOP / "sweep.json"),
+         "--reps", "3", "--run", base.name],
+    )  # fmt: skip
+    store = DecisionStore(workspace)
+    assert store.ids("run") == [base.name]
+    assert store.ids("sweep") == [sweep.name]
+    assert store.load("run", base.name)["view"] == "run"
+    assert store.load("sweep", sweep.name)["view"] == "sweep"
+
+
+def test_no_workspace_means_no_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TWINFLOW_WORKSPACE_ROOT", raising=False)
+    _new(tmp_path, ["run", str(SHOP / "model.yaml"), *MODEL, "--reps", "2"])
+    assert not list(tmp_path.rglob("decisions"))

@@ -8,7 +8,6 @@ can fix, 2 an internal failure.
 from __future__ import annotations
 
 import argparse
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypeVar
@@ -192,13 +191,9 @@ def _handle_race(args: argparse.Namespace) -> int:
 
 def _publish(args: argparse.Namespace, model: dict[str, Any], race_id: str) -> str | None:
     """Put the race in the workspace store when a workspace is named. Returns its id."""
-    root = args.workspace or os.environ.get("TWINFLOW_WORKSPACE_ROOT", "").strip()
-    if not root:
-        return None
-    from twinflow.report.decision_store import DecisionStore
+    from twinflow.report.decision_store import publish_to_workspace
 
-    DecisionStore(root).publish("race", race_id, model)
-    return race_id
+    return race_id if publish_to_workspace("race", race_id, model, args.workspace) else None
 
 
 def _print_result(result: RaceResult) -> None:

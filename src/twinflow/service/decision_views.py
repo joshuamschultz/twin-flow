@@ -112,6 +112,11 @@ def default_registry() -> ViewRegistry:
             _summary(("status", "headline"), ("status", "level")),
         )
     )
+    answer = ("answer", "headline")
+    registry.register(
+        ViewSpec("run", "runs", _stored_view("run"), _summary(answer, ("answer", "level")))
+    )
+    registry.register(ViewSpec("sweep", "sweeps", _stored_view("sweep"), _summary(answer, None)))
     return registry
 
 

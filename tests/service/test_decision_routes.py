@@ -174,7 +174,17 @@ OTHER_VIEWS = [
     ("states", "states", "states.family.json", "headline", None),
     ("improve", "improves", "improve.won.json", "outcome.headline", "outcome.level"),
     ("project", "projects", "project.ready.json", "status.headline", "status.level"),
+    ("run", "runs", "run", "answer.headline", "answer.level"),
+    ("sweep", "sweeps", "sweep", "answer.headline", None),
 ]
+
+
+def _view_fixture(name: str) -> dict[str, Any]:
+    if name in ("run", "sweep"):  # the design examples, real cnc-shop output
+        return json.loads(
+            (ROOT / "docs" / "design" / f"{name}-view-model.example.json").read_text()
+        )
+    return json.loads((VIEW_FIXTURES / name).read_text())
 
 
 def _dig(model: dict[str, Any], path: str) -> Any:
@@ -194,7 +204,7 @@ def test_other_views_are_served_and_listed(
     sentence: str,
     level: str | None,
 ) -> None:
-    model = json.loads((VIEW_FIXTURES / fixture).read_text())
+    model = _view_fixture(fixture)
     DecisionStore(workspace).publish(kind, "v1", model)
     assert client.get(f"{BASE}/{kind}/v1").json() == model
     rows = client.get(f"{BASE}/{plural}").json()
