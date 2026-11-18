@@ -8,23 +8,31 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test:browser": "playwright test",
-    "format:check": "prettier --check src/workspace tests/browser playwright.config.ts vite.config.ts"
+    "format:check": "prettier --check src/workspace src/decision src/report tests/browser scripts playwright.config.ts vite.config.ts vite.report.config.ts vitest.config.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "tokens": "node scripts/export-tokens.mjs",
+    "build:report": "vite build --config vite.report.config.ts && node scripts/inline-report.mjs",
+    "check:report": "node scripts/inline-report.mjs --check",
+    "test:report": "playwright test tests/browser/report",
+    "format": "prettier --write src/decision src/report tests/browser/report scripts vite.report.config.ts vitest.config.ts"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.102.8",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "reactflow": "^11.11.4",
-    "recharts": "^2.13.3"
+    "@tanstack/react-query": "5.102.8",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "reactflow": "11.11.4",
+    "recharts": "2.15.4"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^6.1.1",
-    "prettier": "^3.9.6",
-    "typescript": "^5.6.3",
-    "vite": "^8.3.0"
+    "@playwright/test": "1.63.0",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "vitest": "5.1.0"
   },
   "engines": {
     "node": ">=22.12.0"

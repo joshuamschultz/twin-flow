@@ -39,7 +39,7 @@ were looked at, not only generated.
 
 ## Phase A. Foundations
 
-**B-01 Tokens file.** Sonnet.
+[x] **B-01 Tokens file.** Sonnet.
 Create `web/src/decision/tokens.css` with the `--tf-*` tokens from `DESIGN.md` 8.1 (light, dark
 by media query, dark and light by `data-theme`). Import it from `web/src/main.tsx`. Add
 `web/scripts/export-tokens.mjs` that writes `web/src/decision/tokens.json` from `index.css` and

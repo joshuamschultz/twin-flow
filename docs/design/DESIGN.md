@@ -626,6 +626,19 @@ use it unchanged and add one small layer, `web/src/decision/tokens.css`. Theme f
 | `--tf-axis` | `#9aa4b1` | `#6f86a8` | axis lines, faint arrows |
 | `--tf-hero-bg` | `#002550` | `#0f1e38` | hero band (always dark ink on navy) |
 
+Added in the build (B-01), same rule: a token before a colour.
+
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| `--tf-fam-1..5` | `#0073fe` `#002550` `#b98a3a` `#7b8794` `#0e7c8f` | `#5a9cff` `#e6ecf5` `#c99a4a` `#8493a8` `#22d3ee` | families with plain names (theme series) |
+| `--tf-fam-grey/black/natural` | `#8a94a3` `#0b1220` `#b98a3a` | `#8493a8` `#e6ecf5` `#c99a4a` | families named after a colour (owner decision 4: literal colour, always with a text label) |
+| `--tf-page`, `--tf-meta`, `--tf-border` | `#f6f8fb` `#6b7280` `#dfe3e8` | `#05080f` `#8fa6c4` `#26406e` | report ground, meta text and borders (the mockup values) |
+| `--tf-hero-ink/sub/muted/line/accent/warn` | `#fff` `#c7d6e8` `#8fa6c4` `#2e4c82` `#9cc2ff` `#f9a85d` | same | text and lines on the hero band |
+
+`--tf-loss` and `--tf-out` (`#f68d2e`) are 2.3:1 on white. They stay the brand orange because a
+sign, a word or a zero line always goes with them. Every other mark token is at least 3:1 and
+every text token at least 4.5:1 (checked in `web/tests/unit/tokens.test.ts`).
+
 Colour rules:
 
 - **Two-colour meaning.** Azure is good or chosen. Orange (`--ba-signal`) is bad or needs
