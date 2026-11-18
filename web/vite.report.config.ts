@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import type { Plugin } from "vite";
 
 // Lists the modules in the bundle so inline-report.mjs can write the licence notices.
@@ -11,6 +11,7 @@ function moduleList(): Plugin {
       const ids = [...this.getModuleIds()].filter((id) =>
         id.includes("node_modules"),
       );
+      mkdirSync("dist-report", { recursive: true });
       writeFileSync(
         "dist-report/modules.json",
         JSON.stringify(ids.sort(), null, 1),

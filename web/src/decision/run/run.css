@@ -1,0 +1,387 @@
+/* Run viewer and sweep view: only the parts that are theirs (DESIGN.md 4). The page,
+   hero, cards, tables, pills, tags and tracks come from decision.css (tf-*). */
+
+.tf-money-row.rv-three {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 24px;
+}
+.rv-cmd {
+  display: block;
+  font: 12px var(--ba-font-mono);
+  padding: 6px 8px;
+  border-radius: 2px;
+  background: var(--ba-surface-2);
+  color: var(--ba-headline);
+  overflow-wrap: anywhere;
+  margin-top: 6px;
+}
+.tf-hero .rv-cmd {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--tf-hero-sub);
+}
+.tf-floor-row .rv-cmd {
+  grid-column: 1 / -1;
+}
+.rv-cmd-hero {
+  max-width: 56ch;
+  margin-top: 12px;
+}
+.rv-banner {
+  margin-top: 24px;
+  padding: 12px 14px;
+  border: 1px solid var(--ba-signal-border);
+  border-left: 3px solid var(--tf-loss);
+  background: var(--ba-signal-wash);
+  color: var(--ba-headline);
+  border-radius: 2px;
+}
+
+/* orders at risk */
+.rv-order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rv-ord {
+  display: grid;
+  grid-template-columns: 64px 92px minmax(0, 1fr) 118px minmax(0, 210px);
+  gap: 12px;
+  align-items: center;
+  padding: 9px 8px;
+  border: 0;
+  border-top: 1px solid var(--tf-border);
+  font: inherit;
+  font-size: 13.5px;
+  color: inherit;
+  width: 100%;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+button.rv-ord:hover {
+  background: var(--ba-tint);
+}
+.rv-ord.rv-ord-head {
+  border-top: 0;
+  cursor: default;
+  font: 500 10.5px var(--ba-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tf-meta);
+}
+.rv-ord .rv-id {
+  font-family: var(--ba-font-mono);
+  color: var(--ba-headline);
+  font-weight: 500;
+}
+.rv-ord .rv-why {
+  font-size: 12.5px;
+  color: var(--ba-body-2);
+}
+.rv-ord-head .rv-why {
+  font-size: 10.5px;
+  color: var(--tf-meta);
+}
+.rv-axis {
+  position: relative;
+  height: 14px;
+}
+.rv-axis span {
+  position: absolute;
+  white-space: nowrap;
+}
+.tf-track.rv-timeline {
+  height: 26px;
+}
+.rv-timeline .tf-bar {
+  top: 8px;
+  bottom: 8px;
+}
+.rv-track-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 12.5px;
+  height: 1px;
+  background: var(--tf-grid);
+}
+.rv-whisker {
+  position: absolute;
+  top: 11.5px;
+  height: 3px;
+  background: var(--ba-headline);
+  opacity: 0.55;
+  border-radius: 2px;
+}
+.rv-due {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  background: var(--ba-headline);
+}
+.tf-legend i.rv-key-due {
+  width: 2px;
+  height: 12px;
+  background: var(--ba-headline);
+}
+.tf-legend i.rv-key-range {
+  height: 3px;
+  background: var(--ba-headline);
+  opacity: 0.5;
+}
+.rv-drill {
+  padding: 4px 8px 14px 84px;
+}
+.rv-step-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 140px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 3px 0;
+}
+.rv-stack {
+  display: flex;
+  height: 10px;
+  gap: 2px;
+}
+.rv-stack i {
+  display: block;
+  border-radius: 2px;
+}
+
+/* choke flow */
+.rv-flow {
+  display: grid;
+  gap: 14px;
+}
+.rv-flow-row {
+  display: grid;
+  align-items: stretch;
+}
+.rv-flow-part {
+  align-self: center;
+  font-weight: 500;
+  color: var(--ba-headline);
+}
+.rv-flow-cell {
+  display: flex;
+  align-items: center;
+}
+.rv-link {
+  flex: 0 0 22px;
+  height: 2px;
+  background: var(--tf-axis);
+}
+.rv-link.rv-hot {
+  height: 6px;
+  background: var(--tf-loss);
+}
+.rv-stepcard {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--ba-rule);
+  border-radius: 3px;
+  padding: 10px 12px;
+  background: var(--ba-surface);
+}
+.rv-stepcard.rv-choke {
+  border: 2px solid var(--tf-loss);
+  background: var(--ba-signal-wash);
+}
+.rv-stepcard-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.rv-stepcard-top b {
+  color: var(--ba-headline);
+  font-weight: 500;
+}
+.rv-stepcard-v {
+  font-size: 22px;
+  color: var(--ba-headline);
+  margin: 4px 0;
+}
+.rv-meter {
+  height: 6px;
+  background: var(--ba-surface-2);
+  border-radius: 2px;
+}
+.rv-meter i {
+  display: block;
+  height: 100%;
+  background: var(--tf-gain-fill);
+  border-radius: 2px;
+}
+.rv-stepcard.rv-choke .tf-note {
+  color: var(--ba-body-2);
+}
+.rv-choke .rv-meter i {
+  background: var(--tf-loss);
+}
+
+/* levers */
+.rv-lever-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rv-lever {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 200px 90px;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--tf-border);
+}
+.rv-lever:first-of-type {
+  border-top: 0;
+}
+.rv-rank {
+  font-size: 18px;
+  color: var(--tf-meta);
+}
+.rv-lever-name {
+  color: var(--ba-headline);
+  font-weight: 500;
+  margin-right: 6px;
+}
+.tf-track.rv-track-lever {
+  height: 18px;
+}
+.rv-track-lever .tf-bar {
+  top: 2px;
+  bottom: 2px;
+}
+.rv-today {
+  background: var(--tf-today);
+  opacity: 0.5;
+}
+.rv-lever .tf-val {
+  font-size: 15px;
+}
+.rv-ideas {
+  border-top: 1px solid var(--tf-border);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+.rv-idea {
+  margin-top: 10px;
+}
+.rv-idea b {
+  color: var(--ba-headline);
+  font-weight: 500;
+}
+
+/* details */
+.rv-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rv-facts > div {
+  border: 1px solid var(--tf-border);
+  border-radius: 2px;
+  padding: 10px 12px;
+  background: var(--ba-surface);
+}
+.rv-facts .tf-k {
+  font-size: 11.5px;
+  color: var(--tf-meta);
+}
+.rv-facts .tf-v {
+  font: 500 14px var(--ba-font-mono);
+  color: var(--ba-headline);
+  margin-top: 2px;
+}
+.tf-card + .tf-card,
+.rv-facts + .tf-card {
+  margin-top: 16px;
+}
+.tf-table + .tf-table {
+  margin-top: 14px;
+}
+.rv-notes {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ba-body-2);
+}
+.rv-wip {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+.rv-wip-line {
+  fill: none;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+.rv-wip-0 {
+  stroke: var(--tf-fam-1);
+  background: var(--tf-fam-1);
+}
+.rv-wip-1 {
+  stroke: var(--tf-loss);
+  background: var(--tf-loss);
+}
+.rv-wip-2 {
+  stroke: var(--tf-fam-3);
+  background: var(--tf-fam-3);
+}
+.rv-wip-3 {
+  stroke: var(--tf-fam-5);
+  background: var(--tf-fam-5);
+}
+.rv-wip-4 {
+  stroke: var(--tf-today);
+  background: var(--tf-today);
+}
+
+@media (max-width: 900px) {
+  .rv-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rv-ord {
+    grid-template-columns: 60px 88px minmax(0, 1fr) 118px;
+  }
+  .rv-ord .rv-why {
+    grid-column: 1 / -1;
+    padding-bottom: 4px;
+  }
+  .rv-ord-head .rv-why {
+    display: none;
+  }
+  .rv-lever {
+    grid-template-columns: 30px minmax(0, 1fr) 90px;
+  }
+  .rv-lever .rv-lv-bar {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+  .rv-lever .tf-val {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .rv-drill {
+    padding-left: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .tf-money-row.rv-three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rv-flow-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px;
+  }
+  .rv-link {
+    display: none;
+  }
+}

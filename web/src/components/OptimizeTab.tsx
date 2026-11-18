@@ -9,7 +9,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, pollJob, type Lever, type ModulesResponse, type OptimizeResult } from "../api";
+import {
+  api,
+  pollJob,
+  type Lever,
+  type ModulesResponse,
+  type OptimizeResult,
+} from "../api";
 import { ConfidenceBand } from "./ConfidenceBand";
 import { Spinner } from "./Spinner";
 
@@ -19,11 +25,23 @@ interface LeverSelection {
   max: number;
 }
 
-export function OptimizeTab({ model, modules }: { model: string; modules: ModulesResponse }) {
+export function OptimizeTab({
+  model,
+  modules,
+}: {
+  model: string;
+  modules: ModulesResponse;
+}) {
   const [levers, setLevers] = useState<Lever[]>([]);
-  const [selection, setSelection] = useState<Record<string, LeverSelection>>({});
-  const [objective, setObjective] = useState(modules.objectives[0] ?? "on_time_pct");
-  const [optimizer, setOptimizer] = useState(modules.optimizers[0] ?? "hill_climb");
+  const [selection, setSelection] = useState<Record<string, LeverSelection>>(
+    {},
+  );
+  const [objective, setObjective] = useState(
+    modules.objectives[0] ?? "on_time_pct",
+  );
+  const [optimizer, setOptimizer] = useState(
+    modules.optimizers[0] ?? "hill_climb",
+  );
   const [budget, setBudget] = useState(12);
   const [reps, setReps] = useState(12);
   const [running, setRunning] = useState(false);
@@ -41,11 +59,17 @@ export function OptimizeTab({ model, modules }: { model: string; modules: Module
         setLevers(list);
         const initial: Record<string, LeverSelection> = {};
         list.forEach((lever, index) => {
-          initial[lever.path] = { enabled: index === 0, min: lever.min, max: lever.max };
+          initial[lever.path] = {
+            enabled: index === 0,
+            min: lever.min,
+            max: lever.max,
+          };
         });
         setSelection(initial);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : String(err)),
+      );
   }, [model]);
 
   function toggleLever(path: string) {
@@ -62,7 +86,9 @@ export function OptimizeTab({ model, modules }: { model: string; modules: Module
     }));
   }
 
-  const activeCount = Object.values(selection).filter((item) => item.enabled).length;
+  const activeCount = Object.values(selection).filter(
+    (item) => item.enabled,
+  ).length;
 
   async function handleOptimize() {
     const space: Record<string, { min: number; max: number }> = {};
@@ -165,7 +191,11 @@ export function OptimizeTab({ model, modules }: { model: string; modules: Module
               onChange={(event) => setReps(Number(event.target.value))}
             />
           </div>
-          <button className="primary" onClick={handleOptimize} disabled={running || activeCount === 0}>
+          <button
+            className="primary"
+            onClick={handleOptimize}
+            disabled={running || activeCount === 0}
+          >
             {running ? "Searching…" : "Optimize"}
           </button>
         </div>
@@ -188,19 +218,25 @@ export function OptimizeTab({ model, modules }: { model: string; modules: Module
                 <input
                   type="number"
                   value={sel.min}
-                  onChange={(event) => updateBound(lever.path, "min", Number(event.target.value))}
+                  onChange={(event) =>
+                    updateBound(lever.path, "min", Number(event.target.value))
+                  }
                   disabled={!sel.enabled}
                 />
                 <input
                   type="number"
                   value={sel.max}
-                  onChange={(event) => updateBound(lever.path, "max", Number(event.target.value))}
+                  onChange={(event) =>
+                    updateBound(lever.path, "max", Number(event.target.value))
+                  }
                   disabled={!sel.enabled}
                 />
               </div>
             );
           })}
-          {levers.length === 0 && <div className="empty-state">No tunable levers for this model.</div>}
+          {levers.length === 0 && (
+            <div className="empty-state">No tunable levers for this model.</div>
+          )}
         </div>
       </div>
 
@@ -211,14 +247,22 @@ export function OptimizeTab({ model, modules }: { model: string; modules: Module
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="card-grid">
             <div className="card">
-              <div className="card-title">Best {result.objective} ({result.direction})</div>
+              <div className="card-title">
+                Best {result.objective} ({result.direction})
+              </div>
               <div className="stat-value">{result.best_score.toFixed(3)}</div>
-              <div className="footnote">{result.evaluations_used} evaluations used</div>
+              <div className="footnote">
+                {result.evaluations_used} evaluations used
+              </div>
             </div>
             <div className="card">
               <div className="card-title">Winning Scenario</div>
               {Object.entries(result.best.levers).map(([path, value]) => (
-                <div key={path} className="mono" style={{ fontSize: 12, marginBottom: 3 }}>
+                <div
+                  key={path}
+                  className="mono"
+                  style={{ fontSize: 12, marginBottom: 3 }}
+                >
                   {path} = {String(value)}
                 </div>
               ))}
@@ -226,24 +270,38 @@ export function OptimizeTab({ model, modules }: { model: string; modules: Module
           </div>
 
           <div className="card">
-            <div className="card-title">Winning Scenario — On-Time Delivery</div>
+            <div className="card-title">
+              Winning Scenario — On-Time Delivery
+            </div>
             <div className="stat-value">
               {result.best.intervals.on_time_pct.mean.toFixed(1)}
               <span className="unit">%</span>
             </div>
-            <ConfidenceBand interval={result.best.intervals.on_time_pct} unit="%" />
+            <ConfidenceBand
+              interval={result.best.intervals.on_time_pct}
+              unit="%"
+            />
           </div>
 
           <div className="card">
             <div className="card-title">Convergence</div>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="evaluation"
                   stroke="var(--text-faint)"
                   tick={{ fill: "var(--text-faint)", fontSize: 11 }}
-                  label={{ value: "evaluation", position: "insideBottom", offset: -4, fill: "var(--text-faint)", fontSize: 11 }}
+                  label={{
+                    value: "evaluation",
+                    position: "insideBottom",
+                    offset: -4,
+                    fill: "var(--text-faint)",
+                    fontSize: 11,
+                  }}
                 />
                 <YAxis
                   stroke="var(--text-faint)"
@@ -282,7 +340,9 @@ export function OptimizeTab({ model, modules }: { model: string; modules: Module
       )}
 
       {!running && !result && !error && (
-        <div className="empty-state">Choose levers and search for the highest-scoring scenario.</div>
+        <div className="empty-state">
+          Choose levers and search for the highest-scoring scenario.
+        </div>
       )}
     </div>
   );

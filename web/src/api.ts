@@ -214,7 +214,10 @@ class ApiError extends Error {
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(path);
   if (!response.ok) {
-    throw new ApiError(`GET ${path} failed: ${response.status}`, response.status);
+    throw new ApiError(
+      `GET ${path} failed: ${response.status}`,
+      response.status,
+    );
   }
   return (await response.json()) as T;
 }
@@ -226,7 +229,10 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new ApiError(`POST ${path} failed: ${response.status}`, response.status);
+    throw new ApiError(
+      `POST ${path} failed: ${response.status}`,
+      response.status,
+    );
   }
   return (await response.json()) as T;
 }
@@ -236,14 +242,19 @@ export const api = {
   modules: () => getJson<ModulesResponse>("/api/modules"),
   models: () => getJson<ModelSummary[]>("/api/models"),
   adapters: () => getJson<AdaptersResponse>("/api/adapters"),
-  floor: (name: string) => getJson<FloorGraph>(`/api/models/${encodeURIComponent(name)}/floor`),
-  levers: (name: string) => getJson<Lever[]>(`/api/models/${encodeURIComponent(name)}/levers`),
+  floor: (name: string) =>
+    getJson<FloorGraph>(`/api/models/${encodeURIComponent(name)}/floor`),
+  levers: (name: string) =>
+    getJson<Lever[]>(`/api/models/${encodeURIComponent(name)}/levers`),
 
   run: (request: RunRequest) => postJson<Job<RunResult>>("/api/run", request),
-  sweep: (request: SweepRequest) => postJson<Job<SweepResult>>("/api/sweep", request),
-  optimize: (request: OptimizeRequest) => postJson<Job<OptimizeResult>>("/api/optimize", request),
+  sweep: (request: SweepRequest) =>
+    postJson<Job<SweepResult>>("/api/sweep", request),
+  optimize: (request: OptimizeRequest) =>
+    postJson<Job<OptimizeResult>>("/api/optimize", request),
 
-  job: <T>(id: string) => getJson<Job<T>>(`/api/jobs/${encodeURIComponent(id)}`),
+  job: <T>(id: string) =>
+    getJson<Job<T>>(`/api/jobs/${encodeURIComponent(id)}`),
 };
 
 /**

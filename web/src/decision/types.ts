@@ -440,3 +440,242 @@ export interface Problem {
   message: string;
   fix: string;
 }
+
+/**
+ * The run view model (docs/design/DATA-CONTRACT.md section 2). Built by twinflow.report.run_view.run_view_model.
+ */
+export interface RunViewModel {
+  view: "run";
+  schema_version: 1;
+  about: {
+    title: string;
+    project: string;
+    run_id: string;
+    reps: number;
+    seed: number;
+    interval: number;
+    time_unit: "minutes" | "hours" | "days";
+    horizon: number;
+    start?: string | null;
+    method: string;
+    assumptions: string[];
+    engine_version?: string | null;
+    model_hash?: string | null;
+    plan_hash?: string | null;
+  };
+  answer: {
+    level: "all_on_time" | "most_on_time" | "many_late" | "unknown";
+    headline: string;
+    lede: string;
+    on_time: RunStat;
+    late_orders_per_run: number;
+    watch: string[];
+    choke: {
+      centre: string;
+      label: string;
+      busy: number;
+    } | null;
+    command?: string;
+  };
+  orders: RunOrder[];
+  centres: RunCentre[];
+  routes: {
+    part: string;
+    steps: string[];
+  }[];
+  levers: RunLever[];
+  sweep?: {
+    run_id: string;
+    reps: number | null;
+  } | null;
+  takeaways?: {
+    orders?: string;
+    choke?: string;
+  };
+  details?: {
+    completed?: number | null;
+    unfinished?: number | null;
+    on_time_pct?: number | null;
+    run_hours?: number | null;
+    setup_hours?: number | null;
+    machine_hours?: number | null;
+    orders?: {
+      id: string;
+      finish: number | null;
+      late_by: number | null;
+    }[];
+    centres?: {
+      id: string;
+      label: string;
+      busy: number;
+      starved: number;
+      blocked: number;
+      cycle: number | null;
+      jobs: number;
+      wip_peak: number;
+    }[];
+    machine_hours_by_machine?: {
+      machine: string;
+      hours: number;
+    }[];
+    machine_pools?: {
+      resource: string;
+      capacity: number;
+      steps: string[];
+      busy_hours: number;
+      busy: number;
+    }[];
+    labor_pools?: {
+      resource: string;
+      capacity: number;
+      skills: string[];
+      busy_hours: number;
+      operating_hours: number;
+      busy_on_shift: number;
+      busy: number;
+    }[];
+  };
+  wip_by_time?: {
+    t: number[];
+    by_centre: {
+      [k: string]: number[];
+    };
+  };
+  labor?: {
+    pool: string;
+    skill: string;
+    hours: number;
+  }[];
+  agent_summary: string[];
+  warnings: string[];
+  problems: RunProblem[];
+}
+/**
+ * This interface was referenced by `RunViewModel`'s JSON-Schema
+ * via the `definition` "RunStat".
+ */
+export interface RunStat {
+  mean: number | null;
+  low: number | null;
+  high: number | null;
+}
+/**
+ * This interface was referenced by `RunViewModel`'s JSON-Schema
+ * via the `definition` "RunOrder".
+ */
+export interface RunOrder {
+  id: string;
+  part: string;
+  qty: number;
+  release: number;
+  due: number | null;
+  finish: RunStat | null;
+  room: number | null;
+  late_chance: number | null;
+  status: "ok" | "risk" | "late" | "unfinished";
+  reason: string;
+  steps?: {
+    centre: string;
+    label: string;
+    work: number;
+    wait: number;
+  }[];
+}
+/**
+ * This interface was referenced by `RunViewModel`'s JSON-Schema
+ * via the `definition` "RunCentre".
+ */
+export interface RunCentre {
+  id: string;
+  label: string;
+  busy: RunStat;
+  blocked: number;
+  starved: number;
+  queue_wait: number;
+  status: "choke" | "next" | "ok";
+}
+/**
+ * This interface was referenced by `RunViewModel`'s JSON-Schema
+ * via the `definition` "RunLever".
+ */
+export interface RunLever {
+  id: string;
+  label: string;
+  tested: boolean;
+  on_time: number | null;
+  gain_points: number | null;
+  late_orders_per_run: number | null;
+  note: string;
+  command?: string;
+}
+/**
+ * This interface was referenced by `RunViewModel`'s JSON-Schema
+ * via the `definition` "RunProblem".
+ */
+export interface RunProblem {
+  title: string;
+  body: string;
+  fix?: string | null;
+  [k: string]: unknown;
+}
+
+/**
+ * The sweep view model (DESIGN.md 4.4, BUILD-PLAN.md B-35). Built by twinflow.report.sweep_view.sweep_view_model.
+ */
+export interface SweepViewModel {
+  view: "sweep";
+  schema_version: 1;
+  about: {
+    title: string;
+    project: string;
+    sweep_id: string;
+    kind: "balance" | "optimize";
+    base_run_id: string | null;
+    reps: number;
+    levers: string[];
+    objective: string | null;
+    method: string;
+  };
+  answer: {
+    headline: string;
+    lede: string;
+    today: {
+      on_time: number | null;
+      late_orders_per_run: number | null;
+    };
+    best: SweepLever | null;
+  };
+  levers: SweepLever[];
+  points: SweepPoint[];
+  agent_summary: string[];
+  warnings: string[];
+  problems: {}[];
+}
+/**
+ * This interface was referenced by `SweepViewModel`'s JSON-Schema
+ * via the `definition` "SweepLever".
+ */
+export interface SweepLever {
+  id: string;
+  label: string;
+  tested: boolean;
+  on_time: number | null;
+  gain_points: number | null;
+  late_orders_per_run: number | null;
+  note: string;
+  command?: string;
+}
+/**
+ * This interface was referenced by `SweepViewModel`'s JSON-Schema
+ * via the `definition` "SweepPoint".
+ */
+export interface SweepPoint {
+  id: string;
+  levers: {};
+  label: string;
+  today: boolean;
+  reps: number;
+  on_time: number;
+  late_orders_per_run: number | null;
+  busy_hours: number | null;
+}

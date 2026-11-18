@@ -1,0 +1,779 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "twinflow/run.schema.json",
+  "title": "RunViewModel",
+  "description": "The run view model (docs/design/DATA-CONTRACT.md section 2). Built by twinflow.report.run_view.run_view_model.",
+  "type": "object",
+  "$defs": {
+    "RunStat": {
+      "type": "object",
+      "properties": {
+        "mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "mean",
+        "low",
+        "high"
+      ],
+      "additionalProperties": false,
+      "title": "RunStat"
+    },
+    "RunProblem": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "fix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "body"
+      ],
+      "additionalProperties": true,
+      "title": "RunProblem"
+    },
+    "RunOrder": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "part": {
+          "type": "string"
+        },
+        "qty": {
+          "type": "integer"
+        },
+        "release": {
+          "type": "number"
+        },
+        "due": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "finish": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RunStat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "room": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "late_chance": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "risk",
+            "late",
+            "unfinished"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "centre": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "work": {
+                "type": "number"
+              },
+              "wait": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "centre",
+              "label",
+              "work",
+              "wait"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "part",
+        "qty",
+        "release",
+        "due",
+        "finish",
+        "room",
+        "late_chance",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "title": "RunOrder"
+    },
+    "RunCentre": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "busy": {
+          "$ref": "#/$defs/RunStat"
+        },
+        "blocked": {
+          "type": "number"
+        },
+        "starved": {
+          "type": "number"
+        },
+        "queue_wait": {
+          "type": "number"
+        },
+        "status": {
+          "enum": [
+            "choke",
+            "next",
+            "ok"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "busy",
+        "blocked",
+        "starved",
+        "queue_wait",
+        "status"
+      ],
+      "additionalProperties": false,
+      "title": "RunCentre"
+    },
+    "RunLever": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "tested": {
+          "type": "boolean"
+        },
+        "on_time": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "gain_points": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "late_orders_per_run": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "note": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "tested",
+        "on_time",
+        "gain_points",
+        "late_orders_per_run",
+        "note"
+      ],
+      "additionalProperties": false,
+      "title": "RunLever"
+    }
+  },
+  "properties": {
+    "view": {
+      "const": "run"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "about": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "reps": {
+          "type": "integer"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "interval": {
+          "type": "number"
+        },
+        "time_unit": {
+          "enum": [
+            "minutes",
+            "hours",
+            "days"
+          ]
+        },
+        "horizon": {
+          "type": "number"
+        },
+        "start": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "method": {
+          "type": "string"
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "engine_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plan_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "project",
+        "run_id",
+        "reps",
+        "seed",
+        "interval",
+        "time_unit",
+        "horizon",
+        "method",
+        "assumptions"
+      ],
+      "additionalProperties": false
+    },
+    "answer": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "all_on_time",
+            "most_on_time",
+            "many_late",
+            "unknown"
+          ]
+        },
+        "headline": {
+          "type": "string"
+        },
+        "lede": {
+          "type": "string"
+        },
+        "on_time": {
+          "$ref": "#/$defs/RunStat"
+        },
+        "late_orders_per_run": {
+          "type": "number"
+        },
+        "watch": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "choke": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "centre": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "busy": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "centre",
+                "label",
+                "busy"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "command": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "headline",
+        "lede",
+        "on_time",
+        "late_orders_per_run",
+        "watch",
+        "choke"
+      ],
+      "additionalProperties": false
+    },
+    "orders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RunOrder"
+      }
+    },
+    "centres": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RunCentre"
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "part": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "part",
+          "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "levers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RunLever"
+      }
+    },
+    "sweep": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "run_id": {
+              "type": "string"
+            },
+            "reps": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "run_id",
+            "reps"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "takeaways": {
+      "type": "object",
+      "properties": {
+        "orders": {
+          "type": "string"
+        },
+        "choke": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "details": {
+      "type": "object",
+      "properties": {
+        "completed": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "unfinished": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "on_time_pct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "run_hours": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "setup_hours": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "machine_hours": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "finish": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "late_by": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "finish",
+              "late_by"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "centres": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "busy": {
+                "type": "number"
+              },
+              "starved": {
+                "type": "number"
+              },
+              "blocked": {
+                "type": "number"
+              },
+              "cycle": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "jobs": {
+                "type": "integer"
+              },
+              "wip_peak": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "busy",
+              "starved",
+              "blocked",
+              "cycle",
+              "jobs",
+              "wip_peak"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "machine_hours_by_machine": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "machine": {
+                "type": "string"
+              },
+              "hours": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "machine",
+              "hours"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "machine_pools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "type": "string"
+              },
+              "capacity": {
+                "type": "integer"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "busy_hours": {
+                "type": "number"
+              },
+              "busy": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "resource",
+              "capacity",
+              "steps",
+              "busy_hours",
+              "busy"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "labor_pools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "resource": {
+                "type": "string"
+              },
+              "capacity": {
+                "type": "integer"
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "busy_hours": {
+                "type": "number"
+              },
+              "operating_hours": {
+                "type": "number"
+              },
+              "busy_on_shift": {
+                "type": "number"
+              },
+              "busy": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "resource",
+              "capacity",
+              "skills",
+              "busy_hours",
+              "operating_hours",
+              "busy_on_shift",
+              "busy"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "wip_by_time": {
+      "type": "object",
+      "properties": {
+        "t": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "by_centre": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "required": [
+        "t",
+        "by_centre"
+      ],
+      "additionalProperties": false
+    },
+    "labor": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pool": {
+            "type": "string"
+          },
+          "skill": {
+            "type": "string"
+          },
+          "hours": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "pool",
+          "skill",
+          "hours"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "agent_summary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RunProblem"
+      }
+    }
+  },
+  "required": [
+    "view",
+    "schema_version",
+    "about",
+    "answer",
+    "orders",
+    "centres",
+    "routes",
+    "levers",
+    "agent_summary",
+    "warnings",
+    "problems"
+  ],
+  "additionalProperties": false
+}

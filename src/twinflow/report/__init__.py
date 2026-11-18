@@ -1,38 +1,34 @@
-"""Layer 4 — self-contained HTML + versioned KPI JSON sidecar + Assumptions block."""
+"""Layer 4: the offline run viewer, the versioned KPI JSON sidecar and the Assumptions block."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from twinflow.instrumentation.kpis import KpiSet
-from twinflow.report.assumptions import Assumption
-from twinflow.report.html import HtmlReport
+from twinflow.report.decision import write
 from twinflow.report.kpi_json import KpiJsonSidecar
-from twinflow.run_stamp import RunStamp
+from twinflow.report.run_view import run_view_model
+from twinflow.report.sweep_view import SWEEP_REPORT, sweep_view_model
 
-if TYPE_CHECKING:
-    from twinflow.instrumentation.aggregate import AggregatedKpis
-    from twinflow.model import CompiledModel
+REPORT_FILE = "report.html"
 
 
-def render_html(
-    kpis: KpiSet,
-    assumptions: list[Assumption],
-    run_stamp: RunStamp,
-    out_path: str | Path,
-    model: CompiledModel | None = None,
-    aggregated: AggregatedKpis | None = None,
-    horizon: float | None = None,
-) -> Path:
-    """Public API: one offline HTML file, Assumptions block first. When `model` is
-    given, the report includes a value-stream diagram of the material flow; when
-    `aggregated` is given, KPIs are shown as confidence ranges across replications;
-    when `horizon` (the run length in seconds) is given, a Shared-resources section
-    reports per-machine-pool and per-labor-pool utilization."""
-    return HtmlReport().render(kpis, assumptions, run_stamp, out_path, model, aggregated, horizon)
+def write_run_report(run_dir: str | Path) -> Path:
+    """Public API: write `report.html` (the run viewer, one offline file) for a run folder,
+    from the files in that folder alone (DESIGN.md section 4, B-34)."""
+    folder = Path(run_dir)
+    return write(folder / REPORT_FILE, run_view_model(folder))
+
+
+def write_sweep_report(sweep_dir: str | Path) -> Path:
+    """Public API: write `sweep.html` for a `twinflow balance` or `optimize` folder (B-35)."""
+    folder = Path(sweep_dir)
+    return write(folder / SWEEP_REPORT, sweep_view_model(folder))
 
 
 def write_kpi_json(kpis: KpiSet, schema_version: int, out_path: str | Path) -> Path:
     """Public API: machine-readable versioned KPI sidecar."""
     return KpiJsonSidecar().write(kpis, schema_version, out_path)
+
+
+__all__ = ["REPORT_FILE", "write_kpi_json", "write_run_report", "write_sweep_report"]
