@@ -17,7 +17,7 @@ test("set day 9: the pick lane tells the colour change and 7 of 12 out", async (
 }) => {
   await page.setViewportSize({ width: 1280, height: 1000 });
   await openFixture(page, url, "lanes", { model: fullModel() });
-  const slider = page.getByRole("slider", { name: "Day" });
+  const slider = page.getByRole("slider", { name: "Replay day" });
   await slider.focus();
   await page.keyboard.press("Home");
   for (let i = 0; i < 8; i++) await page.keyboard.press("ArrowRight");
@@ -50,7 +50,7 @@ test("keys: Page Up and Down move 10 days, End and Home jump", async ({
     model: fullModel(),
     hash: "#tab=replay&day=9",
   });
-  const slider = page.getByRole("slider", { name: "Day" });
+  const slider = page.getByRole("slider", { name: "Replay day" });
   await expect(slider).toHaveValue("9");
   await slider.focus();
   await page.keyboard.press("PageUp");
@@ -68,7 +68,9 @@ test("keys: Page Up and Down move 10 days, End and Home jump", async ({
 test("clicking a cell jumps to that day in both lanes", async ({ page }) => {
   await openFixture(page, url, "lanes", { model: fullModel() });
   await page.locator("[data-lane='lowest_cover'] [data-press]").nth(19).click();
-  await expect(page.getByRole("slider", { name: "Day" })).toHaveValue("20");
+  await expect(page.getByRole("slider", { name: "Replay day" })).toHaveValue(
+    "20",
+  );
   await expect(page.locator("[data-frame='20']")).toHaveCount(2);
   await expect(
     page.locator("[data-lane='family_campaign'] [data-fact='sentence']"),
@@ -80,7 +82,7 @@ test("Play advances and stops at day 60", async ({ page }) => {
     model: fullModel(),
     hash: "#day=55",
   });
-  const slider = page.getByRole("slider", { name: "Day" });
+  const slider = page.getByRole("slider", { name: "Replay day" });
   await page.getByRole("button", { name: "Play" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(slider).toHaveValue("57", { timeout: 3000 });
@@ -101,9 +103,12 @@ test("reduced motion: no transitions, Play still steps", async ({ page }) => {
     await btn.evaluate((el) => getComputedStyle(el).transitionDuration),
   ).toBe("0s");
   await btn.click();
-  await expect(page.getByRole("slider", { name: "Day" })).toHaveValue("60", {
-    timeout: 3000,
-  });
+  await expect(page.getByRole("slider", { name: "Replay day" })).toHaveValue(
+    "60",
+    {
+      timeout: 3000,
+    },
+  );
 });
 
 test("lanes sit side by side at 1280 and stack at 820", async ({ page }) => {

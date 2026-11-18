@@ -14,24 +14,24 @@
 .tf-rp-click {
   cursor: pointer;
 }
-.tf-rp-lab {
+.tf-rp-svg text.tf-rp-lab {
   font: 500 10.5px var(--ba-font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   fill: var(--ba-meta);
 }
-.tf-rp-sku {
+.tf-rp-svg text.tf-rp-sku {
   font-size: 9.5px;
   letter-spacing: 0;
   text-transform: none;
 }
-.tf-rp-group {
+.tf-rp-svg text.tf-rp-group {
   font-size: 10px;
   letter-spacing: 0;
   text-transform: none;
   cursor: pointer;
 }
-.tf-rp-tick {
+.tf-rp-svg text.tf-rp-tick {
   font: 500 10px var(--ba-font-mono);
   fill: var(--ba-meta);
 }
@@ -137,7 +137,7 @@
 }
 .tf-rp-k {
   font-size: 11.5px;
-  color: var(--ba-body); /* --ba-meta on surface-2 is 3.7:1, under AA */
+  color: var(--ba-body-2);
 }
 .tf-rp-v {
   font: 500 15px var(--ba-font-mono);

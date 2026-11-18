@@ -84,7 +84,7 @@ export function Scrubber(props: {
         max={max}
         step={1}
         value={day}
-        aria-label="Day"
+        aria-label="Replay day"
         aria-valuetext={`Day ${day} of ${max}`}
         onChange={(e) => onDay(Number(e.target.value))}
         onKeyDown={(e) => {

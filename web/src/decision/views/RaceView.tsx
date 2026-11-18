@@ -69,13 +69,17 @@ export function RaceView({ model }: { model: RaceViewModel }) {
   const board = leaderboard(model);
   const a = model.about;
   const runs = model.confidence?.runs ?? a.episodes;
+  const replay = replayRuns(model);
+  const sections = (compared ? SECTIONS : NO_COMPARE).filter(
+    (sec) => sec.id !== "replay" || replay.length > 0,
+  );
   return (
     <Page
       view="race"
       title="Policy race"
       project={a.project}
       scope={`${a.episodes} runs of ${a.horizon_days} days · same customer orders for every rule`}
-      sections={compared ? SECTIONS : NO_COMPARE}
+      sections={sections}
       footer={
         <>
           twinflow policy race · {a.project} · {a.policies_raced} rules,{" "}
@@ -99,9 +103,11 @@ export function RaceView({ model }: { model: RaceViewModel }) {
                 See all rules
               </SectionLink>
             )}
-            <SectionLink to="replay" className="tf-btn">
-              Watch the floor
-            </SectionLink>
+            {replay.length > 0 && (
+              <SectionLink to="replay" className="tf-btn">
+                Watch the floor
+              </SectionLink>
+            )}
             <SectionLink to="whatif" className="tf-btn">
               Test my cost numbers
             </SectionLink>
@@ -188,21 +194,23 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             runs={a.episodes}
           />
         </Section>
-        <Section
-          id="replay"
-          eyebrow="Floor replay"
-          question={`What does a normal ${a.horizon_days} days look like on the floor?`}
-          hint="One typical run, same customer orders for both rules. Drag the day, or click a chart."
-        >
-          <Card>
-            <ReplayLanes
-              runs={replayRuns(model)}
-              products={model.products}
-              families={model.families}
-              economics={model.economics}
-            />
-          </Card>
-        </Section>
+        {replay.length > 0 && (
+          <Section
+            id="replay"
+            eyebrow="Floor replay"
+            question={`What does a normal ${a.horizon_days} days look like on the floor?`}
+            hint="One typical run, same customer orders for both rules. Drag the day, or click a chart."
+          >
+            <Card>
+              <ReplayLanes
+                runs={replay}
+                products={model.products}
+                families={model.families}
+                economics={model.economics}
+              />
+            </Card>
+          </Section>
+        )}
         <StateSections model={model} />
         <Section id="details" eyebrow="Details" question="The full numbers">
           <EmptyState

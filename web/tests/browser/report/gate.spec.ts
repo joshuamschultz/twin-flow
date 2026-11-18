@@ -90,7 +90,7 @@ test("floor replay in the race view: keys set the day and it goes in the URL", a
 }) => {
   await open(page);
   const replay = page.locator("#replay");
-  const slider = replay.getByRole("slider", { name: "Day" });
+  const slider = replay.getByRole("slider", { name: "Replay day" });
   await slider.focus();
   await page.keyboard.press("Home");
   for (let i = 0; i < 8; i++) await page.keyboard.press("ArrowRight");
@@ -114,7 +114,7 @@ test("a link with a, b, day and state reopens the same picture, and a reload kee
       "kanban",
     );
     await expect(
-      page.locator("#replay").getByRole("slider", { name: "Day" }),
+      page.locator("#replay").getByRole("slider", { name: "Replay day" }),
     ).toHaveValue("20");
     await expect(page.locator('#states [data-state-id="s6"]')).toHaveAttribute(
       "aria-pressed",
