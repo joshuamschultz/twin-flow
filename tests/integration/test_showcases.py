@@ -166,3 +166,52 @@ def test_lakeshore_compares_every_rule_with_lowest_cover() -> None:
     project = Project.open(SHOWCASE / "plastics-molding")
     assert project.baseline == "lowest_cover"
     assert project.baseline_source == "setting"
+
+
+# --- a rebuild changes nothing --------------------------------------------------------------------
+
+CLOCK_ID = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[0-9a-f]{8}|\d{8}T\d{6}Z")
+
+
+@pytest.mark.parametrize("business", BUSINESSES)
+def test_saved_outputs_have_no_clock_based_ids(business: str) -> None:
+    for cell in _cells(business):
+        found = CLOCK_ID.findall(_outputs(cell))
+        assert found == [], f"{business}: run ids change every build: {found}"
+
+
+def test_run_ids_become_stable_names_in_order() -> None:
+    stable = _builder().stable_ids
+    first = stable(
+        [
+            "run 2026-11-18T06-59-49Z-48200b4c\n",
+            "dir: ./runs/2026-11-18T06-59-49Z-48200b4c\n",
+            {"text": "sweep 2026-11-18T06-59-53Z-a510ce49 and runs/race-20261118T140619Z"},
+        ]
+    )
+    second = stable(
+        [
+            "run 2026-11-19T10-00-00Z-ffffffff\n",
+            "dir: ./runs/2026-11-19T10-00-00Z-ffffffff\n",
+            {"text": "sweep 2026-11-19T10-00-04Z-00000000 and runs/race-20261119T100000Z"},
+        ]
+    )
+    assert first == second
+    assert first[0] == "run <run-id-1>\n" and first[1] == "dir: ./runs/<run-id-1>\n"
+    assert first[2] == {"text": "sweep <run-id-2> and runs/race-<run-id-3>"}
+
+
+@pytest.mark.slow
+def test_a_rebuild_changes_nothing() -> None:
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is needed to run the notebooks")
+    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+    done = subprocess.run(  # noqa: S603  (fixed command, no user input)
+        [
+            uv, "run", "--with", "nbclient", "--with", "ipykernel", "--with", "nbformat",
+            "python", str(SHOWCASE / "build_notebooks.py"), "--check", *BUSINESSES,
+        ],
+        cwd=ROOT, env=env, capture_output=True, text=True, timeout=1800, check=False,
+    )  # fmt: skip
+    assert done.returncode == 0, done.stdout + done.stderr
