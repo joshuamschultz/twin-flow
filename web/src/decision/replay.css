@@ -1,0 +1,146 @@
+/* Floor replay (DESIGN.md 3.7). Classes start with tf-rp- so they do not clash. */
+.tf-rp-stack {
+  position: relative;
+}
+.tf-rp-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+.tf-rp-chart {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.tf-rp-svg {
+  display: block;
+  overflow: visible;
+}
+.tf-rp-click {
+  cursor: pointer;
+}
+.tf-rp-lab {
+  font: 500 10.5px var(--ba-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--ba-meta);
+}
+.tf-rp-sku {
+  font-size: 9.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tf-rp-group {
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.tf-rp-tick {
+  font: 500 10px var(--ba-font-mono);
+  fill: var(--ba-meta);
+}
+.tf-rp-rest {
+  fill: none;
+  stroke: var(--tf-axis);
+  stroke-dasharray: 2 2;
+  pointer-events: all;
+}
+.tf-rp-colour {
+  fill: var(--tf-loss);
+}
+.tf-rp-size {
+  fill: var(--tf-axis);
+}
+.tf-rp-base {
+  stroke: var(--tf-grid);
+}
+.tf-rp-frame {
+  fill: none;
+  stroke: var(--ba-headline);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.tf-rp-tip {
+  position: absolute;
+  z-index: 5;
+  max-width: 240px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  background: var(--ba-headline);
+  color: var(--ba-surface);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.tf-rp-btn {
+  font: 500 13px var(--ba-font-body);
+  color: var(--ba-headline);
+  background: var(--ba-surface);
+  border: 1px solid var(--ba-border);
+  border-radius: 2px;
+  padding: 8px 14px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.tf-rp-btn:hover {
+  border-color: var(--ba-accent);
+}
+.tf-rp-btn:focus-visible,
+.tf-rp-range:focus-visible {
+  outline: 2px solid var(--ba-focus);
+  outline-offset: 2px;
+}
+.tf-rp-small {
+  font-size: 12px;
+  padding: 4px 10px;
+  min-height: 32px;
+}
+.tf-rp-families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tf-rp-tablewrap {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--ba-border);
+  border-radius: 2px;
+}
+.tf-rp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  color: var(--ba-body);
+}
+.tf-rp-table th,
+.tf-rp-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ba-border);
+  text-align: left;
+  vertical-align: top;
+}
+.tf-rp-table th {
+  position: sticky;
+  top: 0;
+  background: var(--ba-surface);
+  font: 500 10.5px var(--ba-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ba-meta);
+}
+.tf-rp-table td:first-child,
+.tf-rp-table td:nth-child(5),
+.tf-rp-table td:nth-child(6) {
+  font-family: var(--ba-font-mono);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-rp-stack *,
+  .tf-rp-lanes * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

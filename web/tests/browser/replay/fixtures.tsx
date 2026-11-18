@@ -1,0 +1,40 @@
+// Mounts the replay parts alone with the data the test put in window.__REPLAY__.
+import React from "react";
+import ReactDOM from "react-dom/client";
+import "../../../src/index.css";
+import "../../../src/decision/tokens.css";
+import "../../../src/decision/fonts/fonts.css";
+import { StripStack } from "../../../src/decision/ReplayStrips";
+import { replayRuns } from "../../../src/decision/replay";
+import type { RaceViewModel } from "../../../src/decision/types";
+
+type Fixture = { kind: "strips"; model: RaceViewModel };
+
+function App({ data }: { data: Fixture }) {
+  const { model } = data;
+  const runs = replayRuns(model);
+  return (
+    <main className="tf-root" data-ready="replay" style={{ padding: 24 }}>
+      {runs.map((r) => (
+        <section key={r.id} data-lane={r.id} style={{ marginBottom: 32 }}>
+          <h3>{r.label}</h3>
+          <StripStack
+            label={r.label}
+            run={r.run}
+            products={model.products}
+            families={model.families}
+            economics={model.economics}
+            day={9}
+          />
+        </section>
+      ))}
+    </main>
+  );
+}
+
+const data = (window as unknown as { __REPLAY__: Fixture }).__REPLAY__;
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App data={data} />
+  </React.StrictMode>,
+);
