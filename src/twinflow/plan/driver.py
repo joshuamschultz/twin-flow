@@ -34,7 +34,7 @@ from twinflow.model import CompiledModel, StockConfig
 from twinflow.model.schema import BreakdownSpec, LocationSpec
 from twinflow.plan.loader import WorkOrder
 from twinflow.plan.observers import RunObserver, RunView, order_plans
-from twinflow.policy import PolicyRuntime
+from twinflow.policy import DecisionRecord, PolicyRuntime
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.calendar import AlwaysWorkingCalendar, WorkingCalendar
 from twinflow.primitives.cell import Machine
@@ -360,14 +360,28 @@ class RunDriver:
                 for observer in observers:
                     observer.on_advance(next_time)
 
-        event_count, termination_reason = self._advance(
-            env,
-            until=until,
-            max_sim_time=max_sim_time,
-            max_events=max_events,
-            max_wall_seconds=max_wall_seconds,
-            on_advance=on_advance,
-        )
+        listener = decision_runtime.listener if decision_runtime is not None else None
+        if observers and decision_runtime is not None:
+
+            def on_decision(record: DecisionRecord) -> None:
+                for observer in observers:
+                    observer.on_decision(
+                        record.location_id, record.simulation_time, record.action.policy
+                    )
+
+            decision_runtime.listener = on_decision
+        try:
+            event_count, termination_reason = self._advance(
+                env,
+                until=until,
+                max_sim_time=max_sim_time,
+                max_events=max_events,
+                max_wall_seconds=max_wall_seconds,
+                on_advance=on_advance,
+            )
+        finally:
+            if decision_runtime is not None:
+                decision_runtime.listener = listener
 
         root = Path(artifact_dir) if artifact_dir is not None else Path("runs")
         run_dir = root / run_id

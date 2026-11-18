@@ -144,3 +144,87 @@ def test_sampler_stops_on_drain(tmp_path: Path) -> None:
 def test_every_hours_must_be_a_positive_number(hours: float) -> None:
     with pytest.raises(ValueError, match="every_hours"):
         DesStateObserver(every_hours=hours)
+
+
+# --- T-246: decision moves ------------------------------------------------------------------
+
+
+class _AlternatingPolicy:
+    """Picks EDD at even decisions and SPT at odd ones, so actions vary."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def decide(self, observation, allowed_actions):  # type: ignore[no-untyped-def]
+        del observation
+        self.calls += 1
+        wanted = "edd" if self.calls % 2 else "spt"
+        return next(action for action in allowed_actions if action.policy == wanted)
+
+
+def _decision_run(tmp_path: Path, observer: DesStateObserver | None) -> tuple[RunResult, object]:
+    from twinflow.policy import PolicyRuntime
+
+    folder = EXAMPLES / "cnc-shop"
+    model = load_model(str(folder / "model.yaml"))
+    plan = load_plan(str(folder / "plan.csv"), model.registry)
+    runtime = PolicyRuntime(_AlternatingPolicy(), "test:alternating")
+    result = RunDriver(model).run(
+        plan,
+        seed=0,
+        replication_index=0,
+        artifact_dir=tmp_path,
+        decision_runtime=runtime,
+        observers=() if observer is None else (observer,),
+    )
+    return result, runtime
+
+
+def test_one_decision_move_per_dispatch_decision(tmp_path: Path) -> None:
+    result, runtime = _decision_run(tmp_path, DesStateObserver(every_hours=None, decisions=True))
+    trace = runtime.trace  # type: ignore[attr-defined]
+    moves = _moves(result)
+    assert len(trace) > 5
+    assert [m.kind for m in moves] == ["decision"] * len(trace)
+    assert [(m.actor, m.action) for m in moves] == [
+        (record.location_id, record.action.policy) for record in trace
+    ]
+    assert [m.before.t for m in moves] == pytest.approx([r.simulation_time for r in trace])
+    # Each decision move runs to the next decision; the last runs to the end of the run.
+    assert [m.after for m in moves[:-1]] == [m.before for m in moves[1:]]
+    assert moves[-1].after.t == pytest.approx(result.horizon)
+    # The decision state shows the queue the rule was chosen over.
+    assert all(m.before.queue[m.actor] > 0 for m in moves if m.actor is not None)
+
+
+def test_decisions_and_periods_together(tmp_path: Path) -> None:
+    result, runtime = _decision_run(tmp_path, DesStateObserver(every_hours=0.05, decisions=True))
+    moves = _moves(result)
+    decisions = [m for m in moves if m.kind == "decision"]
+    periods = [m for m in moves if m.kind == "period"]
+    assert len(decisions) == len(runtime.trace)  # type: ignore[attr-defined]
+    assert periods and periods[-1].after.t == pytest.approx(result.horizon)
+    assert [m.index for m in moves] == list(range(len(moves)))
+
+
+def test_decision_capture_leaves_logs_and_trace_unchanged(tmp_path: Path) -> None:
+    plain, plain_runtime = _decision_run(tmp_path / "plain", None)
+    watched, watched_runtime = _decision_run(
+        tmp_path / "watched", DesStateObserver(every_hours=0.05, decisions=True)
+    )
+    assert plain.artifact_dir is not None and watched.artifact_dir is not None
+    for name in (*LOGS, "decision_trace.json"):
+        assert (watched.artifact_dir / name).read_bytes() == (
+            plain.artifact_dir / name
+        ).read_bytes()
+    assert watched_runtime.trace == plain_runtime.trace  # type: ignore[attr-defined]
+
+
+def test_without_decisions_flag_no_decision_moves(tmp_path: Path) -> None:
+    result, _ = _decision_run(tmp_path, DesStateObserver(every_hours=0.05))
+    assert {m.kind for m in _moves(result)} == {"period"}
+
+
+def test_observer_needs_periods_or_decisions() -> None:
+    with pytest.raises(ValueError, match="every_hours or decisions"):
+        DesStateObserver(every_hours=None)

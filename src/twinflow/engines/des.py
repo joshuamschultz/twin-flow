@@ -17,6 +17,12 @@ the stock levels; `setup` the setup group of every machine by machine id, busy o
 (D-137); `queue` the jobs waiting per location; `wip` the jobs waiting plus being worked;
 `open_orders` the released orders not yet complete; `labor` the free operators per pool;
 `extra["busy.<location>"]` the jobs being worked per location.
+
+With `decisions=True` it also writes one `decision` move per dispatch decision (the
+`PolicyRuntime` trace): actor = location, action = the chosen rule, `before` = the floor at
+the decision instant and `after` = the floor at the next decision (or the end of the run).
+Decision moves carry no dollars; the money sits on the period moves, so summing a run's
+ledgers never counts a dollar twice.
 """
 
 from __future__ import annotations
@@ -31,19 +37,32 @@ from twinflow.state.records import Ledger, Move, Snapshot
 SECONDS_PER_HOUR = 3600.0
 
 
-class DesStateObserver:
-    """Samples the floor every `every_hours` hours and writes period moves (REQ-197)."""
+def _check_hours(every_hours: float | None) -> float | None:
+    if every_hours is None:
+        return None
+    if (
+        isinstance(every_hours, bool)
+        or not isinstance(every_hours, int | float)
+        or not math.isfinite(every_hours)
+        or every_hours <= 0
+    ):
+        raise ValueError(f"every_hours must be a positive number of hours, got {every_hours!r}")
+    return float(every_hours)
 
-    def __init__(self, every_hours: float, *, run_id: str = "") -> None:
-        if (
-            isinstance(every_hours, bool)
-            or not isinstance(every_hours, int | float)
-            or not math.isfinite(every_hours)
-            or every_hours <= 0
-        ):
-            raise ValueError(f"every_hours must be a positive number of hours, got {every_hours!r}")
-        self.every_hours = float(every_hours)
-        self._step = self.every_hours * SECONDS_PER_HOUR
+
+class DesStateObserver:
+    """Samples the floor every `every_hours` hours and at each dispatch decision (REQ-197)."""
+
+    def __init__(
+        self, every_hours: float | None, *, decisions: bool = False, run_id: str = ""
+    ) -> None:
+        self.every_hours = _check_hours(every_hours)
+        if self.every_hours is None and not decisions:
+            raise ValueError("state capture needs every_hours or decisions (or both)")
+        self.decisions = decisions
+        self._step = math.inf if self.every_hours is None else self.every_hours * SECONDS_PER_HOUR
+        self._pending: tuple[Snapshot, str, str] | None = None
+        self._decision_count = 0
         self._recorder = StateRecorder(run_id)
         self._view: RunView | None = None
         self._next_period = 0
@@ -66,16 +85,24 @@ class DesStateObserver:
             self._sample(self._boundary())
 
     def on_decision(self, location_id: str, time: float, rule: str) -> None:
-        del location_id, time, rule
+        """Close the previous decision move at this instant and open a new one."""
+        if not self.decisions:
+            return
+        snapshot = self.snapshot(time, self._decision_period())
+        self._close_decision(snapshot)
+        self._pending = (snapshot, location_id, rule)
 
     def finalize(self, run_dir: Path, termination_reason: str) -> None:
         """Sample the boundaries up to the end, one last sample at the end, then write."""
         del termination_reason
         end = self._require_view().now
-        while self._boundary() <= end:
-            self._sample(self._boundary())
-        if self._last is None or self._last.t < end:
-            self._sample(end)
+        if self.every_hours is not None:
+            while self._boundary() <= end:
+                self._sample(self._boundary())
+            if self._last is None or self._last.t < end:
+                self._sample(end)
+        if self._pending is not None:
+            self._close_decision(self.snapshot(end, self._decision_period()))
         self._recorder.flush(run_dir)
 
     # -- sampling ------------------------------------------------------------------------------
@@ -86,7 +113,20 @@ class DesStateObserver:
         return self._view
 
     def _boundary(self) -> float:
-        return self._next_period * self._step
+        return self._next_period * self._step if self.every_hours is not None else math.inf
+
+    def _decision_period(self) -> int:
+        """The period a decision falls in: the last sample's, or the decision count."""
+        if self.every_hours is None:
+            self._decision_count += 1
+            return self._decision_count - 1
+        return max(self._next_period - 1, 0)
+
+    def _close_decision(self, after: Snapshot) -> None:
+        if self._pending is not None:
+            before, actor, action = self._pending
+            self._add(before, action, actor, "decision", after)
+            self._pending = None
 
     def _sample(self, t: float) -> None:
         snapshot = self.snapshot(t, self._next_period)
