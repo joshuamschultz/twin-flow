@@ -296,17 +296,25 @@ class Location:
         part" starts at `None`) has no established group yet, so the group is read
         off the head of the DISPATCH-ORDERED queue — the job the active-control rule
         would run first sets the machine's initial setup.
+
+        The current group is a preference, never a lock (D-047: a job outside the
+        current setup pays the changeover). Locations that share one machine each
+        stamp their own `setup_key` on it, so the machine can sit idle in another
+        location's group that none of this queue belongs to. Holding out for that
+        group would park the queue until an arrival that can never match, so the
+        head of the dispatch order sets the target instead.
         """
+        if not ordered:
+            return None
+        setup_key_of = self.spec.pull_rule.setup_key_of
         current = (
             self._available_machines[0].current_setup
             if len(self._available_machines) == 1
             else None
         )
-        if current is not None:
+        if current is not None and any(setup_key_of[b.thing] == current for b in ordered):
             return current
-        if not ordered:
-            return None
-        return self.spec.pull_rule.setup_key_of[ordered[0].thing]
+        return setup_key_of[ordered[0].thing]
 
     def _dispatch_order(self) -> list[Bundle]:
         """The queue re-sequenced by the active-control dispatch rule (A1).

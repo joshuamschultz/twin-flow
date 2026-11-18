@@ -108,8 +108,8 @@ What this says:
 - Every fitting and every bracket ships on time.
 - Valve bodies are late. WO-26110 for Summit Valve is late in every run, by about 5 days.
   WO-26107 and WO-26112 are late in 16 runs of 20. WO-26105 is a coin flip.
-- **The bottleneck is the valve-body mill (`mill_VB`).** It is busy 95% of the clock.
-  The next busiest machine is the lathe at 25%.
+- **The bottleneck is the valve-body mill (`mill_VB`).** It is busy 93% of its on-shift
+  hours. The next busiest machine is the bracket mill at 31%.
 
 ### Test one change: a third machinist, or a second mill
 
@@ -132,7 +132,9 @@ How to read it: `on_time_pct` is the share of orders on time, averaged over 20 r
 ### The state of the shop over time
 
 This run saves the state of the shop every 8 hours, with the money. `states` reads it.
-Each state lists the setup of each machine: `idle` means the machine has no job.
+Each state lists the setup of each machine: `idle` means the machine has no job. The saw
+and the inspection station (CMM) serve all three parts, so their setup names the part:
+`saw_bar`, `saw_block` and `saw_plate`, and `cmm_FTG`, `cmm_VB` and `cmm_MB`.
 
 --- code
 !twinflow scenario run ridgeline.twin.yaml --out runs/capture --summary
@@ -144,9 +146,10 @@ Each state lists the setup of each machine: `idle` means the machine has no job.
 !twinflow markov runs/capture --view full --top 4
 
 --- markdown
-In almost 9 of 10 snapshots every machine has a job set up: the shop is full. The ledger
-shows the cost of that: late fees of about $29,500 over 5 runs, or about $5,900 for each
-three-week order book.
+In the five most common states every machine has a job set up: the shop is full. The saw
+and the CMM change setup as the part mix moves, and each change costs $90 in the ledger
+($11,430 over 5 runs). The late fees cost more: about $29,500 over 5 runs, or about $5,900
+for each three-week order book.
 
 ## (d) Your rules
 
@@ -173,8 +176,8 @@ The twin runs every mix: 2 times 2 is 4 cases. To try a third machinist only, wr
 - **Which orders are at risk:** four Summit Valve and Delta Pumps valve-body orders
   (WO-26105, WO-26107, WO-26110, WO-26112). Call those customers today. Every fitting and
   bracket order ships on time.
-- **What holds them up:** the valve-body mill. It is busy 95% of the clock, while the lathe
-  and the bracket mill are about 25%.
+- **What holds them up:** the valve-body mill. It is busy 93% of its on-shift hours, while
+  the bracket mill is about 31% and the lathe about 22%.
 - **The decision:** do not hire a third machinist to fix this. It moves on-time from 79.7%
   to 80.3%, because the people are not the constraint. The machine is.
 - **Add valve-body mill capacity.** A second VF-2 moves on-time to 95.7%. Late fees now

@@ -74,3 +74,52 @@ def test_a_due_time_of_midnight_prints_as_the_end_of_the_day_before() -> None:
     origin = datetime.fromisoformat("2026-11-16T06:00:00-06:00")
     assert _when(18 * 3600, origin, due=True) == "Mon Nov 16 24:00"
     assert _when(18 * 3600, origin) == "Tue Nov 17 00:00"
+
+
+_PAUSED_SHOP = """
+defaults: {cycle_time_cv: 0.0}
+stocks: []
+part_types:
+  - {name: raw, uom: piece, attributes: {}}
+  - {name: done, uom: piece, attributes: {}}
+machines: [{name: m}]
+labor:
+  pools:
+    - name: p
+      skills: [s]
+      headcount: 1
+      calendar:
+        timezone: UTC
+        origin: "2026-09-14T06:00:00+00:00"
+        weekly:
+          - {days: [mon, tue, wed, thu, fri, sat, sun], start: "06:00", end: "22:00"}
+processes: []
+bom: []
+locations:
+  - {name: cut, consumes: [{thing: raw, qty: 1, uom: piece}],
+     emits: [{thing: done, qty: 1, uom: piece}], setup_key: g,
+     time_model: {kind: rate_based, rate: 0.000277777777778}, machine: m, labor_skill: s,
+     shift_crossing: pause}
+routing:
+  - {part: done, steps: [cut]}
+"""
+
+# Job A: 18 h of work from Mon 06:00, paused overnight, done Tue 08:00 (26 h).
+# Job B: 2 h of work from Tue 12:00 (30 h), done Tue 14:00 (32 h, the horizon).
+_PAUSED_PLAN = (
+    "work_order_id,part,qty,start_date,due_date\nA,done,18,0,999999\nB,done,2,108000,999999\n"
+)
+
+
+def test_busiest_share_is_of_on_shift_time_not_the_paused_night(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "shop"
+    folder.mkdir()
+    (folder / "model.yaml").write_text(_PAUSED_SHOP, encoding="utf-8")
+    (folder / "plan.csv").write_text(_PAUSED_PLAN, encoding="utf-8")
+    printed = _run(folder, 1, capsys, tmp_path, monkeypatch)
+    busiest = [line for line in printed.splitlines() if line.startswith("Busiest work centers:")]
+    # 20 h of work in 24 h on shift is 83%. Counting the 8 h night A sat paused
+    # would say 28 h busy of a 32 h clock, 87%.
+    assert busiest == ["Busiest work centers: cut 83% (busy share of on-shift time)"]

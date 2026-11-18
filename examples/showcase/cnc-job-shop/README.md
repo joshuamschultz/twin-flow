@@ -19,7 +19,7 @@ and ends with the decision. The answers are saved in it.
 ## The answer, in short
 
 - Four valve-body orders are at risk. Fittings and brackets ship on time.
-- The valve-body mill is the bottleneck: busy 95% of the clock.
+- The valve-body mill is the bottleneck: busy 93% of its on-shift hours.
 - A third machinist barely helps (79.7% to 80.3% on time). A second valve-body mill
   lifts on-time to 95.7%.
 
@@ -43,5 +43,6 @@ Each `run` prints a folder under `runs/` with a `report.html` to open in a web b
 - `start_date` and `due_date` can be plain dates because the shop file has a work
   calendar. Its `origin` (Monday 6 am) is time zero. A due date with no time means "by
   the end of that day".
-- Steps that share a machine (the saw, the inspection station) use the machine's name as
-  their `setup_key`. The setup time of each job is the `load` of its time model.
+- Steps that share a machine (the saw, the inspection station) each name their own
+  `setup_key`, one per part, so a switch between parts is a setup change. The setup time
+  of each job is the `load` of its time model.

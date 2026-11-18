@@ -109,20 +109,24 @@ class WorkingCalendar:
         simulation second 0, summing each interval's overlap with [0, horizon],
         so a split day (e.g. 04:00-07:00 and 19:00-20:00) counts both windows and
         the overnight gap between counts for nothing."""
-        if horizon <= 0:
-            return 0.0
+        return self.on_shift_seconds(0.0, horizon)
+
+    def on_shift_seconds(self, start: float, end: float) -> float:
+        """On-shift seconds inside [start, end]: the part of a busy interval that falls
+        in a shift. A job paused overnight (`shift_crossing: pause`) occupies its
+        machine through the night, but only its on-shift seconds are work."""
         total = 0.0
-        t = 0.0
-        while t < horizon:
+        t = start
+        while t < end:
             if not self.is_on_shift(t):
                 try:
                     t = self.next_shift_start(t)
                 except ValueError:
                     break  # no further shift within the calendar's search window
-                if t >= horizon:
+                if t >= end:
                     break
             shift_end = self.current_shift_end(t)
-            total += min(shift_end, horizon) - t
+            total += min(shift_end, end) - t
             t = shift_end
         return total
 
@@ -169,3 +173,7 @@ class AlwaysWorkingCalendar:
         """A resource with no declared schedule is open 24/7, so all of [0, horizon]
         is operating time."""
         return max(0.0, horizon)
+
+    def on_shift_seconds(self, start: float, end: float) -> float:
+        """Always on shift, so all of [start, end] is on-shift time."""
+        return max(0.0, end - start)

@@ -35,7 +35,7 @@ from twinflow.application.portfolio_port import PortfolioApi, load_portfolio_api
 from twinflow.application.workspace import Workspace
 from twinflow.mcp.guard import ToolGuard
 from twinflow.mcp.spec import ToolServices
-from twinflow.model import load_model
+from twinflow.model import load_model, plan_origin
 from twinflow.modules import (
     COSTS,
     MODELS,
@@ -71,6 +71,7 @@ from twinflow.service.workspace import workspace_router
 
 if TYPE_CHECKING:
     from twinflow.mcp.http import McpEndpoint
+    from twinflow.plan.loader import WorkOrder
 
 log = logging.getLogger(__name__)
 
@@ -414,13 +415,19 @@ def _jobs_router(jobs: JobStore) -> APIRouter:
     return router
 
 
+def _load_job_plan(model_path: str, plan_path: str) -> list[WorkOrder]:
+    """The plan an engine job runs, its calendar dates counted from the shop's work
+    calendar origin, exactly as the CLI reads it (TF-006)."""
+    compiled = load_model(model_path)
+    return load_plan(plan_path, compiled.registry, origin=plan_origin(compiled))
+
+
 def _run_work(model_path: str, plan_path: str, reps: int) -> dict[str, Any]:
     from dataclasses import asdict
 
     from twinflow.adapters.fulfillment import compute_fulfillment
 
-    compiled = load_model(model_path)
-    plan = load_plan(plan_path, compiled.registry)
+    plan = _load_job_plan(model_path, plan_path)
     surface = ScoringSurface(model_path, plan, reps=reps)
     evaluation = surface.evaluate(Scenario(levers={}))
     return {
@@ -432,8 +439,7 @@ def _run_work(model_path: str, plan_path: str, reps: int) -> dict[str, Any]:
 
 
 def _sweep_work(model_path: str, plan_path: str, request: SweepRequest) -> dict[str, Any]:
-    compiled = load_model(model_path)
-    plan = load_plan(plan_path, compiled.registry)
+    plan = _load_job_plan(model_path, plan_path)
     surface = ScoringSurface(model_path, plan, reps=request.reps)
     keys = list(request.sweep)
     points: list[dict[str, Any]] = []
@@ -453,8 +459,7 @@ def _sweep_work(model_path: str, plan_path: str, request: SweepRequest) -> dict[
 def _optimize_work(
     model_path: str, plan_path: str, space: LeverSpace, request: OptimizeRequest
 ) -> dict[str, Any]:
-    compiled = load_model(model_path)
-    plan = load_plan(plan_path, compiled.registry)
+    plan = _load_job_plan(model_path, plan_path)
     result = optimize(
         model_path,
         plan,
