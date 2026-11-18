@@ -16,7 +16,11 @@ LEVELS = ["out", "low", "ok", "high"]
     ("label", "title", "setup"),
     [
         ("grey:high black:ok natural:low | black", "Grey high, natural low", "Press on black"),
-        ("grey:high black:low natural:low | grey", "Grey high, black and natural low", "Press on grey"),
+        (
+            "grey:high black:low natural:low | grey",
+            "Grey high, black and natural low",
+            "Press on grey",
+        ),
         ("grey:low black:low natural:ok | grey", "Grey and black low", "Press on grey"),
         ("grey:ok black:ok natural:ok | grey", "All stock OK", "Press on grey"),
         ("grey:low black:low natural:low | grey", "All stock low", "Press on grey"),
