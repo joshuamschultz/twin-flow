@@ -603,8 +603,8 @@
   white-space: nowrap;
 }
 .tf-tag.tf-pick {
-  background: var(--ba-accent);
-  border-color: var(--ba-accent);
+  background: var(--tf-pick-solid);
+  border-color: var(--tf-pick-solid);
   color: var(--ba-on-accent);
 }
 .tf-tag.tf-best {

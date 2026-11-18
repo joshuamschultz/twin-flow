@@ -1,5 +1,6 @@
-// The race view (DESIGN.md section 3). This build has the decision, the cautions, why it
-// wins and all rules. The explore sections come in the next builds (BUILD-PLAN phase C).
+// The race view (DESIGN.md section 3): the decision, the cautions, why it wins, all rules,
+// compare two, what if, floor replay, the state map and money leaks. Tuning and the full
+// Details come with B-23 and B-24. View state (a, b, day, map, state, tab) is in the URL.
 import { CautionCards } from "../CautionCards";
 import { CompareTable } from "../CompareTable";
 import { GapLine } from "../GapLine";
@@ -8,6 +9,8 @@ import { Leaderboard } from "../Leaderboard";
 import { Page, type SectionRef } from "../Page";
 import { STATE_SECTIONS, StateSections } from "../StateSections";
 import { Card, EmptyState, Section, SectionLink } from "../primitives";
+import { replayRuns } from "../replay";
+import { ReplayLanes } from "../ReplayLanes";
 import {
   beatToday,
   gapSeries,
@@ -19,29 +22,27 @@ import type { RaceViewModel } from "../types";
 import { Waterfall } from "../Waterfall";
 import { WhatIf } from "../WhatIfPanel";
 
+const EXPLORE: SectionRef[] = [
+  { id: "compare", label: "Compare two" },
+  { id: "whatif", label: "What if" },
+  { id: "replay", label: "Floor replay" },
+  ...STATE_SECTIONS,
+];
 const SECTIONS: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "why", label: "Why it wins" },
   { id: "rules", label: "All rules" },
-  { id: "compare", label: "Compare two" },
-  { id: "whatif", label: "What if" },
-  ...STATE_SECTIONS,
+  ...EXPLORE,
   { id: "details", label: "Details" },
 ];
 const NO_COMPARE: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "rules", label: "All rules" },
-  { id: "compare", label: "Compare two" },
-  { id: "whatif", label: "What if" },
-  ...STATE_SECTIONS,
+  ...EXPLORE,
   { id: "details", label: "Details" },
 ];
 
-const COMING = [
-  "Floor replay, day by day",
-  "Tuning",
-  "Full tables, method note and downloads",
-];
+const COMING = ["Tuning", "Full tables, method note and downloads"];
 
 function ProblemsBar({ model }: { model: RaceViewModel }) {
   const n = model.problems?.length ?? 0;
@@ -89,16 +90,20 @@ export function RaceView({ model }: { model: RaceViewModel }) {
         model={model}
         actions={
           <>
-            {compared && (
+            {compared ? (
               <SectionLink to="why" className="tf-btn tf-primary">
                 See why it wins
               </SectionLink>
+            ) : (
+              <SectionLink to="rules" className="tf-btn tf-primary">
+                See all rules
+              </SectionLink>
             )}
-            <SectionLink
-              to="rules"
-              className={"tf-btn" + (compared ? "" : " tf-primary")}
-            >
-              See all rules
+            <SectionLink to="replay" className="tf-btn">
+              Watch the floor
+            </SectionLink>
+            <SectionLink to="whatif" className="tf-btn">
+              Test my cost numbers
             </SectionLink>
           </>
         }
@@ -183,6 +188,21 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             runs={a.episodes}
           />
         </Section>
+        <Section
+          id="replay"
+          eyebrow="Floor replay"
+          question={`What does a normal ${a.horizon_days} days look like on the floor?`}
+          hint="One typical run, same customer orders for both rules. Drag the day, or click a chart."
+        >
+          <Card>
+            <ReplayLanes
+              runs={replayRuns(model)}
+              products={model.products}
+              families={model.families}
+              economics={model.economics}
+            />
+          </Card>
+        </Section>
         <StateSections model={model} />
         <Section id="details" eyebrow="Details" question="The full numbers">
           <EmptyState
@@ -190,9 +210,8 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             body={
               <>
                 <p>
-                  This build shows the decision, the cautions, why it wins, all
-                  rules, compare two, what if, the state map and money leaks.
-                  The next builds add:
+                  This build shows every section but Tuning and the full
+                  numbers. The next build adds:
                 </p>
                 <ul>
                   {COMING.map((c) => (

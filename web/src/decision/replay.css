@@ -137,7 +137,7 @@
 }
 .tf-rp-k {
   font-size: 11.5px;
-  color: var(--ba-meta);
+  color: var(--ba-body); /* --ba-meta on surface-2 is 3.7:1, under AA */
 }
 .tf-rp-v {
   font: 500 15px var(--ba-font-mono);
