@@ -11,7 +11,7 @@ import argparse
 import json
 from typing import Any, TypeVar
 
-from twinflow.cli._common import guarded, open_project
+from twinflow.cli._common import guarded, open_project, problem_count
 from twinflow.extensions.checker import check_project
 
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
@@ -34,23 +34,24 @@ def add_extensions_subcommands(subparsers: argparse._SubParsersAction[ParserT]) 
     check.set_defaults(handler=lambda args: guarded(_handle_check, args))
 
 
-def _row(entry: dict[str, Any]) -> dict[str, str]:
+def _row(entry: dict[str, Any], problems: int) -> dict[str, str]:
     return {
         "kind": str(entry["kind"]),
         "name": str(entry["name"]),
         "source": "builtin" if entry["source"] == "builtin" else "project",
         "overrides": str(entry["overrides"] or "-"),
-        "problems": str(len(entry["problems"])),
+        "problems": str(problems),
     }
 
 
 def _handle_list(args: argparse.Namespace) -> int:
     project = open_project(args.project)
     entries = project.extensions.listing()
+    problems = check_project(project)
     if args.as_json:
         print(json.dumps(entries, indent=2))
         return 0
-    rows = [_row(entry) for entry in entries]
+    rows = [_row(entry, problem_count(problems, entry)) for entry in entries]
     widths = {c: max(len(c), *(len(r[c]) for r in rows)) for c in _COLUMNS}
     print("  ".join(c.ljust(widths[c]) for c in _COLUMNS).rstrip())
     for row in rows:

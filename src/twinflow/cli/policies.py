@@ -10,9 +10,16 @@ from __future__ import annotations
 import argparse
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TypeVar
 
-from twinflow.cli._common import UserError, guarded, open_project, race_settings, staged_project
+from twinflow.cli._common import (
+    UserError,
+    guarded,
+    open_project,
+    problem_count,
+    race_settings,
+    staged_project,
+)
 from twinflow.extensions.checker import check_project
 from twinflow.extensions.loader import Problem
 from twinflow.extensions.project import Project
@@ -66,13 +73,6 @@ def _policy_problems(project: Project) -> list[Problem]:
     return [p for p in check_project(project) if p.kind not in others]
 
 
-def _problem_count(problems: list[Problem], entry: dict[str, Any]) -> int:
-    file = Path(entry["file"])
-    return sum(
-        1 for p in problems if p.file == file or (p.file is None and p.name == entry["name"])
-    )
-
-
 def _handle_list(args: argparse.Namespace) -> int:
     project = open_project(args.project)
     entries = [e for e in project.extensions.listing() if e["kind"] == "policy"]
@@ -87,7 +87,7 @@ def _handle_list(args: argparse.Namespace) -> int:
                 "builtin" if entry["source"] == "builtin" else "project",
                 ext.decision if ext is not None else "-",
                 ", ".join(ext.grid) if ext is not None and ext.grid else "-",
-                str(_problem_count(problems, entry)),
+                str(problem_count(problems, entry)),
             ]
         )
     for line in _table(_LIST_COLUMNS, rows):
