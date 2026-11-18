@@ -1,11 +1,11 @@
 // The sweep view (BUILD-PLAN.md B-35): "What one change would help most?" for a
 // `twinflow balance` or `twinflow optimize` folder. Built from the shared parts.
-import { MoneyFigure } from "../hero";
 import { Page, type SectionRef } from "../Page";
 import { Card, Section } from "../primitives";
 import { headlineParts, pct } from "../run";
 import { LeverList } from "../run/LeverList";
 import "../run/run.css";
+import { AnswerHero } from "../AnswerHero";
 import type { RunLever, SweepViewModel } from "../types";
 
 const SECTIONS: SectionRef[] = [
@@ -35,38 +35,41 @@ export function SweepView({ model }: { model: SweepViewModel }) {
         </>
       }
     >
-      <div className="tf-hero" id="answer" data-section="answer">
-        <div className="tf-wrap tf-hero-grid">
-          <div>
-            <div className="tf-eyebrow">What one change would help most?</div>
-            <h1>
-              {lead} {accent && <em>{accent}</em>}
-            </h1>
-            <p className="tf-lede">{answer.lede}</p>
-            <div className="tf-money-row rv-three">
-              {today != null && (
-                <MoneyFigure
-                  value={pct(today)}
-                  label="of orders on time today"
-                />
-              )}
-              {best?.on_time != null && (
-                <MoneyFigure
-                  small
-                  value={pct(best.on_time)}
-                  label="on time with the best change"
-                />
-              )}
-              {best?.late_orders_per_run != null && (
-                <MoneyFigure
-                  small
-                  value={f(best.late_orders_per_run)}
-                  label="late orders in a normal run"
-                />
-              )}
-            </div>
-          </div>
-          <div className="tf-floor">
+      <AnswerHero
+        id="answer"
+        eyebrow="What one change would help most?"
+        headline={
+          <>
+            {lead} {accent && <em>{accent}</em>}
+          </>
+        }
+        lede={answer.lede}
+        figures={[
+          ...(today != null
+            ? [{ value: pct(today), label: "of orders on time today" }]
+            : []),
+          ...(best?.on_time != null
+            ? [
+                {
+                  value: pct(best.on_time),
+                  label: "on time with the best change",
+                  small: true,
+                },
+              ]
+            : []),
+          ...(best?.late_orders_per_run != null
+            ? [
+                {
+                  value: f(best.late_orders_per_run),
+                  label: "late orders in a normal run",
+                  small: true,
+                },
+              ]
+            : []),
+        ]}
+        figuresLayout="three"
+        side={
+          <>
             <h3>What was tested</h3>
             <div className="tf-floor-row">
               <div>
@@ -91,9 +94,9 @@ export function SweepView({ model }: { model: SweepViewModel }) {
                   : "Add --run <run-id> to show these changes in a run viewer."}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
       <div className="tf-wrap">
         {model.warnings.map((w) => (
           <div className="rv-banner" role="status" key={w}>

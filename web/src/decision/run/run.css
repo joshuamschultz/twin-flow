@@ -1,11 +1,6 @@
 /* Run viewer and sweep view: only the parts that are theirs (DESIGN.md 4). The page,
    hero, cards, tables, pills, tags and tracks come from decision.css (tf-*). */
 
-.tf-money-row.rv-three {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
-  gap: 24px;
-}
 .rv-cmd {
   display: block;
   font: 12px var(--ba-font-mono);
@@ -374,9 +369,6 @@ button.rv-ord:hover {
   }
 }
 @media (max-width: 600px) {
-  .tf-money-row.rv-three {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .rv-flow-row {
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 8px;

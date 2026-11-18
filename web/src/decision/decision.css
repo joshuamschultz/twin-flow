@@ -985,3 +985,15 @@
 .tf-aside p {
   margin: 0 0 8px;
 }
+
+/* Three hero figures in their own columns (AnswerHero figuresLayout="three"). */
+.tf-money-row.tf-three {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 600px) {
+  .tf-money-row.tf-three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

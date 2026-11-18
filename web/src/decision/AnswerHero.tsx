@@ -4,13 +4,16 @@
 import type { ReactNode } from "react";
 import { ConfidenceBadge, MoneyFigure } from "./hero";
 
-export type HeroFigure = { value: string; label: string };
+/** A hero figure. Only the first is big unless `small` says otherwise. */
+export type HeroFigure = { value: string; label: string; small?: boolean };
 
 export function AnswerHero(props: {
   eyebrow: string;
   headline: ReactNode;
   lede?: ReactNode;
   figures?: HeroFigure[];
+  /** "three" gives three figures their own columns (run and sweep views). */
+  figuresLayout?: "row" | "three";
   /** How sure we are, as a badge from the view model. */
   badge?: { words: string; level: string; detail?: string | null };
   /** How sure we are, in free words, when there is no badge. */
@@ -24,6 +27,7 @@ export function AnswerHero(props: {
   id?: string;
   /** "h1" when the page has no other title, "h2" when it has. */
   level?: "h1" | "h2";
+  /** Shown under the lede, for example a command to run. */
   children?: ReactNode;
 }) {
   const { level = "h1", id = "decision", sideKind = "floor" } = props;
@@ -35,10 +39,21 @@ export function AnswerHero(props: {
           <div className="tf-eyebrow">{props.eyebrow}</div>
           <Title className="tf-answer">{props.headline}</Title>
           {props.lede && <p className="tf-lede">{props.lede}</p>}
+          {props.children}
           {!!props.figures?.length && (
-            <div className="tf-money-row">
+            <div
+              className={
+                "tf-money-row" +
+                (props.figuresLayout === "three" ? " tf-three" : "")
+              }
+            >
               {props.figures.slice(0, 3).map((f) => (
-                <MoneyFigure key={f.label} value={f.value} label={f.label} />
+                <MoneyFigure
+                  key={f.label}
+                  value={f.value}
+                  label={f.label}
+                  small={f.small}
+                />
               ))}
             </div>
           )}
@@ -48,7 +63,6 @@ export function AnswerHero(props: {
               {props.sure}
             </div>
           )}
-          {props.children}
           {props.actions && (
             <div className="tf-hero-actions">{props.actions}</div>
           )}

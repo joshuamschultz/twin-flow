@@ -1,13 +1,14 @@
 // The run viewer (DESIGN.md section 4): answer, orders at risk, choke point, best fix,
 // details. Data: RunViewModel (DATA-CONTRACT.md section 2).
 import { Page, type SectionRef } from "../Page";
-import { Card, EmptyState, Section } from "../primitives";
+import { Card, EmptyState, Section, SectionLink } from "../primitives";
 import { ChokeFlow } from "../run/ChokeFlow";
 import { LeverList } from "../run/LeverList";
 import { OrderRiskList } from "../run/OrderRiskList";
 import { RunDetails } from "../run/RunDetails";
-import { RunHero } from "../run/RunHero";
 import "../run/run.css";
+import { AnswerHero } from "../AnswerHero";
+import { headlineParts, heroFigures, sideRows } from "../run";
 import type { RunViewModel } from "../types";
 
 const SECTIONS: SectionRef[] = [
@@ -49,7 +50,7 @@ export function RunView({ model }: { model: RunViewModel }) {
         </>
       }
     >
-      <RunHero model={model} />
+      <RunAnswer model={model} />
       <div className="tf-wrap">
         {model.warnings.map((w) => (
           <div className="rv-banner" role="status" key={w}>
@@ -119,5 +120,63 @@ export function RunView({ model }: { model: RunViewModel }) {
         <RunDetails model={model} />
       </div>
     </Page>
+  );
+}
+
+/** The run viewer's answer (DESIGN.md 4.1) on the one AnswerHero. */
+function RunAnswer({ model }: { model: RunViewModel }) {
+  const { answer } = model;
+  const [lead, accent] = headlineParts(answer.headline);
+  const rows = sideRows(model);
+  const tested = model.levers.some((l) => l.tested);
+  return (
+    <AnswerHero
+      id="answer"
+      eyebrow="Will my orders finish on time?"
+      headline={
+        <>
+          {lead} {accent && <em>{accent}</em>}
+        </>
+      }
+      lede={answer.lede}
+      figures={heroFigures(model).map((f, i) => ({ ...f, small: i > 0 }))}
+      figuresLayout="three"
+      actions={
+        <>
+          <SectionLink to="orders" className="tf-btn tf-primary">
+            See orders at risk
+          </SectionLink>
+          <SectionLink to="fix" className="tf-btn">
+            {tested ? "See the best fix" : "See what to test"}
+          </SectionLink>
+        </>
+      }
+      side={
+        <>
+          <h3>The one change that helps most</h3>
+          {rows.map((r) => (
+            <div className="tf-floor-row" key={r.key}>
+              <div>
+                <div className="tf-k">{r.key}</div>
+                <div className="tf-ft">
+                  {r.from && <s>{r.from}</s>} {r.value}
+                </div>
+              </div>
+              {r.delta && (
+                <div className={"tf-d" + (r.warn ? " tf-warn" : "")}>
+                  {r.delta}
+                </div>
+              )}
+              {r.why && <div className="tf-why">{r.why}</div>}
+              {r.command && <code className="rv-cmd">{r.command}</code>}
+            </div>
+          ))}
+        </>
+      }
+    >
+      {answer.command && (
+        <code className="rv-cmd rv-cmd-hero">{answer.command}</code>
+      )}
+    </AnswerHero>
   );
 }
