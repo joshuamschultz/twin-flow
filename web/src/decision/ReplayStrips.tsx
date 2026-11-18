@@ -1,5 +1,8 @@
 // Floor replay strips (DESIGN.md 3.7): Press, Setup $ and Stock on one shared day axis.
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChartFrame } from "./ChartFrame";
+import { usd } from "./format";
+import { useTipProps } from "./Tooltip";
 import {
   cellIndexOfDay,
   cellLevel,
@@ -7,7 +10,6 @@ import {
   colourChanges,
   dayBuckets,
   dayFacts,
-  money,
   outProductDays,
   pressWords,
   stockRows,
@@ -61,17 +63,7 @@ const LEVEL_FILL: Record<StockLevel, string> = {
   high: "var(--tf-seq-3)",
 };
 
-type Tip = (text: string | null, x?: number, y?: number) => void;
-
-function tipHandlers(text: string, onTip: Tip) {
-  return {
-    onPointerEnter: (e: React.PointerEvent<SVGElement>) =>
-      onTip(text, e.clientX, e.clientY),
-    onPointerDown: (e: React.PointerEvent<SVGElement>) =>
-      onTip(text, e.clientX, e.clientY),
-    onPointerLeave: () => onTip(null),
-  };
-}
+type Tip = ReturnType<typeof useTipProps>;
 
 // ---------- strips ----------
 
@@ -109,7 +101,7 @@ export function PressStrip(props: {
             rx={1.5}
             fill={familyColour(c.family, families)}
             className={rest ? "tf-rp-rest" : undefined}
-            {...tipHandlers(pressWords(c, economics), onTip)}
+            {...onTip(pressWords(c, economics))}
           />
         );
       })}
@@ -148,7 +140,7 @@ export function SetupStrip(props: {
               height={h}
               rx={1}
               className={kind === "colour" ? "tf-rp-colour" : "tf-rp-size"}
-              {...tipHandlers(pressWords(c, economics), onTip)}
+              {...onTip(pressWords(c, economics))}
             />
           );
         }
@@ -165,7 +157,7 @@ export function SetupStrip(props: {
             height={h}
             rx={1}
             className={c.changes ? "tf-rp-colour" : "tf-rp-size"}
-            {...tipHandlers(pressWords(c, economics), onTip)}
+            {...onTip(pressWords(c, economics))}
           />
         );
       })}
@@ -241,7 +233,7 @@ export function StockStrip(props: {
                 width={Math.max(0.5, scale.cw - 1)}
                 height={h - 1}
                 fill={LEVEL_FILL[level]}
-                {...tipHandlers(stockWords(c, row, products), onTip)}
+                {...onTip(stockWords(c, row, products))}
               />
             );
           })}
@@ -249,26 +241,6 @@ export function StockStrip(props: {
       ))}
     </g>
   );
-}
-
-// ---------- width ----------
-
-export function useWidth<T extends HTMLElement>(): [
-  React.RefObject<T>,
-  number,
-] {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setWidth(el.clientWidth);
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, width];
 }
 
 // ---------- one lane's strips with frame, ticks, tooltip and table ----------
@@ -305,7 +277,7 @@ export function ReplayTable({
 }) {
   return (
     <div className="tf-rp-tablewrap">
-      <table className="tf-rp-table">
+      <table className="tf-table">
         <thead>
           <tr>
             <th scope="col">Day</th>
@@ -326,8 +298,8 @@ export function ReplayTable({
                 <td>{f.makes}</td>
                 <td>{f.change}</td>
                 <td>{f.out.length ? f.out.join(", ") : "None"}</td>
-                <td>{money(f.profitToday)}</td>
-                <td>{money(f.profitSoFar)}</td>
+                <td>{usd(f.profitToday)}</td>
+                <td>{usd(f.profitSoFar)}</td>
               </tr>
             );
           })}
@@ -352,12 +324,8 @@ export function StripStack(props: {
     () => props.families ?? [...new Set(products.map((p) => p.family ?? ""))],
     [props.families, products],
   );
-  const [box, width] = useWidth<HTMLDivElement>();
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const [table, setTable] = useState(false);
-  const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(
-    null,
-  );
+  const onTip = useTipProps();
 
   const cells = useMemo(() => dayBuckets(run.days), [run.days]);
   const rows = useMemo(
@@ -370,7 +338,6 @@ export function StripStack(props: {
     ...rows.map((r) => r.label.length + (r.group ? 2 : 0)),
   );
   const x0 = Math.min(120, Math.max(50, Math.round(longest * 6.4 + 10)));
-  const scale = makeScale(cells.length, width, x0);
   const pressY = 4;
   const setupY = pressY + PRESS_H + 6;
   const stockTop = setupY + SETUP_H + 12;
@@ -386,116 +353,88 @@ export function StripStack(props: {
       return next;
     });
 
-  const onTip: Tip = (text, x = 0, y = 0) => {
-    if (!text || !box.current) return setTip(null);
-    const r = box.current.getBoundingClientRect();
-    setTip({ text, x: x - r.left, y: y - r.top });
-  };
-
-  const click = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!onDay) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    const i = scale.indexAt(e.clientX - r.left);
-    if (i >= 0 && i < cells.length) onDay(cells[i].start);
+  const chart = (width: number) => {
+    const scale = makeScale(cells.length, width, x0);
+    const click = (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!onDay) return;
+      const r = e.currentTarget.getBoundingClientRect();
+      const i = scale.indexAt(e.clientX - r.left);
+      if (i >= 0 && i < cells.length) onDay(cells[i].start);
+    };
+    return (
+      <svg
+        aria-hidden="true"
+        width={width}
+        height={height}
+        onClick={click}
+        className={onDay ? "tf-rp-svg tf-rp-click" : "tf-rp-svg"}
+      >
+        <PressStrip
+          cells={cells}
+          scale={scale}
+          y={pressY}
+          families={families}
+          economics={economics}
+          onTip={onTip}
+        />
+        <SetupStrip
+          cells={cells}
+          scale={scale}
+          y={setupY}
+          economics={economics}
+          onTip={onTip}
+        />
+        <StockStrip
+          cells={cells}
+          scale={scale}
+          rows={layout.rows}
+          products={products}
+          onTip={onTip}
+          onToggle={toggle}
+        />
+        <rect
+          className="tf-rp-frame"
+          data-frame={cells[sel]?.start}
+          x={scale.x(sel) - 0.75}
+          y={0.75}
+          width={scale.cw + 1.5}
+          height={layout.bottom + 2}
+          rx={2}
+        />
+        {ticks(cells).map((t) => {
+          const i = cellIndexOfDay(cells, t);
+          const c = cells[i];
+          const frac =
+            c.end === c.start
+              ? 0.5
+              : (t - c.start + 0.5) / (c.end - c.start + 1);
+          return (
+            <text
+              key={t}
+              x={scale.x(i) + frac * scale.cw}
+              y={height - 6}
+              textAnchor="middle"
+              className="tf-rp-tick"
+            >
+              {t}
+            </text>
+          );
+        })}
+      </svg>
+    );
   };
 
   return (
     <div className="tf-rp-stack">
-      <div className="tf-rp-tools">
-        <button
-          type="button"
-          className="tf-rp-btn tf-rp-small"
-          aria-pressed={table}
-          onClick={() => setTable((t) => !t)}
-        >
-          {table ? "Show as chart" : "Show as table"}
-        </button>
-      </div>
-      {table && (
-        <ReplayTable run={run} products={products} economics={economics} />
-      )}
-      <div
-        ref={box}
-        className="tf-rp-chart"
-        hidden={table}
-        onPointerLeave={() => setTip(null)}
+      <ChartFrame
+        label={laneLabel(label, run, products)}
+        table={() => (
+          <ReplayTable run={run} products={products} economics={economics} />
+        )}
       >
-        {width > 0 && (
-          <svg
-            role="img"
-            aria-label={laneLabel(label, run, products)}
-            width={width}
-            height={height}
-            onClick={click}
-            className={onDay ? "tf-rp-svg tf-rp-click" : "tf-rp-svg"}
-          >
-            <PressStrip
-              cells={cells}
-              scale={scale}
-              y={pressY}
-              families={families}
-              economics={economics}
-              onTip={onTip}
-            />
-            <SetupStrip
-              cells={cells}
-              scale={scale}
-              y={setupY}
-              economics={economics}
-              onTip={onTip}
-            />
-            <StockStrip
-              cells={cells}
-              scale={scale}
-              rows={layout.rows}
-              products={products}
-              onTip={onTip}
-              onToggle={toggle}
-            />
-            <rect
-              className="tf-rp-frame"
-              data-frame={cells[sel]?.start}
-              x={scale.x(sel) - 0.75}
-              y={0.75}
-              width={scale.cw + 1.5}
-              height={layout.bottom + 2}
-              rx={2}
-            />
-            {ticks(cells).map((t) => {
-              const i = cellIndexOfDay(cells, t);
-              const c = cells[i];
-              const frac =
-                c.end === c.start
-                  ? 0.5
-                  : (t - c.start + 0.5) / (c.end - c.start + 1);
-              return (
-                <text
-                  key={t}
-                  x={scale.x(i) + frac * scale.cw}
-                  y={height - 6}
-                  textAnchor="middle"
-                  className="tf-rp-tick"
-                >
-                  {t}
-                </text>
-              );
-            })}
-          </svg>
-        )}
-        {tip && (
-          <div
-            role="tooltip"
-            className="tf-rp-tip"
-            style={{
-              left: Math.min(Math.max(0, tip.x + 12), Math.max(0, width - 240)),
-              top: tip.y + 14,
-            }}
-          >
-            {tip.text}
-          </div>
-        )}
-      </div>
-      {grouped && !table && (
+        {chart}
+      </ChartFrame>
+      {grouped && (
         <div className="tf-rp-families">
           {rows
             .filter((r) => r.group)
@@ -503,7 +442,7 @@ export function StripStack(props: {
               <button
                 key={r.key}
                 type="button"
-                className="tf-rp-btn tf-rp-small"
+                className="tf-btn"
                 aria-expanded={r.open}
                 onClick={() => toggle(r.family ?? "")}
               >

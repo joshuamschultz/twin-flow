@@ -61,11 +61,11 @@ test("hovering a cell shows its sentence", async ({ page }) => {
   await openFixture(page, url, { kind: "strips", model: fullModel() });
   const pick = page.locator("[data-lane='family_campaign']");
   await pick.locator("[data-press]").nth(8).hover();
-  await expect(pick.getByRole("tooltip")).toHaveText(
+  await expect(page.getByRole("tooltip")).toHaveText(
     "Day 9: makes BLK-M. Colour change to black ($1,200, half the day lost).",
   );
   await pick.locator("[data-row='BLK-S'] [data-level]").nth(8).hover();
-  await expect(pick.getByRole("tooltip")).toHaveText(
+  await expect(page.getByRole("tooltip")).toHaveText(
     "BLK-S, day 9: out of stock.",
   );
 });

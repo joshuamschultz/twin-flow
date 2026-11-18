@@ -65,7 +65,8 @@ test("keys: Page Up and Down move 10 days, End and Home jump", async ({
   await expect(slider).toHaveValue("60");
   await page.keyboard.press("Home");
   await expect(slider).toHaveValue("1");
-  await expect(page).toHaveURL(/#tab=replay&day=1$/);
+  // Day 1 is the default, so the shared view state drops it from the URL.
+  await expect(page).toHaveURL(/#tab=replay$/);
 });
 
 test("clicking a cell jumps to that day in both lanes", async ({ page }) => {

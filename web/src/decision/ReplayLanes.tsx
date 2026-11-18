@@ -3,43 +3,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   dayFacts,
   keyDay,
-  money,
   nextPlayDay,
+  parseDay,
   PLAY_MS,
-  readHashDay,
   replayTakeaway,
-  writeHashDay,
   type ReplayRun,
 } from "./replay";
+import { usd } from "./format";
+import { EmptyState, Tag, Takeaway } from "./primitives";
 import { familyColour, StripStack } from "./ReplayStrips";
+import { useViewState } from "./viewState";
 import type { Economics, ExampleRun, Product } from "./types";
 import "./replay.css";
-
-/** Day state kept in the URL hash (`#tab=replay&day=9`), so a shared link opens the same day. */
-export function useHashDay(
-  max: number,
-  start = 1,
-): [number, (day: number) => void] {
-  const read = () =>
-    typeof window === "undefined"
-      ? null
-      : readHashDay(window.location.hash, max);
-  const [day, setDay] = useState<number>(() => read() ?? start);
-  useEffect(() => {
-    const onHash = () => {
-      const d = read();
-      if (d !== null) setDay(d);
-    };
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, [max]);
-  const set = useCallback((d: number) => {
-    setDay(d);
-    const hash = writeHashDay(window.location.hash, d);
-    window.history.replaceState(null, "", hash);
-  }, []);
-  return [day, set];
-}
 
 export function DayFacts(props: {
   run: ExampleRun;
@@ -71,7 +46,7 @@ export function DayFacts(props: {
         </div>
         <div data-fact="profit">
           <div className="tf-rp-k">Profit so far</div>
-          <div className="tf-rp-v">{money(f.profitSoFar)}</div>
+          <div className="tf-rp-v">{usd(f.profitSoFar)}</div>
         </div>
       </div>
       <p
@@ -95,7 +70,7 @@ export function Scrubber(props: {
   const { day, max, playing, onDay, onPlay } = props;
   return (
     <div className="tf-rp-scrub">
-      <button type="button" className="tf-rp-btn tf-rp-play" onClick={onPlay}>
+      <button type="button" className="tf-btn tf-rp-play" onClick={onPlay}>
         <span aria-hidden="true">{playing ? "❚❚" : "▶"}</span>{" "}
         {playing ? "Pause" : "Play"}
       </button>
@@ -125,7 +100,7 @@ export function Scrubber(props: {
 
 function Legend({ families }: { families: string[] }) {
   return (
-    <div className="tf-rp-legend">
+    <div className="tf-legend">
       {families.map((f, i) => (
         <span key={f}>
           <i style={{ background: familyColour(f, families) }} />
@@ -171,9 +146,10 @@ export function ReplayLanes(props: {
     ...new Set(products.map((p) => p.family ?? "")),
   ];
   const max = Math.max(1, ...runs.map((r) => r.run.days.length));
-  const [hashDay, setHashDay] = useHashDay(max);
-  const day = Math.min(max, props.day ?? hashDay);
-  const setDay = props.onDay ?? setHashDay;
+  const [urlDay, setUrlDay] = useViewState("day", "1");
+  const day = Math.min(max, props.day ?? parseDay(urlDay, max));
+  const setUrl = useCallback((d: number) => setUrlDay(String(d)), [setUrlDay]);
+  const setDay = props.onDay ?? setUrl;
 
   const [playing, setPlaying] = useState(false);
   const dayRef = useRef(day);
@@ -204,10 +180,10 @@ export function ReplayLanes(props: {
 
   if (!runs.length) {
     return (
-      <div className="tf-rp-empty">
-        <b>No run to replay.</b> The race kept no day-by-day moves for these
-        rules.
-      </div>
+      <EmptyState
+        title="No run to replay."
+        body="The race kept no day-by-day moves for these rules."
+      />
     );
   }
 
@@ -225,14 +201,7 @@ export function ReplayLanes(props: {
         {runs.map((r) => (
           <div key={r.id} className="tf-rp-lane" data-lane={r.id}>
             <h3 className="tf-rp-h3">
-              {TAG_WORDS[r.tag]}{" "}
-              <span
-                className={
-                  r.tag === "pick" ? "tf-rp-tag tf-rp-tag-pick" : "tf-rp-tag"
-                }
-              >
-                {r.label}
-              </span>
+              {TAG_WORDS[r.tag]} <Tag kind={r.tag}>{r.label}</Tag>
             </h3>
             <StripStack
               label={`${TAG_WORDS[r.tag]}, ${r.label}`}
@@ -253,7 +222,7 @@ export function ReplayLanes(props: {
           </div>
         ))}
       </div>
-      <p className="tf-rp-takeaway">{replayTakeaway(runs, products)}</p>
+      <Takeaway>{replayTakeaway(runs, products)}</Takeaway>
     </div>
   );
 }

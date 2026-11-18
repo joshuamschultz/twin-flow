@@ -1,4 +1,5 @@
 // Pure helpers for the floor replay (DESIGN.md 3.7). No React here, so vitest can cover them.
+import { usd } from "./format";
 import type {
   Day,
   Economics,
@@ -206,16 +207,7 @@ export function rowDaysOfStock(
   );
 }
 
-// ---------- money and words ----------
-
-const MINUS = "−";
-
-export function money(value: number, signed = false): string {
-  const n = Math.round(value);
-  const body = `$${Math.abs(n).toLocaleString("en-US")}`;
-  if (n < 0) return MINUS + body;
-  return signed && n > 0 ? `+${body}` : body;
-}
+// ---------- words ----------
 
 export function lostWords(share: number | null | undefined): string | null {
   if (!share || share <= 0) return null;
@@ -260,7 +252,7 @@ export function changeSentence(day: Day, economics?: Economics): string {
   if (kind === "none") return "No changeover.";
   const cost = changeCost(day, kind, economics);
   const lost = lostWords(changeShare(kind, economics));
-  const extra = [cost === null ? null : money(cost), lost]
+  const extra = [cost === null ? null : usd(cost), lost]
     .filter(Boolean)
     .join(", ");
   const head =
@@ -308,7 +300,7 @@ export function dayFacts(
     profitToday: day.profit,
     profitSoFar: day.cumulative,
     change,
-    sentence: `Day ${day.day}. ${change} ${outText} Profit today: ${money(day.profit)}.`,
+    sentence: `Day ${day.day}. ${change} ${outText} Profit today: ${usd(day.profit)}.`,
   };
 }
 
@@ -427,14 +419,8 @@ export function nextPlayDay(day: number, max: number): number | null {
 /** About 3 days a second (DESIGN.md 8.3). */
 export const PLAY_MS = 333;
 
-export function readHashDay(hash: string, max: number): number | null {
-  const raw = new URLSearchParams(hash.replace(/^#/, "")).get("day");
-  if (raw === null || !/^\d+$/.test(raw)) return null;
+/** The day from the URL value (`day=9`), clamped to the run. Bad values give day 1. */
+export function parseDay(raw: string, max: number): number {
+  if (!/^\d+$/.test(raw)) return 1;
   return Math.min(max, Math.max(1, Number(raw)));
-}
-
-export function writeHashDay(hash: string, day: number): string {
-  const params = new URLSearchParams(hash.replace(/^#/, ""));
-  params.set("day", String(day));
-  return `#${params.toString()}`;
 }

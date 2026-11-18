@@ -6,10 +6,9 @@ import {
   dayFacts,
   keyDay,
   nextPlayDay,
-  readHashDay,
+  parseDay,
   replayRuns,
   replayTakeaway,
-  writeHashDay,
 } from "../../src/decision/replay";
 
 const FULL = fileURLToPath(
@@ -70,12 +69,11 @@ describe("replay controls (B-19)", () => {
     expect(nextPlayDay(60, 60)).toBeNull();
   });
 
-  it("reads and writes day in the URL hash, keeping other keys", () => {
-    expect(readHashDay("#tab=replay&day=9", 60)).toBe(9);
-    expect(readHashDay("#day=99", 60)).toBe(60);
-    expect(readHashDay("#day=x", 60)).toBeNull();
-    expect(readHashDay("", 60)).toBeNull();
-    expect(writeHashDay("#tab=replay&day=9", 12)).toBe("#tab=replay&day=12");
-    expect(writeHashDay("", 3)).toBe("#day=3");
+  it("reads the day from the URL value, clamped to the run", () => {
+    expect(parseDay("9", 60)).toBe(9);
+    expect(parseDay("99", 60)).toBe(60);
+    expect(parseDay("0", 60)).toBe(1);
+    expect(parseDay("x", 60)).toBe(1);
+    expect(parseDay("", 60)).toBe(1);
   });
 });

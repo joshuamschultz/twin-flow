@@ -4,6 +4,8 @@ import ReactDOM from "react-dom/client";
 import "../../../src/index.css";
 import "../../../src/decision/tokens.css";
 import "../../../src/decision/fonts/fonts.css";
+import "../../../src/decision/decision.css";
+import { TooltipHost } from "../../../src/decision/Tooltip";
 import { ReplayLanes } from "../../../src/decision/ReplayLanes";
 import { StripStack } from "../../../src/decision/ReplayStrips";
 import { replayRuns } from "../../../src/decision/replay";
@@ -48,6 +50,8 @@ function App({ data }: { data: Fixture }) {
 const data = (window as unknown as { __REPLAY__: Fixture }).__REPLAY__;
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App data={data} />
+    <TooltipHost>
+      <App data={data} />
+    </TooltipHost>
   </React.StrictMode>,
 );
