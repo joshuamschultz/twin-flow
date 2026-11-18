@@ -319,6 +319,10 @@ class ScenarioCapsule:
             issues.append(
                 ValidationIssue("$.experiment.seed", f"must be an integer from 0 to {MAX_SEED}")
             )
+        if "state_capture" in self.experiment:
+            issues.extend(
+                _state_capture_issues(self.experiment["state_capture"], domain, self.model)
+            )
         with tempfile.TemporaryDirectory(prefix="twinflow-validate-") as folder:
             if isinstance(domain, str) and domain != "manufacturing" and adapter is None:
                 return issues
@@ -464,6 +468,36 @@ class ScenarioCapsule:
         if scenario_id is not None:
             data["experiment"]["id"] = scenario_id
         return ScenarioCapsule.from_dict(data)
+
+
+def _state_capture_issues(
+    raw: object, domain: object, model: Mapping[str, Any]
+) -> list[ValidationIssue]:
+    """Check `experiment.state_capture` and, when it is on, the model's `economics` errors.
+
+    Economics info issues (a missing price, say) do not block a run: money just counts $0
+    (D-133); `evaluate_capsule` reports them with the result.
+    """
+    from twinflow.engines.des import parse_state_capture
+    from twinflow.engines.des_ledger import des_economics
+
+    if domain != "manufacturing":
+        return [
+            ValidationIssue(
+                "$.experiment.state_capture",
+                "state_capture works only for manufacturing (discrete-event) models",
+                suggestion="Remove state_capture from this capsule",
+            )
+        ]
+    capture, problems = parse_state_capture(raw)
+    found = [ValidationIssue(f"$.{p.path}", p.message, p.severity, p.suggestion) for p in problems]
+    if capture is not None:
+        found.extend(
+            ValidationIssue(f"$.model.{p.path}", p.message, p.severity, p.suggestion)
+            for p in des_economics(model)[1]
+            if p.severity == "error"
+        )
+    return found
 
 
 def _write_plan(rows: list[Any], path: Path) -> None:

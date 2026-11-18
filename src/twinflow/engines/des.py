@@ -28,15 +28,69 @@ Decision moves carry no dollars; the money sits on the period moves (COMP-153,
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from twinflow.engines.des_ledger import period_ledger
 from twinflow.plan.observers import RunView
 from twinflow.state.economics import Economics
+from twinflow.state.issues import Issue, unknown_keys
 from twinflow.state.recorder import StateRecorder
 from twinflow.state.records import Ledger, Move, Snapshot
 
 SECONDS_PER_HOUR = 3600.0
+STATE_CAPTURE_FIELDS: tuple[str, ...] = ("every_hours", "decisions")
+
+
+@dataclass(frozen=True)
+class StateCapture:
+    """The parsed `experiment.state_capture: {every_hours, decisions}` block (T-248)."""
+
+    every_hours: float | None = None
+    decisions: bool = False
+
+    def observer(self, economics: Economics | None = None, *, run_id: str = "") -> DesStateObserver:
+        """A fresh observer for one replication."""
+        return DesStateObserver(
+            self.every_hours, decisions=self.decisions, economics=economics, run_id=run_id
+        )
+
+
+def parse_state_capture(
+    raw: object, path: str = "experiment.state_capture"
+) -> tuple[StateCapture | None, list[Issue]]:
+    """Read the block; problems are plain-word errors naming the field (REQ-213)."""
+    fix = "Write state_capture: {every_hours: 4, decisions: true}."
+    if not isinstance(raw, Mapping):
+        return None, [Issue(path, "state_capture must be a set of named fields.", "error", fix)]
+    issues = unknown_keys(dict(raw), STATE_CAPTURE_FIELDS, path)
+    hours = raw.get("every_hours")
+    if hours is not None:
+        try:
+            hours = _check_hours(hours)
+        except ValueError:
+            issues.append(
+                Issue(
+                    f"{path}.every_hours",
+                    f"{hours!r} is not a positive number of hours.",
+                    "error",
+                    "Write a number above 0, like 4 or 0.5.",
+                )
+            )
+            hours = None
+    decisions = raw.get("decisions", False)
+    if not isinstance(decisions, bool):
+        issues.append(
+            Issue(f"{path}.decisions", f"{decisions!r} is not true or false.", "error", fix)
+        )
+        decisions = False
+    if issues:
+        return None, issues
+    if hours is None and not decisions:
+        message = "state_capture records nothing: give every_hours, decisions: true, or both."
+        return None, [Issue(path, message, "error", fix)]
+    return StateCapture(hours, decisions), []
 
 
 def _check_hours(every_hours: float | None) -> float | None:
