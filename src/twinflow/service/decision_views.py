@@ -73,11 +73,44 @@ def summarize_race(race_id: str, model: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _summary(sentence: tuple[str, str] | str, level: tuple[str, str] | None) -> Summarizer:
+    """A list row for a stored view: where its answer sentence and its level live."""
+
+    def summarize(item_id: str, model: Mapping[str, Any]) -> dict[str, Any]:
+        said = _part(model, *sentence) if isinstance(sentence, tuple) else model.get(sentence)
+        return {
+            "id": item_id,
+            "project": _part(model, "about", "project") or "",
+            "when": str(model.get("generated_at") or ""),
+            "sentence": said or "",
+            "level": (_part(model, *level) if level else None) or "unknown",
+        }
+
+    return summarize
+
+
 def default_registry() -> ViewRegistry:
     """The views that exist today. Other builders add themselves with one line each."""
     registry = ViewRegistry()
+    registry.register(ViewSpec("race", "races", _stored_view("race"), summarize_race))
     registry.register(
-        ViewSpec("race", "races", _stored_view("race"), summarize_race),
+        ViewSpec("states", "states", _stored_view("states"), _summary("headline", None))
+    )
+    registry.register(
+        ViewSpec(
+            "improve",
+            "improves",
+            _stored_view("improve"),
+            _summary(("outcome", "headline"), ("outcome", "level")),
+        )
+    )
+    registry.register(
+        ViewSpec(
+            "project",
+            "projects",
+            _stored_view("project"),
+            _summary(("status", "headline"), ("status", "level")),
+        )
     )
     return registry
 

@@ -164,3 +164,48 @@ def test_a_damaged_file_is_skipped_in_the_list(client: TestClient, workspace: Pa
     broken.write_text("{not json", encoding="utf-8")
     assert [row["id"] for row in client.get(f"{BASE}/races").json()] == ["good"]
     assert client.get(f"{BASE}/race/broken").status_code == 404
+
+
+# --- B-28 to B-30: the states, improve and project views in the same registry --------------------
+
+VIEW_FIXTURES = ROOT / "web" / "tests" / "browser" / "views" / "fixtures"
+OTHER_VIEWS = [
+    # kind, plural, fixture, the list sentence, the list level
+    ("states", "states", "states.family.json", "headline", None),
+    ("improve", "improves", "improve.won.json", "outcome.headline", "outcome.level"),
+    ("project", "projects", "project.ready.json", "status.headline", "status.level"),
+]
+
+
+def _dig(model: dict[str, Any], path: str) -> Any:
+    value: Any = model
+    for key in path.split("."):
+        value = value[key]
+    return value
+
+
+@pytest.mark.parametrize(("kind", "plural", "fixture", "sentence", "level"), OTHER_VIEWS)
+def test_other_views_are_served_and_listed(
+    client: TestClient,
+    workspace: Path,
+    kind: str,
+    plural: str,
+    fixture: str,
+    sentence: str,
+    level: str | None,
+) -> None:
+    model = json.loads((VIEW_FIXTURES / fixture).read_text())
+    DecisionStore(workspace).publish(kind, "v1", model)
+    assert client.get(f"{BASE}/{kind}/v1").json() == model
+    rows = client.get(f"{BASE}/{plural}").json()
+    assert rows == [
+        {
+            "id": "v1",
+            "project": model["about"]["project"],
+            "when": str(model.get("generated_at") or ""),
+            "sentence": _dig(model, sentence),
+            "level": _dig(model, level) if level else "unknown",
+        }
+    ]
+    export = client.get(f"{BASE}/{kind}/v1/export")
+    assert export.status_code == 200 and export.text.startswith("<!doctype html>")
