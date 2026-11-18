@@ -1,4 +1,9 @@
 // Picks the view from the inlined view model (DESIGN.md 11.2).
+import { EmptyState } from "../decision/primitives";
+import type { RaceViewModel } from "../decision/types";
+import { ShellContext } from "../decision/viewState";
+import { RaceView } from "../decision/views/RaceView";
+
 export type AnyViewModel = { view?: string; [key: string]: unknown };
 
 export function readModel(doc: Document): AnyViewModel | null {
@@ -11,18 +16,34 @@ export function readModel(doc: Document): AnyViewModel | null {
   }
 }
 
+function Missing({ title, body }: { title: string; body: string }) {
+  return (
+    <main className="tf-root tf-wrap" style={{ padding: "48px 32px" }}>
+      <EmptyState title={title} body={<p>{body}</p>} />
+    </main>
+  );
+}
+
 export function ReportApp({ model }: { model: AnyViewModel | null }) {
   if (!model) {
     return (
-      <main className="tf-root tf-wrap">
-        <p>This report has no data. Make it again with twinflow.</p>
-      </main>
+      <Missing
+        title="This report has no data."
+        body="Make it again with twinflow."
+      />
     );
   }
   const view = model.view ?? "race";
   return (
-    <main className="tf-root tf-wrap" data-view={view}>
-      <h1>{view === "race" ? "Policy race" : view}</h1>
-    </main>
+    <ShellContext.Provider value="offline">
+      {view === "race" ? (
+        <RaceView model={model as unknown as RaceViewModel} />
+      ) : (
+        <Missing
+          title={`This file holds a ${view} view.`}
+          body="This version of the report cannot show it yet. Update twinflow and make the file again."
+        />
+      )}
+    </ShellContext.Provider>
   );
 }

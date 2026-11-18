@@ -17,7 +17,7 @@ import pytest
 
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import RaceResult, race
-from twinflow.extensions.report import SECTIONS, race_html, write_race_report
+from twinflow.extensions.report import SECTIONS, race_html, write_legacy_race_report
 
 MakeProject = Callable[..., Path]
 
@@ -116,7 +116,7 @@ def test_the_page_parses_with_balanced_scripts_and_sections(page: str) -> None:
 
 
 def test_write_race_report_writes_one_file(raced: RaceResult, tmp_path: Path) -> None:
-    out = write_race_report(raced, tmp_path / "race.html")
+    out = write_legacy_race_report(raced, tmp_path / "race.html")
     assert out == tmp_path / "race.html"
     assert out.read_text(encoding="utf-8") == race_html(raced)
 

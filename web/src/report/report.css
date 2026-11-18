@@ -1,0 +1,21 @@
+/* Offline file only: the page around the view. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 108px;
+  height: auto;
+}
+body,
+#root {
+  height: auto;
+}
+body {
+  margin: 0;
+  background: var(--tf-page);
+  color: var(--ba-body);
+  font: 400 15px/1.55 var(--ba-font-body);
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
