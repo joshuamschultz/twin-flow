@@ -180,3 +180,27 @@ def test_estimate_handles_100k_moves_in_under_two_seconds() -> None:
     elapsed = time.perf_counter() - start
     assert chain.moves == 100_000
     assert elapsed < 2.0, elapsed
+
+
+def test_a_plain_function_can_be_the_view() -> None:
+    """T-259: a callable `Snapshot -> label` drives the chain like a grouped view."""
+
+    def bands(snapshot: Snapshot) -> str:
+        units = snapshot.stock["A"]
+        return "A:lo" if units < 10 else "A:mid" if units < 20 else "A:hi"
+
+    chain = estimate(_moves(), bands)
+    expected = _chain()
+    assert chain.states == expected.states and chain.view == "bands"
+    assert np.array_equal(chain.matrix, expected.matrix)
+    assert chain.money == expected.money
+
+
+def test_a_named_callable_view_keeps_its_name() -> None:
+    class Named:
+        name = "my_view"
+
+        def __call__(self, snapshot: Snapshot) -> str:
+            return "all"
+
+    assert estimate(_moves(), Named()).view == "my_view"

@@ -10,7 +10,7 @@ Mermaid draws the graph. `money` gives the mean ledger per state for money leaks
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
@@ -22,6 +22,9 @@ from twinflow.state.groups import GroupedView
 from twinflow.state.records import LEDGER_PARTS, Move, Snapshot
 
 STICKY_SELF_LOOP = 0.5  # a state that stays put at least half the time is "sticky"
+
+Labeller = Callable[[Snapshot], str]
+"""A view written as a plain function: snapshot to label (view files, T-259, REQ-218)."""
 
 
 @dataclass(frozen=True)
@@ -106,19 +109,27 @@ def mermaid_escape(text: str) -> str:
 
 def _labels(
     moves: Sequence[Move],
-    view: GroupedView,
+    view: GroupedView | Labeller,
     demand_rate: Mapping[str, float],
     families: Mapping[str, str],
 ) -> tuple[list[str], list[str]]:
     """Labels of every move's before and after snapshot; each snapshot object is labelled
     once (an engine's `after` is usually the next move's `before`)."""
     cache: dict[int, str] = {}
+    make: Labeller
+    if isinstance(view, GroupedView):
+        grouped = view
+
+        def make(snapshot: Snapshot) -> str:
+            return grouped.label(snapshot, demand_rate, families)
+    else:
+        make = view
 
     def label(snapshot: Snapshot) -> str:
         key = id(snapshot)
         found = cache.get(key)
         if found is None:
-            found = cache[key] = view.label(snapshot, demand_rate, families)
+            found = cache[key] = make(snapshot)
         return found
 
     return [label(m.before) for m in moves], [label(m.after) for m in moves]
@@ -144,9 +155,15 @@ def _money(moves: Sequence[Move], now: list[str]) -> dict[str, StateMoney]:
     return out
 
 
+def view_name(view: GroupedView | Labeller) -> str:
+    """A view's name: its `name`, or the function's name."""
+    name = getattr(view, "name", None) or getattr(view, "__name__", None)
+    return str(name) if name else "custom"
+
+
 def estimate(
     moves: Sequence[Move],
-    view: GroupedView,
+    view: GroupedView | Labeller,
     *,
     demand_rate: Mapping[str, float] | None = None,
     families: Mapping[str, str] | None = None,
@@ -155,8 +172,9 @@ def estimate(
 ) -> MarkovChain:
     """Estimate the chain of `moves` under `view` (REQ-199).
 
-    `demand_rate` and `families` are the static model facts the view's labels need (days
-    of cover, family of each thing); both may be omitted for views that use neither.
+    `view` is a grouped view or a plain function from snapshot to label (T-259).
+    `demand_rate` and `families` are the static model facts a grouped view's labels need
+    (days of cover, family of each thing); both may be omitted for views that use neither.
     """
     if top_k < 1:
         raise ValueError(f"top_k must be at least 1, got {top_k}")
@@ -192,7 +210,7 @@ def estimate(
     )
     sticky = tuple(s for k, s in enumerate(states) if matrix[k, k] >= STICKY_SELF_LOOP)
     return MarkovChain(
-        view=view.name,
+        view=view_name(view),
         moves=total,
         states=states,
         share=MappingProxyType(share),

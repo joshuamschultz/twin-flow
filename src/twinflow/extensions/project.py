@@ -19,20 +19,31 @@ Only the CLI and in-process Python may open a project: it loads local code (D-13
 
 from __future__ import annotations
 
+import dataclasses
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal
 
-from twinflow.engines.step.engine import DemandDraws, StepEngine
+from twinflow.engines.step.engine import IDLE, DemandDraws, StepEngine
 from twinflow.engines.step.model import StepModel, parse_step_model
-from twinflow.extensions.loader import Extension, Extensions, Problem, load_project
-from twinflow.extensions.view import ModelFacts
+from twinflow.extensions.loader import (
+    Extension,
+    ExtensionNotFound,
+    Extensions,
+    Problem,
+    load_project,
+)
+from twinflow.extensions.view import ModelFacts, PolicyState, policy_state
 from twinflow.scenario import ScenarioCapsule
+from twinflow.state.groups import GroupedView
 from twinflow.state.issues import did_you_mean
-from twinflow.state.records import Move
+from twinflow.state.markov import MarkovChain, estimate
+from twinflow.state.records import Move, Snapshot
+
+FEATURE_PREFIX = "feature."  # feature values in a snapshot's `extra` (REQ-219)
 
 CAPSULE_SUFFIX = ".twin.yaml"
 Check = Literal["name", "names", "whole", "number", "share", "choice"]
@@ -56,6 +67,13 @@ DEFAULTS: tuple[Setting, ...] = (
         "dollars",
         "The reward file the race ranks policies by. Dollars are always shown next to it.",
         "name",
+    ),
+    Setting(
+        "experiment.features",
+        (),
+        "Feature files whose values every policy state gets (state.features) and every "
+        "recorded state keeps (extra).",
+        "names",
     ),
 )
 
@@ -83,6 +101,10 @@ class ProjectConfig:
     @property
     def score(self) -> str:
         return str(self.values["experiment.score"])
+
+    @property
+    def features(self) -> tuple[str, ...]:
+        return tuple(self.values["experiment.features"])
 
 
 def _config_problem(file: Path, key: str, message: str, fix: str) -> Problem:
@@ -247,6 +269,7 @@ class Project:
         extensions = load_project(file.parent)
         config, problems = read_config(capsule.experiment, file)
         problems += _selection_problems(config, extensions, file)
+        problems += _view_clashes(model, extensions)
         return cls(
             folder=file.parent,
             capsule_file=file,
@@ -280,10 +303,111 @@ class Project:
         """The chosen score of one move. `move.ledger.total` stays the dollars."""
         return float(self.reward(move))
 
+    # --- policy states and features (REQ-202, REQ-219) -----------------------------------------
+
+    @property
+    def actions(self) -> tuple[str, ...]:
+        """What a make-next policy may return: a product id or `"idle"`."""
+        return (*self.model.product_ids, IDLE)
+
+    def features(self, state: PolicyState) -> dict[str, float]:
+        """The chosen feature files' values for one state; a later file wins a shared name."""
+        values: dict[str, float] = {}
+        for name in self.config.features:
+            values.update(self.extensions.get("feature", name)(state))
+        return values
+
+    def policy_state(self, snapshot: Snapshot, actions: Iterable[str] | None = None) -> PolicyState:
+        """The full view of one snapshot, with the chosen features (no observation mask)."""
+        state = policy_state(snapshot, self.facts, self.actions if actions is None else actions)
+        if not self.config.features:
+            return state
+        return state.replace(features=self.features(state))
+
+    def annotate(self, move: Move) -> Move:
+        """The move with feature values in `extra` of both snapshots, as `feature.<name>`."""
+        if not self.config.features:
+            return move
+        return dataclasses.replace(
+            move, before=self._with_features(move.before), after=self._with_features(move.after)
+        )
+
+    def _with_features(self, snapshot: Snapshot) -> Snapshot:
+        values = self.features(self.policy_state(snapshot))
+        extra = {**snapshot.extra, **{FEATURE_PREFIX + k: float(v) for k, v in values.items()}}
+        return dataclasses.replace(snapshot, extra=extra)
+
+    # --- views and Markov maps (REQ-199, REQ-218) ----------------------------------------------
+
+    @property
+    def view_names(self) -> tuple[str, ...]:
+        return tuple(sorted({*self.model.views, *self.extensions.names("view")}))
+
+    def view(self, name: str) -> GroupedView | ExtensionView:
+        """A YAML view (`state_groups`) or a view file; YAML wins a shared name."""
+        if name in self.model.views:
+            return self.model.views[name]
+        if name in self.extensions.names("view"):
+            return ExtensionView(self, self.extensions.get("view", name))
+        raise ExtensionNotFound("view", name, self.view_names)
+
+    def markov(
+        self,
+        moves: Sequence[Move],
+        view: str = "family",
+        *,
+        top_k: int = 15,
+        min_prob: float = 0.05,
+    ) -> MarkovChain:
+        """The Markov chain of `moves` under a named view (COMP-148)."""
+        chosen = self.view(view)
+        return estimate(
+            moves,
+            chosen,
+            demand_rate=self.facts.demand_rate,
+            families=self.facts.family,
+            top_k=top_k,
+            min_prob=min_prob,
+        )
+
+
+@dataclass(frozen=True, eq=False)
+class ExtensionView:
+    """A view file as a `Snapshot -> label` function for Markov maps (REQ-218)."""
+
+    project: Project
+    extension: Extension
+
+    @property
+    def name(self) -> str:
+        return self.extension.name
+
+    def __call__(self, snapshot: Snapshot) -> str:
+        return str(self.extension(self.project.policy_state(snapshot)))
+
+
+def _view_clashes(model: StepModel, extensions: Extensions) -> list[Problem]:
+    return [
+        Problem(
+            "view",
+            "view_name_clash",
+            f"The view file {ext.file.name} uses the name {ext.name!r}, which a view in the "
+            "capsule's state_groups already has. The capsule's view is used.",
+            "Give the view file another NAME.",
+            ext.file,
+            ext.line,
+            ext.name,
+            severity="info",
+        )
+        for ext in extensions.of("view")
+        if ext.name in model.views
+    ]
+
 
 def _selection_problems(config: ProjectConfig, extensions: Extensions, file: Path) -> list[Problem]:
     """A named extension that does not exist is a problem on its capsule key."""
     wanted = [("reward", "experiment.score", config.score)]
+    wanted += [("feature", "experiment.features", name) for name in config.features]
     problems = []
     for kind, key, name in wanted:
         known = extensions.names(kind)
