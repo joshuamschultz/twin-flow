@@ -93,6 +93,7 @@ locations:
   # ---------------------------------------------------------------- shaft --
   # Continuous-to-discrete: 1 ft of round bar (the basis) yields 4 blanks.
   - name: saw_shaft
+    label: Shaft saw
     consumes:
       - thing: round_bar
         qty: 1
@@ -112,6 +113,7 @@ locations:
   # chain (0.03 piece/s vs. 0.5-2.0 elsewhere) so its queue is the one that
   # builds -- see README.md "What this shows".
   - name: mill_shaft
+    label: Shaft mill
     consumes:
       - thing: shaft_blank
         qty: 1
@@ -128,6 +130,7 @@ locations:
     labor_skill: machinist
 
   - name: deburr_shaft
+    label: Shaft deburr
     consumes:
       - thing: shaft_milled
         qty: 1
@@ -145,6 +148,7 @@ locations:
 
   # Scrap rate lives here: 3% of deburred shafts are scrapped at inspection.
   - name: inspect_shaft
+    label: Shaft inspection
     consumes:
       - thing: shaft_deburred
         qty: 1
@@ -166,6 +170,7 @@ locations:
   # --------------------------------------------------------------bracket --
   # Billet is already discrete: 1 billet piece (the basis) yields 1 blank.
   - name: saw_bracket
+    label: Bracket saw
     consumes:
       - thing: square_billet
         qty: 1
@@ -184,6 +189,7 @@ locations:
   # BOTTLENECK: same story as mill_shaft -- the CNC mill is the slow step
   # for the bracket family too.
   - name: mill_bracket
+    label: Bracket mill
     consumes:
       - thing: bracket_blank
         qty: 1
@@ -200,6 +206,7 @@ locations:
     labor_skill: machinist
 
   - name: deburr_bracket
+    label: Bracket deburr
     consumes:
       - thing: bracket_milled
         qty: 1
@@ -217,6 +224,7 @@ locations:
 
   # Scrap rate lives here too: 5% of deburred brackets are scrapped.
   - name: inspect_bracket
+    label: Bracket inspection
     consumes:
       - thing: bracket_deburred
         qty: 1

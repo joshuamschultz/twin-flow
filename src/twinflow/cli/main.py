@@ -32,6 +32,7 @@ from twinflow.plan.loader import load_plan
 from twinflow.plan.replication import ReplicationRunner
 from twinflow.report import render_html, write_kpi_json
 from twinflow.report.assumptions import AssumptionsCollector
+from twinflow.report.run_detail import shown_path, write_run_detail
 from twinflow.run_stamp import RunStamp
 from twinflow.scenario import import_legacy
 from twinflow.scenario import load as load_capsule
@@ -125,6 +126,7 @@ def _build_parser() -> argparse.ArgumentParser:
     balance_parser.add_argument("--plan", required=True)
     balance_parser.add_argument("--sweep", required=True)
     balance_parser.add_argument("--reps", required=True, type=int)
+    balance_parser.add_argument("--run", default=None, help="base run id the sweep belongs to")
     balance_parser.set_defaults(handler=_handle_balance)
 
     report_parser = subparsers.add_parser("report")
@@ -257,6 +259,7 @@ def _handle_run(args: argparse.Namespace) -> int:
         run_dir = result.event_log_path.parent
         orders = orders_frame(work_orders, compiled, result.event_log_path)
         per_rep = [compute_kpis(result.event_log_path, orders, result.horizon)]
+        event_paths = [result.event_log_path]
         horizon = result.horizon
     else:
         # `ReplicationRunner` dispatches one worker process per replication,
@@ -285,6 +288,7 @@ def _handle_run(args: argparse.Namespace) -> int:
             )
             for r in results
         ]
+        event_paths = [r.event_log_path for r in results]
         horizon = results[0].horizon
 
     # The first replication is the representative single run for the charts and
@@ -294,6 +298,18 @@ def _handle_run(args: argparse.Namespace) -> int:
 
     _write_run_artifacts(
         run_dir, compiled, kpis, aggregated, model_path, plan_path, horizon=horizon
+    )
+    write_run_detail(
+        run_dir,
+        model=compiled,
+        work_orders=work_orders,
+        per_rep=per_rep,
+        event_paths=event_paths,
+        horizon=horizon,
+        assumptions=AssumptionsCollector().collect(compiled),
+        model_path=model_path,
+        plan_path=plan_path,
+        reps=args.reps,
     )
     run_id = run_dir.name
     print(f"run {run_id}")
@@ -363,6 +379,7 @@ def _handle_balance(args: argparse.Namespace) -> int:
     )
     summary = _sweep_summary(result)
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    _write_sweep_meta(run_dir, args, sweep, model_path, plan_path)
     for line in _sweep_summary_lines(summary):
         print(line)
     print(f"\nsweep {run_dir.name}")
@@ -382,6 +399,11 @@ def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
         sub = kpi.filter(kpi["sweep_point"] == point_id) if len(kpi) else kpi
         on_time = float(cast(float, sub["on_time_pct"].mean())) if len(sub) else 0.0
         busy_h = float(cast(float, sub["run_hours"].mean())) if len(sub) else 0.0
+        late = (
+            float(cast(float, sub["late_orders"].mean()))
+            if len(sub) and "late_orders" in sub.columns
+            else 0.0
+        )
         rows.append(
             {
                 "sweep_point": point_id,
@@ -389,9 +411,39 @@ def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
                 "reps": len(sub),
                 "on_time_pct": round(on_time, 1),
                 "busy_hours": round(busy_h, 1),
+                "late_orders_per_run": round(late, 2),
             }
         )
     return rows
+
+
+def _write_sweep_meta(
+    run_dir: Path,
+    args: argparse.Namespace,
+    sweep: dict[str, list[Any]],
+    model_path: str,
+    plan_path: str,
+) -> None:
+    """B-26 G6: link the sweep to its base run and keep each lever's value today, so the
+    base run's viewer can show the levers measured against what the plant does now."""
+    from twinflow.instrumentation.sweep import lever_value
+    from twinflow.model.loader import load_raw_model
+
+    data = cast(dict[str, Any], load_raw_model(model_path).data)
+    defaults = {"capacity": 1, "dispatch": "fifo"}
+    base_values = {
+        path: lever_value(data, path, defaults.get(path.rsplit(".", 1)[-1])) for path in sweep
+    }
+    meta = {
+        "schema_version": 1,
+        "base_run_id": args.run,
+        "model_path": shown_path(model_path),
+        "plan_path": shown_path(plan_path),
+        "reps": args.reps,
+        "sweep": sweep,
+        "base_values": base_values,
+    }
+    (run_dir / "sweep_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
 
 def _sweep_summary_lines(summary: list[dict[str, object]]) -> list[str]:

@@ -194,6 +194,20 @@ def _apply_override(data: dict[str, Any], lever_path: str, value: Any) -> None:
     container[final_key] = value
 
 
+def lever_value(data: dict[str, Any], lever_path: str, default: Any = None) -> Any:
+    """The value `lever_path` has in `data` (a parsed model.yaml mapping) today, or
+    `default` when the model leaves it out (a sweep's base point, B-26 G6)."""
+    segments = lever_path.split(".")
+    container: Any = data
+    try:
+        for segment in segments[:-1]:
+            container = _resolve_segment(container, segment)
+        final_key, _selector = _parse_segment(segments[-1])
+        return container.get(final_key, default)
+    except (KeyError, IndexError, TypeError, ValueError, AttributeError):
+        return default
+
+
 def _write_variant(
     base_data: dict[str, Any], point: dict[str, Any], tmp_dir: Path, point_id: str
 ) -> Path:
@@ -272,6 +286,9 @@ def _kpi_rows_for_point(
                 "replication": cast(int, result.run_meta["replication_index"]),
                 "run_hours": kpi_set.run_hours,
                 "on_time_pct": kpi_set.on_time_pct,
+                "late_orders": sum(
+                    outcome.due_state == "late" for outcome in kpi_set.order_outcomes.values()
+                ),
             }
         )
     return rows

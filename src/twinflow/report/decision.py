@@ -17,6 +17,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from twinflow.report.run_view import run_view_model
+
 DATA = "/*__TWINFLOW_DATA__*/"
 TITLE = "__TWINFLOW_TITLE__"
 DESCRIPTION = "__TWINFLOW_DESCRIPTION__"
@@ -129,4 +131,4 @@ def write(path: str | Path, view_model: Mapping[str, Any]) -> Path:
     return out
 
 
-__all__ = ["render", "template", "write"]
+__all__ = ["render", "run_view_model", "template", "write"]
