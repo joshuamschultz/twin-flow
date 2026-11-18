@@ -844,7 +844,9 @@ def _selection_problems(
                     "config",
                     "unknown_name",
                     f"{key} names {name!r}, but there is no {kind} with that name.",
-                    did_you_mean(name, known) or f"Add a {kind} file named {name}.",
+                    f"{did_you_mean(name, known)} Valid {kind} names: {', '.join(sorted(known))}."
+                    if known
+                    else f"Add a {kind} file named {name}.",
                     file,
                     field=key,
                 )

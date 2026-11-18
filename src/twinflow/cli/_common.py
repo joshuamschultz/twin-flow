@@ -62,7 +62,16 @@ def staged_project(
         for name, file in (extra or {}).items():
             (stage / "policies").mkdir(exist_ok=True)
             shutil.copyfile(file, stage / "policies" / name)
-        yield Project.open(stage)
+        yield require_valid_settings(Project.open(stage), source)
+
+
+def require_valid_settings(project: Project, home: Path) -> Project:
+    """The project, or a user error naming each capsule setting that cannot be used. A race
+    would stop on it later with no fix to show (a score or demand name no file has)."""
+    errors = [p for p in project.problems if p.severity == "error" and p.kind == "config"]
+    if errors:
+        raise UserError("\n".join(str(p).replace(str(project.folder), str(home)) for p in errors))
+    return project
 
 
 def whole_number(text: str, flag: str, *, minimum: int = 0) -> int:
