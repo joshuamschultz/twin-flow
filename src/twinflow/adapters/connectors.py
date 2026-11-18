@@ -23,6 +23,7 @@ import csv
 import json
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -58,7 +59,9 @@ class PlanSource(Protocol):
     @property
     def name(self) -> str: ...
 
-    def read_plan(self, registry: PartTypeRegistry) -> list[WorkOrder]: ...
+    def read_plan(
+        self, registry: PartTypeRegistry, *, origin: datetime | None = None
+    ) -> list[WorkOrder]: ...
 
 
 @runtime_checkable
@@ -91,7 +94,10 @@ class CsvPlanSource:
     mapping: FieldMapping = field(default_factory=FieldMapping)
     name: str = "csv_plan"
 
-    def read_plan(self, registry: PartTypeRegistry) -> list[WorkOrder]:
+    def read_plan(
+        self, registry: PartTypeRegistry, *, origin: datetime | None = None
+    ) -> list[WorkOrder]:
+        """Read the plan; `origin` (see `plan_origin`) turns calendar dates into seconds."""
         with Path(self.path).open(newline="", encoding="utf-8") as handle:
             rows = list(csv.reader(handle))
         if not rows:
@@ -103,7 +109,7 @@ class CsvPlanSource:
             csv.writer(tmp).writerows(remapped)
             tmp_path = tmp.name
         try:
-            return load_plan(tmp_path, registry)
+            return load_plan(tmp_path, registry, origin=origin)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 

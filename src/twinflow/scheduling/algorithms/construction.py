@@ -50,6 +50,7 @@ import heapq
 import math
 import time
 from collections.abc import Callable, Mapping, Sequence
+from typing import ClassVar
 
 from twinflow.scheduling import registry
 from twinflow.scheduling.kernel.decode import decode
@@ -401,6 +402,8 @@ class ConstructionSolver:
 
     Returns FEASIBLE with the primary objective, or UNKNOWN with the method's issue.
     """
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ("_build", "_name")
 

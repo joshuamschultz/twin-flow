@@ -34,7 +34,7 @@ from twinflow.scheduling.model import (
 )
 from twinflow.scheduling.objectives import evaluate
 from twinflow.scheduling.overrides import apply_overrides
-from twinflow.scheduling.seam import Feature, SolveContext, Solver
+from twinflow.scheduling.seam import Feature, SolveContext, Solver, enforces_budget
 from twinflow.scheduling.validator import validate
 from twinflow.scheduling.verifier import verify
 
@@ -171,12 +171,15 @@ def _run(
 ) -> Schedule:
     """The solver's answer; an exception becomes UNKNOWN with `solver_error`."""
     try:
-        return solver.solve(
+        schedule = solver.solve(
             compiled.problem,
             objective=compiled.profile.objective,
             budget_seconds=budget,
             context=context,
         )
+        if enforces_budget(solver) and not schedule.budget_enforced:
+            schedule = schedule.model_copy(update={"budget_enforced": True})
+        return schedule
     except Exception as error:  # any solver bug must not escape solve() as a traceback
         issue = ScheduleIssue(code="solver_error", path=SOLVER_PATH, message=type(error).__name__)
         return Schedule(

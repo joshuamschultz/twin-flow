@@ -106,7 +106,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from itertools import permutations
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from twinflow.scheduling.baseline import BaselineSolver
 from twinflow.scheduling.features import problem_features
@@ -1523,6 +1523,8 @@ class ORToolsSolver:
     `workers` and `seed` are passed to CP-SAT; with one worker a solve is deterministic for
     a given input and budget that is not hit.
     """
+
+    enforces_budget: ClassVar[bool] = True
 
     def __init__(self, *, workers: int = 1, seed: int = 0) -> None:
         if workers < 1 or seed < 0:

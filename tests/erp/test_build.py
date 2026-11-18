@@ -1357,6 +1357,10 @@ def _has_overtime(snapshot: ErpSnapshot, machine: Machine) -> bool:
     return machine.overtime is not None or center.overtime is not None
 
 
+def _flat(intervals: Iterable[tuple[float, float]]) -> list[float]:
+    return [bound for interval in intervals for bound in interval]
+
+
 def assert_machine_calendars(snapshot: ErpSnapshot, request: SolveRequest) -> None:
     tz = ZoneInfo(snapshot.plant_timezone)
     horizon = _horizon(snapshot, base_profile().erp.horizon_days)
@@ -1375,7 +1379,8 @@ def assert_machine_calendars(snapshot: ErpSnapshot, request: SolveRequest) -> No
             assert _covers(got, regular), machine.id  # overtime (T-219) may add time
             continue
         assert built_machine.calendar_id == source_id, machine.id
-        assert got == pytest.approx(regular), machine.id
+        # pytest >= 9 approx() refuses nested sequences: compare the flattened bounds.
+        assert _flat(got) == pytest.approx(_flat(regular)), machine.id
 
 
 def test_build_machine_calendars_fall_back_to_work_center_calendar(

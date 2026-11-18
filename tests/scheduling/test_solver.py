@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from twinflow.scheduling import overrides
+from twinflow.scheduling import overrides, registry
 from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.model import (
     Assignment,
@@ -41,7 +41,7 @@ from twinflow.scheduling.model import (
     WorkCenter,
 )
 from twinflow.scheduling.overrides import apply_overrides
-from twinflow.scheduling.seam import Feature, Solver
+from twinflow.scheduling.seam import Feature, Solver, enforces_budget
 from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import validate
 from twinflow.scheduling.verifier import verify
@@ -709,3 +709,22 @@ def test_builtin_solvers_report_that_they_enforce_the_budget(solver_name: str) -
     result = solve(_request(_problem()), solver=chosen, budget_seconds=5.0)
 
     assert result.schedule.budget_enforced is True
+
+
+# Solvers that cannot be interrupted: they never read `SolveContext.deadline`.
+UNINTERRUPTIBLE_SOLVERS = frozenset({"rush_insert"})
+
+
+@pytest.mark.parametrize("info", registry.available(), ids=lambda info: info.name)
+def test_every_registered_solver_reports_budget_enforcement_truthfully(
+    info: registry.SolverInfo,
+) -> None:
+    """A solver that checks the deadline enforces the budget; one that cannot stop does not."""
+    solver = registry.get(info.name)
+    expected = info.name not in UNINTERRUPTIBLE_SOLVERS
+
+    assert enforces_budget(solver) is expected
+
+    result = solve(_request(_problem()), solver=solver, budget_seconds=5.0)
+
+    assert result.schedule.budget_enforced is expected

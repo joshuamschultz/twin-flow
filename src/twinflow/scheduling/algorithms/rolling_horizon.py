@@ -59,7 +59,7 @@ import math
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import ClassVar, Literal
 
 from twinflow.scheduling import registry
 from twinflow.scheduling.kernel.decode import decode
@@ -784,6 +784,8 @@ def _unknown(issue: ScheduleIssue) -> Schedule:
 
 class RollingHorizonSolver:
     """`rolling_horizon` behind the `Solver` seam (see the module docstring)."""
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ()
 
