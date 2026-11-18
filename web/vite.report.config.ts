@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import type { Plugin } from "vite";
 
 // Lists the modules in the bundle so inline-report.mjs can write the licence notices.
@@ -8,6 +8,8 @@ function moduleList(): Plugin {
   return {
     name: "twinflow-module-list",
     generateBundle() {
+      // On a fresh checkout dist-report/ does not exist yet when this runs.
+      mkdirSync("dist-report", { recursive: true });
       const ids = [...this.getModuleIds()].filter((id) =>
         id.includes("node_modules"),
       );
