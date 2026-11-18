@@ -327,25 +327,104 @@ def check_extensions(
 # --- engines (T-263) ---------------------------------------------------------------------------
 
 ENGINE_METHODS = ("start", "actions", "step", "done")
+_ENGINE_FIX = {
+    "start": "Make start(seed, from_state=None) return a Snapshot.",
+    "actions": "Make actions(state) return a list of action names, like ('run', 'idle').",
+    "step": "Make step(action) return a Move.",
+    "done": "Make done() return True or False.",
+}
+
+
+def _engine_problem(ext: Extension, message: str, fix: str, line: int | None = None) -> Problem:
+    return _problem(ext, "bad_engine", message, fix, line if line is not None else ext.line)
+
+
+def _engine_call(ext: Extension, method: str, call: Callable[..., Any], *args: Any) -> Any:
+    """Call one engine method; a raise becomes a problem at the user's line."""
+    try:
+        return call(*args)
+    except Exception as exc:  # user code: any error becomes a problem
+        line = line_in(ext.file, exc)
+        raise ExtensionFailed(
+            _problem(
+                ext,
+                "raised",
+                f"Engine.{method} raised {type(exc).__name__}: {exc}.",
+                f"Fix line {line} of the engine file." if line else "Fix the engine file.",
+                line or ext.line,
+            )
+        ) from exc
+
+
+def _engine_value(ext: Extension, method: str, value: Any, ok: bool) -> None:
+    if not ok:
+        raise ExtensionFailed(
+            _engine_problem(ext, f"Engine.{method} returned {value!r}.", _ENGINE_FIX[method])
+        )
+
+
+def run_engine_check(ext: Extension, model: Mapping[str, Any], seed: int, steps: int) -> None:
+    """Build the engine from the capsule model and run one short random episode; raises
+    `ExtensionFailed` with the first problem."""
+    engine = _engine_call(ext, "__init__", ext, dict(model))
+    rng = np.random.default_rng(seed)
+    state = _engine_call(ext, "start", engine.start, seed)
+    _engine_value(ext, "start", state, isinstance(state, Snapshot))
+    for _ in range(steps):
+        finished = _engine_call(ext, "done", engine.done)
+        _engine_value(ext, "done", finished, isinstance(finished, bool | np.bool_))
+        if finished:
+            return
+        actions = _engine_call(ext, "actions", engine.actions, state)
+        good = isinstance(actions, list | tuple) and bool(actions)
+        _engine_value(ext, "actions", actions, good and all(isinstance(a, str) for a in actions))
+        action = actions[int(rng.integers(len(actions)))]
+        move = _engine_call(ext, "step", engine.step, action)
+        _engine_value(ext, "step", move, isinstance(move, Move))
+        state = move.after
 
 
 def check_engine(
     ext: Extension, model: Mapping[str, Any], seed: int = 0, limits: CheckLimits | None = None
 ) -> list[Problem]:
-    """Placeholder until T-263: an engine class must at least have the contract methods."""
+    """An engine class must have the contract methods (REQ-194), build from the capsule's
+    model and run a short episode with random actions (REQ-223)."""
+    limits = limits or CheckLimits()
     missing = [m for m in ENGINE_METHODS if not callable(getattr(ext.target, m, None))]
     if missing:
         return [
-            _problem(
+            _engine_problem(
                 ext,
-                "bad_engine",
                 f"The Engine class has no {missing[0]} method.",
                 f"Add `def {missing[0]}(self, ...)` to the class; an engine needs "
                 f"{', '.join(ENGINE_METHODS)}.",
-                ext.line,
             )
         ]
+    try:
+        run_engine_check(ext, model, seed, limits.samples)
+    except ExtensionFailed as failed:
+        return [failed.problem]
     return []
+
+
+def engine_samples(project: Project, count: int, seed: int) -> Samples:
+    """Samples for a custom engine: one episode with random actions (T-263)."""
+    engine = project.engine()
+    rng = np.random.default_rng(seed)
+    snapshot = engine.start(seed)
+    states: list[PolicyState] = []
+    moves: list[Move] = []
+    while not engine.done() and len(moves) < count:
+        actions = engine.actions(snapshot)
+        states.append(project.policy_state(snapshot, actions))
+        move = engine.step(actions[int(rng.integers(len(actions)))])
+        moves.append(move)
+        snapshot = move.after
+    periods = project.facts.horizon or len(moves)
+    return Samples(
+        tuple(states), tuple(moves), project.facts, periods, seed,
+        engine_model=MappingProxyType(dict(project.capsule.model)),
+    )  # fmt: skip
 
 
 def check_project(project: Project) -> list[Problem]:
@@ -354,6 +433,18 @@ def check_project(project: Project) -> list[Problem]:
     capsule's `experiment.checker` limits."""
     config = project.config
     limits = config.checker
+    if project.model is None:
+        # A custom engine was checked when the project opened. Built-ins are written for
+        # make-to-stock twins, so only the project's own files are run on its states.
+        samples = engine_samples(project, limits.samples, config.race.seed)
+        extensions = project.extensions
+        checked = [
+            p
+            for ext in extensions.all()
+            if ext.kind != "engine" and ext.source == "project"
+            for p in check_extension(ext, samples, limits)
+        ]
+        return [*project.problems, *extensions.problems, *checked]
     samples = step_samples(
         project.model,
         count=limits.samples,

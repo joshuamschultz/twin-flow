@@ -6,6 +6,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+# `domain: custom` names an engine file (TF-006, REQ-223). It is user code, so only the CLI
+# and in-process Python run it (D-139); the registry says so in plain words.
+CUSTOM_DOMAIN = "custom"
+CUSTOM_ENGINE_MESSAGE = (
+    "custom engines run from the command line or Python, not through this service: "
+    "a custom engine is code in the project's engines/ folder"
+)
+
 
 @dataclass(frozen=True)
 class DomainIssue:
@@ -48,6 +56,8 @@ class DomainRegistry:
         self._adapters[adapter.domain] = adapter
 
     def get(self, domain: str) -> DomainAdapter:
+        if domain == CUSTOM_DOMAIN and domain not in self._adapters:
+            raise KeyError(CUSTOM_ENGINE_MESSAGE)
         try:
             return self._adapters[domain]
         except KeyError as exc:

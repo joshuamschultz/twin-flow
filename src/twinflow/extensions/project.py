@@ -29,14 +29,17 @@ from typing import Any, Literal
 
 import numpy as np
 
+from twinflow.engines.contract import Decide, Engine
 from twinflow.engines.step.engine import IDLE, DemandDraws, StepEngine
 from twinflow.engines.step.model import StepModel, parse_step_model
 from twinflow.extensions.checker import (
     CheckLimits,
     ExtensionFailed,
     call_checked,
+    check_engine,
     demand_validator,
 )
+from twinflow.extensions.kinds import check_return
 from twinflow.extensions.loader import (
     Extension,
     ExtensionNotFound,
@@ -46,7 +49,7 @@ from twinflow.extensions.loader import (
 )
 from twinflow.extensions.view import ModelFacts, PolicyState, policy_state
 from twinflow.scenario import ScenarioCapsule
-from twinflow.state.groups import GroupedView
+from twinflow.state.groups import GroupedView, parse_state_groups
 from twinflow.state.issues import did_you_mean
 from twinflow.state.markov import MarkovChain, estimate
 from twinflow.state.records import Move, Snapshot
@@ -54,6 +57,7 @@ from twinflow.state.records import Move, Snapshot
 FEATURE_PREFIX = "feature."  # feature values in a snapshot's `extra` (REQ-219)
 
 CAPSULE_SUFFIX = ".twin.yaml"
+DOMAINS = ("make_to_stock", "custom")  # the domains a project can run (D-134, REQ-223)
 Check = Literal["name", "names", "whole", "number", "share", "choice"]
 
 
@@ -400,21 +404,27 @@ def _load_capsule(file: Path) -> ScenarioCapsule:
         ) from exc
 
 
-def _model(capsule: ScenarioCapsule, file: Path) -> tuple[StepModel, list[Problem]]:
+def _domain(capsule: ScenarioCapsule, file: Path) -> str:
     domain = capsule.model.get("domain")
-    if domain != "make_to_stock":
+    if domain not in DOMAINS:
         raise ProjectError(
             [
                 Problem(
                     "model",
                     "bad_domain",
-                    f"The model domain is {domain!r}; extensions run make_to_stock twins.",
-                    "Write model.domain: make_to_stock.",
+                    f"The model domain is {domain!r}; projects run make_to_stock twins and "
+                    "custom engines.",
+                    "Write model.domain: make_to_stock, or model.domain: custom with "
+                    "model.engine: <the NAME of your engine file>.",
                     file,
                     field="model.domain",
                 )
             ]
         )
+    return str(domain)
+
+
+def _model(capsule: ScenarioCapsule, file: Path) -> tuple[StepModel, list[Problem]]:
     model, issues = parse_step_model(capsule.model)
     problems = [
         Problem(
@@ -433,6 +443,70 @@ def _model(capsule: ScenarioCapsule, file: Path) -> tuple[StepModel, list[Proble
     return model, problems
 
 
+_FACT_FIELDS = tuple(f.name for f in dataclasses.fields(ModelFacts))
+
+
+def _engine_problem(ext: Extension, message: str, fix: str) -> ProjectError:
+    return ProjectError(
+        [Problem("engine", "bad_engine", message, fix, ext.file, ext.line, ext.name)]
+    )
+
+
+def _custom(
+    capsule: ScenarioCapsule, file: Path, extensions: Extensions, limits: CheckLimits
+) -> tuple[Extension, ModelFacts, tuple[str, ...]]:
+    """The engine file `model.engine` names, checked, with its facts and first actions."""
+    name = capsule.model.get("engine")
+    known = extensions.names("engine")
+    if not isinstance(name, str) or name not in known:
+        broken = [p for p in extensions.problems if p.kind == "engine"]
+        raise ProjectError(
+            [
+                Problem(
+                    "model",
+                    "unknown_name",
+                    f"model.engine names {name!r}, but there is no engine with that name.",
+                    did_you_mean(str(name), known) or "Add an engine file to engines/.",
+                    file,
+                    field="model.engine",
+                ),
+                *broken,
+            ]
+        )
+    ext = extensions.get("engine", name)
+    problems = check_engine(ext, capsule.model, 0, limits)
+    if problems:
+        raise ProjectError(problems)
+    engine = ext(dict(capsule.model))
+    start = engine.start(0)
+    actions = tuple(engine.actions(start))
+    given = engine.facts() if callable(getattr(engine, "facts", None)) else {}
+    if not isinstance(given, Mapping) or any(k not in _FACT_FIELDS for k in given):
+        raise _engine_problem(
+            ext,
+            f"Engine.facts returned {given!r}.",
+            f"Return a mapping with some of: {', '.join(_FACT_FIELDS)}.",
+        )
+    facts = dict(given)
+    facts.setdefault("products", tuple(start.stock))
+    facts.setdefault("horizon", int(getattr(engine, "horizon", 0)))
+    try:
+        return ext, ModelFacts(**facts), actions
+    except (TypeError, ValueError) as exc:
+        raise _engine_problem(
+            ext, f"Engine.facts could not be used: {exc}.", "Return plain names and numbers."
+        ) from exc
+
+
+@dataclass(frozen=True)
+class EpisodePlan:
+    """One engine and the start seed of each episode, shared by every policy (common random
+    numbers, D-135, D-153)."""
+
+    engine: Engine
+    seeds: tuple[int, ...]
+
+
 @dataclass(frozen=True)
 class Project:
     """An opened twin project (COMP-163)."""
@@ -442,10 +516,14 @@ class Project:
     capsule: ScenarioCapsule
     config: ProjectConfig
     extensions: Extensions
-    model: StepModel
+    model: StepModel | None
     problems: tuple[Problem, ...] = ()
     notes: tuple[Problem, ...] = ()
     facts: ModelFacts = field(default_factory=ModelFacts)
+    domain: str = "make_to_stock"
+    engine_extension: Extension | None = None
+    views: Mapping[str, GroupedView] = field(default_factory=dict)
+    actions: tuple[str, ...] = ()
 
     @classmethod
     def open(cls, path: Path | str) -> Project:
@@ -456,12 +534,23 @@ class Project:
         if isinstance(file, Problem):
             raise ProjectError([file])
         capsule = _load_capsule(file)
-        model, model_problems = _model(capsule, file)
+        domain = _domain(capsule, file)
         extensions = load_project(file.parent)
         config, problems = read_config(capsule.experiment, file)
-        problems += _selection_problems(config, extensions, file)
-        problems += _view_clashes(model, extensions)
-        problems += _markov_view_problems(config, model, extensions, file)
+        model: StepModel | None = None
+        engine_ext: Extension | None = None
+        notes: list[Problem] = []
+        if domain == "custom":
+            engine_ext, facts, actions = _custom(capsule, file, extensions, config.checker)
+            views, _ = parse_state_groups(capsule.model.get("state_groups"), facts.products)
+        else:
+            model, model_problems = _model(capsule, file)
+            notes = [p for p in model_problems if p.severity == "info"]
+            facts, actions, views = ModelFacts.from_step_model(model), (), dict(model.views)
+            actions = (*model.product_ids, IDLE)
+        problems += _selection_problems(config, extensions, file, domain)
+        problems += _view_clashes(views, extensions)
+        problems += _markov_view_problems(config, views, extensions, file)
         return cls(
             folder=file.parent,
             capsule_file=file,
@@ -470,8 +559,12 @@ class Project:
             extensions=extensions,
             model=model,
             problems=tuple(problems),
-            notes=tuple(p for p in model_problems if p.severity == "info"),
-            facts=ModelFacts.from_step_model(model),
+            notes=tuple(notes),
+            facts=facts,
+            domain=domain,
+            engine_extension=engine_ext,
+            views=MappingProxyType(views),
+            actions=actions,
         )
 
     @property
@@ -481,10 +574,54 @@ class Project:
 
     # --- engines -----------------------------------------------------------------------------
 
-    def engine(self, draws: DemandDraws | None = None) -> StepEngine:
-        """The model's engine. With `draws` (from `demand_draws`) the episode number given
-        to `start` picks the demand row (D-135); without, it draws plain Poisson demand."""
-        return StepEngine(self.model, draws)
+    def engine(self, draws: DemandDraws | None = None) -> Engine:
+        """A fresh engine. Make-to-stock: with `draws` (from `demand_draws`) the episode
+        number given to `start` picks the demand row (D-135); without, it draws plain
+        Poisson demand. Custom: the engine file's class built from the capsule's model
+        (it makes its own randomness from the `start` seed, so `draws` must be None)."""
+        if self.engine_extension is not None:
+            if draws is not None:
+                raise ValueError("a custom engine makes its own demand; pass no draws")
+            engine: Engine = self.engine_extension(dict(self.capsule.model))
+            return engine
+        return StepEngine(self._step_model(), draws)
+
+    def episodes(self, episodes: int, seed: int) -> EpisodePlan:
+        """The engine and start seeds for `episodes` runs on one seed's dice; every policy
+        runs on the same plan (D-153). Make-to-stock: demand drawn once with the chosen
+        demand file, start seeds 0..episodes-1 pick the rows. Custom: start seeds made from
+        `seed`, so the tuning seed and the race seed give different dice (D-143)."""
+        if self.engine_extension is not None:
+            starts = np.random.SeedSequence(seed).generate_state(episodes)
+            return EpisodePlan(self.engine(), tuple(int(s) for s in starts))
+        return EpisodePlan(self.engine(self.demand_draws(episodes, seed)), tuple(range(episodes)))
+
+    def decider(self, policy: Extension, engine: Engine, **settings: Any) -> Decide:
+        """`decide` as the engine calls it: snapshot in, action out (REQ-202). The policy
+        sees the full view with features, then the chosen settings are passed. A raise or a
+        bad action raises `ExtensionFailed` with the file, line and fix."""
+
+        def decide(snapshot: Snapshot) -> str:
+            state = self.policy_state(snapshot, engine.actions(snapshot))
+            return str(call_checked(policy, (state,), settings, validate=_policy_check))
+
+        return decide
+
+    def _step_model(self) -> StepModel:
+        if self.model is None:
+            raise ProjectError(
+                [
+                    Problem(
+                        "project",
+                        "custom_engine",
+                        "This project runs a custom engine, which makes its own demand.",
+                        "Use project.episodes(...) to run it.",
+                        self.capsule_file,
+                        field="model.engine",
+                    )
+                ]
+            )
+        return self.model
 
     def demand_draws(self, episodes: int, seed: int) -> DemandDraws:
         """Demand of shape (episodes, days, products) from the chosen demand file, made
@@ -494,14 +631,15 @@ class Project:
         A demand file that raises or returns bad units stops the draws with a
         `ProjectError` naming the file and line.
         """
+        model = self._step_model()
         ext = self.extensions.get("demand", self.config.demand)
-        products = self.model.product_ids
+        products = model.product_ids
         validate = demand_validator(products)
         rng = np.random.default_rng(seed)
-        draws = np.zeros((episodes, self.model.horizon, len(products)), dtype=np.int64)
+        draws = np.zeros((episodes, model.horizon, len(products)), dtype=np.int64)
         try:
             for episode in range(episodes):
-                for day in range(self.model.horizon):
+                for day in range(model.horizon):
                     units = call_checked(ext, (day, rng, self.facts), validate=validate)
                     draws[episode, day] = [int(units[p]) for p in products]
         except ExtensionFailed as failed:
@@ -519,11 +657,6 @@ class Project:
         return float(self.reward(move))
 
     # --- policy states and features (REQ-202, REQ-219) -----------------------------------------
-
-    @property
-    def actions(self) -> tuple[str, ...]:
-        """What a make-next policy may return: a product id or `"idle"`."""
-        return (*self.model.product_ids, IDLE)
 
     def features(self, state: PolicyState) -> dict[str, float]:
         """The chosen feature files' values for one state; a later file wins a shared name."""
@@ -556,12 +689,12 @@ class Project:
 
     @property
     def view_names(self) -> tuple[str, ...]:
-        return tuple(sorted({*self.model.views, *self.extensions.names("view")}))
+        return tuple(sorted({*self.views, *self.extensions.names("view")}))
 
     def view(self, name: str) -> GroupedView | ExtensionView:
         """A YAML view (`state_groups`) or a view file; YAML wins a shared name."""
-        if name in self.model.views:
-            return self.model.views[name]
+        if name in self.views:
+            return self.views[name]
         if name in self.extensions.names("view"):
             return ExtensionView(self, self.extensions.get("view", name))
         raise ExtensionNotFound("view", name, self.view_names)
@@ -602,11 +735,15 @@ class ExtensionView:
         return str(self.extension(self.project.policy_state(snapshot)))
 
 
+def _policy_check(value: Any, args: Sequence[Any]) -> str | None:
+    return check_return("policy", value, allowed=args[0].actions)
+
+
 def _markov_view_problems(
-    config: ProjectConfig, model: StepModel, extensions: Extensions, file: Path
+    config: ProjectConfig, views: Mapping[str, GroupedView], extensions: Extensions, file: Path
 ) -> list[Problem]:
     view = config.markov.view
-    known = {*model.views, *extensions.names("view")}
+    known = {*views, *extensions.names("view")}
     if view in known:
         return []
     return [
@@ -621,7 +758,7 @@ def _markov_view_problems(
     ]
 
 
-def _view_clashes(model: StepModel, extensions: Extensions) -> list[Problem]:
+def _view_clashes(views: Mapping[str, GroupedView], extensions: Extensions) -> list[Problem]:
     return [
         Problem(
             "view",
@@ -635,16 +772,17 @@ def _view_clashes(model: StepModel, extensions: Extensions) -> list[Problem]:
             severity="info",
         )
         for ext in extensions.of("view")
-        if ext.name in model.views
+        if ext.name in views
     ]
 
 
-def _selection_problems(config: ProjectConfig, extensions: Extensions, file: Path) -> list[Problem]:
+def _selection_problems(
+    config: ProjectConfig, extensions: Extensions, file: Path, domain: str
+) -> list[Problem]:
     """A named extension that does not exist is a problem on its capsule key."""
-    wanted = [
-        ("reward", "experiment.score", config.score),
-        ("demand", "experiment.demand", config.demand),
-    ]
+    wanted = [("reward", "experiment.score", config.score)]
+    if domain == "make_to_stock":  # a custom engine makes its own demand
+        wanted.append(("demand", "experiment.demand", config.demand))
     wanted += [("feature", "experiment.features", name) for name in config.features]
     problems = []
     for kind, key, name in wanted:

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from twinflow.domain import registry as domain_registry
+from twinflow.domain.registry import CUSTOM_DOMAIN, CUSTOM_ENGINE_MESSAGE
 from twinflow.model import CompiledModel, load_model, validate_model
 from twinflow.model.loader import dump_document, load_raw_model, parse_document
 from twinflow.plan.driver import RunDriver, RunResult
@@ -280,7 +281,17 @@ class ScenarioCapsule:
             KNOWN_CAPABILITIES if available_capabilities is None else available_capabilities
         )
         adapter = None
-        if isinstance(domain, str) and domain != "manufacturing":
+        if domain == CUSTOM_DOMAIN:
+            # A custom engine is user code: only the CLI and in-process Python load it (D-139).
+            issues.append(
+                ValidationIssue(
+                    "$.model.domain",
+                    CUSTOM_ENGINE_MESSAGE,
+                    suggestion="Open the project folder with the twinflow command line, or "
+                    "with twinflow.extensions.project.Project.open in Python",
+                )
+            )
+        elif isinstance(domain, str) and domain != "manufacturing":
             try:
                 adapter = domain_registry.get(domain)
                 capabilities.update(adapter.capabilities)
