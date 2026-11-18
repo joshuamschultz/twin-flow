@@ -13,14 +13,18 @@ export function FloorTab({ model }: { model: string }) {
     api
       .floor(model)
       .then(setFloor)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : String(err)),
+      );
   }, [model]);
 
   return (
     <div>
       <div className="panel-header">
         <h2>Floor Map</h2>
-        <span className="hint">locations, stocks, and the routes parts follow</span>
+        <span className="hint">
+          locations, stocks, and the routes parts follow
+        </span>
       </div>
       {error && <div className="error-banner">{error}</div>}
       {!error && !floor && <Spinner label="Loading floor…" />}

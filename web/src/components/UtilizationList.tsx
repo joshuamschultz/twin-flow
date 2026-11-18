@@ -6,8 +6,14 @@ import type { Interval } from "../api";
  * so a cell that's "70% utilized, give or take a lot" reads differently
  * from one that's a tight 70%.
  */
-export function UtilizationList({ utilization }: { utilization: Record<string, Interval> }) {
-  const cells = Object.entries(utilization).sort(([a], [b]) => a.localeCompare(b));
+export function UtilizationList({
+  utilization,
+}: {
+  utilization: Record<string, Interval>;
+}) {
+  const cells = Object.entries(utilization).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
 
   if (cells.length === 0) {
     return <div className="empty-state">No work-center activity recorded.</div>;
@@ -34,7 +40,10 @@ export function UtilizationList({ utilization }: { utilization: Record<string, I
                   bottom: 0,
                 }}
               />
-              <div className="util-fill" style={{ width: `${Math.max(0, Math.min(100, meanPct))}%` }} />
+              <div
+                className="util-fill"
+                style={{ width: `${Math.max(0, Math.min(100, meanPct))}%` }}
+              />
             </div>
             <span className="util-pct">{meanPct.toFixed(0)}%</span>
           </div>

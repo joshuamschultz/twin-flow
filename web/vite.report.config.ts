@@ -13,6 +13,7 @@ function moduleList(): Plugin {
       const ids = [...this.getModuleIds()].filter((id) =>
         id.includes("node_modules"),
       );
+      mkdirSync("dist-report", { recursive: true });
       writeFileSync(
         "dist-report/modules.json",
         JSON.stringify(ids.sort(), null, 1),

@@ -26,12 +26,13 @@ from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, aggregate_kpis
 from twinflow.instrumentation.kpis import KpiSet
 from twinflow.instrumentation.sweep import SweepHarness, SweepResult, orders_frame
-from twinflow.model import CompiledModel, load_model, plan_origin, validate_model
+from twinflow.model import load_model, plan_origin, validate_model
 from twinflow.plan.driver import RunDriver
 from twinflow.plan.loader import load_plan
 from twinflow.plan.replication import ReplicationRunner
-from twinflow.report import render_html, write_kpi_json
+from twinflow.report import write_kpi_json, write_run_report, write_sweep_report
 from twinflow.report.assumptions import AssumptionsCollector
+from twinflow.report.run_detail import labels, shown_path, write_run_detail
 from twinflow.run_stamp import RunStamp
 from twinflow.scenario import import_legacy
 from twinflow.scenario import load as load_capsule
@@ -128,6 +129,7 @@ def _build_parser() -> argparse.ArgumentParser:
     balance_parser.add_argument("--plan", required=True)
     balance_parser.add_argument("--sweep", required=True)
     balance_parser.add_argument("--reps", required=True, type=int)
+    balance_parser.add_argument("--run", default=None, help="base run id the sweep belongs to")
     balance_parser.set_defaults(handler=_handle_balance)
 
     report_parser = subparsers.add_parser("report")
@@ -150,6 +152,7 @@ def _build_parser() -> argparse.ArgumentParser:
     optimize_parser.add_argument("--budget", type=int, default=12)
     optimize_parser.add_argument("--reps", type=int, default=12)
     optimize_parser.add_argument("--seed", type=int, default=0)
+    optimize_parser.add_argument("--run", default=None, help="base run id the search belongs to")
     optimize_parser.set_defaults(handler=_handle_optimize)
 
     scenario_parser = subparsers.add_parser("scenario")
@@ -329,6 +332,7 @@ def _handle_run(args: argparse.Namespace) -> int:
         run_dir = result.event_log_path.parent
         orders = orders_frame(work_orders, compiled, result.event_log_path)
         per_rep = [compute_kpis(result.event_log_path, orders, result.horizon)]
+        event_paths = [result.event_log_path]
         horizon = result.horizon
         run_logs = [(result.event_log_path, result.horizon)]
     else:
@@ -358,6 +362,7 @@ def _handle_run(args: argparse.Namespace) -> int:
             )
             for r in results
         ]
+        event_paths = [r.event_log_path for r in results]
         horizon = results[0].horizon
         run_logs = [(r.event_log_path, r.horizon) for r in results]
 
@@ -366,9 +371,20 @@ def _handle_run(args: argparse.Namespace) -> int:
     kpis = per_rep[0]
     aggregated = aggregate_kpis(per_rep)
 
-    _write_run_artifacts(
-        run_dir, compiled, kpis, aggregated, model_path, plan_path, horizon=horizon
+    _write_run_artifacts(run_dir, kpis, aggregated, model_path, plan_path)
+    write_run_detail(
+        run_dir,
+        model=compiled,
+        work_orders=work_orders,
+        per_rep=per_rep,
+        event_paths=event_paths,
+        horizon=horizon,
+        assumptions=AssumptionsCollector().collect(compiled),
+        model_path=model_path,
+        plan_path=plan_path,
+        reps=args.reps,
     )
+    write_run_report(run_dir)
     run_id = run_dir.name
     print(f"run {run_id}")
     for line in _run_summary_lines(kpis, args.reps):
@@ -443,12 +459,25 @@ def _handle_balance(args: argparse.Namespace) -> int:
     )
     summary = _sweep_summary(result)
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    _write_sweep_meta(run_dir, args.run, args.reps, list(sweep), model_path, plan_path)
     for line in _sweep_summary_lines(summary):
         print(line)
     print(f"\nsweep {run_dir.name}")
     print(f"  dir:     {run_dir}")
     print(f"  summary: {run_dir / 'summary.json'}")
+    _write_sweep_pages(run_dir, args.run)
     return 0
+
+
+def _write_sweep_pages(sweep_dir: Path, base_run_id: str | None) -> None:
+    """B-35: `sweep.html` in the sweep folder, and the linked base run's viewer again so it
+    lists the tested changes."""
+    print(f"  page:    {write_sweep_report(sweep_dir)}")
+    base = sweep_dir.parent / base_run_id if base_run_id else None
+    if base is not None and (base / "kpis.json").is_file():
+        print(f"  run:     {write_run_report(base)}")
+    elif base_run_id:
+        print(f"  note:    base run {base_run_id!r} not found next to this sweep")
 
 
 def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
@@ -462,6 +491,11 @@ def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
         sub = kpi.filter(kpi["sweep_point"] == point_id) if len(kpi) else kpi
         on_time = float(cast(float, sub["on_time_pct"].mean())) if len(sub) else 0.0
         busy_h = float(cast(float, sub["run_hours"].mean())) if len(sub) else 0.0
+        late = (
+            float(cast(float, sub["late_orders"].mean()))
+            if len(sub) and "late_orders" in sub.columns
+            else 0.0
+        )
         rows.append(
             {
                 "sweep_point": point_id,
@@ -469,9 +503,44 @@ def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
                 "reps": len(sub),
                 "on_time_pct": round(on_time, 1),
                 "busy_hours": round(busy_h, 1),
+                "late_orders_per_run": round(late, 2),
             }
         )
     return rows
+
+
+def _write_sweep_meta(
+    run_dir: Path,
+    base_run_id: str | None,
+    reps: int,
+    lever_paths: list[str],
+    model_path: str,
+    plan_path: str,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """B-26 G6: link the sweep to its base run and keep each lever's value today, so the
+    base run's viewer can show the levers measured against what the plant does now."""
+    from twinflow.instrumentation.sweep import lever_value
+    from twinflow.model.loader import load_raw_model
+
+    data = cast(dict[str, Any], load_raw_model(model_path).data)
+    defaults = {"capacity": 1, "dispatch": "fifo"}
+    base_values = {
+        path: lever_value(data, path, defaults.get(path.rsplit(".", 1)[-1])) for path in lever_paths
+    }
+    meta = {
+        "schema_version": 1,
+        "kind": "balance",
+        "project": Path(model_path).resolve().parent.name,
+        "base_run_id": base_run_id,
+        "model_path": shown_path(model_path),
+        "plan_path": shown_path(plan_path),
+        "reps": reps,
+        "base_values": base_values,
+        "labels": labels(model_path),
+        **(extra or {}),
+    }
+    (run_dir / "sweep_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
 
 def _sweep_summary_lines(summary: list[dict[str, object]]) -> list[str]:
@@ -490,17 +559,14 @@ def _sweep_summary_lines(summary: list[dict[str, object]]) -> list[str]:
 
 
 def _handle_report(args: argparse.Namespace) -> int:
-    """`twinflow report <run-id> --out html` — (re)confirms `report.html` for an
-    already-completed run; `kpis.json` is the "run completed" proof-of-life
-    marker (COMP-027)."""
+    """`twinflow report <run-id> --out html` — (re)writes `report.html`, the run viewer,
+    from the run folder alone; `kpis.json` is the "run completed" marker (COMP-027).
+    A sweep linked to the run since it was made shows up as its levers."""
     run_dir = Path("runs") / args.run_id
     if not (run_dir / "kpis.json").is_file():
         print(f"error: no completed run found at {run_dir}", file=sys.stderr)
         return 1
-    if not (run_dir / "report.html").is_file():
-        print(f"error: run {args.run_id!r} completed but report.html is missing", file=sys.stderr)
-        return 1
-    print(run_dir / "report.html")
+    print(f"report: {write_run_report(run_dir)}")
     return 0
 
 
@@ -563,7 +629,47 @@ def _handle_optimize(args: argparse.Namespace) -> int:
     print(f"  on-time%: {band.mean:.1f}  (band {band.lo:.1f}-{band.hi:.1f}, {band.n} reps)")
     print(f"  evals:    {result.evaluations_used} of budget {args.budget}")
     print("  (the twin scores the options; the decision stays yours)")
+    out_dir = Path.cwd() / "runs" / _new_run_id()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "summary.json").write_text(
+        json.dumps(_optimize_summary(result, args.reps), indent=2), encoding="utf-8"
+    )
+    _write_sweep_meta(
+        out_dir,
+        args.run,
+        args.reps,
+        list(domains),
+        model_path,
+        plan_path,
+        {"kind": "optimize", "objective": result.objective_name},
+    )
+    print(f"\noptimize {out_dir.name}")
+    print(f"  dir:     {out_dir}")
+    _write_sweep_pages(out_dir, args.run)
     return 0
+
+
+def _optimize_summary(result: Any, reps: int) -> list[dict[str, object]]:
+    """Each scenario the optimizer scored, as `summary.json` rows (same shape as balance).
+    Late orders per run are not kept per test run here, so that field is null."""
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for i, evaluation in enumerate(result.evaluations):
+        key = json.dumps(evaluation.scenario.levers, sort_keys=True, default=str)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(
+            {
+                "sweep_point": f"eval-{i:04d}",
+                "levers": {str(k): v for k, v in evaluation.scenario.levers.items()},
+                "reps": evaluation.intervals.reps or reps,
+                "on_time_pct": round(evaluation.intervals.on_time_pct.mean, 1),
+                "busy_hours": round(evaluation.kpis.run_hours, 1),
+                "late_orders_per_run": None,
+            }
+        )
+    return rows
 
 
 def _parse_lever(spec: str) -> tuple[str, IntRange]:
@@ -605,28 +711,17 @@ def _handle_serve(args: argparse.Namespace) -> int:
 
 def _write_run_artifacts(
     run_dir: Path,
-    compiled: CompiledModel,
     kpis: KpiSet,
     aggregated: AggregatedKpis,
     model_path: str,
     plan_path: str,
-    horizon: float | None = None,
 ) -> None:
-    """Write `kpis.json`, `intervals.json`, `report.html` and `run_meta.json`."""
-    assumptions = AssumptionsCollector().collect(compiled)
+    """Write `kpis.json`, `intervals.json` and `run_meta.json`. `report.html` is written
+    after `run_detail.json`, from the run folder (B-34)."""
     stamp = RunStamp.create(model_path, plan_path, base_seed=_BASE_SEED)
     write_kpi_json(kpis, _KPI_SCHEMA_VERSION, run_dir / "kpis.json")
     (run_dir / "intervals.json").write_text(
         json.dumps(_intervals_to_dict(aggregated), indent=2), encoding="utf-8"
-    )
-    render_html(
-        kpis,
-        assumptions,
-        stamp,
-        run_dir / "report.html",
-        model=compiled,
-        aggregated=aggregated,
-        horizon=horizon,
     )
     (run_dir / "run_meta.json").write_text(json.dumps(stamp.to_dict(), indent=2), encoding="utf-8")
 

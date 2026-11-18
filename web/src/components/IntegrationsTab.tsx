@@ -12,22 +12,30 @@ function buildGroups(adapters: AdaptersResponse): Group[] {
   return [
     {
       title: "Connectors",
-      caption: "ERP / MES connectors register here — plan sources, result sinks, and actual sources.",
-      names: [...adapters.plan_sources, ...adapters.result_sinks, ...adapters.actual_sources],
+      caption:
+        "ERP / MES connectors register here — plan sources, result sinks, and actual sources.",
+      names: [
+        ...adapters.plan_sources,
+        ...adapters.result_sinks,
+        ...adapters.actual_sources,
+      ],
     },
     {
       title: "Demand generators",
-      caption: "Order and demand generators plug in here to drive a plan from something other than a static CSV.",
+      caption:
+        "Order and demand generators plug in here to drive a plan from something other than a static CSV.",
       names: adapters.demand_generators,
     },
     {
       title: "Forecasters",
-      caption: "Forecasting models — statistical or RL — plug in here to feed predicted demand into the twin.",
+      caption:
+        "Forecasting models — statistical or RL — plug in here to feed predicted demand into the twin.",
       names: adapters.forecasters,
     },
     {
       title: "Dispatch policies",
-      caption: "Alternative dispatch/sequencing policies register here to replace the default rule at run time.",
+      caption:
+        "Alternative dispatch/sequencing policies register here to replace the default rule at run time.",
       names: adapters.dispatch_policies,
     },
   ];
@@ -41,14 +49,18 @@ export function IntegrationsTab() {
     api
       .adapters()
       .then(setAdapters)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : String(err)),
+      );
   }, []);
 
   return (
     <div>
       <div className="panel-header">
         <h2>Integrations</h2>
-        <span className="hint">registered plug-in surfaces — informational only</span>
+        <span className="hint">
+          registered plug-in surfaces — informational only
+        </span>
       </div>
 
       {error && <div className="error-banner">{error}</div>}

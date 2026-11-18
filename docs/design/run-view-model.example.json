@@ -1,0 +1,1388 @@
+{
+ "view": "run",
+ "schema_version": 1,
+ "about": {
+  "title": "Run viewer: cnc-shop",
+  "project": "cnc-shop",
+  "run_id": "2026-11-18T13-43-07Z-6659b7ff",
+  "reps": 30,
+  "seed": 0,
+  "interval": 0.9,
+  "time_unit": "minutes",
+  "horizon": 58.651,
+  "start": null,
+  "method": "30 test runs of the same plan with different random machine times. Ranges are likely ranges of the mean.",
+  "assumptions": [
+   "Any machine eligible: no machine eligibility data declared.",
+   "Arrival order used as sequence: no pull rule declared for a location (8 locations: deburr_bracket, deburr_shaft, inspect_bracket, inspect_shaft, mill_bracket, mill_shaft, saw_bracket, saw_shaft).",
+   "One undifferentiated labor pool: only one labor pool declared.",
+   "Setup time zero: no changeover matrix declared."
+  ],
+  "engine_version": "0.4.0a1",
+  "model_hash": "9b04082ee6bda31ecc5daaf0961ed41d67a90e872de8925fa2ef8241a4796b8b",
+  "plan_hash": "852fb5e7c849bfb13daadf5658f96fb498e9c0ff205e435c6a56db558db59d8f"
+ },
+ "answer": {
+  "level": "most_on_time",
+  "headline": "Most will. Watch WO-9.",
+  "lede": "In 30 test runs, about 9 of 10 orders finished on time. WO-9 was late in more than half of the runs. Every order at risk is a shaft, and every shaft waits for the shaft mill.",
+  "on_time": {
+   "mean": 0.873,
+   "low": 0.833,
+   "high": 0.913
+  },
+  "late_orders_per_run": 1.3,
+  "watch": [
+   "wo-9",
+   "wo-5",
+   "wo-7"
+  ],
+  "choke": {
+   "centre": "mill_shaft",
+   "label": "Shaft mill",
+   "busy": 0.987
+  }
+ },
+ "orders": [
+  {
+   "id": "wo-9",
+   "part": "shaft",
+   "qty": 20,
+   "release": 20.0,
+   "due": 58.333,
+   "finish": {
+    "mean": 59.431,
+    "low": 57.697,
+    "high": 61.165
+   },
+   "room": -1.098,
+   "late_chance": 0.567,
+   "status": "late",
+   "reason": "Likely 1.1 min late. It waits in line at the shaft mill.",
+   "steps": [
+    {
+     "centre": "saw_shaft",
+     "label": "Shaft saw",
+     "work": 0.167,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_shaft",
+     "label": "Shaft mill",
+     "work": 12.021,
+     "wait": 26.885
+    },
+    {
+     "centre": "deburr_shaft",
+     "label": "Shaft deburr",
+     "work": 0.182,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_shaft",
+     "label": "Shaft inspection",
+     "work": 0.175,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-5",
+   "part": "shaft",
+   "qty": 30,
+   "release": 10.0,
+   "due": 41.667,
+   "finish": {
+    "mean": 40.802,
+    "low": 39.36,
+    "high": 42.243
+   },
+   "room": 0.865,
+   "late_chance": 0.433,
+   "status": "risk",
+   "reason": "Only 0.9 min of room. It waits in line at the shaft mill.",
+   "steps": [
+    {
+     "centre": "saw_shaft",
+     "label": "Shaft saw",
+     "work": 0.261,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_shaft",
+     "label": "Shaft mill",
+     "work": 17.361,
+     "wait": 12.671
+    },
+    {
+     "centre": "deburr_shaft",
+     "label": "Shaft deburr",
+     "work": 0.262,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_shaft",
+     "label": "Shaft inspection",
+     "work": 0.246,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-7",
+   "part": "shaft",
+   "qty": 12,
+   "release": 15.0,
+   "due": 50.0,
+   "finish": {
+    "mean": 47.259,
+    "low": 45.846,
+    "high": 48.673
+   },
+   "room": 2.741,
+   "late_chance": 0.267,
+   "status": "risk",
+   "reason": "Only 2.7 min of room. It waits in line at the shaft mill.",
+   "steps": [
+    {
+     "centre": "saw_shaft",
+     "label": "Shaft saw",
+     "work": 0.103,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_shaft",
+     "label": "Shaft mill",
+     "work": 6.759,
+     "wait": 25.19
+    },
+    {
+     "centre": "deburr_shaft",
+     "label": "Shaft deburr",
+     "work": 0.104,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_shaft",
+     "label": "Shaft inspection",
+     "work": 0.104,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-10",
+   "part": "bracket",
+   "qty": 16,
+   "release": 21.667,
+   "due": 60.0,
+   "finish": {
+    "mean": 51.555,
+    "low": 50.262,
+    "high": 52.848
+   },
+   "room": 8.445,
+   "late_chance": 0.0,
+   "status": "ok",
+   "reason": "Done 8 min early. The bracket mill has room.",
+   "steps": [
+    {
+     "centre": "saw_bracket",
+     "label": "Bracket saw",
+     "work": 0.137,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_bracket",
+     "label": "Bracket mill",
+     "work": 9.778,
+     "wait": 19.704
+    },
+    {
+     "centre": "deburr_bracket",
+     "label": "Bracket deburr",
+     "work": 0.139,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_bracket",
+     "label": "Bracket inspection",
+     "work": 0.131,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-8",
+   "part": "bracket",
+   "qty": 22,
+   "release": 16.667,
+   "due": 51.667,
+   "finish": {
+    "mean": 41.898,
+    "low": 40.849,
+    "high": 42.946
+   },
+   "room": 9.769,
+   "late_chance": 0.0,
+   "status": "ok",
+   "reason": "Done 10 min early. The bracket mill has room.",
+   "steps": [
+    {
+     "centre": "saw_bracket",
+     "label": "Bracket saw",
+     "work": 0.187,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_bracket",
+     "label": "Bracket mill",
+     "work": 13.009,
+     "wait": 11.645
+    },
+    {
+     "centre": "deburr_bracket",
+     "label": "Bracket deburr",
+     "work": 0.189,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_bracket",
+     "label": "Bracket inspection",
+     "work": 0.201,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-3",
+   "part": "shaft",
+   "qty": 25,
+   "release": 5.0,
+   "due": 33.333,
+   "finish": {
+    "mean": 23.365,
+    "low": 22.416,
+    "high": 24.314
+   },
+   "room": 9.968,
+   "late_chance": 0.0,
+   "status": "ok",
+   "reason": "Done 10 min early.",
+   "steps": [
+    {
+     "centre": "saw_shaft",
+     "label": "Shaft saw",
+     "work": 0.206,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_shaft",
+     "label": "Shaft mill",
+     "work": 14.0,
+     "wait": 3.727
+    },
+    {
+     "centre": "deburr_shaft",
+     "label": "Shaft deburr",
+     "work": 0.217,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_shaft",
+     "label": "Shaft inspection",
+     "work": 0.215,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-2",
+   "part": "bracket",
+   "qty": 20,
+   "release": 1.667,
+   "due": 26.667,
+   "finish": {
+    "mean": 13.335,
+    "low": 12.787,
+    "high": 13.884
+   },
+   "room": 13.332,
+   "late_chance": 0.0,
+   "status": "ok",
+   "reason": "Done 13 min early.",
+   "steps": [
+    {
+     "centre": "saw_bracket",
+     "label": "Bracket saw",
+     "work": 0.183,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_bracket",
+     "label": "Bracket mill",
+     "work": 11.143,
+     "wait": 0.0
+    },
+    {
+     "centre": "deburr_bracket",
+     "label": "Bracket deburr",
+     "work": 0.172,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_bracket",
+     "label": "Bracket inspection",
+     "work": 0.171,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-6",
+   "part": "bracket",
+   "qty": 18,
+   "release": 11.667,
+   "due": 43.333,
+   "finish": {
+    "mean": 28.815,
+    "low": 28.029,
+    "high": 29.602
+   },
+   "room": 14.518,
+   "late_chance": 0.0,
+   "status": "ok",
+   "reason": "Done 15 min early. The bracket mill has room.",
+   "steps": [
+    {
+     "centre": "saw_bracket",
+     "label": "Bracket saw",
+     "work": 0.153,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_bracket",
+     "label": "Bracket mill",
+     "work": 10.175,
+     "wait": 6.504
+    },
+    {
+     "centre": "deburr_bracket",
+     "label": "Bracket deburr",
+     "work": 0.156,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_bracket",
+     "label": "Bracket inspection",
+     "work": 0.161,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-1",
+   "part": "shaft",
+   "qty": 15,
+   "release": 0.0,
+   "due": 25.0,
+   "finish": {
+    "mean": 9.178,
+    "low": 8.742,
+    "high": 9.613
+   },
+   "room": 15.822,
+   "late_chance": 0.0,
+   "status": "ok",
+   "reason": "Done 16 min early.",
+   "steps": [
+    {
+     "centre": "saw_shaft",
+     "label": "Shaft saw",
+     "work": 0.122,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_shaft",
+     "label": "Shaft mill",
+     "work": 8.81,
+     "wait": 0.0
+    },
+    {
+     "centre": "deburr_shaft",
+     "label": "Shaft deburr",
+     "work": 0.125,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_shaft",
+     "label": "Shaft inspection",
+     "work": 0.12,
+     "wait": 0.0
+    }
+   ]
+  },
+  {
+   "id": "wo-4",
+   "part": "bracket",
+   "qty": 10,
+   "release": 6.667,
+   "due": 35.0,
+   "finish": {
+    "mean": 18.501,
+    "low": 17.811,
+    "high": 19.192
+   },
+   "room": 16.499,
+   "late_chance": 0.0,
+   "status": "ok",
+   "reason": "Done 16 min early. The bracket mill has room.",
+   "steps": [
+    {
+     "centre": "saw_bracket",
+     "label": "Bracket saw",
+     "work": 0.086,
+     "wait": 0.0
+    },
+    {
+     "centre": "mill_bracket",
+     "label": "Bracket mill",
+     "work": 5.331,
+     "wait": 6.24
+    },
+    {
+     "centre": "deburr_bracket",
+     "label": "Bracket deburr",
+     "work": 0.094,
+     "wait": 0.0
+    },
+    {
+     "centre": "inspect_bracket",
+     "label": "Bracket inspection",
+     "work": 0.084,
+     "wait": 0.0
+    }
+   ]
+  }
+ ],
+ "centres": [
+  {
+   "id": "mill_shaft",
+   "label": "Shaft mill",
+   "busy": {
+    "mean": 0.987,
+    "low": 0.982,
+    "high": 0.993
+   },
+   "blocked": 0.0,
+   "starved": 0.742,
+   "queue_wait": 13.695,
+   "status": "choke"
+  },
+  {
+   "id": "mill_bracket",
+   "label": "Bracket mill",
+   "busy": {
+    "mean": 0.832,
+    "low": 0.807,
+    "high": 0.858
+   },
+   "blocked": 0.0,
+   "starved": 10.257,
+   "queue_wait": 8.818,
+   "status": "next"
+  },
+  {
+   "id": "deburr_shaft",
+   "label": "Shaft deburr",
+   "busy": {
+    "mean": 0.015,
+    "low": 0.015,
+    "high": 0.015
+   },
+   "blocked": 0.0,
+   "starved": 58.803,
+   "queue_wait": 0.0,
+   "status": "ok"
+  },
+  {
+   "id": "inspect_shaft",
+   "label": "Shaft inspection",
+   "busy": {
+    "mean": 0.015,
+    "low": 0.014,
+    "high": 0.015
+   },
+   "blocked": 0.0,
+   "starved": 58.832,
+   "queue_wait": 0.0,
+   "status": "ok"
+  },
+  {
+   "id": "saw_shaft",
+   "label": "Shaft saw",
+   "busy": {
+    "mean": 0.015,
+    "low": 0.014,
+    "high": 0.015
+   },
+   "blocked": 0.0,
+   "starved": 58.832,
+   "queue_wait": 0.0,
+   "status": "ok"
+  },
+  {
+   "id": "deburr_bracket",
+   "label": "Bracket deburr",
+   "busy": {
+    "mean": 0.013,
+    "low": 0.012,
+    "high": 0.013
+   },
+   "blocked": 0.0,
+   "starved": 58.943,
+   "queue_wait": 0.0,
+   "status": "ok"
+  },
+  {
+   "id": "inspect_bracket",
+   "label": "Bracket inspection",
+   "busy": {
+    "mean": 0.013,
+    "low": 0.012,
+    "high": 0.013
+   },
+   "blocked": 0.0,
+   "starved": 58.945,
+   "queue_wait": 0.0,
+   "status": "ok"
+  },
+  {
+   "id": "saw_bracket",
+   "label": "Bracket saw",
+   "busy": {
+    "mean": 0.013,
+    "low": 0.012,
+    "high": 0.013
+   },
+   "blocked": 0.0,
+   "starved": 58.948,
+   "queue_wait": 0.0,
+   "status": "ok"
+  }
+ ],
+ "routes": [
+  {
+   "part": "shaft",
+   "steps": [
+    "saw_shaft",
+    "mill_shaft",
+    "deburr_shaft",
+    "inspect_shaft"
+   ]
+  },
+  {
+   "part": "bracket",
+   "steps": [
+    "saw_bracket",
+    "mill_bracket",
+    "deburr_bracket",
+    "inspect_bracket"
+   ]
+  }
+ ],
+ "levers": [
+  {
+   "id": "locations[mill_shaft].capacity=2",
+   "label": "Add a second shaft mill",
+   "tested": true,
+   "on_time": 0.987,
+   "gain_points": 11.4,
+   "late_orders_per_run": 0.1,
+   "note": "Late orders drop from 1.3 to 0.1 per run."
+  },
+  {
+   "id": "locations[mill_shaft].capacity=3",
+   "label": "Add a third shaft mill",
+   "tested": true,
+   "on_time": 0.997,
+   "gain_points": 12.4,
+   "late_orders_per_run": 0.0,
+   "note": "Only 1 point better than: add a second shaft mill. Not worth the extra."
+  },
+  {
+   "id": "locations[mill_shaft].dispatch=edd",
+   "label": "Shaft mill: run jobs by due date",
+   "tested": false,
+   "on_time": null,
+   "gain_points": null,
+   "late_orders_per_run": null,
+   "note": "Not tested yet. Save {\"locations[mill_shaft].dispatch\": [\"fifo\", \"edd\"]} as sweep.json, then run the command.",
+   "command": "twinflow balance examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv --sweep sweep.json --reps 30 --run 2026-11-18T13-43-07Z-6659b7ff"
+  }
+ ],
+ "sweep": {
+  "run_id": "2026-11-18T13-43-17Z-0c98be92",
+  "reps": 30
+ },
+ "takeaways": {
+  "orders": "The risk is all in one place. Shaft orders released at minute 10 or later queue at the shaft mill. Bracket orders finish 8 to 16 min early.",
+  "choke": "The shaft mill is the choke point. It is busy 99% of the time. The bracket mill is next at 83% and will choke if bracket orders grow by a fifth."
+ },
+ "details": {
+  "completed": 10,
+  "unfinished": 0,
+  "on_time_pct": 90.0,
+  "run_hours": 1.82,
+  "setup_hours": 0.0,
+  "machine_hours": 1.82,
+  "orders": [
+   {
+    "id": "wo-1",
+    "finish": 8.61,
+    "late_by": -16.39
+   },
+   {
+    "id": "wo-10",
+    "finish": 48.373,
+    "late_by": -11.627
+   },
+   {
+    "id": "wo-2",
+    "finish": 13.91,
+    "late_by": -12.757
+   },
+   {
+    "id": "wo-3",
+    "finish": 25.775,
+    "late_by": -7.558
+   },
+   {
+    "id": "wo-4",
+    "finish": 17.36,
+    "late_by": -17.64
+   },
+   {
+    "id": "wo-5",
+    "finish": 40.494,
+    "late_by": -1.173
+   },
+   {
+    "id": "wo-6",
+    "finish": 27.204,
+    "late_by": -16.129
+   },
+   {
+    "id": "wo-7",
+    "finish": 46.729,
+    "late_by": -3.271
+   },
+   {
+    "id": "wo-8",
+    "finish": 40.093,
+    "late_by": -11.574
+   },
+   {
+    "id": "wo-9",
+    "finish": 58.651,
+    "late_by": 0.318
+   }
+  ],
+  "centres": [
+   {
+    "id": "mill_shaft",
+    "label": "Shaft mill",
+    "busy": 0.991,
+    "starved": 0.553,
+    "blocked": 0.0,
+    "cycle": 11.62,
+    "jobs": 5,
+    "wip_peak": 4
+   },
+   {
+    "id": "mill_bracket",
+    "label": "Bracket mill",
+    "busy": 0.789,
+    "starved": 12.396,
+    "blocked": 0.0,
+    "cycle": 9.251,
+    "jobs": 5,
+    "wip_peak": 3
+   },
+   {
+    "id": "deburr_shaft",
+    "label": "Shaft deburr",
+    "busy": 0.016,
+    "starved": 57.696,
+    "blocked": 0.0,
+    "cycle": 0.191,
+    "jobs": 5,
+    "wip_peak": 1
+   },
+   {
+    "id": "inspect_shaft",
+    "label": "Shaft inspection",
+    "busy": 0.016,
+    "starved": 57.736,
+    "blocked": 0.0,
+    "cycle": 0.183,
+    "jobs": 5,
+    "wip_peak": 1
+   },
+   {
+    "id": "saw_shaft",
+    "label": "Shaft saw",
+    "busy": 0.014,
+    "starved": 57.85,
+    "blocked": 0.0,
+    "cycle": 0.16,
+    "jobs": 5,
+    "wip_peak": 1
+   },
+   {
+    "id": "inspect_bracket",
+    "label": "Bracket inspection",
+    "busy": 0.012,
+    "starved": 57.928,
+    "blocked": 0.0,
+    "cycle": 0.145,
+    "jobs": 5,
+    "wip_peak": 1
+   },
+   {
+    "id": "saw_bracket",
+    "label": "Bracket saw",
+    "busy": 0.012,
+    "starved": 57.929,
+    "blocked": 0.0,
+    "cycle": 0.144,
+    "jobs": 5,
+    "wip_peak": 1
+   },
+   {
+    "id": "deburr_bracket",
+    "label": "Bracket deburr",
+    "busy": 0.012,
+    "starved": 57.937,
+    "blocked": 0.0,
+    "cycle": 0.143,
+    "jobs": 5,
+    "wip_peak": 1
+   }
+  ],
+  "machine_hours_by_machine": [
+   {
+    "machine": "deburr_bracket_m",
+    "hours": 0.012
+   },
+   {
+    "machine": "deburr_shaft_m",
+    "hours": 0.016
+   },
+   {
+    "machine": "inspect_bracket_m",
+    "hours": 0.012
+   },
+   {
+    "machine": "inspect_shaft_m",
+    "hours": 0.015
+   },
+   {
+    "machine": "mill_bracket_m",
+    "hours": 0.771
+   },
+   {
+    "machine": "mill_shaft_m",
+    "hours": 0.968
+   },
+   {
+    "machine": "saw_bracket_m",
+    "hours": 0.012
+   },
+   {
+    "machine": "saw_shaft_m",
+    "hours": 0.013
+   }
+  ],
+  "machine_pools": [
+   {
+    "resource": "deburr_bracket_m",
+    "capacity": 1,
+    "steps": [
+     "deburr_bracket"
+    ],
+    "busy_hours": 0.012,
+    "busy": 0.012
+   },
+   {
+    "resource": "deburr_shaft_m",
+    "capacity": 1,
+    "steps": [
+     "deburr_shaft"
+    ],
+    "busy_hours": 0.016,
+    "busy": 0.016
+   },
+   {
+    "resource": "inspect_bracket_m",
+    "capacity": 1,
+    "steps": [
+     "inspect_bracket"
+    ],
+    "busy_hours": 0.012,
+    "busy": 0.012
+   },
+   {
+    "resource": "inspect_shaft_m",
+    "capacity": 1,
+    "steps": [
+     "inspect_shaft"
+    ],
+    "busy_hours": 0.015,
+    "busy": 0.016
+   },
+   {
+    "resource": "mill_bracket_m",
+    "capacity": 1,
+    "steps": [
+     "mill_bracket"
+    ],
+    "busy_hours": 0.771,
+    "busy": 0.789
+   },
+   {
+    "resource": "mill_shaft_m",
+    "capacity": 1,
+    "steps": [
+     "mill_shaft"
+    ],
+    "busy_hours": 0.968,
+    "busy": 0.991
+   },
+   {
+    "resource": "saw_bracket_m",
+    "capacity": 1,
+    "steps": [
+     "saw_bracket"
+    ],
+    "busy_hours": 0.012,
+    "busy": 0.012
+   },
+   {
+    "resource": "saw_shaft_m",
+    "capacity": 1,
+    "steps": [
+     "saw_shaft"
+    ],
+    "busy_hours": 0.013,
+    "busy": 0.014
+   }
+  ],
+  "labor_pools": [
+   {
+    "resource": "floor_pool",
+    "capacity": 6,
+    "skills": [
+     "inspector",
+     "machinist"
+    ],
+    "busy_hours": 1.82,
+    "operating_hours": 0.978,
+    "busy_on_shift": 0.31,
+    "busy": 0.31
+   }
+  ]
+ },
+ "agent_summary": [
+  "Most will. Watch WO-9.",
+  "In 30 test runs, about 9 of 10 orders finished on time. WO-9 was late in more than half of the runs. Every order at risk is a shaft, and every shaft waits for the shaft mill.",
+  "The shaft mill is the choke point. It is busy 99% of the time. The bracket mill is next at 83% and will choke if bracket orders grow by a fifth.",
+  "Best tested change: Add a second shaft mill. 87% to 99% on time."
+ ],
+ "warnings": [],
+ "problems": [],
+ "wip_by_time": {
+  "t": [
+   0.0,
+   0.13,
+   1.667,
+   1.862,
+   5.0,
+   5.189,
+   6.667,
+   6.759,
+   8.336,
+   8.5,
+   8.61,
+   10.0,
+   10.197,
+   11.667,
+   11.804,
+   13.571,
+   13.745,
+   13.91,
+   15.0,
+   15.079,
+   16.667,
+   16.83,
+   17.19,
+   17.267,
+   17.36,
+   20.0,
+   20.207,
+   21.667,
+   21.801,
+   25.273,
+   25.549,
+   25.775,
+   26.885,
+   27.07,
+   27.204,
+   39.738,
+   39.895,
+   40.042,
+   40.093,
+   40.249,
+   40.494,
+   46.508,
+   46.621,
+   46.729,
+   48.118,
+   48.239,
+   48.373,
+   58.228,
+   58.425,
+   58.651
+  ],
+  "by_centre": {
+   "saw_shaft": [
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "mill_shaft": [
+    0.0,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0
+   ],
+   "saw_bracket": [
+    0.0,
+    0.0,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "mill_bracket": [
+    0.0,
+    0.0,
+    0.0,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "deburr_shaft": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0
+   ],
+   "inspect_shaft": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0
+   ],
+   "deburr_bracket": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "inspect_bracket": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ "labor": [
+  {
+   "pool": "floor_pool",
+   "skill": "inspector",
+   "hours": 0.055
+  },
+  {
+   "pool": "floor_pool",
+   "skill": "machinist",
+   "hours": 1.765
+  }
+ ]
+}

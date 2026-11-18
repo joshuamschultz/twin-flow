@@ -41,7 +41,10 @@ export function ConfidenceBand({
 
   const track = (
     <div className="band-track">
-      <div className="band-range" style={{ left: `${loPct}%`, width: `${width}%` }} />
+      <div
+        className="band-range"
+        style={{ left: `${loPct}%`, width: `${width}%` }}
+      />
       <div className="band-mean" style={{ left: `${meanPct}%` }} />
     </div>
   );

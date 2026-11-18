@@ -5,7 +5,7 @@ logic; every command sequences calls into Layer 2/3/4 entry points that
 already exist and do the real work (`model.load_model`/`validate_model`,
 `plan.loader.load_plan`, `plan.replication.ReplicationRunner`,
 `instrumentation.sweep.SweepHarness`, `instrumentation.kpis.KpiEngine`,
-`report.assumptions.AssumptionsCollector`, `report.render_html`,
+`report.assumptions.AssumptionsCollector`, `report.write_run_report`,
 `report.write_kpi_json`, `run_stamp.RunStamp`). Nothing in the package may
 import `cli` (structure.md: "cli ... may import all; nothing may import it").
 
@@ -71,10 +71,8 @@ only pins down WHICH command populates it and when)
         kpis.json        -- written by `report.write_kpi_json`. Doubles as
                              this file's "the run completed" proof-of-life
                              marker: `report`'s existence check keys off it.
-        report.html      -- written by `report.render_html`, either eagerly
-                             by `run` (which already holds every object
-                             `render_html` needs: `KpiSet`, `Assumption`
-                             list, `RunStamp`) or (re)confirmed by `report`.
+        report.html      -- the run viewer, written by `report.write_run_report`
+                             from the run folder, by `run` or again by `report`.
         run_meta.json     -- `RunStamp.create(...).to_dict()`, JSON-dumped.
 
 `<run-id>` naming scheme is NOT pinned down by this file (any fresh, unique,
@@ -140,7 +138,7 @@ boundary guards expected to PASS today and stay passing -- same precedent
 
 Real collaborators throughout: real YAML/CSV/JSON on disk, the real
 (already-shipped) `load_model`/`load_plan`/`ReplicationRunner`/`SweepHarness`/
-`KpiEngine`/`AssumptionsCollector`/`RunStamp`/`render_html`/`write_kpi_json`,
+`KpiEngine`/`AssumptionsCollector`/`RunStamp`/`write_run_report`/`write_kpi_json`,
 real SimPy, real Polars/Parquet round-trips. No mocks anywhere in this file --
 `main` is exercised purely as a black box via its own committed `argv -> int`
 contract, and every assertion is made by reading `main`'s own returned exit

@@ -9,9 +9,15 @@ import type {
 
 // Picks the view from the inlined view model (DESIGN.md 11.2).
 import { EmptyState } from "../decision/primitives";
-import type { RaceViewModel } from "../decision/types";
+import type {
+  RaceViewModel,
+  RunViewModel,
+  SweepViewModel,
+} from "../decision/types";
 import { ShellContext } from "../decision/viewState";
 import { RaceView } from "../decision/views/RaceView";
+import { RunView } from "../decision/views/RunView";
+import { SweepView } from "../decision/views/SweepView";
 
 export type AnyViewModel = { view?: string; [key: string]: unknown };
 
@@ -53,6 +59,10 @@ export function ReportApp({ model }: { model: AnyViewModel | null }) {
         <ImproveView model={model as unknown as ImproveViewModel} />
       ) : view === "project" ? (
         <ProjectView model={model as unknown as ProjectViewModel} />
+      ) : view === "run" ? (
+        <RunView model={model as unknown as RunViewModel} />
+      ) : view === "sweep" ? (
+        <SweepView model={model as unknown as SweepViewModel} />
       ) : (
         <Missing
           title={`This file holds a ${view} view.`}

@@ -63,7 +63,9 @@ export function FloorMap({ floor }: { floor: FloorGraph }) {
   }, [floor]);
 
   if (floor.nodes.length === 0) {
-    return <div className="empty-state">This model declares no floor nodes.</div>;
+    return (
+      <div className="empty-state">This model declares no floor nodes.</div>
+    );
   }
 
   return (

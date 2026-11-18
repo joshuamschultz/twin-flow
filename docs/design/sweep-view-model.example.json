@@ -1,0 +1,98 @@
+{
+ "view": "sweep",
+ "schema_version": 1,
+ "about": {
+  "title": "Sweep: cnc-shop",
+  "project": "cnc-shop",
+  "sweep_id": "2026-11-18T13-58-32Z-98a555bd",
+  "kind": "balance",
+  "base_run_id": "2026-11-18T13-43-07Z-6659b7ff",
+  "reps": 30,
+  "levers": [
+   "locations[mill_shaft].capacity"
+  ],
+  "objective": null,
+  "method": "Each change was run on the same test runs as today's plan, so the differences come from the change, not from luck."
+ },
+ "answer": {
+  "headline": "Add a second shaft mill. 87% to 99% on time.",
+  "lede": "2 changes were tested on the same 30 runs as today's plan. Late orders drop from 1.3 to 0.1 per run.",
+  "today": {
+   "on_time": 0.873,
+   "late_orders_per_run": 1.3
+  },
+  "best": {
+   "id": "locations[mill_shaft].capacity=2",
+   "label": "Add a second shaft mill",
+   "tested": true,
+   "on_time": 0.987,
+   "gain_points": 11.4,
+   "late_orders_per_run": 0.1,
+   "note": "Late orders drop from 1.3 to 0.1 per run."
+  }
+ },
+ "levers": [
+  {
+   "id": "locations[mill_shaft].capacity=2",
+   "label": "Add a second shaft mill",
+   "tested": true,
+   "on_time": 0.987,
+   "gain_points": 11.4,
+   "late_orders_per_run": 0.1,
+   "note": "Late orders drop from 1.3 to 0.1 per run."
+  },
+  {
+   "id": "locations[mill_shaft].capacity=3",
+   "label": "Add a third shaft mill",
+   "tested": true,
+   "on_time": 0.997,
+   "gain_points": 12.4,
+   "late_orders_per_run": 0.0,
+   "note": "Only 1 point better than: add a second shaft mill. Not worth the extra."
+  }
+ ],
+ "points": [
+  {
+   "id": "point-0000",
+   "levers": {
+    "locations[mill_shaft].capacity": 1
+   },
+   "label": "What you do today",
+   "today": true,
+   "reps": 30,
+   "on_time": 0.873,
+   "late_orders_per_run": 1.27,
+   "busy_hours": 1.9
+  },
+  {
+   "id": "point-0001",
+   "levers": {
+    "locations[mill_shaft].capacity": 2
+   },
+   "label": "Add a second shaft mill",
+   "today": false,
+   "reps": 30,
+   "on_time": 0.987,
+   "late_orders_per_run": 0.13,
+   "busy_hours": 1.9
+  },
+  {
+   "id": "point-0002",
+   "levers": {
+    "locations[mill_shaft].capacity": 3
+   },
+   "label": "Add a third shaft mill",
+   "today": false,
+   "reps": 30,
+   "on_time": 0.997,
+   "late_orders_per_run": 0.03,
+   "busy_hours": 1.8
+  }
+ ],
+ "agent_summary": [
+  "Add a second shaft mill. 87% to 99% on time.",
+  "2 changes were tested on the same 30 runs as today's plan. Late orders drop from 1.3 to 0.1 per run."
+ ],
+ "warnings": [],
+ "problems": []
+}

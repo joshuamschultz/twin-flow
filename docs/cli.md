@@ -17,7 +17,8 @@ twinflow validate examples/cnc-shop/model.yaml
 ## `twinflow run <model> --plan <plan> --reps N`
 
 Simulate `N` replications and write a run folder under `runs/<run-id>/` containing
-`report.html`, `kpis.json`, `intervals.json`, and `run_meta.json`, plus the event and
+`report.html` (the run viewer), `kpis.json`, `intervals.json`, `run_meta.json`, `plan.json`
+and `run_detail.json`, plus the event and
 resource tables described in [data contracts](data.md).
 
 ```bash
@@ -78,11 +79,14 @@ twinflow balance examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv 
 
 The command prints and writes `summary.json` in the sweep output directory. Each point
 includes its lever values, replication count, mean `on_time_pct`, and mean `busy_hours`
-(the legacy sweep's total machine `run_hours`).
+(the legacy sweep's total machine `run_hours`), and `late_orders_per_run`. With `--run <run-id>`
+the sweep is linked to that run (`sweep_meta.json`), and the run's viewer lists the changes,
+best first.
 
 ## `twinflow report <run-id> --out html`
 
-Confirm (and locate) the `report.html` for an already-completed run.
+Write `report.html` again for an already-completed run, from the files in its run folder.
+Use it after `twinflow balance --run <run-id>` so the run viewer shows the tested changes.
 
 ## `twinflow optimize <model> --plan <plan> --lever PATH:MIN:MAX[:STEP] ...`
 

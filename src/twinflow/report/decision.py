@@ -17,6 +17,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from twinflow.report.run_view import run_view_model
+
 DATA = "/*__TWINFLOW_DATA__*/"
 TITLE = "__TWINFLOW_TITLE__"
 DESCRIPTION = "__TWINFLOW_DESCRIPTION__"
@@ -151,4 +153,4 @@ def show(view_model: Mapping[str, Any], height: int = 900) -> InlineView:
     return InlineView(render(view_model), height)
 
 
-__all__ = ["InlineView", "render", "show", "template", "write"]
+__all__ = ["InlineView", "render", "run_view_model", "show", "template", "write"]

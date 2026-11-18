@@ -36,7 +36,9 @@ export function SweepTab({ model }: { model: string }) {
           setValuesText(defaultCandidates(list[0]));
         }
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : String(err)),
+      );
   }, [model]);
 
   function defaultCandidates(lever: Lever): string {
@@ -62,7 +64,11 @@ export function SweepTab({ model }: { model: string }) {
     setError(null);
     setResult(null);
     try {
-      const job = await api.sweep({ model, sweep: { [leverPath]: values }, reps });
+      const job = await api.sweep({
+        model,
+        sweep: { [leverPath]: values },
+        reps,
+      });
       const outcome = await pollJob<SweepResult>(job.id);
       setResult(outcome);
     } catch (err) {
@@ -78,7 +84,9 @@ export function SweepTab({ model }: { model: string }) {
     <div>
       <div className="panel-header">
         <h2>Sweep</h2>
-        <span className="hint">score a lever across several candidate values, side by side</span>
+        <span className="hint">
+          score a lever across several candidate values, side by side
+        </span>
       </div>
 
       <div className="field-row card">
@@ -99,7 +107,10 @@ export function SweepTab({ model }: { model: string }) {
         </div>
         <div className="field" style={{ minWidth: 240 }}>
           <label htmlFor="sweep-values">
-            candidate values{selectedLever ? ` (range ${selectedLever.min}–${selectedLever.max})` : ""}
+            candidate values
+            {selectedLever
+              ? ` (range ${selectedLever.min}–${selectedLever.max})`
+              : ""}
           </label>
           <input
             id="sweep-values"
@@ -120,7 +131,11 @@ export function SweepTab({ model }: { model: string }) {
             onChange={(event) => setReps(Number(event.target.value))}
           />
         </div>
-        <button className="primary" onClick={handleSweep} disabled={running || !leverPath}>
+        <button
+          className="primary"
+          onClick={handleSweep}
+          disabled={running || !leverPath}
+        >
           {running ? "Running…" : "Sweep"}
         </button>
       </div>
@@ -143,7 +158,11 @@ export function SweepTab({ model }: { model: string }) {
               <tr key={index}>
                 <td className="mono">{String(point.levers[leverPath])}</td>
                 <td>
-                  <ConfidenceBand interval={point.intervals.on_time_pct} unit="%" compact />
+                  <ConfidenceBand
+                    interval={point.intervals.on_time_pct}
+                    unit="%"
+                    compact
+                  />
                 </td>
                 <td className="mono">{point.kpis.run_hours.toFixed(1)}</td>
                 <td className="mono">{point.kpis.setup_hours.toFixed(1)}</td>
