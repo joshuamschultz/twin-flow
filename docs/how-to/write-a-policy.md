@@ -29,6 +29,7 @@ Three names are optional:
 
    ```python
    """Make the product that will run out first."""
+
    NAME = "run_out_first"
    SETTINGS = {"stop_days": [4, 8, 12]}
 

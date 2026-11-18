@@ -66,6 +66,8 @@ ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]  # assert is expected in tests
+# Showcase notebook cells are `!twinflow ...` shell commands, which cannot wrap.
+"examples/showcase/**/*.ipynb" = ["E501"]
 
 [tool.mypy]
 # numpy 2.x type stubs use PEP 695 `type` statements that mypy only parses

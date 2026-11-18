@@ -15,7 +15,9 @@ SETTINGS = {"target_days": [8, 12, 16], "alarm_days": [1.0, 2.0]}
 
 def decide(state, target_days=12, alarm_days=2.0):
     # KEY LINE: an A item with less than `alarm_days` of stock goes first, color change or not.
-    urgent = [p for p in state.products if state.abc[p] == "A" and state.days_of_cover[p] < alarm_days]
+    urgent = [
+        p for p in state.products if state.abc[p] == "A" and state.days_of_cover[p] < alarm_days
+    ]
     if urgent:
         return min(urgent, key=lambda p: state.days_of_cover[p])
 

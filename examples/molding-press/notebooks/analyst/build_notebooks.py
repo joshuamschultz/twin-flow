@@ -34,7 +34,9 @@ def split_cells(source: str) -> list[tuple[str, str]]:
     out = []
     for kind, lines in cells:
         if kind == "markdown":
-            lines = [line[2:] if line.startswith("# ") else line.removeprefix("#") for line in lines]
+            lines = [
+                line[2:] if line.startswith("# ") else line.removeprefix("#") for line in lines
+            ]
         text = "\n".join(lines).strip("\n")
         if text.strip():
             out.append((kind, text))
