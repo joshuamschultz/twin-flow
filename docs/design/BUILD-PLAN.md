@@ -127,52 +127,52 @@ rules; "same as today" for a zero gap; hover text has range and runs won.
 
 [x] **B-14 Race page assembly and offline wiring for sections so far.** Sonnet.
 `web/src/decision/views/RaceView.tsx`; `twinflow policies race --out` writes the new `race.html`
-through B-03 (old writer kept behind `--legacy-report` until B-33).
+through B-03 (the old writer was removed in B-33).
 Accept: running the CLI on `examples/molding-press` gives a file that opens offline and shows
 the decision, cautions, why and all rules; Playwright smoke test passes; file under 1.2 MB.
 
 ## Phase C. Race view, explore
 
-**B-15 CompareTable.** Sonnet.
+[x] **B-15 CompareTable.** Sonnet.
 Accept: default A is the pick and B is today; picking Reorder point vs Lowest cover reads "makes
 $13,691 more per run ... won 36 of 40 runs"; pill colours follow the `MEASURES` direction table;
 `a` and `b` persist in the URL.
 
-**B-16 What-if engine (pure).** Opus.
+[x] **B-16 What-if engine (pure).** Opus.
 `rerank(policies, m)` and `flipPoints(policies, pick, config)` in `web/src/decision/whatif.ts`.
 Accept (vitest): at 1, 1, 1 the order equals the real ranking; holding at 3 times puts
 Setup-aware run-out first by $1,046; flip points for the golden data are setup 0.45, holding
 2.45, none for lost sales (within one slider step).
 
-**B-17 WhatIf UI.** Sonnet.
+[x] **B-17 WhatIf UI.** Sonnet.
 Sliders, flip hints, live ranking with move arrows and FLIP motion, amber takeaway on a new
 leader, the honest label always visible, Reset.
 Accept: Playwright: set "Keeping stock costs" to 3, the takeaway names Setup-aware run-out and
 turns amber; Reset restores; the honest label text is present and not hidden at any width;
 sliders work by keyboard.
 
-**B-18 Replay strips.** Opus.
+[x] **B-18 Replay strips.** Opus.
 `PressStrip`, `SetupStrip`, `StockStrip` on one shared scale; day frame; cell tooltips; family
 grouping; merge rules above 30 products or 180 days.
 Accept: for the golden run the Today press strip has 41 colour changes and the Pick strip 9;
 out-of-stock cells are orange and total 124 and 53 product-days; a 200-day fixture draws week
 cells; table view gives day rows.
 
-**B-19 ReplayLanes, scrubber, DayFacts.** Opus.
+[x] **B-19 ReplayLanes, scrubber, DayFacts.** Opus.
 One slider and Play for both lanes; click a cell to jump; keys (arrows, Page Up/Down, Home,
 End); day sentence; `day` in the URL; reduced-motion behaviour.
 Accept: Playwright: set day 9, the Pick lane says "Colour change to black ($1,200, half the day
 lost)" and "7 of 12" products out; Play advances and stops at 60; side by side at 1280, stacked
 at 820.
 
-**B-20 State map layout and words (pure).** Opus.
+[x] **B-20 State map layout and words (pure).** Opus.
 `layoutStates(nodes, edges, lanesBy)` (lanes by setup, fallback by first level, fallback grid)
 and `stateWords(parts_of_label, levels)`.
 Accept (vitest): golden pick chain gives three lanes with 6, 6 and 3 boxes sorted by share; no
 two boxes overlap; a chain with no `parts_of_label` gives the grid; words for
 `grey:high black:ok natural:low | black` are "Grey high, natural low" and "Press on black".
 
-**B-21 StateMap, StateGlyph, StatePanel.** Opus.
+[x] **B-21 StateMap, StateGlyph, StatePanel.** Opus.
 SVG map, select by click and keyboard (arrows move within and across lanes), arrows out and in,
 percent labels, panel with time, money, next states and money parts, Pick / Today switch,
 coverage line.
@@ -180,7 +180,7 @@ Accept: Playwright: select "All stock OK. Press on grey." and the panel shows 8.
 "Stays here 72%"; switching to Today selects "All stock low. Press on grey."; a next-state link
 moves the selection; axe passes; panel sits under the map at 820.
 
-**B-22 LeakList.** Sonnet. [P]
+[x] **B-22 LeakList.** Sonnet. [P]
 Accept: five rows with words, cause, "try" line and stacked bar; clicking a row selects the state
 in the map and scrolls to it.
 
@@ -193,7 +193,7 @@ small multiples.
 the inlined model).
 Accept: 12 rows; a fixture with a broken rule lists file, line, message and fix.
 
-**B-25 Race view complete: review gate.** Opus (review), then owner.
+[x] **B-25 Race view complete: review gate.** Opus (review), then owner. Review: `build/B-25-review.md`; owner sign-off pending with B-23/B-24.
 Full Playwright interaction suite, axe in both themes, screenshots at 1280 and 820 in light and
 dark compared with `mockups/race-report-*.png`, size check, offline check.
 Accept: a written review lists every difference from the mockup and each is fixed or agreed.
@@ -250,7 +250,7 @@ restored; Export downloads a file that opens offline to the same view.
 
 One task per existing surface. Each task lists what it replaces and how the old tests move.
 
-**B-33 Migrate the race report (`src/twinflow/extensions/report.py`).** Sonnet.
+[x] **B-33 Migrate the race report (`src/twinflow/extensions/report.py`).** Sonnet.
 Replace the Plotly and Mermaid writer with `race_view_model` + `render`. Remove
 `--legacy-report`. Drop Plotly and Mermaid from this path.
 Feature inventory (every old section maps to a new place): The winner -> hero; Ranking ->
