@@ -28,6 +28,7 @@ _CAPTURE_HINT = (
     "Turn on state capture: experiment.state_capture: {every_hours: 4} for a factory model, "
     "then run again. A make-to-stock run writes moves by itself."
 )
+_FEW_MOVES_PER_EPISODE = 5  # fewer than this per run is too little to read
 _SCENARIO_FILE = "scenario.json"
 _NO_FACTS = (
     "Note: no product facts (families, demand rates) were found for this run, "
@@ -183,6 +184,10 @@ def _handle_states(args: argparse.Namespace) -> int:
     print(f"Unique states: {len(unique)}")
     if note:
         print(note)
+    if len(moves) < _FEW_MOVES_PER_EPISODE * gathered.episodes:
+        print(
+            f"Only {len(moves)} moves. Lower experiment.state_capture.every_hours to record more."
+        )
     print(f"Top states (view {chain.view}), share of moves:")
     for label, share in list(chain.share.items())[: args.top]:
         print(f"  {share:6.1%}  {label}")

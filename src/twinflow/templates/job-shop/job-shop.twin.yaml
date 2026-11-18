@@ -320,7 +320,7 @@ experiment:
   replications: 1
   seed: 0
   state_capture:       # record how the shop moves, so `twinflow states` can read it
-    every_hours: 8
+    every_hours: 0.1
 assumptions:
   source: legacy model + plan
 provenance:

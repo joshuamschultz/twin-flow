@@ -153,3 +153,26 @@ def test_policies_list_counts_the_same_problems_as_check(
     _, out, _ = _run(capsys, "policies", "list", str(project))
     row = next(line for line in out.splitlines() if line.startswith("wild"))
     assert row.split()[-1] == "1"
+
+
+def test_job_shop_template_records_a_useful_number_of_moves_per_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    shop = tmp_path / "shop"
+    assert main(["new", str(shop), "--template", "job-shop"]) == 0
+    out = tmp_path / "out"
+    assert main(["scenario", "run", str(shop), "--reps", "3", "--out", str(out)]) == 0
+    capsys.readouterr()
+    code, text, _ = _run(capsys, "states", str(out))
+    assert code == 0
+    moves = int(next(line for line in text.splitlines() if line.startswith("Moves:")).split()[1])
+    assert moves >= 3 * 5
+    assert "Lower experiment.state_capture.every_hours" not in text
+
+
+def test_states_hints_when_a_run_has_very_few_moves(
+    des_run: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = _run(capsys, "states", str(des_run))
+    assert code == 0
+    assert "Only 2 moves. Lower experiment.state_capture.every_hours to record more." in out
