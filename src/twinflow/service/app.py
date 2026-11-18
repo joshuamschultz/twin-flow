@@ -53,6 +53,12 @@ from twinflow.plan.loader import load_plan
 from twinflow.service.actions import action_router
 from twinflow.service.audit import ToolAuditor
 from twinflow.service.auth import TokenRegistry
+from twinflow.service.decision_views import (
+    DecisionStore,
+    ViewRegistry,
+    decision_view_router,
+    default_registry,
+)
 from twinflow.service.decisions import decision_router
 from twinflow.service.floor import build_floor, suggest_levers
 from twinflow.service.jobs import JobStore
@@ -130,6 +136,7 @@ def create_app(
     workspace_root: str | Path = ".twinflow-workspace",
     settings: ServiceSettings | None = None,
     portfolio_api: PortfolioApi | None = None,
+    decision_views: ViewRegistry | None = None,
 ) -> FastAPI:
     """Build the app rooted at `models_root`: REST under `/api`, MCP at `/mcp`.
 
@@ -167,6 +174,11 @@ def create_app(
     app.include_router(planning.router)
     app.include_router(workspace_router(workspace))
     app.include_router(decision_router(workspace))
+    app.include_router(
+        decision_view_router(
+            DecisionStore(workspace.repository.root), decision_views or default_registry()
+        )
+    )
     app.include_router(action_router(workspace))
     app.include_router(_health_router(workspace, mcp_available=mcp is not None))
     catalog = ModelCatalog(models_root)
