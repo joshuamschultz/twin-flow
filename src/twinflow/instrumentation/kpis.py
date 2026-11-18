@@ -8,9 +8,10 @@ No KPI is computed anywhere outside this component.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 import polars as pl
 
@@ -94,6 +95,12 @@ class KpiSet:
     keyed by location even when resource attribution keys `machine_hours_by_machine`
     by physical machine instance. The per-stage cycle-time view and the flow
     diagram read this so a shared-machine floor still reports per-step timings."""
+
+
+class ShiftCalendar(Protocol):
+    """The one calendar question on-shift utilization asks (primitives' calendars)."""
+
+    def on_shift_seconds(self, start: float, end: float) -> float: ...
 
 
 class KpiEngine:
@@ -186,6 +193,52 @@ class KpiEngine:
                 for location_id, seconds in busy_seconds_by_location.items()
             },
         )
+
+    def on_shift_utilization_by_cell(
+        self,
+        event_path: str | Path,
+        horizon: float,
+        calendar_by_location: Mapping[str, ShiftCalendar],
+    ) -> dict[str, float]:
+        """Busy share of ON-SHIFT time per location, for one run (TF-006).
+
+        `utilization_by_cell` is occupied time over the whole clock, and a job paused
+        overnight (`shift_crossing: pause`) occupies its machine all night. Here both
+        sides are on-shift time from the location's labor calendar: the on-shift part
+        of each occupied interval, over the shift time in [0, horizon] times the
+        location's machine count. A location with no calendar entry is open 24/7.
+        """
+        resources = self._resource_events(event_path)
+        if resources is not None:
+            intervals = resources.select(
+                "location_id",
+                "machine_id",
+                pl.col("setup_start").alias("start"),
+                pl.col("run_end").alias("end"),
+            )
+        else:
+            intervals = pl.read_parquet(event_path).select(
+                "location_id",
+                pl.col("location_id").alias("machine_id"),
+                pl.col("actual_start").alias("start"),
+                pl.col("actual_end").alias("end"),
+            )
+        busy: dict[str, float] = {}
+        machines: dict[str, set[str]] = {}
+        for row in intervals.iter_rows(named=True):
+            location_id = str(row["location_id"])
+            start, end = float(row["start"]), float(row["end"])
+            calendar = calendar_by_location.get(location_id)
+            seconds = calendar.on_shift_seconds(start, end) if calendar else end - start
+            busy[location_id] = busy.get(location_id, 0.0) + seconds
+            machines.setdefault(location_id, set()).add(str(row["machine_id"]))
+        shares: dict[str, float] = {}
+        for location_id, seconds in busy.items():
+            calendar = calendar_by_location.get(location_id)
+            open_seconds = calendar.on_shift_seconds(0.0, horizon) if calendar else horizon
+            capacity = open_seconds * len(machines[location_id])
+            shares[location_id] = seconds / capacity if capacity > 0 else 0.0
+        return shares
 
     @staticmethod
     def _resource_events(

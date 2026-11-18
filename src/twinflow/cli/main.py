@@ -330,6 +330,7 @@ def _handle_run(args: argparse.Namespace) -> int:
         orders = orders_frame(work_orders, compiled, result.event_log_path)
         per_rep = [compute_kpis(result.event_log_path, orders, result.horizon)]
         horizon = result.horizon
+        run_logs = [(result.event_log_path, result.horizon)]
     else:
         # `ReplicationRunner` dispatches one worker process per replication,
         # each of which independently writes its own `runs/<run-id>/` via
@@ -358,6 +359,7 @@ def _handle_run(args: argparse.Namespace) -> int:
             for r in results
         ]
         horizon = results[0].horizon
+        run_logs = [(r.event_log_path, r.horizon) for r in results]
 
     # The first replication is the representative single run for the charts and
     # tables; the whole set becomes the confidence intervals.
@@ -376,10 +378,11 @@ def _handle_run(args: argparse.Namespace) -> int:
     print(f"  kpis:   {run_dir / 'kpis.json'}")
     print(f"  view:   twinflow report {run_id} --out html")
     if getattr(args, "orders", False):
-        from twinflow.cli.order_table import order_lines
+        from twinflow.cli.order_table import on_shift_busy, order_lines
 
+        busy = on_shift_busy(compiled, run_logs)
         print()
-        print("\n".join(order_lines(work_orders, per_rep, plan_origin(compiled))))
+        print("\n".join(order_lines(work_orders, per_rep, plan_origin(compiled), busy)))
     return 0
 
 
