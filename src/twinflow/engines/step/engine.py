@@ -12,7 +12,7 @@ Demand copies the RL repo's numpy call exactly (D-135):
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 import numpy.typing as npt
@@ -29,6 +29,27 @@ def demand_draws(model: StepModel, episodes: int, seed: int) -> DemandDraws:
     """Demand of shape (episodes, days, products). Same seed, same dice (D-135)."""
     rng = np.random.default_rng(seed)
     return rng.poisson(model.demand_rates, size=(episodes, model.horizon, len(model.products)))
+
+
+def changeover_between(model: StepModel, source: int, target: int) -> Changeover:
+    """The changeover kind for switching the line from product `source` to `target`."""
+    same = model.families[source] == model.families[target]
+    return model.within if same else model.across
+
+
+def units_made(model: StepModel, inv: Sequence[int], setup: int, chosen: int) -> list[int]:
+    """Output per product when running `chosen` (the idle position makes nothing).
+
+    A changeover costs part of the day; output that would overflow the storage cap is not
+    made (`factory_mdp.transition.units_produced`). Shared with the rules (D-135).
+    """
+    made = [0] * len(model.products)
+    if chosen != len(model.products):
+        product = model.products[chosen]
+        lost = 0.0 if chosen == setup else changeover_between(model, setup, chosen).output_lost
+        room = product.max_storage - inv[chosen]
+        made[chosen] = max(0, min(round(product.run_rate * (1.0 - lost)), room))
+    return made
 
 
 class StepEngine:
@@ -93,13 +114,13 @@ class StepEngine:
         day = before.period
         today = [int(x) for x in demand[day]]
         chosen = len(self._ids) if action == IDLE else self._index[action]
-        made = self._units_made(chosen)
+        made = units_made(self._model, self._inv, self._setup, chosen)
         stock = [i + m for i, m in zip(self._inv, made, strict=True)]
         sold = [min(s, d) for s, d in zip(stock, today, strict=True)]
         lost = [d - s for d, s in zip(today, sold, strict=True)]
         inv_next = [s - x for s, x in zip(stock, sold, strict=True)]
         switch = chosen != len(self._ids) and chosen != self._setup
-        changeover = self._changeover(self._setup, chosen).cost if switch else 0.0
+        changeover = changeover_between(self._model, self._setup, chosen).cost if switch else 0.0
         setup_next = self._setup if chosen == len(self._ids) else chosen
         ledger = self._ledger(made, sold, lost, inv_next, changeover)
         after = self._snapshot(day + 1, inv_next, setup_next)
@@ -108,22 +129,6 @@ class StepEngine:
         return Move(day, before, action, self._model.line_id, "period", events, after, ledger)
 
     # --- money and flows ---------------------------------------------------------------------
-
-    def _changeover(self, source: int, target: int) -> Changeover:
-        same = self._model.families[source] == self._model.families[target]
-        return self._model.within if same else self._model.across
-
-    def _units_made(self, chosen: int) -> list[int]:
-        """Output per product: a changeover costs part of the day; no overflow past storage."""
-        made = [0] * len(self._ids)
-        if chosen != len(self._ids):
-            product = self._model.products[chosen]
-            lost = (
-                0.0 if chosen == self._setup else self._changeover(self._setup, chosen).output_lost
-            )
-            room = product.max_storage - self._inv[chosen]
-            made[chosen] = max(0, min(round(product.run_rate * (1.0 - lost)), room))
-        return made
 
     def _ledger(
         self, made: list[int], sold: list[int], lost: list[int], inv: list[int], changeover: float
