@@ -114,6 +114,27 @@ twinflow markov out --view simple --top 8
 Exit codes for both commands: 0 ok, 1 a problem you can fix (the message names the path and
 the fix), 2 an internal failure.
 
+## `twinflow extensions list|check <project>`
+
+Look at the extension files of a project folder (it holds one `*.twin.yaml` capsule).
+
+`list` prints one row per extension: its kind (policy, reward, view, feature, demand,
+observation, engine), its name, its source (`builtin` or `project`), what it overrides, and
+how many problems it has. A project file with the name of a built-in replaces it, and the
+`overrides` column says so. Add `--json` for a machine-readable list.
+
+`check` runs every extension on sample states and prints each problem in plain words: the
+file and line, what is wrong and how to fix it. It exits 1 when any problem is an error,
+and 0 otherwise.
+
+```bash
+twinflow extensions list examples/molding-press
+twinflow extensions check examples/molding-press
+```
+
+A folder that does not exist, or has no capsule, gives exit 1 with a message that names the
+path and the fix.
+
 ## `twinflow serve [--host --port --models-root]`
 
 Start the local REST API (needs the `api` extra). Defaults to `127.0.0.1:8000` and

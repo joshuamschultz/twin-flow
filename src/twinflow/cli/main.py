@@ -93,9 +93,11 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     from twinflow.cli.data import add_data_subcommands
+    from twinflow.cli.extensions import add_extensions_subcommands
     from twinflow.cli.states import add_states_subcommands
 
     add_data_subcommands(subparsers)
+    add_extensions_subcommands(subparsers)
     add_states_subcommands(subparsers)
     for command in _DELEGATED_COMMANDS:
         delegated = subparsers.add_parser(command, add_help=False)
