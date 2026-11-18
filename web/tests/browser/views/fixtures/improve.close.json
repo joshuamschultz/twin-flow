@@ -1,0 +1,207 @@
+{
+  "view": "improve",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "Improve: Family campaign",
+    "project": "molding-press",
+    "episodes": 5,
+    "seed": 2,
+    "interval": 0.95,
+    "rule": "interval_above_zero",
+    "written_at": "2026-11-18T09:00:00+00:00",
+    "score": "dollars"
+  },
+  "outcome": {
+    "promoted": false,
+    "level": "ahead_not_proven",
+    "headline": "Not yet. Family campaign is ahead, but the lead is not proven.",
+    "reason": "The likely range of the gain goes from -$1,942 to $12,446. For a win, the likely range must be above zero. Run more test runs to narrow it.",
+    "copied_to": null
+  },
+  "candidate": {
+    "policy": "family_campaign",
+    "label": "Family campaign",
+    "settings": {
+      "target_days": 12
+    },
+    "rank": 1,
+    "dollars": {
+      "mean": 63188,
+      "low": 58979,
+      "high": 67397,
+      "std": 3390,
+      "n": 5
+    },
+    "score": {
+      "mean": 63187.88,
+      "low": 58978.67,
+      "high": 67397.09,
+      "std": 3389.97,
+      "n": 5
+    },
+    "file": "policies/family_campaign.py",
+    "sha256": "fb110b7745fb882df3d41bd081a1a55b35df57bfff0ed95753de69b70c60a72f"
+  },
+  "previous_best": {
+    "policy": "s_big_s",
+    "label": "Reorder point",
+    "settings": {
+      "safety_days": 10.0,
+      "eoq_scale": 0.5
+    },
+    "rank": 2,
+    "dollars": {
+      "mean": 57936,
+      "low": 53071,
+      "high": 62800,
+      "std": 3918,
+      "n": 5
+    },
+    "score": {
+      "mean": 57935.66,
+      "low": 53071.23,
+      "high": 62800.09,
+      "std": 3917.67,
+      "n": 5
+    }
+  },
+  "versus": {
+    "dollars": {
+      "mean": 5252,
+      "low": -1942,
+      "high": 12446,
+      "std": 5794,
+      "n": 5
+    },
+    "score": {
+      "mean": 5252.22,
+      "low": -1941.98,
+      "high": 12446.43,
+      "std": 5794.01,
+      "n": 5
+    },
+    "wins": 4,
+    "runs": 5,
+    "gaps": [6877, -5018, 8867, 8234, 7301]
+  },
+  "confidence": {
+    "interval": 0.95,
+    "mean": 5252,
+    "low": -1942,
+    "high": 12446,
+    "wins": 4,
+    "runs": 5,
+    "level": "maybe_better",
+    "words": "Maybe better, not sure yet",
+    "detail": "The gain per run could be anywhere from -$1,942 to $12,446. Race more runs to be sure. It came out ahead in 4 of 5 runs.",
+    "gaps": [6877, -5018, 8867, 8234, 7301]
+  },
+  "floor": [
+    {
+      "key": "changeovers",
+      "label": "Changeovers per run",
+      "unit": "count",
+      "recommended": 50.2,
+      "baseline": 27.6,
+      "change": 22.6,
+      "better": false,
+      "words": "23 more changeovers",
+      "short": "23 more",
+      "note": "Colour changes drop from 17 to 13. Those cost $1,200 each.",
+      "attention": false
+    },
+    {
+      "key": "fill_rate",
+      "label": "Orders filled from stock",
+      "unit": "share",
+      "recommended": 0.9829,
+      "baseline": 0.9533,
+      "change": 0.0295,
+      "better": true,
+      "words": "3.0 points more orders filled",
+      "short": "+3.0 points",
+      "note": "Fewer customers find an empty shelf.",
+      "attention": false
+    },
+    {
+      "key": "avg_stock",
+      "label": "Stock on hand",
+      "unit": "units",
+      "recommended": 3074.7,
+      "baseline": 3152.8,
+      "change": -78.1,
+      "better": true,
+      "words": "78 fewer units in stock",
+      "short": "78 fewer",
+      "note": "Less cash sits on the shelf.",
+      "attention": false
+    },
+    {
+      "key": "rest_days",
+      "label": "Days the press rests",
+      "unit": "days",
+      "recommended": 8.4,
+      "baseline": 9.0,
+      "change": -0.6,
+      "better": null,
+      "words": "0.6 fewer rest days",
+      "short": "1 fewer of 60",
+      "note": "The press runs more of the time.",
+      "attention": false
+    },
+    {
+      "key": "lost_units",
+      "label": "Sales lost per run",
+      "unit": "units",
+      "recommended": 261.8,
+      "baseline": 713.4,
+      "change": -451.6,
+      "better": true,
+      "words": "452 fewer units of lost sales",
+      "short": "452 fewer",
+      "note": "That is $2,949 less in lost sales per run.",
+      "attention": false
+    }
+  ],
+  "checks": [
+    {
+      "key": "ranked_first",
+      "label": "Ranked first of 12",
+      "pass": true,
+      "detail": "It ranks 1. The old best is Reorder point."
+    },
+    {
+      "key": "proven",
+      "label": "Rule used: the likely range must be above zero",
+      "pass": false,
+      "detail": "Gain over the old best: range -$1,942 to $12,446."
+    },
+    {
+      "key": "same_orders",
+      "label": "Same orders for both rules",
+      "pass": true,
+      "detail": "Both rules ran the same 5 demand draws (seed 2)."
+    },
+    {
+      "key": "no_problems",
+      "label": "No problems found",
+      "pass": true,
+      "detail": "No rule broke in the race."
+    }
+  ],
+  "race_ref": "race.html",
+  "warnings": [],
+  "problems": [],
+  "agent_summary": [
+    "Not yet. Family campaign is ahead, but the lead is not proven.",
+    "The likely range of the gain goes from -$1,942 to $12,446. For a win, the likely range must be above zero. Run more test runs to narrow it.",
+    "The gain per run could be anywhere from -$1,942 to $12,446. Race more runs to be sure. It came out ahead in 4 of 5 runs.",
+    "It won 4 of 5 runs against Reorder point.",
+    "Ranked first of 12: yes. It ranks 1. The old best is Reorder point.",
+    "Rule used: the likely range must be above zero: no. Gain over the old best: range -$1,942 to $12,446.",
+    "Same orders for both rules: yes. Both rules ran the same 5 demand draws (seed 2).",
+    "No problems found: yes. No rule broke in the race."
+  ]
+}

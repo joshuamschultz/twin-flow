@@ -1,0 +1,515 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "twinflow/improve.schema.json",
+  "title": "ImproveViewModel",
+  "description": "The improve view model (docs/design/DATA-CONTRACT.md section 4). Built by twinflow.extensions.improve_model.improve_view_model.",
+  "type": "object",
+  "properties": {
+    "view": {
+      "const": "improve"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "twinflow_version": {
+      "type": "string"
+    },
+    "about": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "episodes": {
+          "type": "integer"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "interval": {
+          "type": "number"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "written_at": {
+          "type": "string"
+        },
+        "score": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "project",
+        "episodes",
+        "seed",
+        "interval",
+        "rule",
+        "written_at",
+        "score"
+      ],
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "properties": {
+        "promoted": {
+          "type": "boolean"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "won",
+            "ahead_not_proven",
+            "lost",
+            "broken"
+          ]
+        },
+        "headline": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "copied_to": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "promoted",
+        "level",
+        "headline",
+        "reason",
+        "copied_to"
+      ],
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/$defs/ImproveSettings"
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "dollars": {
+          "$ref": "#/$defs/ImproveStat"
+        },
+        "score": {
+          "$ref": "#/$defs/ImproveStat"
+        },
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "label",
+        "settings",
+        "rank",
+        "dollars",
+        "score"
+      ],
+      "additionalProperties": false
+    },
+    "previous_best": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/$defs/ImproveSettings"
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "dollars": {
+          "$ref": "#/$defs/ImproveStat"
+        },
+        "score": {
+          "$ref": "#/$defs/ImproveStat"
+        }
+      },
+      "required": [
+        "policy",
+        "label",
+        "settings",
+        "rank",
+        "dollars",
+        "score"
+      ],
+      "additionalProperties": false
+    },
+    "versus": {
+      "type": "object",
+      "properties": {
+        "dollars": {
+          "$ref": "#/$defs/ImproveStat"
+        },
+        "score": {
+          "$ref": "#/$defs/ImproveStat"
+        },
+        "wins": {
+          "type": "integer"
+        },
+        "runs": {
+          "type": "integer"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "dollars",
+        "score",
+        "wins",
+        "runs",
+        "gaps"
+      ],
+      "additionalProperties": false
+    },
+    "confidence": {
+      "$ref": "#/$defs/ImproveConfidence"
+    },
+    "floor": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImproveFloorRow"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "ranked_first",
+              "proven",
+              "same_orders",
+              "no_problems"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "pass": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "pass",
+          "detail"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "race_ref": {
+      "type": "string"
+    },
+    "agent_summary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImproveWarning"
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImproveProblem"
+      }
+    }
+  },
+  "required": [
+    "view",
+    "schema_version",
+    "about",
+    "outcome",
+    "candidate",
+    "previous_best",
+    "versus",
+    "confidence",
+    "floor",
+    "checks",
+    "race_ref",
+    "agent_summary",
+    "warnings",
+    "problems"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "ImproveStat": {
+      "type": "object",
+      "properties": {
+        "mean": {
+          "type": "number"
+        },
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "std": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "n": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mean",
+        "low",
+        "high"
+      ],
+      "additionalProperties": false,
+      "title": "ImproveStat"
+    },
+    "ImproveSettings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "string",
+          "boolean",
+          "null"
+        ]
+      },
+      "title": "ImproveSettings"
+    },
+    "ImproveFloorRow": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "count",
+            "share",
+            "units",
+            "days"
+          ]
+        },
+        "recommended": {
+          "type": "number"
+        },
+        "baseline": {
+          "type": "number"
+        },
+        "change": {
+          "type": "number"
+        },
+        "better": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "words": {
+          "type": "string"
+        },
+        "short": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "attention": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "unit",
+        "recommended",
+        "baseline",
+        "change",
+        "better",
+        "words",
+        "short",
+        "note",
+        "attention"
+      ],
+      "additionalProperties": false,
+      "title": "ImproveFloorRow"
+    },
+    "ImproveProblem": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message",
+        "fix"
+      ],
+      "additionalProperties": false,
+      "title": "ImproveProblem"
+    },
+    "ImproveWarning": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "fix"
+      ],
+      "additionalProperties": false,
+      "title": "ImproveWarning"
+    },
+    "ImproveConfidence": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "number"
+        },
+        "mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "wins": {
+          "type": "integer"
+        },
+        "runs": {
+          "type": "integer"
+        },
+        "words": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "very_likely_better",
+            "maybe_better",
+            "maybe_worse",
+            "very_likely_worse",
+            "same_policy",
+            "unknown"
+          ]
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "interval",
+        "mean",
+        "low",
+        "high",
+        "wins",
+        "runs",
+        "words",
+        "detail",
+        "level"
+      ],
+      "additionalProperties": false,
+      "title": "ImproveConfidence"
+    }
+  }
+}

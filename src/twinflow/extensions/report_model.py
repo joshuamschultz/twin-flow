@@ -1119,4 +1119,33 @@ def _what_if() -> dict[str, Any]:
     }
 
 
-__all__ = ["KEYS", "SCHEMA_VERSION", "horizon_check", "label", "race_view_model"]
+def stat_json(item: Stat | None) -> dict[str, Any] | None:
+    """A `Stat` as the view-model shape (rounded for people)."""
+    return _stat(item)
+
+
+def confidence_between(best: PolicyResult, base: PolicyResult, level: float) -> dict[str, Any]:
+    """How sure we are that `best` beats `base`, with the run-by-run gaps (as in the race)."""
+    return {
+        **_confidence(best, base, level, False),
+        "gaps": [_dollars(x) for x in _gaps(best, base)],
+    }
+
+
+def floor_between(
+    best: PolicyResult, base: PolicyResult, project: Project, kept: Mapping[str, MoveTable]
+) -> list[dict[str, Any]]:
+    """What changes on the floor when `best` replaces `base`."""
+    return _floor(best, base, False, project, _horizon(project, [best]), kept)
+
+
+__all__ = [
+    "KEYS",
+    "SCHEMA_VERSION",
+    "confidence_between",
+    "floor_between",
+    "horizon_check",
+    "label",
+    "race_view_model",
+    "stat_json",
+]

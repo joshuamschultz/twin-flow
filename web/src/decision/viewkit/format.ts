@@ -36,3 +36,11 @@ export function count(n: number, one: string, many = `${one}s`): string {
 export function sentence(text: string): string {
   return text ? text[0].toUpperCase() + text.slice(1) : text;
 }
+
+/** A plain number: thousands separators and at most one decimal. */
+export function plain(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value))
+    return "n/a";
+  const rounded = Math.round(value * 10) / 10;
+  return `${rounded < 0 ? MINUS : ""}${Math.abs(rounded).toLocaleString("en-US", { maximumFractionDigits: 1 })}`;
+}

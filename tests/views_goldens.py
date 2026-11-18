@@ -49,6 +49,38 @@ def states() -> None:
         write("states.empty.json", states_view_model(empty, "family", 15, 0.05))
 
 
+def improve() -> None:
+    sys.path.insert(0, str(ROOT / "tests" / "cli"))
+    import test_improve_view_model as t
+
+    from twinflow.cli.improve import paired, passes
+    from twinflow.extensions.improve_model import improve_view_model
+    from twinflow.extensions.project import Project, RaceSettings
+    from twinflow.extensions.race import race
+
+    result = race(
+        Project.open(ROOT / "examples" / "molding-press"),
+        ["family_campaign", "lowest_stock_first"],
+        settings=RaceSettings(episodes=24, seed=4, tune_episodes=6),
+    )
+    first, second = result.ranking()[0], result.ranking()[1]
+    score = paired(first.episode_score, second.episode_score, 0.95)
+    won = t._proof(result, first.policy, score, passes(score, "interval_above_zero"))
+    write("improve.won.json", improve_view_model(won, result))
+    # a real close call: five test runs of every built-in rule, first against second
+    many = race(
+        Project.open(ROOT / "examples" / "molding-press"),
+        settings=RaceSettings(episodes=5, seed=2, tune_episodes=2),
+    )
+    top, next_ = many.ranking()[0], many.ranking()[1]
+    near = paired(top.episode_score, next_.episode_score, 0.95)
+    close = t._proof(many, top.policy, near, passes(near, "interval_above_zero"))
+    write("improve.close.json", improve_view_model(close, many))
+    behind = paired(second.episode_score, first.episode_score, 0.95)
+    lost = t._proof(result, second.policy, behind, False)
+    write("improve.lost.json", improve_view_model(lost, result))
+
+
 if __name__ == "__main__":
     which = sys.argv[1:] or ["states"]
     for name in which:

@@ -20,10 +20,12 @@ from typing import Any, TypeVar
 import numpy as np
 
 from twinflow.cli._common import UserError, guarded, open_project, race_settings, staged_project
+from twinflow.extensions.improve_model import improve_view_model
 from twinflow.extensions.loader import Extension
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import PolicyResult, RaceResult, Stat, race, stat
 from twinflow.extensions.report import write_race_report
+from twinflow.report import decision
 
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
 
@@ -232,7 +234,9 @@ def _finish(
     (out / "improve.json").write_text(json.dumps(proof, indent=2), encoding="utf-8")
     result.write(out)
     write_race_report(result, out / "race.html")
+    decision.write(out / "improve.html", improve_view_model(proof, result))
     print(f"Proof: {out / 'improve.json'}")
+    print(f"Page: {out / 'improve.html'}")
     return 0
 
 

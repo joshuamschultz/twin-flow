@@ -1,0 +1,215 @@
+{
+  "view": "improve",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "Improve: Family campaign",
+    "project": "molding-press",
+    "episodes": 24,
+    "seed": 4,
+    "interval": 0.95,
+    "rule": "interval_above_zero",
+    "written_at": "2026-11-18T09:00:00+00:00",
+    "score": "dollars"
+  },
+  "outcome": {
+    "promoted": true,
+    "level": "won",
+    "headline": "Yes. Family campaign is now your best rule.",
+    "reason": "It makes $28,177 more per run than Lowest stock first, the old best.",
+    "copied_to": "policies/family_campaign.py"
+  },
+  "candidate": {
+    "policy": "family_campaign",
+    "label": "Family campaign",
+    "settings": {
+      "target_days": 16
+    },
+    "rank": 1,
+    "dollars": {
+      "mean": 66818,
+      "low": 65192,
+      "high": 68443,
+      "std": 3849,
+      "n": 24
+    },
+    "score": {
+      "mean": 66817.71,
+      "low": 65192.46,
+      "high": 68442.97,
+      "std": 3848.91,
+      "n": 24
+    },
+    "file": "policies/family_campaign.py",
+    "sha256": "fb110b7745fb882df3d41bd081a1a55b35df57bfff0ed95753de69b70c60a72f"
+  },
+  "previous_best": {
+    "policy": "lowest_stock_first",
+    "label": "Lowest stock first",
+    "settings": {
+      "stop_days": 6
+    },
+    "rank": 2,
+    "dollars": {
+      "mean": 38641,
+      "low": 36362,
+      "high": 40919,
+      "std": 5396,
+      "n": 24
+    },
+    "score": {
+      "mean": 38640.74,
+      "low": 36362.04,
+      "high": 40919.44,
+      "std": 5396.4,
+      "n": 24
+    }
+  },
+  "versus": {
+    "dollars": {
+      "mean": 28177,
+      "low": 25548,
+      "high": 30806,
+      "std": 6226,
+      "n": 24
+    },
+    "score": {
+      "mean": 28176.98,
+      "low": 25548.14,
+      "high": 30805.81,
+      "std": 6225.58,
+      "n": 24
+    },
+    "wins": 24,
+    "runs": 24,
+    "gaps": [
+      33721, 21168, 38010, 19073, 28379, 33696, 36461, 26233, 32433, 25005,
+      31961, 28102, 28882, 36127, 29291, 13881, 24044, 32162, 32801, 21631,
+      31101, 28262, 25975, 17849
+    ]
+  },
+  "confidence": {
+    "interval": 0.95,
+    "mean": 28177,
+    "low": 25548,
+    "high": 30806,
+    "wins": 24,
+    "runs": 24,
+    "level": "very_likely_better",
+    "words": "Very likely better",
+    "detail": "We are 95% sure it earns between $25,548 and $30,806 more per run on average. It came out ahead in 24 of 24 runs.",
+    "gaps": [
+      33721, 21168, 38010, 19073, 28379, 33696, 36461, 26233, 32433, 25005,
+      31961, 28102, 28882, 36127, 29291, 13881, 24044, 32162, 32801, 21631,
+      31101, 28262, 25975, 17849
+    ]
+  },
+  "floor": [
+    {
+      "key": "changeovers",
+      "label": "Changeovers per run",
+      "unit": "count",
+      "recommended": 44.8,
+      "baseline": 58.0,
+      "change": -13.2,
+      "better": true,
+      "words": "13 fewer changeovers",
+      "short": "13 fewer",
+      "note": "Colour changes drop from 40 to 8. Those cost $1,200 each.",
+      "attention": false
+    },
+    {
+      "key": "fill_rate",
+      "label": "Orders filled from stock",
+      "unit": "share",
+      "recommended": 0.9696,
+      "baseline": 0.9067,
+      "change": 0.0629,
+      "better": true,
+      "words": "6.3 points more orders filled",
+      "short": "+6.3 points",
+      "note": "Fewer customers find an empty shelf.",
+      "attention": false
+    },
+    {
+      "key": "avg_stock",
+      "label": "Stock on hand",
+      "unit": "units",
+      "recommended": 3341.2,
+      "baseline": 1107.9,
+      "change": 2233.3,
+      "better": false,
+      "words": "2,233 more units in stock",
+      "short": "3.0 times more",
+      "note": "You need the room and the cash for it.",
+      "attention": true
+    },
+    {
+      "key": "rest_days",
+      "label": "Days the press rests",
+      "unit": "days",
+      "recommended": 12.1,
+      "baseline": 1.9,
+      "change": 10.2,
+      "better": null,
+      "words": "10 more rest days",
+      "short": "10 more of 60",
+      "note": "Free time for upkeep. Part of it is the test ending at day 60.",
+      "attention": true
+    },
+    {
+      "key": "lost_units",
+      "label": "Sales lost per run",
+      "unit": "units",
+      "recommended": 461.4,
+      "baseline": 1417.6,
+      "change": -956.2,
+      "better": true,
+      "words": "956 fewer units of lost sales",
+      "short": "956 fewer",
+      "note": "That is $4,718 less in lost sales per run.",
+      "attention": false
+    }
+  ],
+  "checks": [
+    {
+      "key": "ranked_first",
+      "label": "Ranked first of 2",
+      "pass": true,
+      "detail": "It ranks 1. The old best is Lowest stock first."
+    },
+    {
+      "key": "proven",
+      "label": "Rule used: the likely range must be above zero",
+      "pass": true,
+      "detail": "Gain over the old best: range $25,548 to $30,806."
+    },
+    {
+      "key": "same_orders",
+      "label": "Same orders for both rules",
+      "pass": true,
+      "detail": "Both rules ran the same 24 demand draws (seed 4)."
+    },
+    {
+      "key": "no_problems",
+      "label": "No problems found",
+      "pass": true,
+      "detail": "No rule broke in the race."
+    }
+  ],
+  "race_ref": "race.html",
+  "warnings": [],
+  "problems": [],
+  "agent_summary": [
+    "Yes. Family campaign is now your best rule.",
+    "It makes $28,177 more per run than Lowest stock first, the old best.",
+    "We are 95% sure it earns between $25,548 and $30,806 more per run on average. It came out ahead in 24 of 24 runs.",
+    "It won 24 of 24 runs against Lowest stock first.",
+    "Ranked first of 2: yes. It ranks 1. The old best is Lowest stock first.",
+    "Rule used: the likely range must be above zero: yes. Gain over the old best: range $25,548 to $30,806.",
+    "Same orders for both rules: yes. Both rules ran the same 24 demand draws (seed 4).",
+    "No problems found: yes. No rule broke in the race.",
+    "The rule was copied to policies/family_campaign.py."
+  ]
+}
