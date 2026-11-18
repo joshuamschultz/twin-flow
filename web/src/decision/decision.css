@@ -167,7 +167,8 @@
 .tf-hero .tf-eyebrow {
   color: var(--tf-hero-accent);
 }
-.tf-root .tf-hero h1 {
+.tf-root .tf-hero h1,
+.tf-root .tf-hero h2.tf-answer {
   color: var(--tf-hero-ink);
   font-size: clamp(32px, 4vw, 48px);
   margin: 10px 0 12px;

@@ -120,7 +120,7 @@ function DecisionTable(props: {
 }) {
   return (
     <div className="tf-card">
-      <table className="tf-table ws-decision-list" aria-label={props.label}>
+      <table className="tf-table ws-table-left" aria-label={props.label}>
         <thead>
           <tr>
             <th>Name</th>

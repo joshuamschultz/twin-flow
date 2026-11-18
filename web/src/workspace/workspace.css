@@ -58,7 +58,7 @@
   font-size: 16px;
   margin: 0 0 8px;
 }
-.ws-shell p,
+.ws-shell p:where(:not(.tf-root *)),
 .ws-dialog p {
   color: var(--muted, var(--ba-body-2));
   max-width: 70ch;
@@ -760,34 +760,6 @@
 .ws-card-heading p {
   margin: 0;
 }
-.ws-table-wrap {
-  overflow: auto;
-}
-.ws-shell table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-  text-align: left;
-}
-.ws-shell th {
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  font-size: 8px;
-  color: var(--ba-eyebrow);
-  font-weight: 500;
-  border-bottom: 1px solid var(--ba-border);
-  padding: 12px 10px;
-  white-space: nowrap;
-}
-.ws-shell td {
-  padding: 14px 10px;
-  border-bottom: 1px solid var(--ba-hairline);
-  color: var(--ba-body);
-  white-space: nowrap;
-}
-.ws-shell tr:last-child td {
-  border-bottom: 0;
-}
 .ws-shell .ws-strong {
   font-weight: 550;
   color: var(--ba-headline);
@@ -866,11 +838,6 @@
   max-height: 600px;
   color: var(--ba-body);
 }
-.ws-note {
-  border-left: 2px solid var(--ba-accent);
-  padding: 12px;
-  background: var(--ba-tint);
-}
 .ws-map {
   padding-bottom: 10px;
 }
@@ -939,9 +906,8 @@
   font-size: 9px;
   color: var(--ba-body-2);
 }
-.ws-job-list .ws-badge {
+.ws-job-list .tf-status {
   margin-left: auto;
-  font-size: 8px;
 }
 .ws-result-metrics {
   display: flex;
@@ -974,25 +940,6 @@
 .ws-comparison select {
   font-size: 10px;
   max-width: 100%;
-}
-.ws-empty {
-  text-align: center;
-  padding: 65px 25px;
-  color: var(--ba-body-2);
-  background: var(--ba-surface);
-  border: 1px solid var(--ba-border);
-  border-radius: var(--ba-radius-surface);
-}
-.ws-empty > svg {
-  margin-bottom: 22px;
-}
-.ws-empty h2 {
-  font-size: 19px;
-}
-.ws-empty p {
-  font-size: 12px;
-  max-width: 490px;
-  margin: 12px auto 25px;
 }
 .ws-question-list {
   list-style: none;
@@ -1179,7 +1126,6 @@
 .ws-badge,
 .ws-count,
 .ws-inline-count,
-.ws-shell th,
 .ws-subnav button,
 .ws-back,
 .ws-legacy-link,
@@ -1215,11 +1161,6 @@
 .ws-badge {
   font-size: 10px;
 }
-.ws-shell th {
-  font-size: 11px;
-  letter-spacing: var(--ba-track-tag);
-}
-.ws-shell td,
 .ws-meta-row strong,
 .ws-schedule-bars small {
   font-variant-numeric: tabular-nums;
@@ -1523,13 +1464,17 @@
 .ws-sidebar nav + .ws-nav-label {
   margin-top: 22px;
 }
-.ws-decision-list th,
-.ws-decision-list td {
+.ws-table-left th,
+.ws-table-left td {
   text-align: left;
   white-space: normal;
   vertical-align: top;
   padding: 12px 10px;
 }
-.ws-decision-list td {
+.ws-table-left td {
   font-family: var(--ba-font-body);
+}
+
+.ws-table-scroll {
+  overflow: auto;
 }

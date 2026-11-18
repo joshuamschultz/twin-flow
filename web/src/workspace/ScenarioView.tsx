@@ -2,6 +2,8 @@ import { useState } from "react";
 import ReactFlow, { Background, Controls, MarkerType } from "reactflow";
 import "reactflow/dist/style.css";
 import { download, type Scenario, type Experiment } from "./api";
+import { AnswerHero } from "../decision/AnswerHero";
+import { Card, Section, StatusPill, Tag } from "../decision/primitives";
 import { Icon } from "./Icons";
 
 export function ScenarioView({
@@ -98,24 +100,6 @@ export function ScenarioView({
           hint="Declared inventory points"
           icon="box"
         />
-        <Metric
-          label={
-            domain === "manufacturing"
-              ? "On-time · simulated"
-              : "Completed / feasible"
-          }
-          value={
-            headline === undefined
-              ? "—"
-              : `${headline.toFixed(1)}${domain === "manufacturing" ? "%" : ""}`
-          }
-          hint={
-            latest
-              ? `${latest.reps} replications · latest result`
-              : "Run a baseline to see outcomes"
-          }
-          icon="clock"
-        />
       </div>
       <div className="ws-subnav" role="tablist" aria-label="Scenario views">
         {["overview", "process", "source"].map((tab) => (
@@ -133,108 +117,134 @@ export function ScenarioView({
                 : "Scenario source"}
           </button>
         ))}
-        <span className="ws-badge amber">Provisional model</span>
+        <StatusPill kind="risk" label="Provisional model" />
       </div>
       {view === "overview" && (
-        <div className="ws-two-column">
-          <section className="ws-card">
-            <div className="ws-card-heading">
-              <div>
-                <h2>Work moving through the system</h2>
-                <p>The demand this scenario is designed to evaluate.</p>
-              </div>
-              <span className="ws-badge">{orders.length} orders</span>
-            </div>
-            <div className="ws-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Order</th>
-                    <th>Part / work item</th>
-                    <th>Quantity</th>
-                    <th>
-                      {domain === "supply_chain"
-                        ? "Due date"
-                        : "Due · simulation time"}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.slice(0, 100).map((order) => (
-                    <tr key={order.work_order_id}>
-                      <td className="ws-strong">{order.work_order_id}</td>
-                      <td>{order.part}</td>
-                      <td>{order.qty}</td>
-                      <td className="ws-mono">{order.due_date}</td>
+        <div className="tf-root">
+          <AnswerHero
+            level="h2"
+            eyebrow="Latest result · how does this scenario perform?"
+            headline={latest?.result?.interpretation ?? "No test runs yet."}
+            lede={
+              latest
+                ? `${latest.reps} replications · latest result`
+                : "Run a baseline to see outcomes."
+            }
+            figures={
+              headline === undefined
+                ? []
+                : [
+                    {
+                      value: `${headline.toFixed(1)}${domain === "manufacturing" ? "%" : ""}`,
+                      label:
+                        domain === "manufacturing"
+                          ? "On-time · simulated"
+                          : "Completed / feasible",
+                    },
+                  ]
+            }
+          />
+          <Section
+            id="work"
+            eyebrow="Overview"
+            question="What work does this scenario test?"
+          >
+            <div className="ws-two-column">
+              <Card
+                question="Work moving through the system"
+                sub={
+                  <>
+                    The demand this scenario is designed to evaluate.{" "}
+                    <Tag kind="plain">{orders.length} orders</Tag>
+                  </>
+                }
+              >
+                <table className="tf-table ws-table-left">
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Part / work item</th>
+                      <th>Quantity</th>
+                      <th>
+                        {domain === "supply_chain"
+                          ? "Due date"
+                          : "Due · simulation time"}
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              {orders.length === 0 && (
-                <p className="ws-table-empty">No demand in this snapshot.</p>
-              )}
-              {orders.length > 100 && (
-                <p className="ws-table-empty">
-                  Showing 100 orders. Export for the complete demand set.
-                </p>
-              )}
+                  </thead>
+                  <tbody>
+                    {orders.slice(0, 100).map((order) => (
+                      <tr key={order.work_order_id}>
+                        <td className="ws-strong">{order.work_order_id}</td>
+                        <td>{order.part}</td>
+                        <td>{order.qty}</td>
+                        <td className="ws-mono">{order.due_date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {orders.length === 0 && (
+                  <p className="ws-table-empty">No demand in this snapshot.</p>
+                )}
+                {orders.length > 100 && (
+                  <p className="ws-table-empty">
+                    Showing 100 orders. Export for the complete demand set.
+                  </p>
+                )}
+              </Card>
+              <aside className="ws-stack">
+                <Card
+                  question="Explore the uncertainty."
+                  sub="Repeat the same scenario with different random draws. More replications improve the estimate."
+                >
+                  <label className="ws-field">
+                    Replications
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={reps}
+                      onChange={(event) => setReps(Number(event.target.value))}
+                    />
+                  </label>
+                  <div className="ws-meta-row">
+                    <span>Comparison seed</span>
+                    <strong>42</strong>
+                  </div>
+                  <div className="ws-meta-row">
+                    <span>Snapshot</span>
+                    <strong>
+                      {String(scenario.capsule.snapshot.id ?? "Embedded")}
+                    </strong>
+                  </div>
+                </Card>
+                <Card
+                  question="Know what the model assumes."
+                  sub="Imported models are provisional until validated against actual operations. Simulated dates are conditional estimates."
+                >
+                  <details>
+                    <summary>View declared assumptions</summary>
+                    <pre>
+                      {JSON.stringify(scenario.capsule.assumptions, null, 2)}
+                    </pre>
+                  </details>
+                </Card>
+              </aside>
             </div>
-          </section>
-          <aside className="ws-stack">
-            <section className="ws-card">
-              <span className="ws-eyebrow">EXPERIMENT SETTINGS</span>
-              <h2>Explore the uncertainty.</h2>
-              <p>
-                Repeat the same scenario with different random draws. More
-                replications improve the estimate.
-              </p>
-              <label className="ws-field">
-                Replications
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={reps}
-                  onChange={(event) => setReps(Number(event.target.value))}
-                />
-              </label>
-              <div className="ws-meta-row">
-                <span>Comparison seed</span>
-                <strong>42</strong>
-              </div>
-              <div className="ws-meta-row">
-                <span>Snapshot</span>
-                <strong>
-                  {String(scenario.capsule.snapshot.id ?? "Embedded")}
-                </strong>
-              </div>
-            </section>
-            <section className="ws-card ws-assumptions">
-              <Icon name="spark" />
-              <h2>Know what the model assumes.</h2>
-              <p>
-                Imported models are provisional until validated against actual
-                operations. Simulated dates are conditional estimates.
-              </p>
-              <details>
-                <summary>View declared assumptions</summary>
-                <pre>
-                  {JSON.stringify(scenario.capsule.assumptions, null, 2)}
-                </pre>
-              </details>
-            </section>
-          </aside>
+          </Section>
         </div>
       )}
       {view === "process" && (
-        <section className="ws-card ws-map">
-          <div className="ws-card-heading">
-            <div>
-              <h2>The shape of your operation</h2>
-              <p>Pan, zoom, and trace each route through the model.</p>
-            </div>
-            <span className="ws-badge">{graph.nodes.length} nodes</span>
-          </div>
+        <Card
+          className="ws-map tf-root"
+          question="The shape of your operation"
+          sub={
+            <>
+              Pan, zoom, and trace each route through the model.{" "}
+              <Tag kind="plain">{graph.nodes.length} nodes</Tag>
+            </>
+          }
+        >
           <div className="ws-flow-canvas">
             <ReactFlow
               fitView
@@ -279,18 +289,15 @@ export function ScenarioView({
               <Controls />
             </ReactFlow>
           </div>
-        </section>
+        </Card>
       )}
       {view === "source" && (
-        <section className="ws-card">
-          <div className="ws-card-heading">
-            <div>
-              <h2>A portable, inspectable contract</h2>
-              <p>
-                The same content agents import, validate, and use to build
-                alternatives.
-              </p>
-            </div>
+        <Card
+          className="tf-root"
+          question="A portable, inspectable contract"
+          sub="The same content agents import, validate, and use to build alternatives."
+        >
+          <div className="ws-actions">
             <button
               className="ws-button"
               onClick={() =>
@@ -311,7 +318,7 @@ export function ScenarioView({
             <span>Content digest</span>
             <code>{scenario.digest.slice(0, 24)}…</code>
           </div>
-        </section>
+        </Card>
       )}
     </>
   );
