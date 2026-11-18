@@ -21,8 +21,8 @@ the stock levels; `setup` the setup group of every machine by machine id, busy o
 With `decisions=True` it also writes one `decision` move per dispatch decision (the
 `PolicyRuntime` trace): actor = location, action = the chosen rule, `before` = the floor at
 the decision instant and `after` = the floor at the next decision (or the end of the run).
-Decision moves carry no dollars; the money sits on the period moves, so summing a run's
-ledgers never counts a dollar twice.
+Decision moves carry no dollars; the money sits on the period moves (COMP-153,
+`twinflow.engines.des_ledger`), so summing a run's ledgers never counts a dollar twice.
 """
 
 from __future__ import annotations
@@ -30,7 +30,9 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+from twinflow.engines.des_ledger import period_ledger
 from twinflow.plan.observers import RunView
+from twinflow.state.economics import Economics
 from twinflow.state.recorder import StateRecorder
 from twinflow.state.records import Ledger, Move, Snapshot
 
@@ -54,12 +56,18 @@ class DesStateObserver:
     """Samples the floor every `every_hours` hours and at each dispatch decision (REQ-197)."""
 
     def __init__(
-        self, every_hours: float | None, *, decisions: bool = False, run_id: str = ""
+        self,
+        every_hours: float | None,
+        *,
+        decisions: bool = False,
+        economics: Economics | None = None,
+        run_id: str = "",
     ) -> None:
         self.every_hours = _check_hours(every_hours)
         if self.every_hours is None and not decisions:
             raise ValueError("state capture needs every_hours or decisions (or both)")
         self.decisions = decisions
+        self.economics = economics if economics is not None else Economics()
         self._step = math.inf if self.every_hours is None else self.every_hours * SECONDS_PER_HOUR
         self._pending: tuple[Snapshot, str, str] | None = None
         self._decision_count = 0
@@ -160,15 +168,20 @@ class DesStateObserver:
         kind: str,
         after: Snapshot,
     ) -> None:
+        ledger = Ledger()
+        events: dict[str, float] = {}
+        if kind == "period":
+            orders = self._require_view().orders()
+            ledger, events = period_ledger(before, after, orders, self.economics)
         move = Move(
             index=self._index,
             before=before,
             action=action,
             actor=actor,
             kind="decision" if kind == "decision" else "period",
-            events={},
+            events=events,
             after=after,
-            ledger=Ledger(),
+            ledger=ledger,
         )
         self._index += 1
         self._recorder.add(move)
