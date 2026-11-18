@@ -109,12 +109,50 @@ test("Export HTML downloads a file that opens offline to the same view", async (
   await offline.close();
 });
 
-test("the runs list says the run viewer is coming", async ({ page }) => {
-  await page.goto(`${WEB}/?page=runs`);
-  await expect(
-    page.getByRole("heading", { name: "Will my orders finish on time?" }),
-  ).toBeVisible();
-  await expect(page.getByText("Coming soon.")).toBeVisible();
+test("a run in the workspace is listed and opens the run viewer", async ({
+  page,
+}) => {
+  const run = JSON.parse(
+    readFileSync(
+      resolve(here, "../../../docs/design/run-view-model.example.json"),
+      "utf8",
+    ),
+  );
+  const runFile = resolve(root, "decisions", "run", "browser-run.json");
+  mkdirSync(dirname(runFile), { recursive: true });
+  writeFileSync(runFile, JSON.stringify(run));
+  try {
+    await page.goto(`${WEB}/?page=runs`);
+    await expect(
+      page.getByRole("heading", { name: "Will my orders finish on time?" }),
+    ).toBeVisible();
+    await expect(page.getByText("Coming soon.")).toHaveCount(0);
+    const row = page.getByRole("row", { name: /browser-run/ });
+    await expect(row).toContainText("Most will. Watch WO-9.");
+    await expect(row).toContainText("Most on time");
+    await row.getByRole("link").click();
+    await expect(page).toHaveURL(/page=run&id=browser-run/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      "Most will.",
+    );
+  } finally {
+    rmSync(runFile, { force: true });
+  }
+});
+
+test("every decision view has a list in the nav", async ({ page }) => {
+  await page.goto(WEB);
+  for (const label of [
+    "Policy races",
+    "Runs",
+    "Sweeps",
+    "States",
+    "Improve",
+    "Projects",
+  ])
+    await expect(
+      page.getByRole("button", { name: label, exact: true }),
+    ).toBeVisible();
 });
 
 test("an unknown race says so in plain words", async ({ page }) => {

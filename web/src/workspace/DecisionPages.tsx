@@ -5,9 +5,21 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { PageActionsContext } from "../decision/Page";
 import { EmptyState, Section, StatusPill } from "../decision/primitives";
-import type { RaceViewModel } from "../decision/types";
+import { ImproveView } from "../decision/improve/ImproveView";
+import { ProjectView } from "../decision/project/ProjectView";
+import { StatesView } from "../decision/states/StatesView";
+import type {
+  ImproveViewModel,
+  ProjectViewModel,
+  RaceViewModel,
+  RunViewModel,
+  StatesViewModel,
+  SweepViewModel,
+} from "../decision/types";
 import { ShellContext } from "../decision/viewState";
 import { RaceView } from "../decision/views/RaceView";
+import { RunView } from "../decision/views/RunView";
+import { SweepView } from "../decision/views/SweepView";
 import { decisionApi, download, type DecisionRow } from "./api";
 
 export type DecisionKind = {
@@ -21,10 +33,10 @@ export type DecisionKind = {
   icon: string;
   /** the question the list answers */
   question: string;
-  /** null until the view exists: the list shows a "coming" note */
-  render: ((model: unknown) => ReactNode) | null;
-  /** what "coming" says */
-  coming?: string;
+  /** the view, drawn from its model */
+  render: (model: unknown) => ReactNode;
+  /** the command that makes one, for the empty list */
+  make: string;
 };
 
 export const DECISION_VIEWS: DecisionKind[] = [
@@ -35,6 +47,7 @@ export const DECISION_VIEWS: DecisionKind[] = [
     icon: "check",
     question: "Which rule should we run?",
     render: (model) => <RaceView model={model as RaceViewModel} />,
+    make: "twinflow policies race <project> --workspace <folder>",
   },
   {
     kind: "run",
@@ -42,8 +55,44 @@ export const DECISION_VIEWS: DecisionKind[] = [
     label: "Runs",
     icon: "flow",
     question: "Will my orders finish on time?",
-    render: null,
-    coming: "The run viewer is on the way. Runs will show up here.",
+    render: (model) => <RunView model={model as RunViewModel} />,
+    make: "TWINFLOW_WORKSPACE_ROOT=<folder> twinflow run <model> --plan <plan>",
+  },
+  {
+    kind: "sweep",
+    plural: "sweeps",
+    label: "Sweeps",
+    icon: "branch",
+    question: "What one change would help most?",
+    render: (model) => <SweepView model={model as SweepViewModel} />,
+    make: "TWINFLOW_WORKSPACE_ROOT=<folder> twinflow balance <model> --sweep <file>",
+  },
+  {
+    kind: "states",
+    plural: "states",
+    label: "States",
+    icon: "grid",
+    question: "What situations does the plant live in?",
+    render: (model) => <StatesView model={model as StatesViewModel} />,
+    make: "twinflow states <project> --html",
+  },
+  {
+    kind: "improve",
+    plural: "improves",
+    label: "Improve",
+    icon: "spark",
+    question: "Did the new rule win?",
+    render: (model) => <ImproveView model={model as ImproveViewModel} />,
+    make: "twinflow improve <project> <candidate>",
+  },
+  {
+    kind: "project",
+    plural: "projects",
+    label: "Projects",
+    icon: "box",
+    question: "Is the project ready to run?",
+    render: (model) => <ProjectView model={model as ProjectViewModel} />,
+    make: "twinflow extensions check <project>",
   },
 ];
 
@@ -58,13 +107,28 @@ export function findDecision(page: string): {
   return null;
 }
 
-const LEVEL: Record<string, { label: string; kind: "ok" | "risk" | "late" }> = {
+const LEVEL: Record<
+  string,
+  { label: string; kind: "ok" | "risk" | "late" } | undefined
+> = {
   very_likely_better: { label: "Very likely better", kind: "ok" },
   maybe_better: { label: "Maybe better", kind: "risk" },
   same_policy: { label: "Same as today", kind: "risk" },
   unknown: { label: "Not sure yet", kind: "risk" },
   maybe_worse: { label: "Maybe worse", kind: "late" },
   very_likely_worse: { label: "Very likely worse", kind: "late" },
+  // run viewer
+  all_on_time: { label: "All on time", kind: "ok" },
+  most_on_time: { label: "Most on time", kind: "risk" },
+  many_late: { label: "Many late", kind: "late" },
+  // improve
+  won: { label: "Won", kind: "ok" },
+  ahead_not_proven: { label: "Ahead, not proven", kind: "risk" },
+  lost: { label: "Lost", kind: "late" },
+  // project
+  ready: { label: "Ready", kind: "ok" },
+  needs_fixes: { label: "Needs fixes", kind: "risk" },
+  broken: { label: "Broken", kind: "late" },
 };
 
 function when(value: string): string {
@@ -80,7 +144,6 @@ export function DecisionList(props: {
   const rows = useQuery({
     queryKey: ["decision-list", spec.plural],
     queryFn: () => decisionApi.list(spec.plural),
-    enabled: spec.render !== null,
   });
   return (
     <div className="tf-root">
@@ -90,9 +153,7 @@ export function DecisionList(props: {
         question={spec.question}
         hint={`Each row is a ${spec.label.toLowerCase().replace(/s$/, "")}. The sentence is the answer.`}
       >
-        {spec.render === null ? (
-          <EmptyState title="Coming soon." body={<p>{spec.coming}</p>} />
-        ) : rows.isLoading ? (
+        {rows.isLoading ? (
           <p role="status">Loading.</p>
         ) : rows.error ? (
           <EmptyState
@@ -100,12 +161,17 @@ export function DecisionList(props: {
             body={<p>{rows.error.message}</p>}
           />
         ) : rows.data?.length ? (
-          <DecisionTable rows={rows.data} onOpen={onOpen} label={spec.label} />
+          <DecisionTable
+            rows={rows.data}
+            onOpen={onOpen}
+            label={spec.label}
+            kind={spec.kind}
+          />
         ) : (
           <EmptyState
             title="Nothing here yet."
             body={<p>Run one from the command line and it shows up here.</p>}
-            fix="twinflow policies race <project> --out <folder>"
+            fix={spec.make}
           />
         )}
       </Section>
@@ -117,6 +183,7 @@ function DecisionTable(props: {
   rows: DecisionRow[];
   onOpen: (id: string) => void;
   label: string;
+  kind: string;
 }) {
   return (
     <div className="tf-card">
@@ -131,12 +198,15 @@ function DecisionTable(props: {
         </thead>
         <tbody>
           {props.rows.map((row) => {
-            const level = LEVEL[row.level] ?? LEVEL.unknown;
+            // Views with no "how sure" (states, sweeps) leave the cell empty.
+            const level =
+              LEVEL[row.level] ??
+              (props.kind === "race" ? LEVEL.unknown : undefined);
             return (
               <tr key={row.id}>
                 <td>
                   <a
-                    href={`?page=race&id=${encodeURIComponent(row.id)}`}
+                    href={`?page=${props.kind}&id=${encodeURIComponent(row.id)}`}
                     onClick={(event) => {
                       event.preventDefault();
                       props.onOpen(row.id);
@@ -149,7 +219,9 @@ function DecisionTable(props: {
                 <td>{when(row.when)}</td>
                 <td>{row.sentence}</td>
                 <td>
-                  <StatusPill kind={level.kind} label={level.label} />
+                  {level && (
+                    <StatusPill kind={level.kind} label={level.label} />
+                  )}
                 </td>
               </tr>
             );
@@ -201,7 +273,7 @@ export function DecisionViewPage(props: {
   const model = useQuery({
     queryKey: ["decision-view", spec.kind, id],
     queryFn: () => decisionApi.view<unknown>(spec.kind, id),
-    enabled: spec.render !== null && id !== "",
+    enabled: id !== "",
   });
   return (
     <ShellContext.Provider value="workspace">
@@ -211,11 +283,7 @@ export function DecisionViewPage(props: {
         <button className="ws-back" onClick={onBack}>
           ← All {spec.label.toLowerCase()}
         </button>
-        {spec.render === null ? (
-          <div className="tf-root">
-            <EmptyState title="Coming soon." body={<p>{spec.coming}</p>} />
-          </div>
-        ) : model.isLoading ? (
+        {model.isLoading ? (
           <p role="status">Loading.</p>
         ) : model.error || !model.data ? (
           <div className="tf-root">
