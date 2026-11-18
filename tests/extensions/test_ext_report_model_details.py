@@ -54,6 +54,11 @@ def test_tuning_sentence_names_the_best_and_worst_setting(model: dict[str, Any])
     assert f"${gap:,}" in row["words"]
 
 
+def test_tuning_sentences_start_with_a_capital(model: dict[str, Any]) -> None:
+    for row in model["tuning"]:
+        assert row["words"][0].isupper()
+
+
 def test_touchy_rule_gets_a_caution_in_its_sentence(model: dict[str, Any]) -> None:
     touchy = [t for t in model["tuning"] if t["touchy"]]
     steady = [t for t in model["tuning"] if not t["touchy"] and t["tried"] > 1]

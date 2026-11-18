@@ -930,6 +930,10 @@ def _setting_words(settings: Mapping[str, Any]) -> str:
     return ", ".join(parts)
 
 
+def _cap(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
 def _tuning_words(rows: Sequence[Mapping[str, Any]], touchy: bool) -> str:
     """The one sentence under a rule's tuning line (DESIGN 3.10)."""
     scored = [r for r in rows if r["dollars"] is not None]
@@ -939,8 +943,8 @@ def _tuning_words(rows: Sequence[Mapping[str, Any]], touchy: bool) -> str:
     worst = min(scored, key=lambda r: r["dollars"])
     gap = best["dollars"] - worst["dollars"]
     words = (
-        f"{_setting_words(best['settings'])} gave the most profit. "
-        f"{_setting_words(worst['settings'])} gave the least, {_money(gap)} less per run."
+        f"{_cap(_setting_words(best['settings']))} gave the most profit. "
+        f"{_cap(_setting_words(worst['settings']))} gave the least, {_money(gap)} less per run."
     )
     if touchy:
         return words + " This rule is touchy. Check its setting again when demand changes."

@@ -18161,7 +18161,7 @@
    ],
    "spread": 30646,
    "touchy": true,
-   "words": "days per slot 2 gave the most profit. days per slot 6 gave the least, $30,646 less per run. This rule is touchy. Check its setting again when demand changes."
+   "words": "Days per slot 2 gave the most profit. Days per slot 6 gave the least, $30,646 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "dollar_shortfall",
@@ -18281,7 +18281,7 @@
    ],
    "spread": 16215,
    "touchy": true,
-   "words": "target days 8 gave the most profit. target days 28 gave the least, $16,215 less per run. This rule is touchy. Check its setting again when demand changes."
+   "words": "Target days 8 gave the most profit. Target days 28 gave the least, $16,215 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "family_campaign",
@@ -18338,7 +18338,7 @@
    ],
    "spread": 6480,
    "touchy": false,
-   "words": "target days 16 gave the most profit. target days 20 gave the least, $6,479 less per run. The settings were close, so a wrong pick costs little."
+   "words": "Target days 16 gave the most profit. Target days 20 gave the least, $6,479 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "fixed_wheel",
@@ -18404,7 +18404,7 @@
    ],
    "spread": 23891,
    "touchy": true,
-   "words": "days per slot 3 gave the most profit. days per slot 6 gave the least, $23,891 less per run. This rule is touchy. Check its setting again when demand changes."
+   "words": "Days per slot 3 gave the most profit. Days per slot 6 gave the least, $23,891 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "kanban",
@@ -18537,7 +18537,7 @@
    ],
    "spread": 5036,
    "touchy": false,
-   "words": "target days 14, trigger share 0.7 gave the most profit. target days 6, trigger share 0.5 gave the least, $5,036 less per run. The settings were close, so a wrong pick costs little."
+   "words": "Target days 14, trigger share 0.7 gave the most profit. Target days 6, trigger share 0.5 gave the least, $5,036 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "lowest_cover",
@@ -18657,7 +18657,7 @@
    ],
    "spread": 3220,
    "touchy": false,
-   "words": "stop days 10 gave the most profit. stop days 4 gave the least, $3,220 less per run. The settings were close, so a wrong pick costs little."
+   "words": "Stop days 10 gave the most profit. Stop days 4 gave the least, $3,220 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "lowest_stock_first",
@@ -18705,7 +18705,7 @@
    ],
    "spread": 2184,
    "touchy": false,
-   "words": "stop days 10 gave the most profit. stop days 6 gave the least, $2,184 less per run. The settings were close, so a wrong pick costs little."
+   "words": "Stop days 10 gave the most profit. Stop days 6 gave the least, $2,184 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "s_big_s",
@@ -18838,7 +18838,7 @@
    ],
    "spread": 5877,
    "touchy": false,
-   "words": "safety days 10, eoq scale 0.5 gave the most profit. safety days 10, eoq scale 1 gave the least, $5,877 less per run. The settings were close, so a wrong pick costs little."
+   "words": "Safety days 10, eoq scale 0.5 gave the most profit. Safety days 10, eoq scale 1 gave the least, $5,877 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "setup_aware_runout",
@@ -18971,7 +18971,7 @@
    ],
    "spread": 39127,
    "touchy": true,
-   "words": "cross penalty days 0.5, within penalty days 0 gave the most profit. cross penalty days 0.5, within penalty days 2 gave the least, $39,128 less per run. This rule is touchy. Check its setting again when demand changes."
+   "words": "Cross penalty days 0.5, within penalty days 0 gave the most profit. Cross penalty days 0.5, within penalty days 2 gave the least, $39,128 less per run. This rule is touchy. Check its setting again when demand changes."
   }
  ],
  "views": {
