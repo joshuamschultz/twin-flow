@@ -106,7 +106,7 @@ twinflow optimize examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv
 | `--reps` | 12 | replications per evaluation (the confidence band) |
 | `--seed` | 0 | seeds the optimizer's own randomness |
 
-## `twinflow states <run_dir> [--view NAME] [--top K]`
+## `twinflow states <run_dir> [--view NAME] [--top K] [--project DIR]`
 
 Summarise the moves a run captured. `run_dir` is one run folder, or a folder that holds
 replication folders (the `--out` folder of `twinflow scenario run`). The summary shows how
@@ -127,9 +127,12 @@ folder and tells you how to turn capture on (exit 1).
 The `family` view needs product facts (families and demand rates). A make-to-stock run
 leaves them in `scenario.json` beside its replication folders. When they are missing, as in
 a factory run, the command prints a note and uses the `full` view. The views you define in
-`model.state_groups` can be named with `--view`.
+`model.state_groups` can be named with `--view`. To use a view file from a project's
+`views/` folder (or the project's own views), add `--project DIR`; the project's model facts
+are used too. If a run has only a few moves, `states` says so and tells you to lower
+`experiment.state_capture.every_hours`.
 
-## `twinflow markov <run_dir> [--view NAME] [--top K] [--min-prob P] [--out DIR]`
+## `twinflow markov <run_dir> [--view NAME] [--top K] [--min-prob P] [--out DIR] [--project DIR]`
 
 Estimate how the plant moves from state to state, print the top states and the likely
 moves, and write `markov.json` and `markov.mmd` (a Mermaid chart) into the run folder, or

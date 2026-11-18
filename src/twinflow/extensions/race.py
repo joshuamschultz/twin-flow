@@ -863,8 +863,11 @@ def _policies(
 ) -> tuple[list[Extension], list[Problem]]:
     """The policy extensions to race (make_next files only) and problems for names that
     cannot be raced."""
+    custom = project.engine_extension is not None
     if names is None:
         found = [p for p in project.extensions.of("policy") if p.decision == "make_next"]
+        if custom:  # built-in rules are written for make-to-stock twins
+            found = [p for p in found if p.source != "builtin"]
         broken = [p for p in project.extensions.problems if p.kind == "policy"]
         return found, broken
     chosen, problems = [], []
@@ -873,6 +876,18 @@ def _policies(
             problems.append(_missing(project, name))
             continue
         ext = project.extensions.get("policy", name)
+        if custom and ext.source == "builtin":
+            problems.append(
+                Problem(
+                    "policy",
+                    "builtin_for_stock",
+                    f"{name} is a built-in rule written for make-to-stock twins; it does not "
+                    "fit a custom engine.",
+                    "Write your own policy in policies/ and race that.",
+                    name=name,
+                )
+            )
+            continue
         if ext.decision != "make_next":
             problems.append(
                 Problem(

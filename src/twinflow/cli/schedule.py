@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import NoReturn
 
 from twinflow.application.solver_port import UnsupportedSolver, build_solver
-from twinflow.scheduling import OptionalDependencyError, ScheduleIssue, parse_request, solve
+from twinflow.scheduling import ScheduleIssue, parse_request, solve
+from twinflow.scheduling.seam import OptionalDependencyError
 
 MAX_TIME_LIMIT_SECONDS = 30.0  # the same cap the REST and MCP surfaces enforce
 

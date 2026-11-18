@@ -1,0 +1,129 @@
+{
+  "schema_version": "2.0",
+  "problem": {
+    "id": "pinedo-3.3.3",
+    "jobs": [
+      {
+        "id": "1",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 3.3.3, p.49-50 (1 || sum U_j, Moore-Hodgson).",
+        "due": 9.0,
+        "operations": [
+          {
+            "id": "1-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 7.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 3.3.3, p.49-50 (1 || sum U_j, Moore-Hodgson).",
+        "due": 17.0,
+        "operations": [
+          {
+            "id": "2-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 8.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 3.3.3, p.49-50 (1 || sum U_j, Moore-Hodgson).",
+        "due": 18.0,
+        "operations": [
+          {
+            "id": "3-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 4.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 3.3.3, p.49-50 (1 || sum U_j, Moore-Hodgson).",
+        "due": 19.0,
+        "operations": [
+          {
+            "id": "4-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 6.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 3.3.3, p.49-50 (1 || sum U_j, Moore-Hodgson).",
+        "due": 21.0,
+        "operations": [
+          {
+            "id": "5-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 6.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "machines": [
+      {
+        "id": "M1",
+        "work_center_id": "WC-M1"
+      }
+    ],
+    "work_centers": [
+      {
+        "id": "WC-M1"
+      }
+    ]
+  },
+  "profile": {
+    "objective": {
+      "mode": "lexicographic",
+      "levels": [
+        {
+          "kind": "tardy_count"
+        }
+      ]
+    }
+  }
+}

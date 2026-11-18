@@ -69,14 +69,15 @@ today's `kpis.json` sidecar doesn't carry those two fields yet — see
   exactly once per order (10 releases each), because the default pull rule
   never batches. The backlog lives entirely in queue wait time, not in
   fewer/bigger firings.
-- **`on_time_pct` / `lateness_by_order`** — on-time performance lands at
-  10%: nine of the ten work orders finish late (`lateness_by_order` > 0).
+- **`on_time_pct` / `lateness_by_order`** — one run lands at 90% on time:
+  nine of the ten work orders finish on time and one (`wo-9`, by about 20
+  seconds) finishes late (`lateness_by_order` > 0). Over 30 replications
+  (`--reps 30`) the on-time figure averages about 87%, with a 95% range of
+  83% to 91%, so a single run can read a little better or worse than that.
   Every order in a family completes when the LAST unit of that family
   clears the floor (a documented v1 simplification: completion is tracked
   per terminal lot, not per individual work order — see `orders_frame` in
-  `instrumentation/sweep.py`), so the earliest-due order in each family
-  (promised against the mill's still-empty backlog) reads as the *most*
-  late, while the last, loosest-due-date order can land on time.
+  `instrumentation/sweep.py`).
 
 ## The decision this points to
 

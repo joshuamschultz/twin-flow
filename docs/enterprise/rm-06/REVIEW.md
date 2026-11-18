@@ -17,9 +17,9 @@ objectives and the verifier against them. CP-SAT reaches and proves the 28.
 
 The baseline is a deterministic feasible heuristic, not an optimizer proof. It never
 backtracks and reports `UNKNOWN`, not `INFEASIBLE`, when it cannot place an operation.
-OR-Tools is optional and is not imported unless `ORToolsSolver` is built. CP-SAT
-optimizes `makespan` and `max_lateness` and refuses problems that use setups,
-batching, pause, restart, or overlap. The translator reads a scenario capsule into
+OR-Tools is optional and is not imported unless `get_solver("ortools")` is called. CP-SAT
+optimizes every objective kind, supports every feature but `pause`, and refuses machines
+with more than 300 options (`model_too_large`). The translator reads a scenario capsule into
 lot operations and returns a named blocker for anything it cannot express:
 stochastic times, quality gates, rework, shared machines, and similar.
 

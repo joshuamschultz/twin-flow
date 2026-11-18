@@ -6,12 +6,14 @@ that call `BaselineSolver.solve` directly look at placement order and refusal co
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
+from generators import scale_request
 from oracle import brute_force
 
 from twinflow.scheduling.baseline import BaselineSolver
@@ -29,7 +31,8 @@ from twinflow.scheduling.model import (
     SolveResult,
     WorkCenter,
 )
-from twinflow.scheduling.solver import Feature, solve
+from twinflow.scheduling.seam import Feature, SolveContext
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import validate
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -77,8 +80,17 @@ def _request(problem: Problem, **fields: Any) -> SolveRequest:
     return SolveRequest.model_validate({"schema_version": "2.0", "problem": problem} | fields)
 
 
+def _context(budget_seconds: float) -> SolveContext:
+    deadline = time.monotonic() + budget_seconds
+    return SolveContext(
+        previous_plan=None, churn_tolerance=0.0, deadline=deadline, warm_start=None, params={}
+    )
+
+
 def _direct(problem: Problem) -> Schedule:
-    return BaselineSolver().solve(problem, objective=MAKESPAN, budget_seconds=10.0)
+    return BaselineSolver().solve(
+        problem, objective=MAKESPAN, budget_seconds=10.0, context=_context(10.0)
+    )
 
 
 def _by_op(schedule: Schedule) -> dict[str, Assignment]:
@@ -103,23 +115,24 @@ def _fixture(name: str) -> SolveRequest:
 # --- seam ----------------------------------------------------------------------------------
 
 
-def test_capabilities_are_every_feature_except_restart() -> None:
+def test_capabilities_are_every_feature() -> None:
     solver = BaselineSolver()
 
     assert solver.name == "baseline"
-    assert solver.capabilities == frozenset(Feature) - {Feature.RESTART}
+    assert solver.capabilities == frozenset(Feature)
 
 
-def test_restart_machine_is_refused_by_the_default_solver() -> None:
-    restart = {"idle_threshold_seconds": 60.0, "warmup_seconds": 10.0}
-    problem = _problem(_one_job(_op("A")), [_machine(restart=restart)])
+def test_restart_machine_is_scheduled_with_a_warmup_by_the_default_solver() -> None:
+    # T-116 / D-074: B waits 20 s after A (min_lag), so M1 idles 20 s > 10 s threshold.
+    restart = {"idle_threshold_seconds": 10.0, "warmup_seconds": 3.0}
+    first = _op("A")
+    second = _op("B", predecessors=[{"operation_id": "A", "min_lag": 20.0}])
+    problem = _problem(_one_job(first, second), [_machine(restart=restart)])
 
-    result = solve(_request(problem))
+    result = _verified(problem)
 
-    assert result.schedule.status == "UNKNOWN"
-    assert result.schedule.solver == "baseline"
-    assert [i.code for i in result.issues] == ["unsupported_feature"]
-    assert "restart" in result.issues[0].message
+    b = _by_op(result.schedule)["B"]
+    assert (b.start, b.setup_end, b.end) == (25.0, 28.0, 33.0)
 
 
 # --- placement order -----------------------------------------------------------------------
@@ -315,7 +328,9 @@ def test_pass_that_outlives_its_budget_returns_unknown_time_limit() -> None:
     jobs = [Job(id=f"J{k}", operations=(_op(f"op{k:05}"),)) for k in range(4000)]
     problem = _problem(jobs)
 
-    schedule = BaselineSolver().solve(problem, objective=MAKESPAN, budget_seconds=0.05)
+    schedule = BaselineSolver().solve(
+        problem, objective=MAKESPAN, budget_seconds=0.05, context=_context(0.05)
+    )
 
     assert schedule.status == "UNKNOWN"
     assert _codes(schedule) == ["time_limit"]
@@ -628,3 +643,112 @@ def test_smoke_is_deterministic(seed: int) -> None:
     problem = _random_problem(seed)
 
     assert _direct(problem).assignments == _direct(problem).assignments
+
+
+# --- machine choice tie-break (review item 2) ------------------------------------------------
+
+
+def _priced_op(op_id: str, *options: tuple[str, float, float]) -> Operation:
+    """An operation of quantity 1 with `(machine_id, fixed_seconds, preference_cost)` options."""
+    return Operation.model_validate(
+        {
+            "id": op_id,
+            "work_center_id": WC,
+            "quantity": 1.0,
+            "options": [
+                {"machine_id": m, "fixed_seconds": s, "unit_seconds": 0.0, "preference_cost": c}
+                for m, s, c in options
+            ],
+        }
+    )
+
+
+def test_completion_tie_goes_to_the_lowest_preference_cost_before_machine_id() -> None:
+    op = _priced_op("X", ("A", 5.0, 3.0), ("B", 5.0, 0.0))
+    problem = _problem(_one_job(op), [_machine("A"), _machine("B")])
+
+    result = _verified(problem)
+
+    assert _by_op(result.schedule)["X"].machine_id == "B"
+
+
+def test_completion_tie_with_equal_preference_cost_goes_to_the_lowest_machine_id() -> None:
+    op = _priced_op("X", ("B", 5.0, 1.0), ("A", 5.0, 1.0))
+    problem = _problem(_one_job(op), [_machine("A"), _machine("B")])
+
+    assert _by_op(_verified(problem).schedule)["X"].machine_id == "A"
+
+
+def test_earlier_completion_beats_a_lower_preference_cost() -> None:
+    op = _priced_op("X", ("A", 4.0, 3.0), ("B", 5.0, 0.0))
+    problem = _problem(_one_job(op), [_machine("A"), _machine("B")])
+
+    assert _by_op(_verified(problem).schedule)["X"].machine_id == "A"
+
+
+# --- calendar fit within float noise (review item 6) -----------------------------------------
+# fixed 0.1 + 1 * unit 0.2 is 0.30000000000000004 in binary floating point; the true run of
+# 0.3 s fits the working interval [0, 0.3) exactly.
+
+
+def _noisy_run_op(**fields: Any) -> Operation:
+    data = {
+        "id": "X",
+        "work_center_id": WC,
+        "quantity": 1.0,
+        "options": [
+            {"machine_id": "M1", "fixed_seconds": 0.1, "unit_seconds": 0.2, "preference_cost": 0.0}
+        ],
+    }
+    return Operation.model_validate(data | fields)
+
+
+def _calendar_problem(op: Operation, intervals: list[tuple[float, float]]) -> Problem:
+    return _problem(
+        _one_job(op),
+        [_machine(calendar_id="c")],
+        calendars=[{"id": "c", "intervals": intervals}],
+    )
+
+
+def test_forbid_op_that_fills_its_only_interval_within_float_noise_is_placed() -> None:
+    result = _verified(_calendar_problem(_noisy_run_op(), [(0.0, 0.3)]))
+
+    assert _by_op(result.schedule)["X"].start == 0.0
+
+
+def test_forbid_op_that_fills_an_interval_within_float_noise_is_not_pushed_to_the_next() -> None:
+    result = _verified(_calendar_problem(_noisy_run_op(), [(0.0, 0.3), (1.0, 2.0)]))
+
+    assert _by_op(result.schedule)["X"].start == 0.0
+
+
+def test_pause_op_that_fills_an_interval_within_float_noise_ends_there() -> None:
+    op = _noisy_run_op(shift_crossing="pause")
+
+    result = _verified(_calendar_problem(op, [(0.0, 0.3), (1.0, 2.0)]))
+
+    assert _by_op(result.schedule)["X"].end == pytest.approx(0.3, abs=1e-9)
+
+
+# --- slot search speed (review item 9) -------------------------------------------------------
+
+SCALE_SOLVER_SECONDS_BEFORE = 1.17
+"""Baseline solver time on `scale_request(seed=0)` measured on the dev machine, 2026-10-10
+(three runs: 1.16, 1.19, 1.17 s; whole `solve` call 1.25 s); `_fit_gap` was 4.0 of 4.4 s
+under cProfile."""
+
+
+@pytest.mark.slow
+def test_scale_baseline_solver_time_is_well_below_the_measured_before() -> None:
+    request = scale_request(seed=0)
+
+    result = solve(request)
+
+    assert result.verified, result.issues
+    # Alone the pass takes about 0.5 s (under half); late in the full suite, with the heap
+    # of every earlier test alive, it runs slower, so the bound keeps a 25 percent margin.
+    limit = SCALE_SOLVER_SECONDS_BEFORE * 0.75
+    assert result.schedule.elapsed_seconds < limit, (
+        f"baseline took {result.schedule.elapsed_seconds:.2f} s, limit {limit:.2f} s"
+    )

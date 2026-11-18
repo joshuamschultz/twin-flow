@@ -159,8 +159,9 @@ so the order never depends on input order.
 ## Solvers and capabilities
 
 `Solver` is a protocol: `name`, `capabilities`, and
-`solve(problem, objective=, budget_seconds=)`. The solver gets the compiled problem
-and the objective spec only, never the overrides or the profile.
+`solve(problem, objective=, budget_seconds=, context=)`. The solver gets the compiled
+problem, the objective spec and a `SolveContext` (see "The seam"), never the overrides
+or the profile.
 
 `solve(request, solver=None, budget_seconds=None)` is the one entry point:
 
@@ -183,19 +184,243 @@ Features: `alternatives`, `setups`, `detached_setup`, `calendars`, `pause`,
 
 | Solver | Name | Declares | Optimizes |
 |---|---|---|---|
-| Baseline | `baseline` | every feature except `restart` | A deterministic list scheduler. No objective is optimized. |
-| CP-SAT | `ortools` | `alternatives`, `calendars`, `operators`, `lags`, `max_lags`, `pins`, `in_progress`, `machine_state` | `makespan` and `max_lateness` as the primary objective. |
+| Baseline | `baseline` | every feature | A deterministic list scheduler. No objective is optimized. |
+| CP-SAT | `ortools` | every feature except `pause` | Every objective kind, as one model (see "Algorithm library"). |
 
 - The baseline never backtracks. When it cannot place an operation it returns
   `UNKNOWN` with `max_lag_unmet` or `no_feasible_slot`, never `INFEASIBLE`. It
   reports `FEASIBLE`, never `OPTIMAL`. It does not enforce the time budget.
 - CP-SAT is the optional `scheduling` extra (`ortools>=9.10,<10`). Importing
-  `twinflow.scheduling` never imports OR-Tools. Building `ORToolsSolver()` without
-  it raises `OptionalDependencyError`. It reports `OPTIMAL` with a proven bound,
-  `INFEASIBLE`, or `UNKNOWN` on a time limit. Other primary objectives get
-  `unsupported_objective`. Times with more than six decimals get
-  `unsupported_precision`. A solver issue code is also `infeasible` or `time_limit`.
+  `twinflow.scheduling` never imports OR-Tools. Building `get_solver("ortools")`
+  without it raises `OptionalDependencyError` (in `twinflow.scheduling.seam`). It reports `OPTIMAL` with a proven bound,
+  `INFEASIBLE`, or `UNKNOWN` on a time limit. Times with more than six decimals get
+  `unsupported_precision`. A solver issue code is also `infeasible`, `time_limit` or
+  `model_too_large`.
 - `FEASIBLE` is a verified schedule, not an optimality claim.
+
+## Algorithm library
+
+TF-003 adds Pinedo's methods (*Scheduling*, 5th ed.) behind the same `Solver` seam.
+Each method is a leaf module. Every plan goes through one decoder and the independent
+verifier, so a method cannot return an unchecked schedule.
+
+### Registry and leaf rule
+
+`twinflow.scheduling.registry` finds the methods (D-069). It scans the modules of
+`twinflow.scheduling.algorithms` (`pkgutil.iter_modules`) and imports each. A module
+exports `SOLVERS`, and may export `RULES` and `ANALYSES`. `baseline` registers from
+core. The facade imports no algorithm module.
+
+| Call | Result |
+|---|---|
+| `registry.available()` | Every solver: name, family, capabilities, module, `deterministic`. Facade name: `available_solvers`. |
+| `registry.get(name, **params)` | A fresh solver. Facade name: `get_solver`. An unknown name raises `UnknownSolverError`. |
+| `registry.is_registered(name)` | Whether a name is registered. The optional dependency may still be absent. |
+| `registry.rule(name, **params)` | A priority rule by name (`UnknownRuleError`). Used by construction and beam. |
+| `registry.analysis(name)` | A screen function by name (`UnknownAnalysisError`). |
+
+- Optional dependencies are imported inside the factory. A missing one raises
+  `OptionalDependencyError` at build time, never at discovery. Any other import error
+  in a leaf propagates. A duplicate name is an error.
+- Leaf modules never import each other, and they never import `solver.py`. A method
+  that uses another one looks it up by name at call time. A missing leaf gives a named
+  issue (`subsolver_unavailable`, `unknown_solver`), not an import error.
+- Delete any file in `algorithms/` and the rest still imports, registers and runs.
+  An architecture test deletes each leaf in turn and checks this.
+
+### The seam
+
+`twinflow/scheduling/seam.py` is a leaf that imports only `model`. It holds `Feature`,
+`Solver`, `SolveContext`, `ParamValue` and `OptionalDependencyError`. Solvers and the
+kernel import the seam, so they never import `solver.py`.
+
+`SolveContext` carries what a method needs besides the problem: the previous plan, the
+churn tolerance, a seed, a monotonic deadline, an optional warm-start schedule, and
+`params` (a read-only mapping from `profile.method_params[solver.name]`). `solve()`
+builds it from the request. A method that gets an unknown or invalid param returns
+`UNKNOWN` with `invalid_method_param`.
+
+### Methods
+
+Every method works on the full problem model. All declare every `Feature`; `ortools`
+declares every one except `pause`. All are deterministic except `sa`. Gate: the D-083
+gate (below); `ref` marks a reference rule that is exempt, `n/a` a method that is
+timed but not gated. The 600x8 column is the measured time on the scale instance
+(600 jobs of 8 operations, 8 centers); the budget is the limit from the runtime table.
+Pinedo page numbers are the printed pages.
+
+| Name | Family | Module | Key params (default) | Budget / 600x8 | Gate | Pinedo |
+|---|---|---|---|---|---|---|
+| `baseline` | baseline | `baseline` | none | none / n/a | n/a | n/a |
+| `fifo`, `edd`, `wspt`, `spt`, `lpt`, `ms`, `cr`, `sst`, `lfj`, `sqno` | dispatch | `dispatch_rules` | none | 10 s / 0.66 to 1.05 s | ref | p.372-375 |
+| `atc` | composite | `atcs` | `K1`, `phi` | 10 s / 0.81 s | PASS | p.199, 374-375 |
+| `atcs` | composite | `atcs` | `K1`, `K2` (from the K-table or formula), `phi`, `flexibility`, `suitability`, `macro_jobs`, `merge_window`, `mode` | 10 s / 1.08 s | PASS | p.375-378 |
+| `gt_active` | construction | `construction` | `rule` (`atcs`) | 15 s / 1.42 s | PASS | p.372-375, 523 |
+| `forward_load` | construction | `construction` | `rule` (`atcs`) | 10 s / 0.81 s | PASS | p.183-184, 473-474 |
+| `backward_load` | construction | `construction` | `rule` (`atcs`) | 10 s / 2.68 s | PASS | p.183-184, 473-474 |
+| `five_phase` | decomposition | `five_phase` | `phi`, `k2_scale` (6) | 20 s / 10.83 s | PASS | Sec 16.4, p.443-447 |
+| `sb_makespan` | decomposition | `shifting_bottleneck` | `subproblem` (10), `reopt_rounds` (2), `K2` (1.0) | 90 s / 15.24 s | PASS (makespan bench) | Alg 7.2.1, p.189-195 |
+| `sb_wt` | decomposition | `shifting_bottleneck` | same as `sb_makespan` | 90 s / 19.71 s | PASS | Sec 7.3, p.196-202 |
+| `rolling_horizon` | decomposition | `rolling_horizon` | `window_solver` (`atcs->tabu`), `min_jobs` (20), `max_jobs` (150), `seam` (5), `gap` (1.0), `eps` (0.25) | 60 s / 24.30 s | PASS | Sec 15.2, p.398-403 |
+| `ortools` | exact | `cpsat` | `hint_solvers` (`atcs`) | 3 s gate; 600x8 refused in 0.29 s (`model_too_large`, limit 2 s); 40x5 window 5.06 s (limit 5.5 s) | PASS | not in the book (exact reference) |
+| `tabu` | improvement | `local_search` | `tabu_length` (7), `iteration_limit` (30) | anytime: 28.62 s at 30 s | PASS | Alg 14.3.3, p.382-384 |
+| `sa` | improvement | `local_search` | `sa_cooling` (0.995), `sa_iterations` (20,000) | anytime: 28.69 s at 30 s | PASS | Alg 14.3.2, p.380-382 |
+| `beam` | improvement | `beam` | `beam_width` (4), `filter_width` (12), `rollout_limit` (60), `rule` (`atcs`) | anytime: 28.58 s at 30 s | PASS | Sec 15.1, p.396-398 |
+| `rush_insert` | reactive | `reactive` | none | 10 s / 0.90 s | n/a | Sec 18.1 p.482; Sec 16.5 p.448-449 |
+| `reschedule` | reactive | `reactive` | `improver` (`tabu`), `churn_weight` (1.0) | budget + 10 percent / 28.63 s at 30 s | n/a | Sec 18.1 p.482 |
+
+- `atcs` picks K1 and K2 per work center from its statistics (`tau`, `R`, `eta`, `m`).
+  Order: explicit params, then a `k_lookup` given to the constructor, then the
+  formula. A K-table plugs in through `k_lookup` (see "The K-table").
+- `ortools` hints from the best verified plan among the baseline and `hint_solvers`, and
+  never returns a plan worse than that hint. It refuses a model with more than 300
+  options on one machine or 2,000,000 circuit arcs (`model_too_large`).
+- `sb_makespan` is gated on a makespan bench, not on weighted tardiness (a makespan
+  method cannot be expected to beat EDD on weighted tardiness).
+- `rolling_horizon` is weaker than plain `atcs` when it needs more than one window
+  (the windows queue behind each other). The held-out gate passes because 40-job
+  instances form one window. Use `atcs` or `sb_wt` for large instances.
+- `sa` is the only non-deterministic method: it takes the seed from the context.
+- `beam` stops after `rollout_limit` rollouts, so its output does not depend on the clock.
+- `rush_insert` needs a previous plan (`previous_plan_required` otherwise).
+  `reschedule` uses the previous plan as a warm start and counts churn.
+
+### Reactive functions
+
+`rush_insert` places one new job into the previous plan. It picks the position by a
+graph estimate and confirms it by decoding. When the new job would make a job late
+that was on time, it relaxes that job's due date, in order, until the plan holds. Each
+relaxation is in `Schedule.relaxations` and has a `relaxed_due` issue. Added setup is an
+informational `rush_added_setup` issue.
+
+`reschedule` keeps the part of the previous plan that no moved or new operation can
+reach, schedules the rest with ATCS, and improves with `improver`. It adds churn to the
+objective: a weighted-sum term, a last lexicographic level, or nothing for an epsilon-constraint spec. `churn_weight` is a method param (default 1.0). Without a
+previous plan it returns `UNKNOWN` with `previous_plan_required`.
+
+### Portfolio and Pareto menu
+
+`solve_portfolio(request, budget_seconds=None, seed=0, pipelines=None, k_lookup=None)`
+returns a `PortfolioResult`: candidates, a Pareto menu, a recommendation, the effective
+objective, the load ratio and ATCS run records.
+
+- **Pipelines.** A pipeline is a string `a->b->c` of registry names. Each stage gets the
+  previous verified schedule as its warm start. Every stage result is a candidate
+  (`00:atcs`, `00:atcs->tabu`). The default is `profile.default_portfolio`. With
+  `profile.workers` above 1 the pipelines run in a spawn-context process pool. Results
+  are ordered by pipeline index, so a deterministic method gives the same answer with any
+  worker count. Bounds: at most 64 pipelines of at most 8 stages (`too_many_pipelines`,
+  `pipeline_too_long`). No pipeline runs past 90 percent of the budget.
+- **Load-dependent weights.** `load_ratio` is the largest ratio over work centers of
+  (shortest run time plus setup) to working seconds before the horizon. When
+  `profile.load_weights` is set, the weight of each objective term moves from its light
+  value to its heavy value as the ratio goes from `light_load` (0.6) to `heavy_load`
+  (0.95). Without a horizon the ratio is `None` and the light weights apply. An infinite
+  ratio is stored as `None` with a `load_ratio_unbounded` issue, and the heavy weights
+  apply.
+- **Pareto menu.** The menu holds the non-dominated verified candidates over
+  `profile.menu_axes` (2 or 3 objective kinds; default weighted tardiness and total
+  setup). `MenuEntry.supported` is true when some positive weighting of the axes makes the
+  point optimal (convex hull for 2 axes, a linear program for 3). A point that is
+  non-dominated but not supported is an unsupported point: a weighted-sum sweep can
+  never find it, so the menu keeps it and Pareto search looks for it. Pareto search starts
+  from the verified `dispatch` and `composite` candidates and tries adjacent swaps on
+  every machine. Its points are the candidates `pareto:{n}`.
+- **Recommendation.** `recommended` is the best verified candidate under the effective
+  objective (`rank`). It is `None`, with `no_verified_candidate`, when nothing verified.
+- **Churn.** When the request has a previous plan and `churn_weight` is above 0, the
+  effective objective gets a churn term.
+
+Planning functions for TF-005 (pure, typed, no I/O; exported by the facade):
+
+| Function | Does |
+|---|---|
+| `solve_portfolio(request, ...)` | The portfolio above. |
+| `get_pareto_menu(result, axes=None)` | The stored menu, or one recomputed for other axes from the stored candidate values. No solver runs. |
+| `resolve_with_overrides(request, previous_plan, overrides, ...)` | Adds the overrides and the previous plan, then runs `reschedule` first and the profile portfolio. |
+| `insert_rush_order(request, previous_plan, rush_job, ...)` | Appends the job and solves with `rush_insert`. Returns a `SolveResult`. |
+
+Measured on the scale instance: `solve_portfolio` 57.91 s (limit 133 s at a 120 s
+budget), Pareto search 30.03 s (limit 33 s at a 30 s budget).
+
+### The K-table
+
+ATCS needs two look-ahead constants per work center. `twinflow.scheduling.learning`
+keeps a table of them (K1, K2 by `tau`, `R`, `eta` and machine count) and improves it
+from runs (Pinedo Example 18.2.1, p.488-489).
+
+- `KTable`, `seed_table()`, `lookup()`, `as_k_lookup(table)` (a picklable callable that
+  ATCS accepts as `k_lookup`).
+- `perturbation_runs(request, center, table, delta)` runs ATCS at the table K and at 8
+  neighbors of one center. `update_k_table(...)` is pure: it changes the nearest entry
+  only when the best run beats the base by the threshold. No update when the base value
+  is 0 or below. Default update radius 0.05 (trained on seeds 0-9, checked on 10-19).
+- `KTableStore(path)` is the store seam: it writes atomically and checks a SHA-256
+  digest of the entries on load (`KTableIntegrityError` on a mismatch).
+  The digest detects accidental damage. It is not a signature: anyone who can write the
+  file can also rewrite the digest. A deployment that needs tamper evidence must sign
+  or protect the file itself.
+
+### Quality gates
+
+D-083 defines the gate. Score = weighted tardiness plus 0.2 times total setup, both
+divided by the EDD schedule's values (the default bench profile). A method passes when,
+on 30 held-out generated HMLV instances (40 jobs x 5 operations x 4 centers, seeds
+100-129):
+
+1. its mean score is below the mean of FIFO, EDD and SPT, and
+2. it beats the best of the three on at least 18 of 30 instances, and
+3. this holds for each of seeds 0 to 4, with a coefficient of variation of the mean
+   score over seeds of at most 0.05. A method registered `deterministic=True` runs once
+   and must give identical output for different seeds on 3 instances.
+
+Elementary dispatch rules are the comparison set and are exempt. Defaults are tuned on
+the training seeds (0-19) only. Gate budgets per instance: `ortools` 3 s, `tabu` 2 s,
+`sa` 0.5 s, `beam` 1 s, portfolio 30 s (bench portfolio `atcs`, `atcs->tabu`, `sb_wt`,
+`edd`, one worker). Measured gate table (mean score over EDD, wins of 30, seed CV):
+
+| Method | Score | Wins | CV | Result |
+|---|---|---|---|---|
+| `atc` | 1.0029 | 26/30 | 0 | PASS |
+| `atcs` | 0.9508 | 26/30 | 0 | PASS |
+| `atcs` + flex + suit + macro | 1.0442 | 25/30 | 0 | PASS |
+| `gt_active` (rule `atcs`) | 1.1200 | 20/30 | 0 | PASS |
+| `forward_load` (rule `atcs`) | 1.0272 | 26/30 | 0 | PASS |
+| `backward_load` (rule `atcs`) | 0.9054 | 28/30 | 0 | PASS |
+| `sb_wt` | 1.0312 | 26/30 | 0 | PASS |
+| `sb_makespan` (makespan bench) | 0.8671 | 21/30 | 0 | PASS |
+| `five_phase` (flow-line bench) | 0.9394 | 28/30 | 0 | PASS |
+| `rolling_horizon` | 0.9337 | 26/30 | 0 | PASS |
+| `ortools` (3 s) | 0.9508 | 26/30 | 0 | PASS |
+| `tabu` (2 s) | 0.9337 | 26/30 | 0 | PASS |
+| `sa` (0.5 s, seeds 0-4) | 0.9498 | 26/30 | 0.0003 | PASS |
+| `beam` (1 s) | 0.7688 | 30/30 | 0 | PASS |
+| portfolio (30 s) | 0.8838 | 30/30 | 0 | PASS |
+
+Reference rules (mean score, wins): `wspt` 1.1960 (19), `edd` 1.2000 (0), `cr` 1.3231
+(8), `ms` 1.3072 (11), `sst` 1.3406 (9), `lfj` 1.4573 (3), `spt` 1.5241 (0), `sqno` 1.6361
+(2), `lpt` 2.0994 (0), `fifo` 2.1052 (0).
+
+Notes on the table:
+
+- A score under 1 beats the EDD schedule. A score near 1.0 to 1.1 still wins on the
+  count, because the score mixes tardiness and setup.
+- `ortools` and `tabu` and `sa` pass on the strength of their ATCS start or hint: at
+  these budgets they barely improve it. The gate checks that they never return worse.
+- `sb_makespan` and `five_phase` use their own bench (a makespan bench, a flow-line
+  bench). `rush_insert` and `reschedule` are not gated (the bench instances have no
+  previous plan). They are timed and reached through the portfolio.
+- The runtime table above is checked by the `slow` runtime tests (112 slow tests passed in 631 s).
+
+Contract fuzz: every registered solver runs on seeds 0 to 1499 of the seeded problem
+generator (0-199 in the default run, 200-1499 under the `slow` marker; CP-SAT 0.25 s per
+seed). Every `FEASIBLE` or `OPTIMAL` answer must verify, and every refusal must be a
+named issue. Seeds with `seed % 5 == 1` carry a previous plan and a frozen zone, so
+`rush_insert` and `reschedule` are exercised.
+
+Code size: `src/twinflow/scheduling` grew from 5,038 to 17,083 lines (core 5,356, kernel
+2,971, algorithms 7,506, portfolio 914, learning 336). Tests grew from 9,086 to 27,821
+lines.
 
 ## Independent verifier
 
@@ -300,10 +525,12 @@ and prove it.
 ## Limits
 
 - The baseline is a feasible heuristic, not an optimizer.
-- CP-SAT optimizes only `makespan` and `max_lateness`. A problem that uses setups,
-  detached setups, pause, batching, restart or overlap is refused by CP-SAT with
-  `unsupported_feature`. The baseline schedules all of them except `restart`.
-  CP-SAT models for them are TF-003 work.
-- `restart` is declared by no solver.
+- CP-SAT declares every feature except `pause`. A problem that uses `pause` is refused
+  by CP-SAT with `unsupported_feature`. It refuses a model above its size guard with
+  `model_too_large`, so the whole 600x8 instance goes to the heuristics or to
+  `rolling_horizon` windows.
+- The heuristics (dispatch, ATCS, construction, shifting bottleneck, local search) are
+  anytime or fast, but they prove no optimum.
+- `rolling_horizon` with more than one window scores worse than plain `atcs`.
 - A schedule is deterministic evidence. Stochastic delivery confidence stays an
   application concern.

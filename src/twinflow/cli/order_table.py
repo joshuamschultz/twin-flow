@@ -2,18 +2,22 @@
 
 A job-shop planner asks three things of an order book: when will each order be done, how
 likely is it to be late, and which machine holds everything up. `order_lines` answers from
-the per-run KPIs the run already computed, so it adds no new numbers. With a work calendar
-(`plan_origin`) the times print as dates; without one, as hours from the start.
+the per-run KPIs the run already computed. With a work calendar (`plan_origin`) the times
+print as dates; without one, as hours from the start. The busiest-center share is of
+on-shift time (`on_shift_busy`), so a job paused overnight does not count its night.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from twinflow.instrumentation.kpis import KpiSet
+from twinflow.instrumentation.kpis import KpiEngine, KpiSet, ShiftCalendar
+from twinflow.model import CompiledModel
 from twinflow.plan.loader import WorkOrder
+from twinflow.primitives.calendar import WorkingCalendar
 
 BUSIEST = 3
 
@@ -42,10 +46,40 @@ def _due(order: WorkOrder) -> float | None:
         return None
 
 
+def on_shift_busy(
+    compiled: CompiledModel, runs: Sequence[tuple[str | Path, float]]
+) -> dict[str, float]:
+    """Mean busy share of on-shift time per work center over `runs` (event log, horizon).
+
+    Each center is measured against the calendar of the labor pool that staffs it; a
+    pool with no calendar is open 24/7, which gives the whole-clock share."""
+    calendar_of_pool: dict[str, ShiftCalendar] = {
+        pool.name: WorkingCalendar(pool.calendar)
+        for pool in compiled.labor_pools
+        if pool.calendar is not None
+    }
+    pool_of_skill = {skill: pool.name for pool in compiled.labor_pools for skill in pool.skills}
+    calendars: dict[str, ShiftCalendar] = {}
+    for spec in compiled.locations:
+        calendar = calendar_of_pool.get(pool_of_skill.get(spec.labor_skill, ""))
+        if calendar is not None:
+            calendars[spec.location_id] = calendar
+    engine = KpiEngine()
+    busy: dict[str, float] = {}
+    for event_path, horizon in runs:
+        shares = engine.on_shift_utilization_by_cell(event_path, horizon, calendars)
+        for cell, share in shares.items():
+            busy[cell] = busy.get(cell, 0.0) + share / len(runs)
+    return busy
+
+
 def order_lines(
-    orders: Sequence[WorkOrder], per_rep: Sequence[KpiSet], origin: datetime | None
+    orders: Sequence[WorkOrder],
+    per_rep: Sequence[KpiSet],
+    origin: datetime | None,
+    busy_by_cell: Mapping[str, float],
 ) -> list[str]:
-    """The order table and the busiest work centers, as plain lines."""
+    """The order table and the busiest work centers (`on_shift_busy`), as plain lines."""
     runs = len(per_rep)
     unit = "" if origin is not None else " (hours from the start)"
     lines = [f"Orders over {runs} {'run' if runs == 1 else 'runs'}{unit}:"]
@@ -74,12 +108,8 @@ def order_lines(
         "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)).rstrip()
         for row in rows
     ]
-    busy: dict[str, float] = {}
-    for kpis in per_rep:
-        for cell, share in kpis.utilization_by_cell.items():
-            busy[cell] = busy.get(cell, 0.0) + share / runs
-    top = sorted(busy.items(), key=lambda item: (-item[1], item[0]))[:BUSIEST]
+    top = sorted(busy_by_cell.items(), key=lambda item: (-item[1], item[0]))[:BUSIEST]
     if top:
         shares = " | ".join(f"{cell} {share:.0%}" for cell, share in top)
-        lines.append(f"Busiest work centers: {shares} (busy share of the whole run)")
+        lines.append(f"Busiest work centers: {shares} (busy share of on-shift time)")
     return lines

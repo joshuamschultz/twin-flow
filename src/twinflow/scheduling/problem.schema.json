@@ -579,6 +579,46 @@
       "title": "LexicographicLevel",
       "type": "object"
     },
+    "LoadWeights": {
+      "additionalProperties": false,
+      "description": "Weighted-sum terms at light and heavy bottleneck load, blended in between (D-080).\n\nBoth lists name the same kinds in the same order; `portfolio.load` interpolates the\nweights (Pinedo p.430).",
+      "properties": {
+        "heavy": {
+          "items": {
+            "$ref": "#/$defs/WeightedTerm"
+          },
+          "minItems": 1,
+          "title": "Heavy",
+          "type": "array"
+        },
+        "heavy_load": {
+          "default": 0.95,
+          "exclusiveMinimum": 0,
+          "title": "Heavy Load",
+          "type": "number"
+        },
+        "light": {
+          "items": {
+            "$ref": "#/$defs/WeightedTerm"
+          },
+          "minItems": 1,
+          "title": "Light",
+          "type": "array"
+        },
+        "light_load": {
+          "default": 0.6,
+          "exclusiveMinimum": 0,
+          "title": "Light Load",
+          "type": "number"
+        }
+      },
+      "required": [
+        "light",
+        "heavy"
+      ],
+      "title": "LoadWeights",
+      "type": "object"
+    },
     "LockOverride": {
       "additionalProperties": false,
       "description": "Pin an operation to a machine and/or an exact start (D-066).",
@@ -1615,8 +1655,14 @@
     },
     "SchedulingProfile": {
       "additionalProperties": false,
-      "description": "Plant policy: class weights, objective, frozen zone, solve budget, robustness targets.\n\nField defaults reproduce today's behavior: lexicographic makespan, baseline solver.",
+      "description": "Plant policy: class weights, objective, frozen zone, solve budget, robustness targets.\n\nField defaults reproduce today's behavior: lexicographic makespan, baseline solver.\n`method_params` maps a solver name to its scalar settings (`SolveContext.params`, D-070).\nPortfolio fields (D-078..D-080): `default_portfolio` pipelines, `workers` processes,\n`menu_axes` of the Pareto menu, `load_weights` and the reschedule `churn_weight`.",
       "properties": {
+        "churn_weight": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Churn Weight",
+          "type": "number"
+        },
         "class_weights": {
           "additionalProperties": {
             "exclusiveMinimum": 0,
@@ -1632,8 +1678,10 @@
           "items": {
             "maxLength": 200,
             "minLength": 1,
+            "pattern": "^[a-z0-9_]+(->[a-z0-9_]+)*$",
             "type": "string"
           },
+          "maxItems": 64,
           "minItems": 1,
           "title": "Default Portfolio",
           "type": "array"
@@ -1667,6 +1715,62 @@
           "minLength": 1,
           "title": "Id",
           "type": "string"
+        },
+        "load_weights": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LoadWeights"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "menu_axes": {
+          "default": [
+            "weighted_tardiness",
+            "total_setup"
+          ],
+          "items": {
+            "$ref": "#/$defs/ObjectiveKind"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Menu Axes",
+          "type": "array"
+        },
+        "method_params": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "propertyNames": {
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "object"
+          },
+          "propertyNames": {
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "title": "Method Params",
+          "type": "object"
         },
         "objective": {
           "default": {
@@ -1721,6 +1825,13 @@
           "maximum": 300,
           "title": "Time Budget Seconds",
           "type": "number"
+        },
+        "workers": {
+          "default": 1,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Workers",
+          "type": "integer"
         }
       },
       "title": "SchedulingProfile",

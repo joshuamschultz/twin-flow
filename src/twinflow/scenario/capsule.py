@@ -340,7 +340,11 @@ class ScenarioCapsule:
             if isinstance(domain, str) and domain != "manufacturing" and adapter is None:
                 return issues
             if adapter is not None:
-                for domain_issue in adapter.validate(self.model, self.snapshot):
+                check_experiment = getattr(adapter, "validate_experiment", None)
+                found = adapter.validate(self.model, self.snapshot)
+                if callable(check_experiment):
+                    found = [*found, *check_experiment(self.experiment)]
+                for domain_issue in found:
                     issues.append(
                         ValidationIssue(
                             domain_issue.path,

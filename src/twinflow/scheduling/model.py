@@ -14,7 +14,7 @@ import math
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 SCHEMA_VERSION = "2.0"
 
@@ -35,7 +35,14 @@ LoadTarget = Annotated[float, Field(gt=0, le=1)]
 WeightClass = Literal[1, 2, 4]
 SetupValue = float | Annotated[str, Field(max_length=MAX_TEXT_LENGTH)]
 SetupParams = dict[Id, SetupValue]
+# Pydantic's smart union keeps the input's exact type: True stays bool, 3 stays int (D-070).
+MethodParamValue = float | int | Annotated[str, Field(max_length=MAX_TEXT_LENGTH)] | bool
+MethodParams = dict[Id, dict[Id, MethodParamValue]]
 Interval = tuple[float, float]
+# A portfolio entry: registry names joined by "->"; names are checked at run time (D-079).
+Pipeline = Annotated[
+    str, Field(min_length=1, max_length=MAX_ID_LENGTH, pattern=r"^[a-z0-9_]+(->[a-z0-9_]+)*$")
+]
 
 
 class _Contract(BaseModel):
@@ -496,6 +503,38 @@ ObjectiveSpec = Annotated[
 ]
 
 
+def _distinct_kinds(kinds: tuple[ObjectiveKind, ...]) -> tuple[ObjectiveKind, ...]:
+    if len(set(kinds)) != len(kinds):
+        raise ValueError("menu axes must be distinct")
+    return kinds
+
+
+MenuAxes = Annotated[
+    tuple[ObjectiveKind, ...], Field(min_length=2, max_length=3), AfterValidator(_distinct_kinds)
+]
+
+
+class LoadWeights(_Contract):
+    """Weighted-sum terms at light and heavy bottleneck load, blended in between (D-080).
+
+    Both lists name the same kinds in the same order; `portfolio.load` interpolates the
+    weights (Pinedo p.430).
+    """
+
+    light_load: PosFloat = 0.6
+    heavy_load: PosFloat = 0.95
+    light: tuple[WeightedTerm, ...] = Field(min_length=1)
+    heavy: tuple[WeightedTerm, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _heavy_above_light_with_matching_kinds(self) -> Self:
+        if self.heavy_load <= self.light_load:
+            raise ValueError("heavy_load must be > light_load")
+        if [t.kind for t in self.light] != [t.kind for t in self.heavy]:
+            raise ValueError("light and heavy must list the same kinds in the same order")
+        return self
+
+
 def _default_class_weights() -> dict[int, float]:
     return {1: 1.0, 2: 2.0, 4: 4.0}
 
@@ -504,6 +543,9 @@ class SchedulingProfile(_Contract):
     """Plant policy: class weights, objective, frozen zone, solve budget, robustness targets.
 
     Field defaults reproduce today's behavior: lexicographic makespan, baseline solver.
+    `method_params` maps a solver name to its scalar settings (`SolveContext.params`, D-070).
+    Portfolio fields (D-078..D-080): `default_portfolio` pipelines, `workers` processes,
+    `menu_axes` of the Pareto menu, `load_weights` and the reschedule `churn_weight`.
     """
 
     id: Id = "default"
@@ -515,7 +557,15 @@ class SchedulingProfile(_Contract):
     horizon_end: float | None = None
     time_budget_seconds: float = Field(default=10.0, gt=0, le=300)
     robustness_load_targets: tuple[LoadTarget, ...] = Field(default=(0.9, 0.8, 0.7), min_length=1)
-    default_portfolio: tuple[Id, ...] = Field(default=("baseline",), min_length=1)
+    # max_length: portfolio.runner.MAX_PIPELINES (bounded consumption, OWASP LLM10)
+    default_portfolio: tuple[Pipeline, ...] = Field(
+        default=("baseline",), min_length=1, max_length=64
+    )
+    method_params: MethodParams = Field(default_factory=dict)
+    menu_axes: MenuAxes = (ObjectiveKind.WEIGHTED_TARDINESS, ObjectiveKind.TOTAL_SETUP)
+    load_weights: LoadWeights | None = None
+    churn_weight: NonNegFloat = 0.0
+    workers: int = Field(default=1, ge=1, le=16)
 
     @model_validator(mode="after")
     def _class_weights_cover_each_class(self) -> Self:
@@ -610,9 +660,37 @@ class Assignment(_Contract):
         return self
 
 
+class AtcsRun(_Contract):
+    """One ATCS run on a work center: its statistics, K and the plan's primary value (REQ-121).
+
+    `source` says where K came from: the p.376 formula, a `k_lookup` table, explicit method
+    params, or a learning perturbation (D-073, D-082).
+    """
+
+    work_center_id: Id
+    tau: float
+    R: float
+    eta: float
+    m: int = Field(ge=0)
+    K1: float
+    K2: float
+    source: Literal["formula", "table", "explicit", "perturbed"]
+    objective_value: float | None = None
+
+
+class Relaxation(_Contract):
+    """A due date a reactive repair postponed to fit a rush job, and why (REQ-113, D-081)."""
+
+    job_id: Id
+    old_due: float
+    new_due: float
+    reason: Text
+
+
 class Schedule(_Contract):
     """A solver's answer with its status, primary value and bound.
 
+    `relaxations` lists the due dates a reactive repair postponed (empty otherwise).
     `budget_enforced` is true when the solver ran and stops at its time budget; a refusal
     before solving, a solver error or a solver that does not claim it leaves it false.
     """
@@ -624,6 +702,8 @@ class Schedule(_Contract):
     solver: Id
     elapsed_seconds: NonNegFloat
     issues: tuple[ScheduleIssue, ...] = ()
+    atcs_runs: tuple[AtcsRun, ...] = ()
+    relaxations: tuple[Relaxation, ...] = ()
     budget_enforced: bool = False
 
 
@@ -636,6 +716,18 @@ class CompiledProblem(_Contract):
     released_from_frozen: tuple[Id, ...] = ()
     split_map: dict[Id, tuple[Id, ...]] = Field(default_factory=dict)
     override_issues: tuple[ScheduleIssue, ...] = ()
+
+
+class MenuEntry(_Contract):
+    """One non-dominated candidate of the Pareto menu over the profile's axes (D-078).
+
+    `supported` is true when some positive weighting of the axes makes it optimal;
+    `values` holds the raw values of exactly the menu axes.
+    """
+
+    candidate_id: Id
+    supported: bool
+    values: dict[ObjectiveKind, float]
 
 
 class VerificationResult(_Contract):
@@ -655,6 +747,42 @@ class SolveResult(_Contract):
     held_job_ids: tuple[Id, ...] = ()
     released_from_frozen: tuple[Id, ...] = ()
     features: tuple[Id, ...] = ()
+
+
+class Candidate(_Contract):
+    """One schedule a portfolio produced, checked like a `solve()` answer (COMP-024, D-079).
+
+    `id` is "{index:02d}:{stages}" for a pipeline stage (`pipeline` = the stage names up to
+    and including it) or "pareto:{n}" for a Pareto search point (empty `pipeline`); the
+    model does not parse it. `objective_values` holds every objective exactly when
+    `verified`.
+    """
+
+    id: Id
+    pipeline: tuple[Id, ...]
+    schedule: Schedule
+    verified: bool
+    objective_values: dict[ObjectiveKind, float] = Field(default_factory=dict)
+    issues: tuple[ScheduleIssue, ...] = ()
+
+
+class PortfolioResult(_Contract):
+    """What a portfolio run returns: candidates, Pareto menu and recommendation (COMP-024).
+
+    `effective_objective` is the objective the candidates were run and ranked with (load
+    weights and churn applied). `load_ratio` is None without a horizon or when unbounded
+    (then a `load_ratio_unbounded` issue says so). `recommended` is None when no candidate
+    verified.
+    """
+
+    candidates: tuple[Candidate, ...]
+    menu: tuple[MenuEntry, ...]
+    recommended: Id | None
+    effective_objective: ObjectiveSpec
+    load_ratio: float | None
+    atcs_runs: tuple[AtcsRun, ...] = ()
+    issues: tuple[ScheduleIssue, ...] = ()
+    elapsed_seconds: NonNegFloat
 
 
 def request_json_schema() -> dict[str, Any]:

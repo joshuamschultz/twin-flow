@@ -47,6 +47,7 @@ from twinflow.scheduling.model import (
 )
 from twinflow.scheduling.overrides import apply_overrides
 from twinflow.scheduling.solver import solve
+from twinflow.scheduling.validator import validate
 
 FACT = {"fact_ref": "erp:order/42", "reason": "customer call"}
 
@@ -340,7 +341,7 @@ def test_split_scales_the_transfer_lot_with_the_fraction() -> None:
     assert _op_of(compiled, "A2~2").predecessors[0].overlap_quantity == pytest.approx(7.5)
 
 
-def _cross_job_problem(**link: float) -> Problem:
+def _cross_job_problem(**link: float | None) -> Problem:
     """`_problem` with B1 (job J2) waiting on A2 (job J1) through `link`."""
     base = _problem()
     b1 = _op("B1").model_copy(update={"predecessors": (Precedence(operation_id="A2", **link),)})
@@ -380,14 +381,93 @@ def test_splitting_both_linked_jobs_remaps_every_child_link(ids: tuple[str, str]
         assert [link.operation_id for link in links] == ["A2~1", "A2~2"]
 
 
-def test_split_of_a_job_another_job_overlaps_into_is_split_overlap_link() -> None:
-    problem = _cross_job_problem(overlap_quantity=2.0)
+# --- transfer-lot links from another job into a split job (T-115, REQ-124, D-084) ----------
 
-    compiled = apply_overrides(_request(_split("J1", 0.5, 0.5), problem=problem))
+LAGS = {"min_lag": 5.0, "max_lag": 50.0}
 
-    (issue,) = compiled.override_issues
-    assert (issue.code, issue.path) == ("split_overlap_link", "overrides[0]")
-    assert "B1" in issue.message
+
+def _overlap_split_request() -> SolveRequest:
+    """B1 (J2) waits on A2 (J1) with lags 5..50 and a transfer lot of 10; J1 split 1:3."""
+    problem = _cross_job_problem(**LAGS, overlap_quantity=10.0)
+    return _request(_split("J1", 0.25, 0.75), problem=problem)
+
+
+def _link_fields(
+    links: tuple[Precedence, ...],
+) -> list[tuple[str, float, float | None, float | None]]:
+    return [(lk.operation_id, lk.min_lag, lk.max_lag, lk.overlap_quantity) for lk in links]
+
+
+def test_split_remaps_an_overlap_link_from_another_job_scaled_by_each_child_fraction() -> None:
+    compiled = apply_overrides(_overlap_split_request())
+
+    assert compiled.override_issues == ()
+    assert _link_fields(_op_of(compiled, "B1").predecessors) == [
+        ("A2~1", 5.0, 50.0, pytest.approx(2.5)),
+        ("A2~2", 5.0, 50.0, pytest.approx(7.5)),
+    ]
+
+
+def test_split_with_an_overlap_link_from_another_job_is_applied_not_refused() -> None:
+    compiled = apply_overrides(_overlap_split_request())
+
+    assert "split_overlap_link" not in {issue.code for issue in compiled.override_issues}
+    assert [job.id for job in compiled.problem.jobs] == ["J1~1", "J1~2", "J2"]
+
+
+def test_split_keeps_a_cross_job_link_without_overlap_without_overlap() -> None:
+    base = _cross_job_problem()
+    links = (
+        Precedence(operation_id="A1", min_lag=1.0),
+        Precedence(operation_id="A2", overlap_quantity=10.0),
+    )
+    b1 = base.jobs[1].operations[0].model_copy(update={"predecessors": links})
+    problem = base.model_copy(
+        update={"jobs": (base.jobs[0], base.jobs[1].model_copy(update={"operations": (b1,)}))}
+    )
+
+    compiled = apply_overrides(_request(_split("J1", 0.25, 0.75), problem=problem))
+
+    assert compiled.override_issues == ()
+    assert _link_fields(_op_of(compiled, "B1").predecessors) == [
+        ("A1~1", 1.0, None, None),
+        ("A1~2", 1.0, None, None),
+        ("A2~1", 0.0, None, pytest.approx(2.5)),
+        ("A2~2", 0.0, None, pytest.approx(7.5)),
+    ]
+
+
+@pytest.mark.parametrize("ids", [("o1", "o2"), ("o2", "o1")])
+def test_splitting_both_jobs_scales_the_overlap_by_the_predecessor_fraction(
+    ids: tuple[str, str],
+) -> None:
+    problem = _cross_job_problem(**LAGS, overlap_quantity=10.0)
+    splits = (
+        _split("J1", 0.25, 0.75, override_id=ids[0]),
+        _split("J2", 0.5, 0.5, override_id=ids[1]),
+    )
+
+    compiled = apply_overrides(_request(*splits, problem=problem))
+
+    assert compiled.override_issues == ()
+    for k in (1, 2):
+        assert _link_fields(_op_of(compiled, f"B1~{k}").predecessors) == [
+            ("A2~1", 5.0, 50.0, pytest.approx(2.5)),
+            ("A2~2", 5.0, 50.0, pytest.approx(7.5)),
+        ]
+
+
+def test_split_with_a_cross_job_overlap_link_compiles_to_a_valid_problem() -> None:
+    compiled = apply_overrides(_overlap_split_request())
+
+    assert validate(compiled) == []
+
+
+def test_split_with_a_cross_job_overlap_link_solves_to_a_verified_schedule() -> None:
+    result = solve(_overlap_split_request())
+
+    assert result.verified, result.issues
+    assert "split_overlap_link" not in {issue.code for issue in result.issues}
 
 
 @pytest.mark.parametrize("seed", range(40))
@@ -396,7 +476,11 @@ def test_split_jobs_with_cross_job_links_compile_to_a_problem_the_baseline_verif
 ) -> None:
     rng = np.random.default_rng(seed)
     min_lag, spread = float(rng.integers(0, 20)), float(rng.integers(0, 200))
-    problem = _cross_job_problem(min_lag=min_lag, max_lag=min_lag + spread)
+    overlap = {"overlap_quantity": float(rng.integers(1, 11))} if seed % 2 else {}
+    # A max_lag window fanned out to several split children of a transfer-lot predecessor
+    # can have no schedule at all (seed 29), so the transfer-lot seeds leave it open.
+    max_lag = None if overlap else min_lag + spread
+    problem = _cross_job_problem(min_lag=min_lag, max_lag=max_lag, **overlap)
     splits = [
         _split(job_id, *_fractions(rng), override_id=f"s{job_id}")
         for job_id in ("J1", "J2")
