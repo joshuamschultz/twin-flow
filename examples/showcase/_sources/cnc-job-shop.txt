@@ -1,0 +1,200 @@
+--- markdown
+# Ridgeline Precision: will the open orders ship on time?
+
+This notebook is for the shop owner, the scheduler and the sales team. You do not need
+to write code. Every gray box below is either a command you can run, or a file you can
+read. Run the boxes from top to bottom. The answers are already saved under each box.
+
+## (a) Your business
+
+Ridgeline Precision is a 22-person CNC job shop in Wichita, Kansas. It makes parts to
+order for three kinds of customers:
+
+- **FTG-2201** hydraulic fittings: saw, then lathe, then inspect.
+- **VB-3107** aluminum valve bodies: saw, then the Haas VF-2 mill (45 minutes each), then
+  deburr, then inspect. They sell for $410 each.
+- **MB-4410** mounting brackets: saw, then the older Fadal mill, then inspect.
+
+The shop runs two shifts, 6 am to 10 pm, Monday to Friday. It is closed for Thanksgiving
+and the day after. Two machinists run the saw, the lathe and the mills on each shift.
+One inspector deburrs and inspects.
+
+It is Monday morning, November 16. The ERP shows 15 open work orders due over the next
+three weeks. Summit Valve, the biggest valve-body customer, charges $600 a day for each
+late order. The owner has two ideas: hire a third machinist (about $68,000 a year), or buy
+a second used VF-2 mill (about $95,000 installed). **The questions: which orders will be
+late, what holds them up, and which idea fixes it?**
+
+--- markdown
+## (b) Your inputs
+
+| File | What it is | Where it comes from |
+|---|---|---|
+| `data/open-orders.csv` | The open work orders, one per row | ERP open-order report |
+| `shop.yaml` | The shop file: machines, people, shifts, routings, cycle times, prices | You write it once, from the routings and the time study |
+| `ridgeline.twin.yaml` | The twin capsule: ties the shop file and the orders together | You write it once |
+| `sweeps/machinist-or-mill.json` | The changes to test | See part (d) |
+
+### The open orders
+
+--- code
+!cat data/open-orders.csv
+
+--- markdown
+What each column means:
+
+| Column | Meaning |
+|---|---|
+| `work_order_id` | The work order number from the ERP. |
+| `customer` | Who ordered it. twinflow does not need it, but it helps you read the results. |
+| `part` | The part number. It must match a part in the shop file. |
+| `qty` | Pieces to make. |
+| `start_date` | The day the material and the traveler are released to the floor. |
+| `due_date` | The ship date promised to the customer. A date with no time means "by the end of that day". |
+| `priority` | 1 for a rush order. A rush order jumps the queue at every machine. 0 is normal. |
+
+Dates are counted from the shop's calendar start: Monday November 16, 6 am.
+
+### The shop file
+
+The shop file lists every machine, the people and their shifts, and the steps of each
+part (the routing). A `rate` is pieces per second, and `load` is the setup time per job
+in seconds. For example, `rate: 0.0003704` is one valve body every 45 minutes, and
+`load: 2700` is a 45-minute setup for each job. `dispatch: edd` means the mill runs the
+job that is due soonest first.
+
+--- code
+!cat shop.yaml
+
+--- markdown
+### The twin capsule
+
+The capsule points at the shop file and the order book with `model: shop.yaml` and
+`production_plan: data/open-orders.csv`. It also turns on state capture: the twin writes
+down the state of the shop every 8 hours.
+
+--- code
+!cat ridgeline.twin.yaml
+
+--- markdown
+## (c) Check and run
+
+First, check the files. No message means the file is good.
+
+--- code
+!twinflow validate shop.yaml
+
+--- code
+!twinflow scenario validate ridgeline.twin.yaml
+
+--- markdown
+### Completion dates and on-time risk
+
+This runs the two weeks 20 times. Each run draws cycle times that wander a little from
+the standard, the way a real shop does. `--orders` prints one line per order.
+
+- **Done (typical)** is the middle finish time over the 20 runs.
+- **Done (bad case)** is the time by which 9 runs in 10 are done.
+- **Late in** counts the runs in which the order shipped late.
+
+The first lines describe run 1 only. The table and the busiest work centers use all 20.
+
+--- code
+!twinflow run shop.yaml --plan data/open-orders.csv --reps 20 --orders
+
+--- markdown
+What this says:
+
+- Every fitting and every bracket ships on time.
+- Valve bodies are late. WO-26110 for Summit Valve is late in every run, by about 5 days.
+  WO-26107 and WO-26112 are late in 16 runs of 20. WO-26105 is a coin flip.
+- **The bottleneck is the valve-body mill (`mill_VB`).** It is busy 95% of the clock.
+  The next busiest machine is the lathe at 25%.
+
+### Test one change: a third machinist, or a second mill
+
+The sweep file names two changes. The twin runs every mix of them on the same 20 sets of
+random times, so the comparison is fair.
+
+--- code
+!twinflow balance shop.yaml --plan data/open-orders.csv --sweep sweeps/machinist-or-mill.json --reps 20
+
+--- markdown
+How to read it: `on_time_pct` is the share of orders on time, averaged over 20 runs.
+
+| Change | On time |
+|---|---|
+| Today: 2 machinists, 1 valve-body mill | 79.7% |
+| Hire a third machinist | 80.3% |
+| Add a second valve-body mill | 95.7% |
+| Both | 99.7% |
+
+### The state of the shop over time
+
+This run saves the state of the shop every 8 hours, with the money. `states` reads it.
+Each state lists the setup of each machine: `idle` means the machine has no job.
+
+--- code
+!twinflow scenario run ridgeline.twin.yaml --out runs/capture --summary
+
+--- code
+!twinflow states runs/capture --view full --top 5
+
+--- code
+!twinflow markov runs/capture --view full --top 4
+
+--- markdown
+In almost 9 of 10 snapshots every machine has a job set up: the shop is full. The ledger
+shows the cost of that: late fees of about $29,500 over 5 runs, or about $5,900 for each
+three-week order book.
+
+## (d) Your rules
+
+For a job shop, the written pieces are the change you want to test and the dispatch rule.
+The dispatch rule is one line in the shop file (`dispatch: edd` at each mill). The change
+to test is a sweep file. The box below saves it, so you can edit it and run it again.
+
+### `sweeps/machinist-or-mill.json`: the changes to test
+
+Each line names one number in the shop file and the values to try.
+
+- `labor.pools[0].headcount` is the number of machinists on each shift (the first pool in
+  `shop.yaml`). It tries 2 (today) and 3.
+- `locations[mill_VB].capacity` is the number of valve-body mills. It tries 1 (today) and 2.
+
+The twin runs every mix: 2 times 2 is 4 cases. To try a third machinist only, write
+`[2, 3]` for the first line and `[1]` for the second.
+
+--- writefile sweeps/machinist-or-mill.json
+
+--- markdown
+## (e) Results and the decision
+
+- **Which orders are at risk:** four Summit Valve and Delta Pumps valve-body orders
+  (WO-26105, WO-26107, WO-26110, WO-26112). Call those customers today. Every fitting and
+  bracket order ships on time.
+- **What holds them up:** the valve-body mill. It is busy 95% of the clock, while the lathe
+  and the bracket mill are about 25%.
+- **The decision:** do not hire a third machinist to fix this. It moves on-time from 79.7%
+  to 80.3%, because the people are not the constraint. The machine is.
+- **Add valve-body mill capacity.** A second VF-2 moves on-time to 95.7%. Late fees now
+  run about $5,900 per three-week order book, about $100,000 a year, so a $95,000 mill pays
+  back in about a year before counting the extra valve-body sales it allows.
+- **This week:** the mill is the only machine that matters. Run it through breaks and
+  lunch, and move bracket work off it first.
+
+The run's full report, with each order's finish time and the wait at every machine, is
+`report.html` in the run folder printed by the `run` box (for example
+`runs/<run id>/report.html`). Open it in a web browser.
+
+## (f) Try it yourself
+
+1. **A Saturday shift.** In `shop.yaml`, add `sat` to the machinists' `days` list (both
+   pools, if you want inspection on Saturday too). Run the `run` box again. How many valve
+   bodies are still late?
+2. **A rush order.** Add a row to `data/open-orders.csv`:
+   `WO-26116,Delta Pumps,VB-3107,20,2026-11-18,2026-11-24,1`. Run the `run` box. Which
+   orders does the rush push out?
+3. **A faster program.** A new tool path cuts the valve body to 38 minutes. In `shop.yaml`,
+   change the `mill_VB` rate from `0.0003704` to `0.0004386` (1 / 2280 seconds). Run the
+   sweep again. Is the second mill still worth it?

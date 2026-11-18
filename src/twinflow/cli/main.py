@@ -26,7 +26,7 @@ from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, aggregate_kpis
 from twinflow.instrumentation.kpis import KpiSet
 from twinflow.instrumentation.sweep import SweepHarness, SweepResult, orders_frame
-from twinflow.model import CompiledModel, load_model, validate_model
+from twinflow.model import CompiledModel, load_model, plan_origin, validate_model
 from twinflow.plan.driver import RunDriver
 from twinflow.plan.loader import load_plan
 from twinflow.plan.replication import ReplicationRunner
@@ -118,6 +118,9 @@ def _build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("model")
     run_parser.add_argument("--plan", required=True)
     run_parser.add_argument("--reps", required=True, type=int)
+    run_parser.add_argument(
+        "--orders", action="store_true", help="print one line per order and the busiest centers"
+    )
     run_parser.set_defaults(handler=_handle_run)
 
     balance_parser = subparsers.add_parser("balance")
@@ -164,6 +167,9 @@ def _build_parser() -> argparse.ArgumentParser:
     scenario_run.add_argument("--seed", type=int)
     scenario_run.add_argument("--reps", type=int)
     scenario_run.add_argument("--out")
+    scenario_run.add_argument(
+        "--summary", action="store_true", help="print a few plain lines instead of the JSON"
+    )
     scenario_run.set_defaults(handler=_handle_scenario_run)
     scenario_export = scenario_commands.add_parser("export")
     scenario_export.add_argument("capsule")
@@ -238,11 +244,12 @@ def _capsule_file(path: str) -> Path:
 
 
 def _handle_scenario_run(args: argparse.Namespace) -> int:
-    from twinflow.application.scenarios import evaluate_capsule, validate_content
+    from twinflow.application.scenarios import evaluate_capsule, validate_capsule
     from twinflow.scenario import CapsuleValidationError
 
     try:
-        capsule = validate_content(_capsule_file(args.capsule).read_text(encoding="utf-8"))
+        # Load from the path, so files the capsule points at (data/products.csv) are read.
+        capsule = validate_capsule(load_capsule(str(_capsule_file(args.capsule))))
     except CapsuleValidationError as exc:
         for issue in exc.issues:
             print(_issue_line(issue), file=sys.stderr)
@@ -255,6 +262,11 @@ def _handle_scenario_run(args: argparse.Namespace) -> int:
     if output.exists() and any(output.iterdir()):
         raise ValueError("Experiment output directory must be new or empty")
     result = evaluate_capsule(capsule.to_dict(), output, reps, seed, lambda: False)
+    if args.summary:
+        from twinflow.cli.run_summary import summary_lines
+
+        print("\n".join(summary_lines(result, str(output / "result.json"))))
+        return 0
     print(json.dumps({"artifact_dir": str(output.resolve()), **result}, sort_keys=True))
     return 0
 
@@ -307,7 +319,7 @@ def _handle_run(args: argparse.Namespace) -> int:
     plan_path = str(Path(args.plan).resolve())
 
     compiled = load_model(model_path)
-    work_orders = load_plan(plan_path, compiled.registry)
+    work_orders = load_plan(plan_path, compiled.registry, origin=plan_origin(compiled))
 
     if args.reps == 1:
         # A single replication runs in-process (no worker pool); RunDriver's
@@ -363,6 +375,11 @@ def _handle_run(args: argparse.Namespace) -> int:
     print(f"  report: {run_dir / 'report.html'}")
     print(f"  kpis:   {run_dir / 'kpis.json'}")
     print(f"  view:   twinflow report {run_id} --out html")
+    if getattr(args, "orders", False):
+        from twinflow.cli.order_table import order_lines
+
+        print()
+        print("\n".join(order_lines(work_orders, per_rep, plan_origin(compiled))))
     return 0
 
 
@@ -409,7 +426,7 @@ def _handle_balance(args: argparse.Namespace) -> int:
     sweep_path = Path(args.sweep).resolve()
 
     compiled = load_model(model_path)
-    work_orders = load_plan(plan_path, compiled.registry)
+    work_orders = load_plan(plan_path, compiled.registry, origin=plan_origin(compiled))
     with open(sweep_path, encoding="utf-8") as handle:
         sweep = json.load(handle)
 
@@ -515,7 +532,7 @@ def _handle_optimize(args: argparse.Namespace) -> int:
     model_path = str(Path(args.model).resolve())
     plan_path = str(Path(args.plan).resolve())
     compiled = load_model(model_path)
-    work_orders = load_plan(plan_path, compiled.registry)
+    work_orders = load_plan(plan_path, compiled.registry, origin=plan_origin(compiled))
 
     domains: dict[str, Domain] = {}
     for spec in args.lever:

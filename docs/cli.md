@@ -34,6 +34,34 @@ intervals use all replications. With `--reps 1`, there is no `rep 1 of 1` note a
 multi-replication interval. If orders remain incomplete, the console prints a warning with
 possible causes, including reaching the horizon, quality-gate scrap, or a resource deadlock.
 
+Add `--orders` to print one line per order after the summary: its due time, the typical
+finish (the middle of the runs), the bad-case finish (9 runs in 10 are done by then), and
+how many runs it was late in. Then the three busiest work centers, which point at the
+bottleneck. When the shop file has a work calendar, the times print as dates.
+
+```bash
+twinflow run shop.yaml --plan data/open-orders.csv --reps 20 --orders
+```
+
+A plan may give `start_date` and `due_date` as calendar dates (`2026-11-20` or
+`2026-11-20 15:30`) when the shop file has a work calendar. The calendar's `origin` is
+time zero. A due date with no time means the end of that day; a start before the origin
+releases at once. See [`examples/showcase/cnc-job-shop/`](../examples/showcase/cnc-job-shop/).
+
+## `twinflow scenario run <capsule> [--reps N] [--seed S] [--out DIR] [--summary]`
+
+Run a capsule and print its result as JSON. With `--summary`, print a few plain lines
+instead: profit per run for a make-to-stock plant, the on-time share for a shop, or one
+line per customer order (typical and bad-case ready dates, chance of on time, short
+parts) for a supply network. The last line names the full `result.json`.
+
+A capsule opened from a folder may point at input files next to it. `model: shop.yaml`
+reads the model from a YAML file. A list one level inside `model` or `snapshot` may be a
+CSV file name, such as `products: data/products.csv` or `orders: data/customer-orders.csv`.
+Each row is one item; numbers become numbers, a blank cell leaves the field out, and a
+header like `delay_risk.maximum_days` makes a nested field. Every file must be inside the
+capsule's folder. See [`examples/showcase/`](../examples/showcase/).
+
 ## `twinflow balance <model> --plan <plan> --sweep <sweep.json> --reps N`
 
 Run a declared lever grid and report every point side by side, fairly paired with
@@ -170,6 +198,10 @@ policy it had to skip and why, and prints the path of `race.html`.
 | `--seed S` | The seed for the demand draws. |
 | `--out DIR` | Where to write `race.json` and `race.html`. The default is `<project>/runs/race-<UTC time>/`. |
 | `--observation NAME` | What the policies may see, like `bucketed`. The default is the capsule's `experiment.observation`. |
+
+The race also writes `scenario.json` beside `race.json`, so `twinflow states` and
+`twinflow markov` can read the kept moves in `policies/<name>/` with the plant's own views
+(for example `--view simple`).
 
 Exit codes for all three: 0 ok, 1 a problem you can fix (a missing folder, a capsule that
 is not make-to-stock or custom, a broken file, a bad flag), 2 an internal failure.

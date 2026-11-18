@@ -1,7 +1,12 @@
-# Molding press notebooks
+# Molding press notebooks: for analysts
+
+These two notebooks are for analysts. They use twinflow's Python API, the way the
+research repo does. A planner who wants the commands and the decision in plain words
+should start with the business showcase in
+[`examples/showcase/plastics-molding/`](../../../showcase/plastics-molding/).
 
 Two notebooks rebuild the research repo's lessons on top of twinflow.
-They use only twinflow's public API. The plant comes from `../molding-press.twin.yaml`.
+They use only twinflow's public API. The plant comes from `../../molding-press.twin.yaml`.
 
 | Notebook | The question | What it shows |
 |---|---|---|
@@ -13,7 +18,7 @@ They use only twinflow's public API. The plant comes from `../molding-press.twin
 Jupyter is not part of twinflow. Start it for one session with `uv`:
 
 ```bash
-cd examples/molding-press/notebooks
+cd examples/molding-press/notebooks/analyst
 uv run --with jupyterlab jupyter lab
 ```
 
@@ -39,7 +44,7 @@ The `.ipynb` files are saved with no outputs, so a change shows up as a small di
 Edit a file in `src/`, then build the notebooks again:
 
 ```bash
-uv run python examples/molding-press/notebooks/build_notebooks.py
+uv run python examples/molding-press/notebooks/analyst/build_notebooks.py
 ```
 
 The test `tests/integration/test_molding_press_notebooks.py` fails when a notebook does not match its source.

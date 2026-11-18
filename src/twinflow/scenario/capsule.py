@@ -20,10 +20,11 @@ from typing import Any, cast
 
 from twinflow.domain import registry as domain_registry
 from twinflow.domain.registry import CUSTOM_DOMAIN, CUSTOM_ENGINE_MESSAGE
-from twinflow.model import CompiledModel, load_model, validate_model
+from twinflow.model import CompiledModel, load_model, plan_origin, validate_model
 from twinflow.model.loader import dump_document, load_raw_model, parse_document
 from twinflow.plan.driver import RunDriver, RunResult
 from twinflow.plan.loader import WorkOrder, load_plan
+from twinflow.scenario.files import inline_files
 
 CAPSULE_SCHEMA_VERSION = "0.1"
 MAX_CAPSULE_BYTES = 5 * 1024 * 1024
@@ -242,7 +243,8 @@ class ScenarioCapsule:
         parsed = parse_document(raw)
         if not isinstance(parsed, dict):
             raise ValueError("capsule must be a YAML mapping")
-        return cls.from_dict(parsed)
+        # Input files the capsule points at (a product table, an order book) sit next to it.
+        return cls.from_dict(inline_files(parsed, Path(path).parent, max_bytes))
 
     @classmethod
     def loads(cls, content: str, *, max_bytes: int = MAX_CAPSULE_BYTES) -> ScenarioCapsule:
@@ -377,7 +379,7 @@ class ScenarioCapsule:
             if not any(issue.path.startswith("$.model.") for issue in issues):
                 try:
                     compiled = load_model(str(model_file))
-                    load_plan(str(plan_file), compiled.registry)
+                    load_plan(str(plan_file), compiled.registry, origin=plan_origin(compiled))
                 except (OSError, ValueError) as exc:
                     issues.append(
                         ValidationIssue(
@@ -403,7 +405,7 @@ class ScenarioCapsule:
                 )
             _write_plan(rows, plan_path)
             compiled = load_model(str(model_path))
-            plan = load_plan(str(plan_path), compiled.registry)
+            plan = load_plan(str(plan_path), compiled.registry, origin=plan_origin(compiled))
         return CompiledScenario(self, compiled, plan)
 
     def run(self, *, seed: int = 0, replication_index: int = 0) -> RunResult:
@@ -545,7 +547,9 @@ def import_legacy(
     """Adapt an existing model.yaml plus CSV or XLSX plan into one capsule."""
     compiled_model = load_model(str(model_path))
     model_data = load_raw_model(str(model_path)).data
-    work_orders = load_plan(str(plan_path), compiled_model.registry)
+    work_orders = load_plan(
+        str(plan_path), compiled_model.registry, origin=plan_origin(compiled_model)
+    )
     rows = [asdict(order) for order in work_orders]
     timestamp = as_of or datetime.now().astimezone().isoformat()
     return ScenarioCapsule(

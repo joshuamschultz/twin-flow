@@ -1,0 +1,7 @@
+id,site_id,delay_risk.minimum_days,delay_risk.maximum_days,delay_risk.common_risk_group
+volt-motors,plant,2,10,west-coast-port
+pacific-impeller,plant,1,8,west-coast-port
+midwest-foundry,plant,0,3,midwest-trucking
+lakeside-seals,plant,0,1,local-delivery
+assembly-line,plant,,,
+volt-motors-air,plant,0,2,air-freight

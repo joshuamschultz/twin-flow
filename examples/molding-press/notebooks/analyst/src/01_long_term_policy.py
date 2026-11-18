@@ -1,5 +1,8 @@
 # %% [markdown]
-# # Notebook 1: A good rule today may be a bad rule later
+# # For analysts: Notebook 1: A good rule today may be a bad rule later
+#
+# *This notebook is for analysts. It uses twinflow's Python API. A planner who wants the
+# commands and the decision should start with* `examples/showcase/plastics-molding/`.
 #
 # **The plant.** One molding press makes housings for a dozen products. We build to stock.
 # Each day the planner picks one product to run, or lets the press rest.
@@ -55,7 +58,7 @@ def find_example() -> Path:
         for candidate in (folder, folder / "examples" / "molding-press"):
             if (candidate / "molding-press.twin.yaml").exists():
                 return candidate
-    raise FileNotFoundError("Start this notebook inside examples/molding-press/notebooks.")
+    raise FileNotFoundError("Start this notebook inside examples/molding-press/notebooks/analyst.")
 
 
 def rounded(table: pl.DataFrame, digits: int = 1) -> pl.DataFrame:
