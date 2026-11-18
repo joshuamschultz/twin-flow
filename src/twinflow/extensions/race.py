@@ -55,6 +55,7 @@ from twinflow.state.recorder import StateRecorder
 from twinflow.state.records import LEDGER_PARTS, Move, flatten, unflatten
 
 RACE_FILE = "race.json"
+SCENARIO_FILE = "scenario.json"
 POLICY_FOLDER = "policies"  # under the race folder: policies/<name>/moves.parquet
 FloatArray = npt.NDArray[np.float64]
 _EMPTY: Mapping[str, Any] = MappingProxyType({})
@@ -683,14 +684,19 @@ class RaceResult:
         }
 
     def write(self, folder: Path | str) -> list[Path]:
-        """Write `race.json` and `policies/<name>/moves.parquet` for each kept policy."""
+        """Write `race.json`, `scenario.json` (the capsule, so `twinflow states` can use the
+        plant's own views) and `policies/<name>/moves.parquet` for each kept policy."""
         out = Path(folder)
         out.mkdir(parents=True, exist_ok=True)
         race_file = out / RACE_FILE
         race_file.write_text(
             json.dumps(self.to_json(), indent=1, allow_nan=False) + "\n", encoding="utf-8"
         )
-        written = [race_file]
+        scenario_file = out / SCENARIO_FILE
+        scenario_file.write_text(
+            json.dumps(self.project.capsule.to_dict(), indent=1) + "\n", encoding="utf-8"
+        )
+        written = [race_file, scenario_file]
         for name, table in self.kept.items():
             recorder = StateRecorder(run_id=f"race:{name}")
             for episode, moves in table.episodes():
@@ -857,8 +863,11 @@ def _policies(
 ) -> tuple[list[Extension], list[Problem]]:
     """The policy extensions to race (make_next files only) and problems for names that
     cannot be raced."""
+    custom = project.engine_extension is not None
     if names is None:
         found = [p for p in project.extensions.of("policy") if p.decision == "make_next"]
+        if custom:  # built-in rules are written for make-to-stock twins
+            found = [p for p in found if p.source != "builtin"]
         broken = [p for p in project.extensions.problems if p.kind == "policy"]
         return found, broken
     chosen, problems = [], []
@@ -867,6 +876,18 @@ def _policies(
             problems.append(_missing(project, name))
             continue
         ext = project.extensions.get("policy", name)
+        if custom and ext.source == "builtin":
+            problems.append(
+                Problem(
+                    "policy",
+                    "builtin_for_stock",
+                    f"{name} is a built-in rule written for make-to-stock twins; it does not "
+                    "fit a custom engine.",
+                    "Write your own policy in policies/ and race that.",
+                    name=name,
+                )
+            )
+            continue
         if ext.decision != "make_next":
             problems.append(
                 Problem(

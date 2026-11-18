@@ -1,0 +1,369 @@
+// Details of the run viewer (DESIGN.md 4.5): run facts, every order, every work centre,
+// the first test run's tables, people and machines, WIP over time and the method note.
+import type { ReactNode } from "react";
+import { Section } from "../primitives";
+import { displayId, pct, unitShort } from "../run";
+import type { RunViewModel } from "../types";
+import { OrderTable } from "./OrderRiskList";
+
+function Facts({ items }: { items: [string, ReactNode][] }) {
+  return (
+    <div className="rv-facts">
+      {items.map(([k, v]) => (
+        <div key={k}>
+          <div className="tf-k">{k}</div>
+          <div className="tf-v">{v}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WipLine({ model }: { model: RunViewModel }) {
+  const wip = model.wip_by_time;
+  if (!wip || wip.t.length < 2) return null;
+  const series = Object.entries(wip.by_centre).filter(([, v]) =>
+    v.some((x) => x > 0),
+  );
+  const W = 640;
+  const H = 160;
+  const tMax = Math.max(...wip.t, 1e-9);
+  const yMax = Math.max(1, ...series.flatMap(([, v]) => v));
+  const label = (id: string) =>
+    model.centres.find((c) => c.id === id)?.label ?? id;
+  const path = (v: number[]) =>
+    v
+      .map((y, i) => {
+        const x = (wip.t[i] / tMax) * W;
+        const yy = H - (y / yMax) * (H - 10);
+        return i === 0 ? `M${x},${yy}` : `H${x}V${yy}`;
+      })
+      .join("");
+  return (
+    <div className="tf-card">
+      <h3>How much work waits at each step over time?</h3>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`Jobs at each step over the first test run. Peak ${yMax}.`}
+        className="rv-wip"
+        preserveAspectRatio="none"
+      >
+        {series.map(([id, v], i) => (
+          <path key={id} d={path(v)} className={`rv-wip-line rv-wip-${i % 5}`}>
+            <title>{label(id)}</title>
+          </path>
+        ))}
+      </svg>
+      <div className="tf-legend">
+        {series.map(([id], i) => (
+          <span key={id}>
+            <i className={`rv-wip-key rv-wip-${i % 5}`} />
+            {label(id)}
+          </span>
+        ))}
+      </div>
+      <p className="tf-note">
+        First test run. A rising line is a growing queue. Time in{" "}
+        {model.about.time_unit}.
+      </p>
+    </div>
+  );
+}
+
+export function RunDetails({ model }: { model: RunViewModel }) {
+  const { about, details } = model;
+  const u = unitShort(about.time_unit);
+  const f = (v: number | null | undefined, d = 1) =>
+    v == null ? "-" : v.toFixed(d);
+  return (
+    <Section id="details" eyebrow="Details" question="The full numbers">
+      <Facts
+        items={[
+          ["Test runs", about.reps],
+          ["Orders", model.orders.length],
+          ["Range shown", pct(about.interval, 0)],
+          ["Random seed", about.seed],
+          ["Run length", `${f(about.horizon)} ${u}`],
+          [
+            "Orders done, first run",
+            details?.completed != null
+              ? `${details.completed} of ${model.orders.length}`
+              : "-",
+          ],
+          ["Machine hours, first run", f(details?.machine_hours, 2)],
+          ["Setup hours, first run", f(details?.setup_hours, 2)],
+        ]}
+      />
+      <div
+        className="tf-card tf-scroll"
+        tabIndex={0}
+        role="region"
+        aria-label="Every order"
+      >
+        <h3>Every order</h3>
+        <OrderTable orders={model.orders} unit={about.time_unit} />
+        <p className="tf-note">
+          Times in {about.time_unit} from the start of the run
+          {about.start ? ` (${about.start.replace("T", " ")})` : ""}. Room is
+          the due time minus the likely finish.
+        </p>
+      </div>
+      <div
+        className="tf-card tf-scroll"
+        tabIndex={0}
+        role="region"
+        aria-label="Every work centre"
+      >
+        <h3>Every work centre</h3>
+        <table className="tf-table" aria-label="Every work centre in numbers">
+          <thead>
+            <tr>
+              <th>Work centre</th>
+              <th>Id</th>
+              <th>Busy</th>
+              <th>Likely range</th>
+              <th>Wait in line, per job</th>
+              <th>Idle, no work</th>
+              <th>Held after done</th>
+            </tr>
+          </thead>
+          <tbody>
+            {model.centres.map((c) => (
+              <tr key={c.id}>
+                <td>{c.label}</td>
+                <td>{c.id}</td>
+                <td>{pct(c.busy.mean ?? 0)}</td>
+                <td>
+                  {c.busy.low != null && c.busy.high != null
+                    ? `${pct(c.busy.low)} to ${pct(c.busy.high)}`
+                    : "-"}
+                </td>
+                <td>
+                  {f(c.queue_wait)} {u}
+                </td>
+                <td>
+                  {f(c.starved)} {u}
+                </td>
+                <td>
+                  {f(c.blocked)} {u}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {details?.centres && details.centres.length > 0 && (
+        <div
+          className="tf-card tf-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label="First test run, by work centre"
+        >
+          <h3>First test run, by work centre</h3>
+          <table
+            className="tf-table"
+            aria-label="First test run by work centre"
+          >
+            <thead>
+              <tr>
+                <th>Work centre</th>
+                <th>Id</th>
+                <th>Busy</th>
+                <th>Jobs</th>
+                <th>Time per job</th>
+                <th>Most jobs at once</th>
+                <th>Idle, no work</th>
+                <th>Held after done</th>
+              </tr>
+            </thead>
+            <tbody>
+              {details.centres.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.label}</td>
+                  <td>{c.id}</td>
+                  <td>{pct(c.busy)}</td>
+                  <td>{c.jobs}</td>
+                  <td>
+                    {f(c.cycle, 2)} {u}
+                  </td>
+                  <td>{c.wip_peak}</td>
+                  <td>
+                    {f(c.starved)} {u}
+                  </td>
+                  <td>
+                    {f(c.blocked)} {u}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {details?.orders && details.orders.length > 0 && (
+        <div
+          className="tf-card tf-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label="First test run, by order"
+        >
+          <h3>First test run, by order</h3>
+          <table className="tf-table" aria-label="First test run by order">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Done at</th>
+                <th>Late by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {details.orders.map((o) => (
+                <tr key={o.id}>
+                  <td>{displayId(o.id)}</td>
+                  <td>
+                    {f(o.finish)} {o.finish == null ? "" : u}
+                  </td>
+                  <td>
+                    {o.late_by == null
+                      ? "-"
+                      : `${o.late_by > 0 ? "+" : o.late_by < 0 ? "−" : ""}${Math.abs(o.late_by).toFixed(1)} ${u}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="tf-note">A minus sign means early.</p>
+        </div>
+      )}
+      <div className="tf-grid2">
+        {details?.labor_pools && details.labor_pools.length > 0 && (
+          <div
+            className="tf-card tf-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="People"
+          >
+            <h3>People</h3>
+            <table className="tf-table" aria-label="Labor pools">
+              <thead>
+                <tr>
+                  <th>Pool</th>
+                  <th>Skills</th>
+                  <th>People</th>
+                  <th>Busy on shift</th>
+                  <th>Busy, all hours</th>
+                  <th>Busy hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {details.labor_pools.map((r) => (
+                  <tr key={r.resource}>
+                    <td>{r.resource}</td>
+                    <td>{r.skills.join(", ")}</td>
+                    <td>{r.capacity}</td>
+                    <td>{pct(r.busy_on_shift)}</td>
+                    <td>{pct(r.busy)}</td>
+                    <td>{f(r.busy_hours, 2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {model.labor && model.labor.length > 0 && (
+              <table className="tf-table" aria-label="Labor hours by skill">
+                <thead>
+                  <tr>
+                    <th>Pool</th>
+                    <th>Skill</th>
+                    <th>Hours</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {model.labor.map((r) => (
+                    <tr key={`${r.pool}-${r.skill}`}>
+                      <td>{r.pool}</td>
+                      <td>{r.skill}</td>
+                      <td>{f(r.hours, 3)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+        {details?.machine_pools && details.machine_pools.length > 0 && (
+          <div
+            className="tf-card tf-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Machines"
+          >
+            <h3>Machines</h3>
+            <table className="tf-table" aria-label="Machine pools">
+              <thead>
+                <tr>
+                  <th>Machine</th>
+                  <th>Steps</th>
+                  <th>Slots</th>
+                  <th>Busy</th>
+                  <th>Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {details.machine_pools.map((r) => {
+                  const hours = details.machine_hours_by_machine?.find(
+                    (m) => m.machine === r.resource,
+                  );
+                  return (
+                    <tr key={r.resource}>
+                      <td>{r.resource}</td>
+                      <td>{r.steps.join(", ")}</td>
+                      <td>{r.capacity}</td>
+                      <td>{pct(r.busy)}</td>
+                      <td>{f(hours?.hours ?? r.busy_hours, 3)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <WipLine model={model} />
+      <div className="tf-card">
+        <h3>How this was worked out</h3>
+        <p className="tf-note">{about.method}</p>
+        {about.assumptions.length > 0 ? (
+          <>
+            <p className="tf-note">
+              The model left these out, so twinflow used a default:
+            </p>
+            <ul className="rv-notes">
+              {about.assumptions.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="tf-note">
+            No defaults were used. Every value came from the model.
+          </p>
+        )}
+        {model.problems.length > 0 && (
+          <ul className="rv-notes">
+            {model.problems.map((p) => (
+              <li key={p.title}>
+                <b>{p.title}.</b> {p.body}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="tf-note">
+          Run {about.run_id}
+          {about.engine_version ? ` · twinflow ${about.engine_version}` : ""}
+          {about.model_hash ? ` · model ${about.model_hash.slice(0, 12)}` : ""}
+          {about.plan_hash ? ` · plan ${about.plan_hash.slice(0, 12)}` : ""}
+        </p>
+      </div>
+    </Section>
+  );
+}

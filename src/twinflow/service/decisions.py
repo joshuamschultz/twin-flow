@@ -13,7 +13,8 @@ from twinflow.application.decision_tools import DecisionTools, ScheduleRequestEr
 from twinflow.application.solver_port import UnsupportedSolver
 from twinflow.application.workspace import Workspace
 from twinflow.data.errors import DataError, EventConflictError
-from twinflow.scheduling import SCHEMA_VERSION, OptionalDependencyError
+from twinflow.scheduling import SCHEMA_VERSION
+from twinflow.scheduling.seam import OptionalDependencyError
 from twinflow.service.workspace import StrictModel
 
 log = logging.getLogger(__name__)

@@ -1,0 +1,223 @@
+--- markdown
+# Harbor Pump Works: can we ship December's orders?
+
+This notebook is for the buyer, the customer service lead and the plant manager. You do
+not need to write code. Every gray box below is either a command you can run, or a file
+you can read. Run the boxes from top to bottom. The answers are already saved under each box.
+
+## (a) Your business
+
+Harbor Pump Works builds two water pumps in Fremont, Nebraska:
+
+- **PMP-100**, a 1/2 hp home well pump. It sells for $385.
+- **PMP-300**, a 2 hp farm irrigation pump. It sells for $1,240.
+
+Each pump is a motor, a cast housing, an impeller and seal kits. Harbor buys every part.
+The motors and impellers come from overseas through a West Coast port. Ships there have
+been 2 to 10 days late this fall, and when the port is slow, both suppliers are slow
+together. The housings come by truck from a foundry in Iowa.
+
+It is Wednesday morning, November 18. Seven customer orders are due between now and
+December 18, worth about $69,000. **The questions: which orders will ship on time, which
+are at risk, and what should the buyer do today?** The buyer has a plan B: pay about
+$3,800 to air-freight both motor orders, and place new orders for small housings and
+impellers.
+
+--- markdown
+## (b) Your inputs
+
+Every file in `data/` is an export a planner already has. Nothing here is made up by the tool.
+
+| File | What it is | Where it comes from |
+|---|---|---|
+| `data/items.csv` | The item master: pumps and parts | ERP item master |
+| `data/suppliers.csv` | Suppliers and how late they can be | Buyer's supplier scorecard |
+| `data/on-hand.csv` | Stock on the shelf this morning | ERP inventory report |
+| `data/open-purchase-orders.csv` | Parts on order, with promised dock dates | ERP open PO report |
+| `data/customer-orders.csv` | Customer orders and due dates | ERP open sales orders |
+| `harbor-pumps.twin.yaml` | The twin capsule: ties the files together and holds the bill of materials | You write it once |
+
+### Items
+
+--- code
+!cat data/items.csv
+
+--- markdown
+| Column | Meaning |
+|---|---|
+| `id` | The part number. |
+| `kind` | `assembly` is a pump we build. `purchased` is a part we buy. |
+| `uom` | The unit: each. |
+| `description` | A name a person can read. twinflow does not need it. |
+
+### Suppliers
+
+--- code
+!cat data/suppliers.csv
+
+--- markdown
+| Column | Meaning |
+|---|---|
+| `id` | The supplier. `volt-motors-air` is Volt Motors shipping by air (plan B only). |
+| `site_id` | The plant the supplier ships to. |
+| `delay_risk.minimum_days` | The fewest days late a shipment arrives. |
+| `delay_risk.maximum_days` | The most days late a shipment arrives. |
+| `delay_risk.common_risk_group` | Suppliers in the same group are late together. Volt Motors and Pacific Impeller share the West Coast port. |
+
+The `assembly-line` row is our own line. It is listed so it can be approved to build the
+pumps (see `qualifications` in the capsule). It has no delay risk.
+
+### Stock on hand
+
+--- code
+!cat data/on-hand.csv
+
+--- markdown
+| Column | Meaning |
+|---|---|
+| `id` | The stock record. |
+| `item_id` | The part number. |
+| `site_id` | Where it is. |
+| `quantity`, `uom` | How many. |
+| `available_at` | When it can be used: now. |
+
+Note the 6 finished PMP-100 pumps on the shelf. The twin ships those first.
+
+### Open purchase orders
+
+--- code
+!cat data/open-purchase-orders.csv
+
+--- markdown
+| Column | Meaning |
+|---|---|
+| `id` | The purchase order number. |
+| `item_id`, `quantity`, `uom` | What is on order. |
+| `available_at` | The dock date the supplier promised. The twin adds the supplier's delay. |
+| `supplier_id` | Who ships it. Its delay risk comes from `data/suppliers.csv`. |
+
+### Customer orders
+
+--- code
+!cat data/customer-orders.csv
+
+--- markdown
+| Column | Meaning |
+|---|---|
+| `id` | The sales order number. |
+| `customer` | Who ordered it. twinflow does not need it. |
+| `item_id`, `quantity`, `uom` | What they ordered. |
+| `due_at` | The promised ship date and time. |
+| `priority` | Higher numbers get parts first. Farm customers (3) come before the home store (1). |
+| `unit_price` | The price of one pump. twinflow does not need it. It helps you see the money at risk. |
+
+### The twin capsule
+
+The capsule points at each file, for example `orders: data/customer-orders.csv`. It also
+holds the bill of materials (the parts in each pump) and the days to assemble an order.
+
+--- code
+!cat harbor-pumps.twin.yaml
+
+--- markdown
+## (c) Check and run
+
+First, check the files. No message means everything is good.
+
+--- code
+!twinflow scenario validate harbor-pumps.twin.yaml
+
+--- markdown
+### Today's plan
+
+This runs the network 50 times. Each run draws a new delay for every supplier. When the
+port is slow in a run, both overseas suppliers are slow in that run.
+
+- **Ready (typical)** is the middle date over the 50 runs: half the runs are ready by then.
+- **Ready (bad case)** is the date by which 9 runs in 10 are ready.
+- **On time** is the share of runs in which the order is ready by its due date.
+
+--- code
+!twinflow scenario run harbor-pumps.twin.yaml --out runs/today --summary
+
+--- markdown
+What this says:
+
+- The two November orders are safe. They use stock on hand.
+- **SO-4426 (Lakeshore Rentals) can never ship.** There are not enough small housings and
+  impellers, and none are on order. The twin names the parts and how many: 9 HSG-100 and
+  4 IMP-100.
+- **SO-4418 (Valley Farm Supply) is on time in only 14% of runs**, and SO-4423 in about
+  half. Both wait on the 2 hp motors (PO-7790) and the large impellers (PO-7795), which
+  come through the port.
+- SO-4415 (Hometown Hardware) waits on the small motors (PO-7781). It is on time in 40% of runs.
+
+### Plan B
+
+Plan B changes only the purchase orders: both motor orders fly (earlier dock dates,
+`volt-motors-air` as the shipper, 0 to 2 days of delay), and two new orders cover the
+small housings and impellers. Everything else is the same.
+
+--- code
+!twinflow scenario validate harbor-pumps-plan-b.twin.yaml
+
+--- code
+!twinflow scenario run harbor-pumps-plan-b.twin.yaml --out runs/plan-b --summary
+
+--- markdown
+## (d) Your rules
+
+For a supply network, the written piece is the buyer's plan. It is two small files: the
+new purchase-order file and a copy of the capsule that points at it. The boxes below save
+them, so you can change a date and run the plan again.
+
+### `data/open-purchase-orders-plan-b.csv`: the buyer's plan
+
+Compared with `data/open-purchase-orders.csv`:
+
+- PO-7781 and PO-7790 (motors) now ship by air: earlier dates and `volt-motors-air`.
+- PO-7821 and PO-7822 are new: 20 small housings and 20 small impellers.
+
+--- writefile data/open-purchase-orders-plan-b.csv
+
+--- markdown
+### `harbor-pumps-plan-b.twin.yaml`: the plan B capsule
+
+It is a copy of `harbor-pumps.twin.yaml`. Only the `receipts` line and the `id` differ.
+
+--- writefile harbor-pumps-plan-b.twin.yaml
+
+--- markdown
+## (e) Results and the decision
+
+| Order | Customer | Value | Today: on time | Plan B: on time |
+|---|---|---|---|---|
+| SO-4415 | Hometown Hardware | $5,775 | 40% | 100% |
+| SO-4418 | Valley Farm Supply | $14,880 | 14% | 66% |
+| SO-4423 | Big Sky Irrigation | $17,360 | 48% | 100% |
+| SO-4426 | Lakeshore Rentals | $3,850 | never | 94% |
+
+**The recommendation:** do plan B today.
+
+- Air freight costs about $3,800. It protects about $42,000 of orders that are at risk
+  today, and the farm customers who buy every spring.
+- Place the housing and impeller orders now. Without them SO-4426 cannot ship at all.
+- **SO-4418 is still at risk** (66%). Its large impellers (PO-7795) come through the port.
+  Ask Pacific Impeller to air-ship 12 of the 30, or call Valley Farm Supply now with a
+  likely date of December 7 and a bad case of December 10.
+
+The full result of each run, with every shortage and its parts path, is in
+`runs/today/result.json` and `runs/plan-b/result.json`. Both are made when you run the
+notebook.
+
+## (f) Try it yourself
+
+1. **Fly the impellers too.** In `data/open-purchase-orders-plan-b.csv`, change PO-7795's
+   supplier to a new air row you add in `data/suppliers.csv` (copy the `volt-motors-air`
+   row and name it `pacific-impeller-air`), and move its date to 2026-11-25. Run the plan B
+   boxes again. Is SO-4418 safe now?
+2. **A worse port.** In `data/suppliers.csv`, change Volt Motors' `maximum_days` from 10
+   to 15. Run today's plan again. Which orders move?
+3. **A new order.** Add a row to `data/customer-orders.csv`:
+   `SO-4430,Valley Farm Supply,PMP-300,plant,6,each,2026-12-15T17:00:00-06:00,3,1240`.
+   Run both plans. Which order gives up its parts?

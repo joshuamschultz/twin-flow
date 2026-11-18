@@ -1,5 +1,7 @@
 # Install
 
+![A gantry crane lowering crates onto an empty foundation plate](images/headers/install.webp)
+
 ## Engine (core)
 
 Python 3.11 or newer.

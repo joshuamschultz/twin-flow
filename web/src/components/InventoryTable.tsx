@@ -29,10 +29,21 @@ export function InventoryTable({ inventory }: { inventory: InventoryKpis }) {
             return (
               <tr key={stock}>
                 <td>{stock}</td>
-                <td className="mono">{(inventory.average_level[stock] ?? 0).toFixed(1)}</td>
-                <td className="mono">{(inventory.ending_level[stock] ?? 0).toFixed(1)}</td>
+                <td className="mono">
+                  {(inventory.average_level[stock] ?? 0).toFixed(1)}
+                </td>
+                <td className="mono">
+                  {(inventory.ending_level[stock] ?? 0).toFixed(1)}
+                </td>
                 <td className="mono">{inventory.orders_placed[stock] ?? 0}</td>
-                <td className="mono" style={hadStockout ? { color: "var(--bad)", fontWeight: 600 } : undefined}>
+                <td
+                  className="mono"
+                  style={
+                    hadStockout
+                      ? { color: "var(--bad)", fontWeight: 600 }
+                      : undefined
+                  }
+                >
                   {formatDuration(stockoutSeconds)}
                   {hadStockout ? " ⚠" : ""}
                 </td>

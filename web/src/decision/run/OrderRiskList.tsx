@@ -1,16 +1,19 @@
 // "Which orders are at risk, and why?" (DESIGN.md 4.2). One bar per order to a due tick.
 import { useState } from "react";
-import type { RunOrder } from "../types";
+import { ChartFrame } from "../ChartFrame";
+import { StatusPill } from "../primitives";
 import {
   axisTicks,
   displayId,
+  pillKind,
   pillText,
   plural,
   signedTime,
   sortOrders,
   unitShort,
   type TimeUnit,
-} from "./runText";
+} from "../run";
+import type { RunOrder } from "../types";
 
 type Tone = "gain" | "loss";
 
@@ -38,11 +41,11 @@ export function OrderTimeline({
   const w = (a: number, b: number) =>
     `${Math.max(0, ((b - a) / horizon) * 100)}%`;
   return (
-    <div className="rv-track" role="img" aria-label={label} title={label}>
+    <div className="tf-track rv-timeline" title={label}>
       <div className="rv-track-line" />
       {finish != null && (
         <div
-          className={`rv-bar rv-${tone}`}
+          className={`tf-bar tf-${tone}`}
           style={{ left: x(release), width: w(release, finish) }}
         />
       )}
@@ -66,21 +69,22 @@ export function OrderSteps({
 }) {
   const steps = order.steps ?? [];
   if (!steps.length)
-    return <p className="rv-note">No step times for this order.</p>;
+    return <p className="tf-note">No step times for this order.</p>;
   const total = Math.max(...steps.map((s) => s.work + s.wait), 1e-9);
   const u = unitShort(unit);
   return (
     <div
       className="rv-steps"
+      role="group"
       aria-label={`Time at each step for ${displayId(order.id)}`}
     >
-      <div className="rv-legend">
+      <div className="tf-legend">
         <span>
-          <i className="rv-gain" />
+          <i className="tf-gain" />
           Work
         </span>
         <span>
-          <i className="rv-loss" />
+          <i className="tf-loss" />
           Wait in line
         </span>
       </div>
@@ -89,15 +93,15 @@ export function OrderSteps({
           <span>{s.label}</span>
           <div className="rv-stack">
             <i
-              className="rv-gain"
+              className="tf-gain"
               style={{ width: `${(s.work / total) * 100}%` }}
             />
             <i
-              className="rv-loss"
+              className="tf-loss"
               style={{ width: `${(s.wait / total) * 100}%` }}
             />
           </div>
-          <span className="rv-num">
+          <span className="tf-num">
             {s.work.toFixed(1)} + {s.wait.toFixed(1)} {u}
           </span>
         </div>
@@ -138,102 +142,6 @@ export function timelineEnd(orders: RunOrder[], horizon: number): number {
   );
 }
 
-export function OrderRiskList({
-  orders,
-  horizon,
-  unit,
-}: {
-  orders: RunOrder[];
-  horizon: number;
-  unit: TimeUnit;
-}) {
-  const [open, setOpen] = useState<string | null>(null);
-  const end = timelineEnd(orders, horizon);
-  const ticks = axisTicks(end);
-  const span = Math.max(end, ticks[ticks.length - 1] ?? 0, 1e-9);
-  const u = unitShort(unit);
-  const sorted = sortOrders(orders);
-  return (
-    <div
-      className="rv-orders"
-      role="list"
-      aria-label={`${orders.length} orders, sorted by the chance of being late`}
-    >
-      <div className="rv-legend">
-        <span>
-          <i className="rv-gain" />
-          Finishes with room
-        </span>
-        <span>
-          <i className="rv-loss" />
-          Finish may pass the due time
-        </span>
-        <span>
-          <i className="rv-key-due" />
-          Due
-        </span>
-        <span>
-          <i className="rv-key-range" />
-          Likely range of the finish
-        </span>
-      </div>
-      <div className="rv-ord rv-ord-head" aria-hidden="true">
-        <span>Order</span>
-        <span>Part</span>
-        <span className="rv-axis">
-          {ticks.map((t, i) => (
-            <span
-              key={t}
-              style={{
-                left: `${(t / span) * 100}%`,
-                transform: `translateX(${i === 0 ? "0" : i === ticks.length - 1 && t / span > 0.95 ? "-100%" : "-50%"})`,
-              }}
-            >
-              {t} {u}
-            </span>
-          ))}
-        </span>
-        <span>Late chance</span>
-        <span className="rv-why">Why</span>
-      </div>
-      {sorted.map((o) => (
-        <div role="listitem" key={o.id}>
-          <button
-            type="button"
-            className="rv-ord"
-            aria-expanded={open === o.id}
-            onClick={() => setOpen(open === o.id ? null : o.id)}
-          >
-            <span className="rv-id">{displayId(o.id)}</span>
-            <span>
-              {o.qty} {plural(o.part, o.qty)}
-            </span>
-            <OrderTimeline
-              release={o.release}
-              finish={o.finish?.mean ?? null}
-              low={o.finish?.low ?? null}
-              high={o.finish?.high ?? null}
-              due={o.due}
-              tone={tone(o)}
-              horizon={span}
-              label={orderSentence(o, unit)}
-            />
-            <span>
-              <span className={`rv-status rv-${o.status}`}>{pillText(o)}</span>
-            </span>
-            <span className="rv-why">{o.reason}</span>
-          </button>
-          {open === o.id && (
-            <div className="rv-drill">
-              <OrderSteps order={o} unit={unit} />
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function OrderTable({
   orders,
   unit,
@@ -243,7 +151,7 @@ export function OrderTable({
 }) {
   const f = (v: number | null | undefined) => (v == null ? "-" : v.toFixed(1));
   return (
-    <table className="rv-table" aria-label="Every order in numbers">
+    <table className="tf-table" aria-label="Every order in numbers">
       <thead>
         <tr>
           <th>Order</th>
@@ -281,5 +189,109 @@ export function OrderTable({
         ))}
       </tbody>
     </table>
+  );
+}
+
+export function OrderRiskList({
+  orders,
+  horizon,
+  unit,
+}: {
+  orders: RunOrder[];
+  horizon: number;
+  unit: TimeUnit;
+}) {
+  const [open, setOpen] = useState<string | null>(null);
+  const end = timelineEnd(orders, horizon);
+  const ticks = axisTicks(end);
+  const span = Math.max(end, ticks[ticks.length - 1] ?? 0, 1e-9);
+  const u = unitShort(unit);
+  const sorted = sortOrders(orders);
+  const label = `${orders.length} orders, sorted by the chance of being late`;
+  return (
+    <ChartFrame
+      label={label}
+      interactive
+      table={() => <OrderTable orders={orders} unit={unit} />}
+    >
+      {() => (
+        <div className="rv-orders">
+          <div className="tf-legend">
+            <span>
+              <i className="tf-gain" />
+              Finishes with room
+            </span>
+            <span>
+              <i className="tf-loss" />
+              Finish may pass the due time
+            </span>
+            <span>
+              <i className="rv-key-due" />
+              Due
+            </span>
+            <span>
+              <i className="rv-key-range" />
+              Likely range of the finish
+            </span>
+          </div>
+          <div className="rv-ord rv-ord-head" aria-hidden="true">
+            <span>Order</span>
+            <span>Part</span>
+            <span className="rv-axis">
+              {ticks.map((t, i) => (
+                <span
+                  key={t}
+                  style={{
+                    left: `${(t / span) * 100}%`,
+                    transform: `translateX(${i === 0 ? "0" : i === ticks.length - 1 && t / span > 0.95 ? "-100%" : "-50%"})`,
+                  }}
+                >
+                  {t} {u}
+                </span>
+              ))}
+            </span>
+            <span>Late chance</span>
+            <span className="rv-why">Why</span>
+          </div>
+          <ul className="rv-order-list" aria-label={label}>
+            {sorted.map((o) => (
+              <li key={o.id}>
+                <button
+                  type="button"
+                  className="rv-ord"
+                  aria-expanded={open === o.id}
+                  aria-label={`${orderSentence(o, unit)} ${pillText(o)}. ${o.reason}`}
+                  onClick={() => setOpen(open === o.id ? null : o.id)}
+                >
+                  <span className="rv-id">{displayId(o.id)}</span>
+                  <span>
+                    {o.qty} {plural(o.part, o.qty)}
+                  </span>
+                  <OrderTimeline
+                    release={o.release}
+                    finish={o.finish?.mean ?? null}
+                    low={o.finish?.low ?? null}
+                    high={o.finish?.high ?? null}
+                    due={o.due}
+                    tone={tone(o)}
+                    horizon={span}
+                    label={orderSentence(o, unit)}
+                  />
+                  <span>
+                    <StatusPill kind={pillKind(o)} label={pillText(o)} />
+                  </span>
+                  <span className="rv-why">{o.reason}</span>
+                </button>
+                {open === o.id && (
+                  <div className="rv-drill">
+                    <OrderSteps order={o} unit={unit} />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </ChartFrame>
   );
 }

@@ -192,64 +192,69 @@ def _apply_split(state: _State, split: SplitOverride, path: str) -> None:
     """Replace the job with children `{job}~k` (k from 1), ops `{op}~k`, quantities scaled.
 
     A link from another job to a split op X becomes one link per child X~k with the same
-    lags, so the successor waits for every child. A transfer-lot link from another job
-    into the split job has no single lot to count, so it is `split_overlap_link` and the
-    split is skipped.
+    lags, so the successor waits for every child; a transfer lot on it scales with each
+    child's fraction (D-084), so each child hands over its own share of the lot.
     """
     job = state.jobs.get(split.job_id)
     if job is None:
         if _job_targets(state, split.job_id) is None:
             _unknown(state, path, split.id, f"job {split.job_id}")
         return
-    overlapping = _overlap_links_into(state, job)
-    if overlapping:
-        message = f"split {split.id}: {', '.join(overlapping)} overlap into job {job.id}"
-        state.report("split_overlap_link", path, message)
-        return
     children = _split_job(job, split.fractions)
     del state.jobs[job.id]
     state.split_map[job.id] = tuple(child.id for child in children)
+    shares: dict[str, tuple[tuple[str, float], ...]] = {}
     for op in job.operations:
         del state.op_owner[op.id]
-        state.split_map[op.id] = tuple(f"{op.id}~{k}" for k in range(1, len(children) + 1))
-    _update_job(state, list(state.jobs), lambda other: _remap_external(other, state.split_map))
+        shares[op.id] = tuple(
+            (f"{op.id}~{k}", fraction) for k, fraction in enumerate(split.fractions, start=1)
+        )
+        state.split_map[op.id] = tuple(child_id for child_id, _ in shares[op.id])
+    _update_job(state, list(state.jobs), lambda other: _remap_external(other, shares))
     for child in children:
         state.jobs[child.id] = child
         state.op_owner.update({op.id: child.id for op in child.operations})
 
 
-def _overlap_links_into(state: _State, job: Job) -> list[str]:
-    """Ids of ops in other jobs with a transfer-lot link to an op of `job`."""
-    local = {op.id for op in job.operations}
-    return [
-        op.id
-        for other in state.jobs.values()
-        if other.id != job.id
-        for op in other.operations
-        if any(
-            link.operation_id in local and link.overlap_quantity is not None
-            for link in op.predecessors
-        )
-    ]
+def _remap_external(job: Job, shares: dict[str, tuple[tuple[str, float], ...]]) -> Job:
+    """Fan every link to a just-split op out to its children; a job with no such link is kept.
 
-
-def _remap_external(job: Job, split_map: dict[str, tuple[str, ...]]) -> Job:
-    """Fan every link to a split op out to its children; a job with no such link is kept."""
-    if not any(link.operation_id in split_map for op in job.operations for link in op.predecessors):
+    `shares` maps each split op to its (child id, fraction) pairs; a child link keeps the
+    lags and carries `overlap_quantity * fraction` (None stays None, D-084).
+    """
+    if not any(link.operation_id in shares for op in job.operations for link in op.predecessors):
         return job
     operations = tuple(
         op.model_copy(
             update={
                 "predecessors": tuple(
-                    link.model_copy(update={"operation_id": child})
+                    child_link
                     for link in op.predecessors
-                    for child in split_map.get(link.operation_id, (link.operation_id,))
+                    for child_link in _fan_out(link, shares.get(link.operation_id))
                 )
             }
         )
         for op in job.operations
     )
     return job.model_copy(update={"operations": operations})
+
+
+def _fan_out(
+    link: Precedence, children: tuple[tuple[str, float], ...] | None
+) -> tuple[Precedence, ...]:
+    """One link per child of the split predecessor, its transfer lot scaled by the fraction."""
+    if children is None:
+        return (link,)
+    return tuple(
+        link.model_copy(
+            update={"operation_id": child_id, "overlap_quantity": _scaled(link, fraction)}
+        )
+        for child_id, fraction in children
+    )
+
+
+def _scaled(link: Precedence, fraction: float) -> float | None:
+    return None if link.overlap_quantity is None else link.overlap_quantity * fraction
 
 
 def _split_job(job: Job, fractions: tuple[float, ...]) -> tuple[Job, ...]:
@@ -289,9 +294,11 @@ def _remap_precedence(
     with the child's lot; links to other jobs stay (a later split of that job fans them out)."""
     if link.operation_id not in local_ids:
         return link
-    overlap = None if link.overlap_quantity is None else link.overlap_quantity * fraction
     return link.model_copy(
-        update={"operation_id": f"{link.operation_id}~{k}", "overlap_quantity": overlap}
+        update={
+            "operation_id": f"{link.operation_id}~{k}",
+            "overlap_quantity": _scaled(link, fraction),
+        }
     )
 
 

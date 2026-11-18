@@ -29,7 +29,11 @@ def capsule_schema() -> dict[str, Any]:
 def validate_content(content: str) -> ScenarioCapsule:
     from twinflow.scenario import loads
 
-    capsule = loads(content)
+    return validate_capsule(loads(content))
+
+
+def validate_capsule(capsule: ScenarioCapsule) -> ScenarioCapsule:
+    """The capsule when it may run; raises with every issue otherwise."""
     issues = capsule.validate()
     if issues:
         raise CapsuleValidationError(issues)

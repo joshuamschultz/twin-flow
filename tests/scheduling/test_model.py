@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
+from twinflow.scheduling import model as model_module
 from twinflow.scheduling.model import (
     SCHEMA_VERSION,
     AbsDiffTerm,
@@ -1092,6 +1093,40 @@ def test_profile_time_budget_inside_0_300_accepted(budget: float) -> None:
     assert parsed.time_budget_seconds == budget
 
 
+# --- method params (T-114, REQ-087, D-070) ---------------------------------------------------
+
+ATCS_PARAMS = {"atcs": {"K1": 5.0, "flexibility": True, "mode": "active", "iters": 3}}
+
+
+def test_profile_method_params_default_to_an_empty_mapping() -> None:
+    assert SchedulingProfile.model_validate(profile()).method_params == {}
+    assert SchedulingProfile().method_params == {}
+
+
+def test_profile_method_params_accept_scalar_values_and_keep_their_types() -> None:
+    parsed = SchedulingProfile.model_validate(with_(profile(), method_params=ATCS_PARAMS))
+    atcs = parsed.method_params["atcs"]
+    assert atcs == ATCS_PARAMS["atcs"]
+    assert (type(atcs["K1"]), type(atcs["flexibility"]), type(atcs["iters"])) == (
+        float,
+        bool,
+        int,
+    )
+    assert atcs["mode"] == "active"
+
+
+@pytest.mark.parametrize(
+    "value", [[1.0, 2.0], {"nested": 1.0}, None], ids=["list", "mapping", "none"]
+)
+def test_profile_method_params_reject_a_non_scalar_value(value: Any) -> None:
+    data = with_(profile(), method_params={"atcs": {"K1": value}})
+    with pytest.raises(ValidationError) as caught:
+        SchedulingProfile.model_validate(data)
+    locations = [err["loc"][:3] for err in caught.value.errors()]
+    # The error points inside the params, so the field exists and checks its values.
+    assert ("method_params", "atcs", "K1") in locations, locations
+
+
 def test_profile_class_weight_key_3_rejected() -> None:
     assert_rejected(
         SchedulingProfile, with_(profile(), class_weights={1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0})
@@ -1161,3 +1196,379 @@ def test_solve_result_full_round_trip_keys_objective_values_by_kind() -> None:
 def test_solve_result_unknown_objective_kind_rejected() -> None:
     payload = {"schedule": schedule(), "verified": True, "objective_values": {"profit": 1.0}}
     assert_rejected(SolveResult, payload, "objective_values")
+
+
+# --- ATCS run records (T-130, REQ-121, SDD Data Model "AtcsRun", "Schedule additions") ------
+#
+# `AtcsRun` is read through the module attribute (not the import block above) so that, before
+# it exists, only these tests fail rather than the whole file.
+
+
+def atcs_run() -> Data:
+    return {
+        "work_center_id": "WC-M1",
+        "tau": 0.566,
+        "R": 0.472,
+        "eta": 0.178,
+        "m": 1,
+        "K1": 4.97,
+        "K2": 0.671,
+        "source": "formula",
+        "objective_value": 98.0,
+    }
+
+
+def _atcs_run_model() -> type[BaseModel]:
+    cls: type[BaseModel] = model_module.AtcsRun
+    return cls
+
+
+def test_atcs_run_full_payload_validates_with_every_field() -> None:
+    parsed = _atcs_run_model().model_validate(atcs_run())
+    assert parsed.model_dump() == atcs_run()
+
+
+def test_atcs_run_json_round_trip_is_identity() -> None:
+    cls = _atcs_run_model()
+    original = cls.model_validate(atcs_run())
+    assert cls.model_validate_json(original.model_dump_json()) == original
+
+
+def test_atcs_run_is_frozen_and_closed() -> None:
+    cls = _atcs_run_model()
+    assert_rejected(cls, with_(atcs_run(), bogus=1), "bogus")
+    instance = cls.model_validate(atcs_run())
+    with pytest.raises(ValidationError):
+        instance.K1 = 1.0
+
+
+@pytest.mark.parametrize("source", ["formula", "table", "explicit", "perturbed"])
+def test_atcs_run_accepts_each_k_source(source: str) -> None:
+    parsed = _atcs_run_model().model_validate(with_(atcs_run(), source=source))
+    assert parsed.source == source
+
+
+def test_atcs_run_unknown_k_source_rejected() -> None:
+    assert_rejected(_atcs_run_model(), with_(atcs_run(), source="guess"), "source")
+
+
+def test_atcs_run_objective_value_may_be_none() -> None:
+    parsed = _atcs_run_model().model_validate(with_(atcs_run(), objective_value=None))
+    assert parsed.objective_value is None
+
+
+def test_atcs_run_machine_count_is_an_int() -> None:
+    assert_rejected(_atcs_run_model(), with_(atcs_run(), m=1.5), "m")
+
+
+@pytest.mark.parametrize("field", ["tau", "R", "eta", "K1", "K2"])
+def test_atcs_run_non_finite_factor_rejected(field: str) -> None:
+    assert_rejected(_atcs_run_model(), with_(atcs_run(), **{field: math.inf}), field)
+
+
+def test_schedule_atcs_runs_default_to_empty() -> None:
+    parsed = Schedule.model_validate(schedule())
+    assert parsed.atcs_runs == ()
+
+
+def test_schedule_with_atcs_runs_round_trips() -> None:
+    payload = with_(schedule(), atcs_runs=[atcs_run(), with_(atcs_run(), work_center_id="B")])
+    original = Schedule.model_validate(payload)
+    runs = original.atcs_runs
+    assert isinstance(runs, tuple)
+    assert [r.work_center_id for r in runs] == ["WC-M1", "B"]
+    assert all(isinstance(r, _atcs_run_model()) for r in runs)
+    assert Schedule.model_validate_json(original.model_dump_json()) == original
+
+
+# --- TF-003 portfolio profile fields (T-157, T-158; REQ-116, REQ-119, D-078, D-079, D-080) ---
+#
+# SDD Data Model "SchedulingProfile additions", "LoadWeights" and "MenuEntry". The new types are
+# read through the module attribute (not the import block above) so that, before they exist,
+# only these tests fail rather than the whole file. Additive optional fields: the schema
+# version stays "2.0" (D-080).
+
+
+def assert_bound_rejected(data: Data, field: str) -> None:
+    """Assert `SchedulingProfile` rejects `data` at `field` for a reason other than the field
+    being unknown (so the test cannot pass before the field exists)."""
+    with pytest.raises(ValidationError) as caught:
+        SchedulingProfile.model_validate(data)
+    errors = [e for e in caught.value.errors() if field in e["loc"]]
+    assert errors, caught.value.errors()
+    assert all(e["type"] != "extra_forbidden" for e in errors), errors
+
+
+def _load_weights_model() -> type[BaseModel]:
+    cls: type[BaseModel] = model_module.LoadWeights
+    return cls
+
+
+def _menu_entry_model() -> type[BaseModel]:
+    cls: type[BaseModel] = model_module.MenuEntry
+    return cls
+
+
+def load_weights() -> Data:
+    return {
+        "light_load": 0.6,
+        "heavy_load": 0.95,
+        "light": [
+            {"kind": "weighted_tardiness", "weight": 0.8},
+            {"kind": "total_setup", "weight": 0.2},
+        ],
+        "heavy": [
+            {"kind": "weighted_tardiness", "weight": 0.3},
+            {"kind": "total_setup", "weight": 0.7},
+        ],
+    }
+
+
+def portfolio_profile() -> Data:
+    return with_(
+        profile(),
+        menu_axes=["weighted_tardiness", "max_lateness", "total_setup"],
+        load_weights=load_weights(),
+        churn_weight=1.5,
+        workers=4,
+        default_portfolio=["edd", "atcs->tabu", "sb_wt", "a->b->c"],
+    )
+
+
+def test_profile_portfolio_defaults() -> None:
+    parsed = SchedulingProfile()
+    assert parsed.menu_axes == (ObjectiveKind.WEIGHTED_TARDINESS, ObjectiveKind.TOTAL_SETUP)
+    assert parsed.load_weights is None
+    assert parsed.churn_weight == 0
+    assert parsed.workers == 1
+    assert SchedulingProfile.model_validate(profile()).menu_axes == parsed.menu_axes
+
+
+def test_profile_full_portfolio_payload_round_trips() -> None:
+    parsed = SchedulingProfile.model_validate(portfolio_profile())
+    assert isinstance(parsed.menu_axes, tuple)
+    assert parsed.menu_axes[2] is ObjectiveKind.TOTAL_SETUP
+    assert isinstance(parsed.load_weights, _load_weights_model())
+    assert parsed.churn_weight == 1.5
+    assert parsed.workers == 4
+    assert parsed.default_portfolio == ("edd", "atcs->tabu", "sb_wt", "a->b->c")
+    assert SchedulingProfile.model_validate_json(parsed.model_dump_json()) == parsed
+
+
+@pytest.mark.parametrize(
+    "axes",
+    [
+        ["weighted_tardiness"],
+        ["weighted_tardiness", "weighted_tardiness"],
+        ["weighted_tardiness", "max_lateness", "weighted_tardiness"],
+        ["weighted_tardiness", "max_lateness", "total_setup", "makespan"],
+        [],
+        ["weighted_tardiness", "speed"],
+    ],
+)
+def test_profile_menu_axes_need_two_or_three_distinct_kinds(axes: list[str]) -> None:
+    assert_bound_rejected(with_(profile(), menu_axes=axes), "menu_axes")
+
+
+@pytest.mark.parametrize(
+    "axes",
+    [["max_lateness", "weighted_tardiness"], ["robustness", "total_setup", "cost"]],
+)
+def test_profile_menu_axes_two_or_three_distinct_accepted(axes: list[str]) -> None:
+    parsed = SchedulingProfile.model_validate(with_(profile(), menu_axes=axes))
+    assert [str(kind) for kind in parsed.menu_axes] == axes
+
+
+@pytest.mark.parametrize("weight", [-0.1, -1.0, math.inf, math.nan])
+def test_profile_churn_weight_negative_or_non_finite_rejected(weight: float) -> None:
+    assert_bound_rejected(with_(profile(), churn_weight=weight), "churn_weight")
+
+
+@pytest.mark.parametrize("weight", [0.0, 0.25, 1000.0])
+def test_profile_churn_weight_non_negative_accepted(weight: float) -> None:
+    assert SchedulingProfile.model_validate(with_(profile(), churn_weight=weight)).churn_weight == (
+        weight
+    )
+
+
+@pytest.mark.parametrize("workers", [0, -1, 17, 100, 1.5])
+def test_profile_workers_outside_1_16_or_not_int_rejected(workers: Any) -> None:
+    assert_bound_rejected(with_(profile(), workers=workers), "workers")
+
+
+@pytest.mark.parametrize("workers", [1, 2, 16])
+def test_profile_workers_inside_1_16_accepted(workers: int) -> None:
+    assert SchedulingProfile.model_validate(with_(profile(), workers=workers)).workers == workers
+
+
+@pytest.mark.parametrize(
+    "pipeline", ["baseline", "edd", "atcs->tabu", "sb_wt", "a->b->c", "atcs2->sa_1"]
+)
+def test_profile_default_portfolio_pipeline_pattern_accepted(pipeline: str) -> None:
+    parsed = SchedulingProfile.model_validate(with_(profile(), default_portfolio=[pipeline]))
+    assert parsed.default_portfolio == (pipeline,)
+
+
+@pytest.mark.parametrize(
+    "pipeline",
+    [
+        "ATCS",
+        "atcs->",
+        "->tabu",
+        "atcs->->tabu",
+        "atcs -> tabu",
+        "atcs-tabu",
+        "atcs>tabu",
+        "atcs.tabu",
+        "atcs;rm",
+        "",
+    ],
+)
+def test_profile_default_portfolio_entry_off_pattern_rejected(pipeline: str) -> None:
+    assert_rejected(
+        SchedulingProfile,
+        with_(profile(), default_portfolio=["edd", pipeline]),
+        "default_portfolio",
+    )
+
+
+def test_profile_unknown_registry_name_in_a_pipeline_is_not_checked_by_the_model() -> None:
+    parsed = SchedulingProfile.model_validate(
+        with_(profile(), default_portfolio=["no_such_solver->tabu"])
+    )
+    assert parsed.default_portfolio == ("no_such_solver->tabu",)
+
+
+def test_load_weights_defaults_thresholds() -> None:
+    payload = {k: v for k, v in load_weights().items() if k not in ("light_load", "heavy_load")}
+    parsed = _load_weights_model().model_validate(payload)
+    assert parsed.light_load == 0.6
+    assert parsed.heavy_load == 0.95
+
+
+def test_load_weights_full_payload_round_trips_with_tuples() -> None:
+    cls = _load_weights_model()
+    parsed = cls.model_validate(load_weights())
+    assert isinstance(parsed.light, tuple)
+    assert isinstance(parsed.heavy, tuple)
+    assert all(isinstance(term, WeightedTerm) for term in (*parsed.light, *parsed.heavy))
+    assert cls.model_validate_json(parsed.model_dump_json()) == parsed
+
+
+def test_load_weights_is_frozen_and_closed() -> None:
+    cls = _load_weights_model()
+    assert_rejected(cls, with_(load_weights(), bogus=1), "bogus")
+    instance = cls.model_validate(load_weights())
+    with pytest.raises(ValidationError):
+        instance.light_load = 0.1
+
+
+@pytest.mark.parametrize(("light", "heavy"), [(0.9, 0.9), (0.95, 0.6), (1.0, 0.5)])
+def test_load_weights_heavy_not_above_light_rejected(light: float, heavy: float) -> None:
+    assert_rejected(
+        _load_weights_model(), with_(load_weights(), light_load=light, heavy_load=heavy)
+    )
+
+
+@pytest.mark.parametrize("field", ["light_load", "heavy_load"])
+@pytest.mark.parametrize("value", [0.0, -0.5, math.inf, math.nan])
+def test_load_weights_threshold_not_positive_finite_rejected(field: str, value: float) -> None:
+    assert_rejected(_load_weights_model(), with_(load_weights(), **{field: value}), field)
+
+
+def test_load_weights_heavy_load_above_one_accepted() -> None:
+    parsed = _load_weights_model().model_validate(
+        with_(load_weights(), light_load=0.8, heavy_load=1.4)
+    )
+    assert parsed.heavy_load == 1.4
+
+
+@pytest.mark.parametrize(
+    "heavy",
+    [
+        [{"kind": "weighted_tardiness", "weight": 0.3}],
+        [{"kind": "total_setup", "weight": 0.7}, {"kind": "weighted_tardiness", "weight": 0.3}],
+        [{"kind": "weighted_tardiness", "weight": 0.3}, {"kind": "makespan", "weight": 0.7}],
+        [
+            {"kind": "weighted_tardiness", "weight": 0.3},
+            {"kind": "total_setup", "weight": 0.7},
+            {"kind": "makespan", "weight": 0.1},
+        ],
+    ],
+)
+def test_load_weights_light_and_heavy_need_same_kinds_in_same_order(heavy: list[Data]) -> None:
+    assert_rejected(_load_weights_model(), with_(load_weights(), heavy=heavy))
+
+
+@pytest.mark.parametrize("side", ["light", "heavy"])
+def test_load_weights_empty_term_list_rejected(side: str) -> None:
+    assert_rejected(_load_weights_model(), with_(load_weights(), light=[], heavy=[]), side)
+
+
+def test_load_weights_negative_term_weight_rejected() -> None:
+    light = [
+        {"kind": "weighted_tardiness", "weight": -0.8},
+        {"kind": "total_setup", "weight": 0.2},
+    ]
+    assert_rejected(_load_weights_model(), with_(load_weights(), light=light))
+
+
+def test_profile_bad_load_weights_rejected_at_the_field() -> None:
+    bad = with_(load_weights(), light_load=0.95, heavy_load=0.6)
+    assert_bound_rejected(with_(profile(), load_weights=bad), "load_weights")
+
+
+def test_request_with_portfolio_profile_round_trips_and_keeps_schema_version_2_0() -> None:
+    payload = with_(request(), profile=portfolio_profile())
+    parsed = SolveRequest.model_validate(payload)
+    assert SolveRequest.model_validate_json(parsed.model_dump_json()) == parsed
+    assert SCHEMA_VERSION == "2.0"
+    assert_rejected(SolveRequest, with_(payload, schema_version="2.1"), "schema_version")
+
+
+def test_request_schema_lists_the_portfolio_profile_fields() -> None:
+    schema = request_json_schema()
+    properties = schema["$defs"]["SchedulingProfile"]["properties"]
+    for name in ("menu_axes", "load_weights", "churn_weight", "workers"):
+        assert name in properties, name
+    assert "LoadWeights" in schema["$defs"]
+    assert "pattern" in json.dumps(properties["default_portfolio"])
+
+
+def menu_entry() -> Data:
+    return {
+        "candidate_id": "pareto:3",
+        "supported": False,
+        "values": {"weighted_tardiness": 110.0, "max_lateness": 30.0},
+    }
+
+
+def test_menu_entry_full_payload_validates_and_keys_values_by_kind() -> None:
+    parsed = _menu_entry_model().model_validate(menu_entry())
+    assert parsed.candidate_id == "pareto:3"
+    assert parsed.supported is False
+    assert parsed.values == {
+        ObjectiveKind.WEIGHTED_TARDINESS: 110.0,
+        ObjectiveKind.MAX_LATENESS: 30.0,
+    }
+
+
+def test_menu_entry_json_round_trip_is_identity() -> None:
+    cls = _menu_entry_model()
+    original = cls.model_validate(menu_entry())
+    assert cls.model_validate_json(original.model_dump_json()) == original
+
+
+def test_menu_entry_is_frozen_and_closed() -> None:
+    cls = _menu_entry_model()
+    assert_rejected(cls, with_(menu_entry(), bogus=1), "bogus")
+    instance = cls.model_validate(menu_entry())
+    with pytest.raises(ValidationError):
+        instance.supported = True
+
+
+def test_menu_entry_rejects_unknown_kind_non_finite_value_and_empty_id() -> None:
+    cls = _menu_entry_model()
+    assert_rejected(cls, with_(menu_entry(), values={"speed": 1.0}), "values")
+    assert_rejected(cls, with_(menu_entry(), values={"max_lateness": math.inf}), "values")
+    assert_rejected(cls, with_(menu_entry(), candidate_id=""), "candidate_id")

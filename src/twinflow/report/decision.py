@@ -131,4 +131,26 @@ def write(path: str | Path, view_model: Mapping[str, Any]) -> Path:
     return out
 
 
-__all__ = ["render", "run_view_model", "template", "write"]
+class InlineView:
+    """A decision view that a notebook shows in place. Put it last in a cell, or `display` it."""
+
+    def __init__(self, page: str, height: int) -> None:
+        self.page = page
+        self.height = height
+
+    def _repr_html_(self) -> str:
+        return (
+            f'<iframe sandbox="allow-scripts" height="{self.height}" '
+            'style="width:100%;border:0" '
+            f'srcdoc="{html.escape(self.page, quote=True)}"></iframe>'
+        )
+
+
+def show(view_model: Mapping[str, Any], height: int = 900) -> InlineView:
+    """Show a decision view inline in Jupyter: the same page `write` makes, in a frame.
+
+    The page needs no network, so it works offline. Make it the last line of a cell."""
+    return InlineView(render(view_model), height)
+
+
+__all__ = ["InlineView", "render", "run_view_model", "show", "template", "write"]

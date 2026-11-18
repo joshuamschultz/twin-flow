@@ -1,5 +1,7 @@
 # Build a twin
 
+![Blocks leaving an open box and slotting together into a molding press on an empty floor plate](../images/headers/how-to-build-a-twin.webp)
+
 This guide starts a new twin folder from a ready-made starter.
 
 ## What this does
@@ -53,6 +55,8 @@ It makes a new folder with a plant file, two rule files and a short README.
    ```
 
 ## What is in the folder
+
+![The files in a new twin folder: a README, the plant file, a policies folder with two rule files, and a runs folder that appears later](../images/diagrams/project-folder.svg)
 
 - The `.twin.yaml` file is the plant. It is named after your folder. This is the file you edit.
 - The `policies/` folder holds rules. A rule is a short file that picks what to make next. See [write a policy](write-a-policy.md).

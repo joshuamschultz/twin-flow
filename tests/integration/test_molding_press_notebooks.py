@@ -1,6 +1,6 @@
 """T-268: the two sample notebooks of the molding-press example (REQ-227).
 
-`examples/molding-press/notebooks/src/*.py` are the sources; `build_notebooks.py` turns each
+`examples/molding-press/notebooks/analyst/src/*.py` are the sources; `build_notebooks.py` turns each
 into an `.ipynb` file with no outputs. This test checks that:
 
 - every `.ipynb` file is exactly what its source makes (they cannot drift apart),
@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import re
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -23,7 +24,7 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-FOLDER = ROOT / "examples" / "molding-press" / "notebooks"
+FOLDER = ROOT / "examples" / "molding-press" / "notebooks" / "analyst"
 NAMES = ("01_long_term_policy", "02_state_information")
 
 
@@ -75,7 +76,7 @@ def test_notebook_matches_its_source(name: str) -> None:
     saved = (FOLDER / f"{name}.ipynb").read_text(encoding="utf-8")
     assert saved == builder.notebook_text(source), (
         f"{name}.ipynb is not what src/{name}.py makes. "
-        "Run: uv run python examples/molding-press/notebooks/build_notebooks.py"
+        "Run: uv run python examples/molding-press/notebooks/analyst/build_notebooks.py"
     )
 
 
@@ -118,3 +119,22 @@ def test_notebook_runs_top_to_bottom_in_fast_mode(
     monkeypatch.chdir(FOLDER)
     namespace = run_cells(name)
     assert namespace["FAST"] is True
+
+
+def _code(name: str) -> str:
+    return "\n".join(_text(c) for c in _cells(name) if c["cell_type"] == "code")
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_charts_follow_the_design_tokens(name: str) -> None:
+    """B-38: the notebook sets the twinflow theme, and no chart brings its own palette or title."""
+    code = _code(name)
+    assert "theme.apply(" in code
+    for banned in ("plotly_white", "Dark24", "qualitative"):
+        assert banned not in code, f"{name}: use twinflow.report.theme, not {banned}"
+    assert not re.search(r"\btitle=", code), "set the title with theme.question"
+    assert "theme.question(" in code, "every chart title is a question"
+
+
+def test_first_notebook_shows_the_race_view_inline() -> None:
+    assert "decision.show(" in _code("01_long_term_policy")

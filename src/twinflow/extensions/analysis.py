@@ -51,6 +51,7 @@ from twinflow.extensions.race import RaceResult, run_policy
 from twinflow.extensions.race import first_day_passed as _first_day_passed
 from twinflow.extensions.race import rank_by_day as _rank_by_day
 from twinflow.extensions.view import ModelFacts
+from twinflow.report import theme
 from twinflow.state.groups import GroupedView, Level, StockGroups
 from twinflow.state.markov import MarkovChain
 from twinflow.state.records import LEDGER_PARTS, Move, Snapshot
@@ -614,7 +615,7 @@ def markov_heatmap(chains: Mapping[str, MarkovChain]) -> go.Figure:
                 y=labels,
                 zmin=0,
                 zmax=1,
-                colorscale="Viridis",
+                colorscale=theme.sequential_scale(),
                 colorbar={"title": "chance"},
                 showscale=k == 1,
                 name=name,
@@ -628,7 +629,7 @@ def markov_heatmap(chains: Mapping[str, MarkovChain]) -> go.Figure:
             col=k,
         )
         fig.update_yaxes(autorange="reversed", row=1, col=k)
-    fig.update_layout(height=650, width=700 * max(1, len(names)), template="plotly_white")
+    fig.update_layout(height=650, width=700 * max(1, len(names)), template=theme.plotly_template())
     return fig
 
 
@@ -656,7 +657,7 @@ def markov_network(chains: Mapping[str, MarkovChain]) -> go.Figure:
                 text=list(chain.states),
                 textposition="bottom center",
                 textfont={"size": 9},
-                marker={"size": sizes, "color": "#2A9D8F", "opacity": 0.8},
+                marker={"size": sizes, "color": theme.palette().pick, "opacity": 0.8},
                 hovertext=[f"{s}: {chain.share[s]:.1%} of days" for s in chain.states],
                 hoverinfo="text",
                 name=name,
@@ -683,13 +684,13 @@ def markov_network(chains: Mapping[str, MarkovChain]) -> go.Figure:
                 showarrow=not loop,
                 arrowhead=2,
                 arrowwidth=1 + 4 * edge.prob,
-                arrowcolor="rgba(11,18,32,0.45)",
+                arrowcolor=theme.faded(theme.palette().today, 0.7),
                 standoff=8,
                 font={"size": 9},
             )
         fig.update_xaxes(visible=False, range=[-1.4, 1.4], row=1, col=k)
         fig.update_yaxes(visible=False, range=[-1.4, 1.4], row=1, col=k)
-    fig.update_layout(height=650, width=700 * max(1, len(names)), template="plotly_white")
+    fig.update_layout(height=650, width=700 * max(1, len(names)), template=theme.plotly_template())
     return fig
 
 
@@ -715,7 +716,7 @@ def inventory_grid(project: Project, moves: Sequence[Move]) -> go.Figure:
             z=np.minimum(cover, COVER_CAP_DAYS),
             x=days,
             y=products,
-            colorscale="YlGnBu",
+            colorscale=theme.sequential_scale(),
             colorbar={"title": "days of cover", "y": 0.78, "len": 0.45},
             name="days of cover",
         ),
@@ -729,7 +730,7 @@ def inventory_grid(project: Project, moves: Sequence[Move]) -> go.Figure:
             y=products,
             zmin=0,
             zmax=2,
-            colorscale=[[0, "#E76F51"], [0.5, "#E9C46A"], [1, "#2A9D8F"]],
+            colorscale=theme.level_scale(),
             colorbar={
                 "tickvals": [0, 1, 2],
                 "ticktext": ["low", "medium", "high"],
@@ -753,10 +754,10 @@ def inventory_grid(project: Project, moves: Sequence[Move]) -> go.Figure:
                     y1=1,
                     xref=f"x{axis}",
                     yref=f"y{axis} domain",
-                    line={"color": "white", "width": 1, "dash": "dash"},
+                    line={"color": theme.palette().page, "width": 1, "dash": "dash"},
                 )
     fig.update_xaxes(title_text="Day (dashed lines: the press changed product)", row=2, col=1)
-    fig.update_layout(height=700, template="plotly_white")
+    fig.update_layout(height=700, template=theme.plotly_template())
     return fig
 
 

@@ -31,7 +31,9 @@ export function RunTab({ model }: { model: string }) {
     <div>
       <div className="panel-header">
         <h2>Run</h2>
-        <span className="hint">simulate the current plan across replications</span>
+        <span className="hint">
+          simulate the current plan across replications
+        </span>
       </div>
 
       <div className="field-row card">
@@ -55,7 +57,14 @@ export function RunTab({ model }: { model: string }) {
       {error && <div className="error-banner">{error}</div>}
 
       {result && (
-        <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div
+          style={{
+            marginTop: 20,
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
           <div className="card">
             <div className="card-title">On-Time Delivery</div>
             <div className="stat-value">
@@ -68,17 +77,23 @@ export function RunTab({ model }: { model: string }) {
           <div className="card-grid">
             <div className="card">
               <div className="card-title">Run Hours</div>
-              <div className="stat-value">{result.kpis.run_hours.toFixed(1)}</div>
+              <div className="stat-value">
+                {result.kpis.run_hours.toFixed(1)}
+              </div>
             </div>
             <div className="card">
               <div className="card-title">Setup Hours</div>
-              <div className="stat-value">{result.kpis.setup_hours.toFixed(1)}</div>
+              <div className="stat-value">
+                {result.kpis.setup_hours.toFixed(1)}
+              </div>
             </div>
           </div>
 
           <div className="card">
             <div className="card-title">Utilization by Cell</div>
-            <UtilizationList utilization={result.intervals.utilization_by_cell} />
+            <UtilizationList
+              utilization={result.intervals.utilization_by_cell}
+            />
           </div>
 
           <FulfillmentCards fulfillment={result.fulfillment} />
@@ -90,7 +105,9 @@ export function RunTab({ model }: { model: string }) {
       )}
 
       {!running && !result && !error && (
-        <div className="empty-state">Run the plan to see on-time performance and utilization.</div>
+        <div className="empty-state">
+          Run the plan to see on-time performance and utilization.
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,11 @@ import type { FulfillmentKpis } from "../api";
 import { formatDuration } from "./format";
 
 /** Orders & deliveries summary for a run — fill rate, on-time %, and lateness. */
-export function FulfillmentCards({ fulfillment }: { fulfillment: FulfillmentKpis }) {
+export function FulfillmentCards({
+  fulfillment,
+}: {
+  fulfillment: FulfillmentKpis;
+}) {
   const earlyOrLate = fulfillment.avg_delivery_lateness <= 0 ? "early" : "late";
 
   return (
@@ -15,8 +19,8 @@ export function FulfillmentCards({ fulfillment }: { fulfillment: FulfillmentKpis
             <span className="unit">% fill rate</span>
           </div>
           <div className="footnote">
-            {fulfillment.delivered} delivered · {fulfillment.backordered} backordered · {fulfillment.orders}{" "}
-            total
+            {fulfillment.delivered} delivered · {fulfillment.backordered}{" "}
+            backordered · {fulfillment.orders} total
           </div>
         </div>
         <div>
@@ -24,13 +28,17 @@ export function FulfillmentCards({ fulfillment }: { fulfillment: FulfillmentKpis
             {fulfillment.on_time_delivery_pct.toFixed(1)}
             <span className="unit">% on time</span>
           </div>
-          <div className="footnote">{fulfillment.on_time_deliveries} of delivered orders</div>
+          <div className="footnote">
+            {fulfillment.on_time_deliveries} of delivered orders
+          </div>
         </div>
         <div>
           <div className="stat-value" style={{ fontSize: 22 }}>
             {formatDuration(fulfillment.avg_delivery_lateness)}
           </div>
-          <div className="footnote">avg delivery lateness, {earlyOrLate} on average</div>
+          <div className="footnote">
+            avg delivery lateness, {earlyOrLate} on average
+          </div>
         </div>
       </div>
     </div>

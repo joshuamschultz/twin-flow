@@ -1,5 +1,7 @@
 # Data contracts
 
+![Blank table sheets moving along a line into a glass cube and leaving as stacked tiles](images/headers/data.webp)
+
 Every piece of data that goes into twinflow or comes out of it, with a real example of
 each. If you are wiring twinflow to another system, this is the page you need.
 

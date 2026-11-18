@@ -26,6 +26,7 @@ from mutations import (
     drop,
     join_batch,
     move_to_machine,
+    remove_warmup,
     replace,
     reversed_order,
     shift,
@@ -46,6 +47,8 @@ from twinflow.scheduling.model import (
     FrozenZone,
     HoldOverride,
     Job,
+    Lexicographic,
+    LexicographicLevel,
     LockOverride,
     Machine,
     MachineState,
@@ -67,6 +70,7 @@ from twinflow.scheduling.model import (
     VerificationResult,
     WorkCenter,
 )
+from twinflow.scheduling.objectives import evaluate
 from twinflow.scheduling.overrides import apply_overrides
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -485,6 +489,91 @@ def _overrides_honored() -> Case:
     return Case(_compile(problem, overrides), schedule, overrides)
 
 
+RESTART = {"idle_threshold_seconds": 10.0, "warmup_seconds": 4.0}
+WARMUP = 4.0
+
+
+def _restart_machine(machine_id: str = "R", **fields: Any) -> Machine:
+    """A machine with restart threshold 10 s and warm-up 4 s (D-074)."""
+    return _machine(machine_id, restart=RESTART, **fields)
+
+
+def _restart() -> Case:
+    """R: setup 2, threshold 10, warm-up 4. a first at now; b after an idle of exactly 10 s
+    (no warm-up); c after an idle of 11 s (setup phase 2 + 4)."""
+    problem = _problem(
+        [_job("J1", _op("a", "R")), _job("J2", _op("b", "R")), _job("J3", _op("c", "R"))],
+        [_restart_machine(setup_function_id=SETUP_2.id)],
+        setup_functions=(SETUP_2,),
+    )
+    schedule = _schedule(_a("a", "R", 0, 2, 7), _a("b", "R", 17, 19, 24), _a("c", "R", 35, 41, 46))
+    return Case(_compile(problem), schedule)
+
+
+def _restart_first() -> Case:
+    """now 0, R available from 20: the first op's idle is measured from 20; 31 - 20 > 10."""
+    problem = _problem(
+        [_job("J1", _op("a", "R"))],
+        [_restart_machine(state=MachineState(available_from=20.0))],
+    )
+    return Case(_compile(problem), _schedule(_a("a", "R", 31, 35, 40)))
+
+
+def _restart_batch_op(op_id: str, quantity: float) -> Operation:
+    return Operation(
+        id=op_id,
+        work_center_id=WC,
+        quantity=quantity,
+        options=(_option("O", fixed=20.0, unit=0.0),),
+        batch_family="F",
+    )
+
+
+def _restart_batch() -> Case:
+    """Oven O (10 kg, threshold 10, warm-up 4). b1 = a1 + a2 at 0; b2 = a3 + a4 at 40 after an
+    idle of 20 s: the batch pays the warm-up once, so both members have a 4 s setup phase."""
+    problem = _problem(
+        [
+            _job("J1", _restart_batch_op("a1", 4)),
+            _job("J2", _restart_batch_op("a2", 5)),
+            _job("J3", _restart_batch_op("a3", 3)),
+            _job("J4", _restart_batch_op("a4", 3)),
+        ],
+        [_restart_machine("O", batch=BatchCapacity(capacity=10, unit="kg"))],
+    )
+    schedule = _schedule(
+        _a("a1", "O", 0, 0, 20, "b1"),
+        _a("a2", "O", 0, 0, 20, "b1"),
+        _a("a3", "O", 40, 44, 64, "b2"),
+        _a("a4", "O", 40, 44, 64, "b2"),
+    )
+    return Case(_compile(problem), schedule)
+
+
+def _restart_in_progress() -> Case:
+    """now 100; x runs on R until 104 (in progress). y starts at 112: idle 8 from x's end, so
+    no warm-up (measured from now it would be 12 and need one)."""
+    status = {"state": "in_progress", "machine_id": "R", "remaining_seconds": 4}
+    problem = _problem(
+        [_job("J1", _op("x", "R", seconds=9, status=status)), _job("J2", _op("y", "R"))],
+        [_restart_machine()],
+        now=100.0,
+    )
+    schedule = _schedule(_a("x", "R", 100, 100, 104), _a("y", "R", 112, 112, 117))
+    return Case(_compile(problem), schedule)
+
+
+def _restart_across_break() -> Case:
+    """R works [0, 10) and [30, 50) (forbid). Idle is wall-clock: b at 30 after a ends at 5
+    idled 25 s, so it needs the warm-up even though the break is not working time."""
+    problem = _problem(
+        [_job("J1", _op("a", "R")), _job("J2", _op("b", "R"))],
+        [_restart_machine(calendar_id="cal")],
+        calendars=(Calendar(id="cal", intervals=((0, 10), (30, 50))),),
+    )
+    return Case(_compile(problem), _schedule(_a("a", "R", 0, 0, 5), _a("b", "R", 30, 34, 39)))
+
+
 CASES: dict[str, Callable[[], Case]] = {
     "pinedo_7_1_1": _pinedo_7_1_1,
     "pinedo_14_2_1": _pinedo_14_2_1,
@@ -508,6 +597,11 @@ CASES: dict[str, Callable[[], Case]] = {
     "held_status": _held_status,
     "split": _split,
     "overrides_honored": _overrides_honored,
+    "restart": _restart,
+    "restart_first": _restart_first,
+    "restart_batch": _restart_batch,
+    "restart_in_progress": _restart_in_progress,
+    "restart_across_break": _restart_across_break,
 }
 
 
@@ -803,6 +897,38 @@ MUTATIONS = [
         "in_progress",
         "x",
         id="in-progress-machine",
+    ),
+    # restart (D-074): a missing warm-up is `restart`, never `setup`
+    pytest.param(
+        "restart", lambda s: remove_warmup(s, "c", WARMUP), "restart", "c", id="restart-missing"
+    ),
+    pytest.param(
+        "restart_first",
+        lambda s: remove_warmup(s, "a", WARMUP),
+        "restart",
+        "a",
+        id="restart-first-missing",
+    ),
+    pytest.param(
+        "restart_batch",
+        lambda s: remove_warmup(s, "a3", WARMUP),
+        "restart",
+        "a3",
+        id="restart-batch-missing",
+    ),
+    pytest.param(
+        "restart_across_break",
+        lambda s: remove_warmup(s, "b", WARMUP),
+        "restart",
+        "b",
+        id="restart-across-break-missing",
+    ),
+    pytest.param(
+        "restart_in_progress",
+        lambda s: shift(s, "y", 4),
+        "restart",
+        "y",
+        id="restart-after-in-progress",
     ),
     # objective
     pytest.param(
@@ -1168,6 +1294,33 @@ def test_verify_primary_value_is_read_from_the_compiled_profile_objective() -> N
     assert _codes(result) == {"objective_mismatch"}
 
 
+def test_verify_churn_primary_value_is_evaluated_against_the_previous_plan() -> None:
+    case = _pinedo_7_1_1()
+    moved = case.schedule.assignments[0]
+    previous = PreviousPlan(
+        plan_id="p0",
+        problem_digest="d0",
+        assignments=tuple(
+            PreviousAssignment(
+                operation_id=a.operation_id,
+                machine_id=a.machine_id,
+                start=a.start + (100.0 if a is moved else 0.0),
+            )
+            for a in case.schedule.assignments
+        ),
+    )
+    churn = Lexicographic(levels=(LexicographicLevel(kind=ObjectiveKind.CHURN),))
+    compiled = case.compiled.model_copy(
+        update={"profile": case.compiled.profile.model_copy(update={"objective": churn})}
+    )
+    value = evaluate(compiled, case.schedule, previous)[ObjectiveKind.CHURN]
+    assert value > 0
+
+    result = verifier.verify(compiled, (), with_primary(case.schedule, value), previous)
+
+    assert result.valid, result.issues
+
+
 def test_verify_without_primary_value_skips_the_objective_check() -> None:
     case = _pinedo_7_1_1()
 
@@ -1202,3 +1355,134 @@ def test_verifier_imports_only_model_setups_objectives_and_calendar_math() -> No
     imported = _twinflow_imports(ast.parse(Path(verifier.__file__).read_text()))
 
     assert imported <= allowed, imported - allowed
+
+
+# --- restart rule (T-116, D-074, REQ-107) -----------------------------------------------------
+
+
+def _restart_pair() -> Case:
+    """a on R [0, 2, 7) (setup 2, first at now); b's placement is set by each test."""
+    problem = _problem(
+        [_job("J1", _op("a", "R")), _job("J2", _op("b", "R"))],
+        [_restart_machine(setup_function_id=SETUP_2.id)],
+        setup_functions=(SETUP_2,),
+    )
+    return Case(_compile(problem), _schedule())
+
+
+def _b_after_idle(idle: float, *, warm: bool) -> Schedule:
+    start = 7.0 + idle
+    setup = 2.0 + (WARMUP if warm else 0.0)
+    return _schedule(_a("a", "R", 0, 2, 7), _a("b", "R", start, start + setup, start + setup + 5))
+
+
+@pytest.mark.parametrize(
+    ("idle", "warm"),
+    [(0.0, False), (9.5, False), (10.0, False), (10.5, True), (60.0, True)],
+)
+def test_verify_restart_warmup_only_when_idle_is_strictly_longer_than_threshold(
+    idle: float, warm: bool
+) -> None:
+    result = _check(_restart_pair(), _b_after_idle(idle, warm=warm))
+
+    assert result.valid, result.issues
+
+
+def test_verify_restart_missing_warmup_after_long_idle_is_restart_not_setup() -> None:
+    issues = _only(_check(_restart_pair(), _b_after_idle(10.5, warm=False)), "restart")
+
+    assert _names(issues, "b")
+
+
+def test_verify_restart_warmup_at_idle_equal_to_threshold_is_rejected() -> None:
+    result = _check(_restart_pair(), _b_after_idle(10.0, warm=True))
+
+    assert not result.valid
+    assert _codes(result) <= {"setup", "restart"}, result.issues
+
+
+@pytest.mark.parametrize(
+    ("now", "available_from", "start", "warm"),
+    [
+        (0.0, 20.0, 30.0, False),  # idle 10 from available_from: no warm-up
+        (0.0, 20.0, 31.0, True),  # idle 11 from available_from
+        (0.0, 20.0, 25.0, False),  # 25 s after now, but only 5 s after available_from
+        (50.0, 20.0, 60.0, False),  # idle 10 from now
+        (50.0, 20.0, 61.0, True),  # idle 11 from now
+        (50.0, 20.0, 55.0, False),  # 35 s after available_from, but only 5 s after now
+    ],
+)
+def test_verify_restart_first_op_idle_is_measured_from_max_now_available_from(
+    now: float, available_from: float, start: float, warm: bool
+) -> None:
+    problem = _problem(
+        [_job("J1", _op("a", "R"))],
+        [_restart_machine(state=MachineState(available_from=available_from))],
+        now=now,
+    )
+    setup = WARMUP if warm else 0.0
+    schedule = _schedule(_a("a", "R", start, start + setup, start + setup + 5))
+    case = Case(_compile(problem), schedule)
+
+    assert _check(case).valid, _check(case).issues
+    if warm:
+        _only(_check(case, remove_warmup(schedule, "a", WARMUP)), "restart")
+
+
+def test_verify_restart_batch_paying_the_warmup_twice_is_rejected() -> None:
+    case = _restart_batch()
+    twice = replace(
+        replace(case.schedule, "a3", setup_end=48.0, end=68.0), "a4", setup_end=48.0, end=68.0
+    )
+
+    result = _check(case, twice)
+
+    assert not result.valid
+    assert _codes(result) <= {"setup", "restart"}, result.issues
+
+
+def test_verify_restart_batch_without_warmup_reports_every_member() -> None:
+    case = _restart_batch()
+
+    issues = _only(_check(case, remove_warmup(case.schedule, "a3", WARMUP)), "restart")
+
+    assert _names(issues, "a3")
+    assert _names(issues, "a4")
+
+
+def test_verify_restart_pending_op_right_after_in_progress_op_is_not_idle() -> None:
+    case = _restart_in_progress()
+    right_after = replace(case.schedule, "y", start=104.0, setup_end=104.0, end=109.0)
+
+    assert _check(case, right_after).valid
+
+
+def test_verify_machine_without_restart_rule_never_needs_a_warmup() -> None:
+    problem = _problem([_job("J1", _op("a", "A")), _job("J2", _op("b", "A"))], [_machine("A")])
+    case = Case(_compile(problem), _schedule(_a("a", "A", 0, 0, 5), _a("b", "A", 500, 500, 505)))
+
+    assert _check(case).valid
+
+
+# --- calendar fit within float noise (review item 6) -----------------------------------------
+
+
+def test_verify_forbid_op_ending_a_few_ulps_past_its_interval_end_is_valid() -> None:
+    """fixed 0.1 + unit 0.2 gives end 0.30000000000000004 on [0, 0.3); the true end is 0.3.
+
+    The module contract says every time comparison allows TOLERANCE; the calendar check must
+    too, or a schedule that fits exactly is rejected for float noise.
+    """
+    op = Operation(
+        id="a", work_center_id=WC, quantity=1.0, options=(_option("A", fixed=0.1, unit=0.2),)
+    )
+    problem = _problem(
+        [_job("J1", op)],
+        [_machine("A", calendar_id="cal")],
+        calendars=(Calendar(id="cal", intervals=((0.0, 0.3),)),),
+    )
+    run = 0.1 + 1.0 * 0.2
+    case = Case(_compile(problem), _schedule(_a("a", "A", 0.0, 0.0, 0.0 + run)))
+
+    assert run > 0.3
+    assert _check(case).valid, _check(case).issues

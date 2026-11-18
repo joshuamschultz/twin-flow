@@ -1,4 +1,5 @@
 // B-27: the run viewer in the offline file (DESIGN.md section 4).
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -58,7 +59,7 @@ test("orders are sorted by late chance and every pill carries words", async ({
     "It waits in line at the shaft mill.",
   );
   await expect(
-    rows.nth(0).getByRole("img", { name: /^WO-9: released at 20 min/ }),
+    rows.nth(0).getByRole("button", { name: /^WO-9: released at 20 min/ }),
   ).toBeVisible();
 });
 
@@ -92,12 +93,44 @@ test("the choke flow marks the shaft mill and the bracket mill", async ({
 }) => {
   await open(page, golden(), "run.html");
   const flow = page.locator("#choke");
-  await expect(flow.getByLabel("Mill: busy 99%, choke point")).toBeVisible();
-  await expect(flow.getByLabel("Mill: busy 83%, next to choke")).toBeVisible();
+  const choke = flow.locator(".rv-stepcard.rv-choke");
+  await expect(choke).toHaveCount(1);
+  await expect(choke).toContainText("Mill");
+  await expect(choke).toContainText("99%");
+  await expect(choke).toContainText("Choke point");
+  await expect(flow.locator(".rv-stepcard.rv-next")).toContainText("83%");
   await expect(flow).toContainText(
     "The shaft mill is the choke point. It is busy 99% of the time.",
   );
+  await flow.getByRole("button", { name: "Show as table" }).click();
+  await expect(
+    flow.getByRole("table", { name: "How busy each step is" }),
+  ).toContainText("Choke point");
 });
+
+test("the order list can show as a table with the same numbers", async ({
+  page,
+}) => {
+  await open(page, golden(), "run.html");
+  const orders = page.locator("#orders");
+  await orders.getByRole("button", { name: "Show as table" }).click();
+  const table = orders.getByRole("table", { name: "Every order in numbers" });
+  await expect(table.locator("tbody tr")).toHaveCount(10);
+  await expect(table.locator("tbody tr").first()).toContainText("WO-9");
+});
+
+for (const theme of ["light", "dark"]) {
+  test(`no accessibility failures, ${theme}`, async ({ page }) => {
+    await open(page, golden(), `run-axe-${theme}.html`, `?theme=${theme}`);
+    await page.getByRole("button", { name: /^WO-9/ }).click();
+    const result = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa"])
+      .analyze();
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual(
+      [],
+    );
+  });
+}
 
 test("the best fix comes first with a best tag", async ({ page }) => {
   await open(page, golden(), "run.html");
@@ -151,7 +184,7 @@ test("one test run: no late chance, the hero says so with the command", async ({
   await expect(page.locator("#answer")).toContainText(
     "of orders on time in this one test run.",
   );
-  await expect(page.locator(".rv-status").first()).toHaveText("Late");
+  await expect(page.locator(".tf-status").first()).toHaveText("Late");
 });
 
 test("no due dates: the risk list becomes a plain note", async ({ page }) => {
@@ -180,7 +213,7 @@ test("unfinished orders show a firm banner and a Not done pill", async ({
   await open(page, m, "run-unfinished.html");
   await expect(page.getByRole("status")).toContainText("did not finish");
   await expect(
-    page.getByRole("listitem").first().locator(".rv-status"),
+    page.getByRole("listitem").first().locator(".tf-status"),
   ).toHaveText("Not done");
 });
 

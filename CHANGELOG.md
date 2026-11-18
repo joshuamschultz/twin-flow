@@ -41,6 +41,18 @@ All notable changes to twinflow are recorded here. The format follows
   every answer, and the baseline plus CP-SAT (`makespan`, `max_lateness`) run behind
   one `Solver` seam. Pinedo Examples 7.1.1 (makespan 28) and 14.2.1 (weighted tardiness
   98) are known-optimum fixtures. See the [RM-06 spec](docs/enterprise/rm-06/SPEC.md).
+- Scheduling algorithm library in `twinflow.scheduling.algorithms`, found by a registry
+  (`available_solvers`, `get_solver`): ten dispatch rules, ATC and ATCS, GT active,
+  forward and backward loading, shifting bottleneck (`sb_makespan`, `sb_wt`), the
+  five-phase flexible line, rolling horizon, tabu search, simulated annealing, filtered
+  beam search, and CP-SAT for every objective. `solve_portfolio` runs pipelines
+  (`atcs->tabu`) and returns a Pareto menu with supported and unsupported points, load
+  dependent weights and a recommendation. Reactive methods `rush_insert` (with due date
+  relaxation) and `reschedule` (counts churn), a K-table for ATCS (`twinflow.scheduling.learning`),
+  and the planning functions `get_pareto_menu`, `resolve_with_overrides` and
+  `insert_rush_order`. Quality gates: each method beats FIFO, EDD and SPT on 30 held-out
+  instances, and a 1,500-seed contract fuzz covers every solver. See the
+  [RM-06 spec](docs/enterprise/rm-06/SPEC.md).
 
 - ERP planning (TF-005): the canonical ERP snapshot contract `twinflow.erp/1`
   ([ERP schema](docs/enterprise/ERP-SCHEMA.md), shipped `erp.schema.json`), a snapshot
@@ -104,6 +116,15 @@ All notable changes to twinflow are recorded here. The format follows
 
 ### Changed
 
+- **Breaking:** solver seam v3. `SolveContext` and `Feature` live in
+  `twinflow.scheduling.seam`, and `Solver.solve(problem, *, objective, budget_seconds,
+  context)` takes a context. CP-SAT moved to `twinflow.scheduling.algorithms.cpsat` and is
+  built with `get_solver("ortools")`. The facade no longer exports `ORToolsSolver`, and
+  `OptionalDependencyError` is in `twinflow.scheduling.seam`.
+- The `restart` feature is supported by the baseline and CP-SAT. A split override now remaps
+  links from other jobs to every child (there is no `split_overlap_link` refusal). The
+  verifier evaluates `churn` with the previous plan, so a churn primary objective no longer
+  fails as `objective_mismatch`.
 - **Breaking:** `POST /api/workspace/schedules`, the SDK `schedule`, the MCP
   `schedule_operations` tool and `twinflow schedule` take a v2 `SolveRequest`
   (`schema_version "2.0"`). Version 1 `problem` bodies are rejected with a 422. Schedule

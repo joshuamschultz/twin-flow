@@ -1,5 +1,7 @@
 # Test orders
 
+![A queue of crates moving through two machining centers toward a finish gate](../images/headers/how-to-test-orders.webp)
+
 This guide runs a shop's work orders and reads the results. You check finish dates and the on-time percent.
 
 ## What this does

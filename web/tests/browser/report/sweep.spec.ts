@@ -1,4 +1,5 @@
 // B-35: the sweep view in the offline file.
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -43,5 +44,21 @@ for (const theme of ["light", "dark"]) {
       path: join(SCREENS, `sweep-1280-${theme}.png`),
       fullPage: true,
     });
+  });
+}
+
+for (const theme of ["light", "dark"]) {
+  test(`sweep has no accessibility failures, ${theme}`, async ({ page }) => {
+    await page.goto(
+      pathToFileURL(fillTemplate(readJson(GOLDEN), `sweep-axe-${theme}.html`))
+        .href + `?theme=${theme}`,
+    );
+    await expect(page.locator("[data-view='sweep']")).toBeVisible();
+    const result = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa"])
+      .analyze();
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual(
+      [],
+    );
   });
 }
