@@ -1,5 +1,6 @@
 import "./details.css";
-import { plural, ruleLabel } from "./detailsFormat";
+import { Card } from "./primitives";
+import { plural, ruleLabel } from "./settings";
 import type { Problem, Warning } from "./types";
 
 /** Rules that could not run, and warnings about the race (DESIGN.md 3.12). */
@@ -12,17 +13,14 @@ export function ProblemList({
   warnings: Warning[];
   policies?: ReadonlyArray<{ policy: string; label: string }>;
 }) {
+  const sub =
+    problems.length === 0
+      ? "No problems were found in this race."
+      : `${problems.length} ${plural(problems.length, "rule", "rules")} could not run. They are left out of the charts.`;
   return (
-    <div className="tf-card" data-testid="problem-list">
-      <h3>Problems</h3>
-      {problems.length === 0 ? (
-        <p className="tf-sub">No problems were found in this race.</p>
-      ) : (
-        <>
-          <p className="tf-sub">
-            {problems.length} {plural(problems.length, "rule", "rules")} could
-            not run. They are left out of the charts.
-          </p>
+    <Card question="Problems" sub={sub}>
+      <div data-testid="problem-list">
+        {problems.length > 0 && (
           <ul className="tf-det-list">
             {problems.map((p, i) => (
               <li key={i} className="tf-det-problem">
@@ -41,21 +39,21 @@ export function ProblemList({
               </li>
             ))}
           </ul>
-        </>
-      )}
-      {warnings.length > 0 && (
-        <>
-          <h3 className="tf-det-sub">Things to know</h3>
-          <ul className="tf-det-list">
-            {warnings.map((w, i) => (
-              <li key={i} className="tf-det-problem">
-                <div>{w.text}</div>
-                <div>Fix: {w.fix}</div>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
+        )}
+        {warnings.length > 0 && (
+          <>
+            <h3 className="tf-det-sub">Things to know</h3>
+            <ul className="tf-det-list">
+              {warnings.map((w, i) => (
+                <li key={i} className="tf-det-problem">
+                  <div>{w.text}</div>
+                  <div>Fix: {w.fix}</div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </Card>
   );
 }

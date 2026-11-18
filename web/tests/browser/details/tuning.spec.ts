@@ -21,7 +21,7 @@ test("the curve marks the chosen setting and has an accessible name", async ({
     "c=tuning-curve&policy=family_campaign",
     loadModel(),
   );
-  const chart = page.getByRole("img", {
+  const chart = page.getByRole("group", {
     name: /Profit per run for each target days/,
   });
   await expect(chart).toBeVisible();
@@ -38,7 +38,7 @@ test("the table view shows the same numbers as the chart", async ({ page }) => {
   await openFixture(page, url, "c=tuning-curve&policy=family_campaign", model);
   await page.getByRole("button", { name: "Show as table" }).click();
   const rows = page
-    .getByRole("region", { name: "Settings tried, as a table" })
+    .getByRole("table", { name: "Settings tried" })
     .locator("tbody tr");
   const trials = model.tuning.find(
     (t: { policy: string }) => t.policy === "family_campaign",
@@ -63,7 +63,7 @@ test("a hover opens a tooltip with the setting and the profit", async ({
     loadModel(),
   );
   await page.locator("circle.tf-tune-dot").nth(1).hover();
-  await expect(page.locator(".tf-tune-tip")).toHaveText(
+  await expect(page.locator(".tf-tip")).toHaveText(
     "target days 8: $65,505 per run",
   );
 });
@@ -91,9 +91,9 @@ test("the table lists every rule with a touchy or steady pill from the model", a
   const touchy = model.tuning.filter(
     (t: { touchy: boolean }) => t.touchy,
   ).length;
-  await expect(page.locator(".tf-pill.is-touchy")).toHaveCount(touchy);
-  await expect(page.locator(".tf-pill.is-touchy").first()).toHaveText("touchy");
-  await expect(page.locator(".tf-tag-pick")).toHaveCount(1);
+  await expect(page.locator(".tf-pill.tf-l")).toHaveCount(touchy);
+  await expect(page.locator(".tf-pill.tf-l").first()).toHaveText("touchy");
+  await expect(page.locator(".tf-tag.tf-pick")).toHaveCount(1);
 });
 
 test("the section changes its chart when a rule is picked", async ({
@@ -103,14 +103,14 @@ test("the section changes its chart when a rule is picked", async ({
   await expect(
     page.getByRole("heading", { name: "Did each rule get a fair try?" }),
   ).toBeVisible();
-  await expect(page.getByTestId("tuning-takeaway")).toContainText(
+  await expect(page.locator("#tuning .tf-takeaway")).toContainText(
     "Target days 16 gave the most profit",
   );
   await page.getByRole("button", { name: "Lowest cover" }).click();
   await expect(
     page.getByRole("heading", { level: 3, name: /Lowest cover/ }),
   ).toBeVisible();
-  await expect(page.getByTestId("tuning-takeaway")).toContainText(
+  await expect(page.locator("#tuning .tf-takeaway")).toContainText(
     "Stop days 10 gave the most profit",
   );
 });
@@ -121,9 +121,7 @@ test("the section shows a dashed box when nothing was tuned", async ({
   const model = loadModel();
   model.tuning = [];
   await openFixture(page, url, "c=tuning", model);
-  await expect(page.getByTestId("tuning-none")).toContainText(
-    "nothing was tuned",
-  );
+  await expect(page.getByText("nothing was tuned")).toBeVisible();
 });
 
 for (const theme of ["light", "dark"]) {
@@ -173,4 +171,17 @@ test("screenshot two-setting small multiples", async ({ page }) => {
   );
   await page.waitForTimeout(150);
   await page.screenshot({ path: `${SCREENS}tuning-multiples-1280.png` });
+});
+
+test("a tooltip opens on keyboard focus", async ({ page }) => {
+  await openFixture(
+    page,
+    url,
+    "c=tuning-curve&policy=family_campaign",
+    loadModel(),
+  );
+  await page.locator("circle.tf-tune-dot").nth(3).focus();
+  await expect(page.locator(".tf-tip")).toContainText(
+    "target days 16: $67,186 per run",
+  );
 });

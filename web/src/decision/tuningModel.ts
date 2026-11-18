@@ -1,11 +1,6 @@
 // Pure helpers behind TuningCurve and TuningTable (DESIGN.md 3.10).
 // The model decides "touchy" and writes the sentence. Nothing is recomputed here.
-import {
-  ruleLabel,
-  settingName,
-  settingText,
-  settingValue,
-} from "./detailsFormat";
+import { ruleLabel, settingName, settingText, settingValue } from "./settings";
 import type { RaceViewModel, Settings, Trial, Tuning } from "./types";
 
 export type CurvePoint = {

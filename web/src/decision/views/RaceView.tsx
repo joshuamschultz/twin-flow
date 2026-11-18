@@ -1,11 +1,13 @@
 // The race view (DESIGN.md section 3). This build has the decision, the cautions, why it
 // wins and all rules. The explore sections come in the next builds (BUILD-PLAN phase C).
 import { CautionCards } from "../CautionCards";
+import { Details } from "../Details";
 import { GapLine } from "../GapLine";
 import { DecisionHero } from "../hero";
 import { Leaderboard } from "../Leaderboard";
+import { TuningView } from "../TuningView";
 import { Page, type SectionRef } from "../Page";
-import { Card, EmptyState, Section, SectionLink } from "../primitives";
+import { Card, Section, SectionLink } from "../primitives";
 import {
   beatToday,
   gapSeries,
@@ -20,22 +22,14 @@ const SECTIONS: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "why", label: "Why it wins" },
   { id: "rules", label: "All rules" },
+  { id: "tuning", label: "Tuning" },
   { id: "details", label: "Details" },
 ];
 const NO_COMPARE: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "rules", label: "All rules" },
+  { id: "tuning", label: "Tuning" },
   { id: "details", label: "Details" },
-];
-
-const COMING = [
-  "Compare two rules side by side",
-  "What if my costs are different",
-  "Floor replay, day by day",
-  "State map",
-  "Money leaks",
-  "Tuning",
-  "Full tables, method note and downloads",
 ];
 
 function ProblemsBar({ model }: { model: RaceViewModel }) {
@@ -155,28 +149,8 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             />
           </Card>
         </Section>
-        <Section id="details" eyebrow="Details" question="The full numbers">
-          <EmptyState
-            title="More of this report is on the way."
-            body={
-              <>
-                <p>
-                  This build shows the decision, the cautions, why it wins and
-                  all rules. The next builds add:
-                </p>
-                <ul>
-                  {COMING.map((c) => (
-                    <li key={c}>{c}</li>
-                  ))}
-                </ul>
-                <p style={{ marginTop: 8 }}>
-                  Until then, the full numbers are in race.json next to this
-                  file.
-                </p>
-              </>
-            }
-          />
-        </Section>
+        <TuningView model={model} />
+        <Details model={model} />
       </div>
     </Page>
   );

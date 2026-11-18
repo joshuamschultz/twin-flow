@@ -1,22 +1,16 @@
-import { useState } from "react";
 import "./details.css";
-import {
-  fmtMoney,
-  fmtMoneyShort,
-  settingText,
-  shortValue,
-} from "./detailsFormat";
-import type { CurvePanel, CurvePoint, CurveSpec } from "./tuningModel";
+import { ChartFrame } from "./ChartFrame";
+import { usd, usdCompact } from "./format";
+import { settingText, shortValue } from "./settings";
+import { useTipProps } from "./Tooltip";
+import type { CurvePanel, CurveSpec } from "./tuningModel";
 import { curveSpec } from "./tuningModel";
 import type { Tuning } from "./types";
-import { useElementWidth } from "./useElementWidth";
 
 const PAD = { l: 52, r: 18, t: 26, b: 30 };
 
-type Hover = { x: number; y: number; text: string } | null;
-
-function thinBy(points: CurvePoint[], spacing: number): number {
-  const longest = Math.max(...points.map((p) => shortValue(p.label).length), 1);
+function thinBy(labels: string[], spacing: number): number {
+  const longest = Math.max(...labels.map((l) => shortValue(l).length), 1);
   return Math.max(1, Math.ceil((longest * 7 + 10) / Math.max(spacing, 1)));
 }
 
@@ -33,7 +27,7 @@ function Panel({
   height: number;
   showY: boolean;
 }) {
-  const [hover, onHover] = useState<Hover>(null);
+  const tip = useTipProps();
   const left = PAD.l;
   const inner = Math.max(width - left - PAD.r, 10);
   const n = panel.points.length;
@@ -41,64 +35,53 @@ function Panel({
   const y = (v: number) =>
     PAD.t +
     (1 - (v - spec.yMin) / (spec.yMax - spec.yMin)) * (height - PAD.t - PAD.b);
-  const every = thinBy(panel.points, n < 2 ? inner : inner / (n - 1));
+  const every = thinBy(
+    panel.points.map((p) => p.label),
+    n < 2 ? inner : inner / (n - 1),
+  );
   const path = panel.points
     .map((p, i) => `${i ? "L" : "M"}${x(i)} ${y(p.dollars as number)}`)
     .join("");
   return (
-    <div className="tf-tune-svgbox">
-      <svg
-        className="tf-tune-svg"
-        width={width}
-        height={height}
-        aria-hidden="true"
-        focusable="false"
-      >
-        {spec.ticks.map((t) => (
-          <g key={t}>
-            <line
-              x1={left}
-              x2={width - PAD.r}
-              y1={y(t)}
-              y2={y(t)}
-              className="tf-tune-grid"
-            />
-            {showY && (
-              <text
-                x={left - 8}
-                y={y(t) + 4}
-                textAnchor="end"
-                className="tf-tune-axis"
-              >
-                {fmtMoneyShort(t)}
-              </text>
-            )}
-          </g>
-        ))}
-        <path d={path} className="tf-tune-line" />
-        {panel.points.map((p, i) => (
+    <svg className="tf-tune-svg" width={width} height={height}>
+      {spec.ticks.map((t) => (
+        <g key={t}>
+          <line
+            x1={left}
+            x2={width - PAD.r}
+            y1={y(t)}
+            y2={y(t)}
+            className="tf-tune-grid"
+          />
+          {showY && (
+            <text x={left - 8} y={y(t) + 4} textAnchor="end" className="tf-m">
+              {usdCompact(t)}
+            </text>
+          )}
+        </g>
+      ))}
+      <path d={path} className="tf-tune-line" />
+      {panel.points.map((p, i) => {
+        const text = `${settingText(p.settings)}: ${usd(p.dollars as number)} per run`;
+        return (
           <g key={`${p.label}-${i}`}>
             <circle
               cx={x(i)}
               cy={y(p.dollars as number)}
               r={p.chosen ? 6 : 4.5}
-              className={p.chosen ? "tf-tune-dot is-chosen" : "tf-tune-dot"}
+              className={"tf-hit tf-tune-dot" + (p.chosen ? " tf-chosen" : "")}
               data-chosen={p.chosen ? "true" : undefined}
-              onPointerEnter={() =>
-                onHover({
-                  x: x(i),
-                  y: y(p.dollars as number),
-                  text: `${settingText(p.settings)}: ${fmtMoney(p.dollars as number)} per run`,
-                })
-              }
-              onPointerLeave={() => onHover(null)}
+              tabIndex={0}
+              role="img"
+              aria-label={text + (p.chosen ? ". Chosen." : "")}
+              {...tip(text)}
             />
             {(i % every === 0 || p.chosen) && (
               <text
                 x={x(i)}
                 y={height - 10}
                 textAnchor="middle"
-                className="tf-tune-axis"
+                className="tf-m"
               >
                 {shortValue(p.label)}
               </text>
@@ -108,64 +91,38 @@ function Panel({
                 x={x(i)}
                 y={y(p.dollars as number) - 12}
                 textAnchor="middle"
-                className="tf-tune-strong"
+                className="tf-strong"
               >
-                Chosen: {fmtMoney(p.dollars as number)}
+                Chosen: {usd(p.dollars as number)}
               </text>
             )}
           </g>
-        ))}
-      </svg>
-      {hover && (
-        <div
-          className="tf-tune-tip"
-          style={{ left: hover.x, top: hover.y }}
-          role="presentation"
-        >
-          {hover.text}
-        </div>
-      )}
-    </div>
+        );
+      })}
+    </svg>
   );
 }
 
-function TableView({ spec, tuning }: { spec: CurveSpec; tuning: Tuning }) {
-  const rows = [...spec.panels.flatMap((p) => p.points), ...spec.skipped];
+function TrialsTable({ tuning }: { tuning: Tuning }) {
   return (
-    <div
-      className="tf-tune-scroll"
-      tabIndex={0}
-      role="region"
-      aria-label="Settings tried, as a table"
-    >
-      <table className="tf-tune-table">
-        <thead>
-          <tr>
-            <th scope="col">Setting</th>
-            <th scope="col" className="n">
-              Profit per run
-            </th>
-            <th scope="col">Note</th>
+    <table className="tf-table" aria-label="Settings tried">
+      <thead>
+        <tr>
+          <th scope="col">Setting</th>
+          <th scope="col">Profit per run</th>
+          <th scope="col">Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        {tuning.trials.map((t, i) => (
+          <tr key={i}>
+            <td>{settingText(t.settings)}</td>
+            <td>{t.dollars === null ? "No result" : usd(t.dollars)}</td>
+            <td>{t.chosen ? "Chosen" : (t.problem ?? "")}</td>
           </tr>
-        </thead>
-        <tbody>
-          {tuning.trials.map((t, i) => {
-            const row = rows.find((r) => r.settings === t.settings);
-            return (
-              <tr key={i}>
-                <td>{settingText(t.settings)}</td>
-                <td className="n">
-                  {row && row.dollars !== null
-                    ? fmtMoney(row.dollars)
-                    : "No result"}
-                </td>
-                <td>{t.chosen ? "Chosen" : (t.problem ?? "")}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -178,71 +135,63 @@ export function TuningCurve({
   tuning: Tuning;
   label: string;
 }) {
-  const [ref, width] = useElementWidth<HTMLDivElement>();
-  const [asTable, setAsTable] = useState(false);
   const spec = curveSpec(tuning);
   const chosen = spec.panels.flatMap((p) => p.points).find((p) => p.chosen);
   const many = spec.panels.length > 1;
-  const cols = many ? Math.min(spec.panels.length, width >= 640 ? 3 : 2) : 1;
-  const gap = 12;
-  const panelWidth = Math.floor((width - gap * (cols - 1)) / cols);
-  const height = many ? 170 : 210;
   const summary =
     `Profit per run for each ${spec.xName || "setting"} tried for ${label}.` +
     (chosen
-      ? ` Chosen: ${settingText(chosen.settings)}, ${fmtMoney(chosen.dollars as number)}.`
+      ? ` Chosen: ${settingText(chosen.settings)}, ${usd(chosen.dollars as number)}.`
       : "");
-
   if (!spec.panels.some((p) => p.points.length)) {
     return (
       <div className="tf-empty" data-testid="tuning-empty">
         <b>None of the settings gave a result.</b>
-        <span>Check the problems list in Details.</span>
+        Check the problems list in Details.
       </div>
     );
   }
   return (
-    <div className="tf-tune" ref={ref} data-testid="tuning-curve">
-      <div className="tf-tune-bar">
-        <button
-          type="button"
-          className="tf-btn-quiet"
-          aria-pressed={asTable}
-          onClick={() => setAsTable((v) => !v)}
-        >
-          {asTable ? "Show as chart" : "Show as table"}
-        </button>
-      </div>
-      {asTable ? (
-        <TableView spec={spec} tuning={tuning} />
-      ) : (
-        <div className="tf-tune-chart" role="img" aria-label={summary}>
-          <div
-            className="tf-tune-grid-panels"
-            style={{ gridTemplateColumns: `repeat(${cols}, ${panelWidth}px)` }}
-          >
-            {spec.panels.map((panel, i) => (
+    <div data-testid="tuning-curve">
+      <ChartFrame
+        label={summary}
+        interactive
+        table={() => <TrialsTable tuning={tuning} />}
+      >
+        {(width) => {
+          const cols = many
+            ? Math.min(spec.panels.length, width >= 640 ? 3 : 2)
+            : 1;
+          const gap = 12;
+          const panelWidth = Math.floor((width - gap * (cols - 1)) / cols);
+          return (
+            <>
               <div
-                key={panel.title ?? "one"}
-                className="tf-tune-panel"
-                data-testid="tuning-panel"
+                className="tf-tune-panels"
+                style={{
+                  gridTemplateColumns: `repeat(${cols}, ${panelWidth}px)`,
+                }}
               >
-                {panel.title && (
-                  <div className="tf-tune-title">{panel.title}</div>
-                )}
-                <Panel
-                  panel={panel}
-                  spec={spec}
-                  width={panelWidth}
-                  height={height}
-                  showY={i % cols === 0}
-                />
+                {spec.panels.map((panel, i) => (
+                  <div key={panel.title ?? "one"} data-testid="tuning-panel">
+                    {panel.title && (
+                      <div className="tf-tune-title">{panel.title}</div>
+                    )}
+                    <Panel
+                      panel={panel}
+                      spec={spec}
+                      width={panelWidth}
+                      height={many ? 170 : 210}
+                      showY={i % cols === 0}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="tf-tune-xname">{spec.xName}</div>
-        </div>
-      )}
+              <div className="tf-tune-xname">{spec.xName}</div>
+            </>
+          );
+        }}
+      </ChartFrame>
       {spec.skipped.length > 0 && (
         <p className="tf-note" data-testid="tuning-skipped">
           {spec.skipped.length === 1

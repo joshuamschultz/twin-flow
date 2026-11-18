@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  fmtMoney,
-  fmtPct,
   settingName,
   settingText,
   settingValue,
-} from "../../src/decision/detailsFormat";
+  shortValue,
+} from "../../src/decision/settings";
 import { curveSpec, tuningRows } from "../../src/decision/tuningModel";
 import type { RaceViewModel, Tuning } from "../../src/decision/types";
 
@@ -29,18 +28,7 @@ const trial = (
   chosen,
 });
 
-describe("formatters", () => {
-  it("writes money with a real minus and thousands separators", () => {
-    expect(fmtMoney(22088)).toBe("$22,088");
-    expect(fmtMoney(22088, { signed: true })).toBe("+$22,088");
-    expect(fmtMoney(-1500, { signed: true })).toBe("−$1,500");
-    expect(fmtMoney(-1500)).toBe("−$1,500");
-    expect(fmtMoney(0, { signed: true })).toBe("$0");
-  });
-  it("writes shares as percents", () => {
-    expect(fmtPct(0.9673)).toBe("96.7%");
-    expect(fmtPct(null)).toBe("–");
-  });
+describe("setting words", () => {
   it("turns setting names and values into words", () => {
     expect(settingName("target_days")).toBe("target days");
     expect(settingValue(10)).toBe("10");
@@ -49,6 +37,8 @@ describe("formatters", () => {
     expect(settingText({ target_days: 14, trigger_share: 0.7 })).toBe(
       "target days 14, trigger share 0.7",
     );
+    expect(shortValue("1000000000")).toBe("1B");
+    expect(shortValue("16")).toBe("16");
   });
 });
 

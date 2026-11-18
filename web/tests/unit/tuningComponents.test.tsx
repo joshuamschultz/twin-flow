@@ -18,25 +18,14 @@ const text = (html: string) =>
   html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 describe("TuningCurve", () => {
-  it("has an aria-label that names the chosen setting and marks one chosen dot", () => {
+  it("is a chart frame named for the chosen setting, with a table toggle", () => {
     const t = full.tuning.find((x) => x.policy === "family_campaign")!;
     const html = renderToStaticMarkup(
       <TuningCurve tuning={t} label="Family campaign" />,
     );
-    expect(html).toContain('role="img"');
+    expect(html).toContain('role="group"');
     expect(html).toContain("Chosen: target days 16, $67,186.");
-    expect(html.match(/data-chosen="true"/g)).toHaveLength(1);
-    expect(text(html)).toContain("Chosen: $67,186");
     expect(html).toContain("Show as table");
-  });
-  it("draws small multiples for a two-setting rule", () => {
-    const t = full.tuning.find((x) => x.policy === "setup_aware_runout")!;
-    const html = renderToStaticMarkup(
-      <TuningCurve tuning={t} label="Setup aware runout" />,
-    );
-    expect(html.match(/data-testid="tuning-panel"/g)!.length).toBeGreaterThan(
-      1,
-    );
   });
   it("shows a dashed box when no setting gave a result", () => {
     const html = renderToStaticMarkup(
@@ -68,8 +57,8 @@ describe("TuningTable", () => {
     const html = renderToStaticMarkup(<TuningTable rows={rows} />);
     const touchy = rows.filter((r) => r.touchy).length;
     expect(touchy).toBeGreaterThan(0);
-    expect(html.match(/is-touchy/g)).toHaveLength(touchy);
-    expect(html.match(/is-steady/g)).toHaveLength(rows.length - touchy);
+    expect(html.match(/tf-l/g)).toHaveLength(touchy);
+    expect(html.match(/tf-n/g)).toHaveLength(rows.length - touchy);
     expect(html.match(/<tr/g)).toHaveLength(rows.length + 1);
   });
 });

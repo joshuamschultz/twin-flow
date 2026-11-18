@@ -12,6 +12,7 @@ import { Details } from "../Details";
 import { DownloadJson } from "../DownloadJson";
 import { FullTable } from "../FullTable";
 import { ProblemList } from "../ProblemList";
+import { TooltipHost } from "../Tooltip";
 import { TuningCurve } from "../TuningCurve";
 import { TuningTable } from "../TuningTable";
 import { TuningView } from "../TuningView";
@@ -65,7 +66,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       className="tf-root tf-wrap"
       style={{ maxWidth: 1180, margin: "0 auto", padding: 24 }}
     >
-      {model ? <Fixture model={model} /> : <p>No model.</p>}
+      <TooltipHost>
+        {model ? <Fixture model={model} /> : <p>No model.</p>}
+      </TooltipHost>
     </main>
   </React.StrictMode>,
 );

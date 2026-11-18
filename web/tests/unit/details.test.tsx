@@ -85,7 +85,7 @@ describe("FullTable", () => {
   it("scrolls sideways inside its card and can be reached by keyboard", () => {
     const html = renderToStaticMarkup(<FullTable model={full} />);
     expect(html).toContain('tabindex="0"');
-    expect(html).toContain("tf-det-scroll");
+    expect(html).toContain("tf-scroll");
   });
 });
 

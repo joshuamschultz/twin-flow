@@ -1,5 +1,6 @@
 import "./details.css";
-import { fmtMoney } from "./detailsFormat";
+import { usd } from "./format";
+import { Tag } from "./primitives";
 import type { TuningRow } from "./tuningModel";
 
 /** One row per rule: settings tried, best setting, best to worst, steady or touchy.
@@ -15,22 +16,18 @@ export function TuningTable({
 }) {
   return (
     <div
-      className="tf-tune-scroll"
+      className="tf-scroll"
       tabIndex={0}
       role="region"
       aria-label="How touchy each rule is"
     >
-      <table className="tf-tune-table" data-testid="tuning-table">
+      <table className="tf-table tf-tune-table" data-testid="tuning-table">
         <thead>
           <tr>
             <th scope="col">Rule</th>
-            <th scope="col" className="n">
-              Tried
-            </th>
+            <th scope="col">Tried</th>
             <th scope="col">Best setting</th>
-            <th scope="col" className="n">
-              Best to worst
-            </th>
+            <th scope="col">Best to worst</th>
             <th scope="col">
               <span className="tf-sr">Steady or touchy</span>
             </th>
@@ -40,13 +37,13 @@ export function TuningTable({
           {rows.map((row) => (
             <tr
               key={row.policy}
-              className={row.policy === selected ? "is-selected" : undefined}
+              className={row.policy === selected ? "tf-selected" : undefined}
             >
-              <th scope="row" className="tf-tune-rule">
+              <th scope="row">
                 {onSelect ? (
                   <button
                     type="button"
-                    className="tf-link-btn"
+                    className="tf-linkbtn"
                     aria-pressed={row.policy === selected}
                     onClick={() => onSelect(row.policy)}
                   >
@@ -55,15 +52,13 @@ export function TuningTable({
                 ) : (
                   row.label
                 )}
-                {row.isPick && <span className="tf-tag tf-tag-pick">pick</span>}
+                {row.isPick && <Tag kind="pick">pick</Tag>}
               </th>
-              <td className="n">{row.tried}</td>
-              <td>{row.best}</td>
-              <td className="n">{fmtMoney(row.spread)}</td>
+              <td>{row.tried}</td>
+              <td className="tf-wrapcell">{row.best}</td>
+              <td>{usd(row.spread)}</td>
               <td>
-                <span
-                  className={`tf-pill ${row.touchy ? "is-touchy" : "is-steady"}`}
-                >
+                <span className={`tf-pill ${row.touchy ? "tf-l" : "tf-n"}`}>
                   {row.pill}
                 </span>
               </td>
