@@ -30,6 +30,7 @@ DELETED_MODULES: frozenset[str] = frozenset(
         "twinflow.scheduling.core",
         "twinflow.scheduling.ortools",
         "twinflow.application.linear_schedule",
+        "twinflow.policy_files",
     }
 )
 
@@ -547,11 +548,10 @@ def _io_offenders_outside_root(path: pathlib.Path) -> list[str]:
 
 STATE = SRC / "state"
 ENGINES = SRC / "engines"
-POLICY_FILES = SRC / "policy_files"
 EXTENSIONS = SRC / "extensions"
-# `twinflow.extensions` replaces `twinflow.policy_files` (D-150); both names stay guarded so
-# the Phase 5 package and its later move are covered.
-_USER_CODE_PACKAGES = ("twinflow.policy_files", "twinflow.extensions")
+# `twinflow.extensions` replaced `twinflow.policy_files` (D-150, T-257); the old name is in
+# DELETED_MODULES.
+_USER_CODE_PACKAGES = ("twinflow.extensions",)
 _TF006_PACKAGES = ("twinflow.state", "twinflow.engines", *_USER_CODE_PACKAGES)
 # Lower layers never import the new packages; the DES seam takes a Protocol defined in
 # `plan/observers.py` instead (D-131).
@@ -595,7 +595,7 @@ def test_lower_packages_never_import_state_engines_or_extensions(package: str) -
 
 
 @pytest.mark.parametrize("package", _USER_CODE_FREE_PACKAGES)
-def test_only_cli_and_python_reach_policy_files_or_extensions(package: str) -> None:
+def test_only_cli_and_python_reach_extensions(package: str) -> None:
     files = _existing_py(SRC / package)
     assert files, f"src/twinflow/{package}/ has no modules to scan"
     assert _offending_imports(files, _USER_CODE_PACKAGES) == []
@@ -612,7 +612,7 @@ def test_state_imports_no_other_twinflow_package() -> None:
 
 
 def test_tf006_packages_use_no_pandas_networkx_or_pyarrow() -> None:
-    files = _existing_py(STATE, ENGINES, POLICY_FILES, EXTENSIONS)
+    files = _existing_py(STATE, ENGINES, EXTENSIONS)
     assert _offending_imports(files, _TF006_BANNED_PREFIXES) == []
 
 
@@ -622,10 +622,9 @@ def test_tf006_boundary_scanners_see_forbidden_forms(tmp_path: pathlib.Path) -> 
     probe.write_text(
         "import twinflow.state.records\n"
         "from twinflow.engines import contract\n"
-        "from twinflow import policy_files\n"
+        "from twinflow import extensions\n"
         "from twinflow.extensions.loader import load_project\n"
         "from importlib import import_module\n"
-        "import_module('twinflow.policy_files.loader')\n"
         "import_module('twinflow.extensions.checker')\n"
         "import networkx as nx\n"
         "from pandas import DataFrame\n"
@@ -634,10 +633,10 @@ def test_tf006_boundary_scanners_see_forbidden_forms(tmp_path: pathlib.Path) -> 
     assert {
         "twinflow.state.records",
         "twinflow.engines",
-        "twinflow.policy_files",
+        "twinflow.extensions",
         "twinflow.extensions.loader",
     } <= {name for name in names if _under(name, _TF006_PACKAGES)}
-    assert {"twinflow.policy_files.loader", "twinflow.extensions.checker"} <= {
+    assert {"twinflow.extensions.loader", "twinflow.extensions.checker"} <= {
         n for n in names if _under(n, _USER_CODE_PACKAGES)
     }
     assert not _under("twinflow.extensionsx", _USER_CODE_PACKAGES)

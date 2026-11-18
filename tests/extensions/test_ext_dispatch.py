@@ -1,12 +1,15 @@
-"""T-249: a `DECISION = "dispatch"` policy file runs as a `Policy` (COMP-154, COMP-155).
+"""T-249 / T-257: a `DECISION = "dispatch"` policy file runs as a `Policy` (COMP-154,
+COMP-155, D-150).
 
-`policy_files.des_runtime(file)` loads one local `.py` file (in-process Python only,
-D-139) and adapts its `decide(state)` into a `PolicyRuntime`. A broken decision falls
-back to the runtime's fallback rule and the reason is kept in the decision trace.
+`extensions.dispatch.des_runtime(file)` loads one local `.py` file with the generic
+extension loader (in-process Python only, D-139) and adapts its `decide(state)` into a
+`PolicyRuntime`. A broken decision falls back to the runtime's fallback rule and the reason
+is kept in the decision trace.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 import textwrap
@@ -15,12 +18,13 @@ from pathlib import Path
 import pytest
 
 from twinflow.engines.des import DesStateObserver
+from twinflow.extensions.dispatch import PolicyFileError, des_runtime
+from twinflow.extensions.kinds import KINDS
+from twinflow.extensions.loader import Extension, load_file, module_name
 from twinflow.model import load_model
 from twinflow.plan.driver import RunDriver, RunResult
 from twinflow.plan.loader import load_plan
 from twinflow.policy import DISPATCH_NAMES, PolicyRuntime
-from twinflow.policy_files import PolicyFileError, des_runtime
-from twinflow.policy_files._load import load_module, module_name
 from twinflow.state.recorder import read_moves
 
 EXAMPLE = Path(__file__).resolve().parents[2] / "examples" / "cnc-shop"
@@ -72,15 +76,15 @@ def test_state_has_plain_names(tmp_path: Path) -> None:
     path = _file(tmp_path / "policies", GOOD)
     runtime = des_runtime(path)
     _run(tmp_path, runtime)
-    module = load_module(path)  # a fresh load: its own SEEN list
-    assert module.SEEN == []
-    seen = runtime._policy._module.SEEN  # type: ignore[attr-defined]
+    fresh = load_file(path, KINDS["policy"])  # a fresh load: its own SEEN list
+    assert isinstance(fresh, Extension) and fresh.target.__globals__["SEEN"] == []
+    seen = runtime._policy.extension.target.__globals__["SEEN"]  # type: ignore[attr-defined]
     state = seen[0]
     assert state.location == runtime.trace[0].location_id
     assert state.actions == DISPATCH_NAMES
     assert state.time == runtime.trace[0].simulation_time
     assert state.current == "fifo"
-    assert isinstance(state.queue, list) and state.queue
+    assert isinstance(state.queue, tuple) and state.queue
     assert set(state.queue[0]) == {
         "order_id",
         "thing",
@@ -99,7 +103,7 @@ def test_state_has_plain_names(tmp_path: Path) -> None:
         ("DECISION = 'dispatch'\ndef decide(state):\n    raise KeyError('due')\n", "KeyError"),
         (
             "DECISION = 'dispatch'\ndef decide(state):\n    return 'lifo'\n",
-            "'lifo'; return one of fifo, edd, spt, critical_ratio",
+            "'lifo', which is not one of: fifo, edd, spt, critical_ratio",
         ),
     ],
 )
@@ -157,18 +161,23 @@ def test_same_stem_in_two_folders_does_not_collide(tmp_path: Path) -> None:
     two = _file(
         tmp_path / "b", "DECISION = 'dispatch'\nWHO = 'b'\ndef decide(s):\n    return 'edd'\n"
     )
-    assert module_name(one) != module_name(two)
-    assert module_name(one).startswith("twinflow_user_policy_rule_")
-    assert len(module_name(one).rsplit("_", 1)[1]) == 8
-    assert (load_module(one).WHO, load_module(two).WHO) == ("a", "b")
+    assert module_name(one, "policy") != module_name(two, "policy")
+    assert module_name(one, "policy").startswith("twinflow_user_policy_rule_")
+    assert len(module_name(one, "policy").rsplit("_", 1)[1]) == 8
+    loaded = [load_file(p, KINDS["policy"]) for p in (one, two)]
+    assert [ext.target.__globals__["WHO"] for ext in loaded] == ["a", "b"]  # type: ignore[union-attr]
 
 
-def test_service_side_packages_never_load_policy_files() -> None:
+def test_the_policy_files_package_is_gone() -> None:
+    assert importlib.util.find_spec("twinflow.policy_files") is None
+
+
+def test_service_side_packages_never_load_extensions() -> None:
     code = (
         "import sys\n"
         "import twinflow.application.scenarios, twinflow.service, twinflow.mcp, twinflow.domain\n"
         "import twinflow.engines.des\n"
-        "print('twinflow.policy_files' in sys.modules)\n"
+        "print(any(n.startswith('twinflow.extensions') for n in sys.modules))\n"
     )
     out = subprocess.run(  # noqa: S603 - fixed argv: this interpreter and a literal
         [sys.executable, "-c", code], capture_output=True, text=True, check=True

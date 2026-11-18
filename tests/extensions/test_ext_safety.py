@@ -23,7 +23,7 @@ assert capsule.validate() == []
 result = capsule.evaluate(seed=3)
 loaded = sorted(
     name for name in sys.modules
-    if name.startswith(("twinflow.extensions", "twinflow.policy_files", "twinflow_user_",
+    if name.startswith(("twinflow.extensions", "twinflow_user_",
                         "twinflow_builtin_"))
 )
 print(json.dumps({"status": result["status"], "loaded": loaded}))
