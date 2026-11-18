@@ -122,8 +122,39 @@ def run(business: str) -> dict[str, object]:
         for cell in data["cells"]:
             cell.get("metadata", {}).pop("execution", None)
             if "outputs" in cell:
-                cell["outputs"] = _scrub(cell["outputs"], folder)
+                cell["outputs"] = _tidy(_scrub(cell["outputs"], folder))
     return data
+
+
+def _tidy(outputs: object) -> list[object]:
+    """Join the pieces of each stream into one output, with plain line ends.
+
+    A `!` command runs in a terminal, which ends lines with `\r\n` and sends its text in
+    pieces as it comes. One piece per stream, with `\n`, keeps the saved file small and
+    its diff readable.
+    """
+    tidy: list[object] = []
+    for output in outputs if isinstance(outputs, list) else []:
+        if isinstance(output, dict) and output.get("output_type") == "stream":
+            text = output.get("text", "")
+            text = ("".join(text) if isinstance(text, list) else str(text)).replace("\r\n", "\n")
+            last = tidy[-1] if tidy else None
+            if (
+                isinstance(last, dict)
+                and last.get("output_type") == "stream"
+                and last.get("name") == output.get("name")
+            ):
+                last["text"] = str(last["text"]) + text
+                continue
+            output = {**output, "text": text}
+        tidy.append(output)
+    for output in tidy:
+        if isinstance(output, dict) and isinstance(output.get("text"), str):
+            lines = output["text"].split("\n")
+            output["text"] = [line + "\n" for line in lines[:-1]] + (
+                [lines[-1]] if lines[-1] else []
+            )
+    return tidy
 
 
 def write(business: str, data: dict[str, object]) -> Path:
