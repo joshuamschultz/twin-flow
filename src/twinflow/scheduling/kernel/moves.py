@@ -168,7 +168,9 @@ def _swaps(
     yield Move.swap(u, v)
     for link in index.op(v).predecessors:
         b = link.pred_id
-        if b not in placement or placement[b][1] == 0:
+        # A cross-job link (D-084) can make u itself v's predecessor: the first swap then
+        # moves b, so no second swap (a, b) exists.
+        if b == u or b not in placement or placement[b][1] == 0:
             continue
         mb, kb = placement[b]
         a = sequences[mb][kb - 1]

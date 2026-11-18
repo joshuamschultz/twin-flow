@@ -892,3 +892,15 @@ def _flex_request() -> SolveRequest:
             ],
         }
     )
+
+
+def test_every_generated_move_applies_including_cross_job_lookbacks() -> None:
+    # Seed 157 has a cross-job link (D-084) where swap(u, v) has u as v's own predecessor;
+    # the look-back built from that pair could not be applied.
+    for seed in range(200):
+        base = _base_solution(seed)
+        if base is None:
+            continue
+        index, graph, choice, sequences, spec = base
+        for move in moves(graph, spec, index):
+            apply(move, choice, sequences)  # raises ValueError for a move that misfits
