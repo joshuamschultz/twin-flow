@@ -345,7 +345,10 @@ def test_report_command_rebuilds_the_report(shop: Path) -> None:
 
 
 def test_old_report_module_is_gone() -> None:
-    import twinflow.report.html as old
+    # B-33 and B-34 moved every report onto the decision views; the Plotly and Mermaid
+    # page helpers and the vendored Mermaid file went with them.
+    import importlib
 
-    assert not hasattr(old, "HtmlReport")
-    assert not (ROOT / "src" / "twinflow" / "report" / "_assets" / "logo.png").exists()
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("twinflow.report.html")
+    assert not (ROOT / "src" / "twinflow" / "report" / "_assets").exists()
