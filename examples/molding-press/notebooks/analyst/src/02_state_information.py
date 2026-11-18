@@ -1,5 +1,8 @@
 # %% [markdown]
-# # Notebook 2: Does the state hold enough to decide?
+# # For analysts: Notebook 2: Does the state hold enough to decide?
+#
+# *This notebook is for analysts. It uses twinflow's Python API. A planner who wants the
+# commands and the decision should start with* `examples/showcase/plastics-molding/`.
 #
 # **The plant.** The same one as in Notebook 1: a molding press, many products in a few color families,
 # one product per day, and costly changeovers. This notebook stands on its own.
@@ -49,7 +52,7 @@ def find_example() -> Path:
         for candidate in (folder, folder / "examples" / "molding-press"):
             if (candidate / "molding-press.twin.yaml").exists():
                 return candidate
-    raise FileNotFoundError("Start this notebook inside examples/molding-press/notebooks.")
+    raise FileNotFoundError("Start this notebook inside examples/molding-press/notebooks/analyst.")
 
 
 def rounded(table: pl.DataFrame, digits: int = 1) -> pl.DataFrame:

@@ -63,3 +63,11 @@ The press itself is not the problem. The order of work is. A rule that
 changes color all the time wastes money on setups. A rule that waits too
 long loses sales. You can test each rule on the same random demand, so the
 comparison is fair.
+
+## More
+
+- **For planners:** [`examples/showcase/plastics-molding/`](../showcase/plastics-molding/)
+  is the same kind of plant as a business would set it up: a product table and sales
+  history in their own files, and a notebook of commands with the decision in plain words.
+- **For analysts:** two notebooks in [`notebooks/analyst/`](notebooks/analyst/) rebuild
+  the research repo's lessons with twinflow's Python API.

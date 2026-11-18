@@ -4,7 +4,7 @@ Each notebook lives as one readable `.py` file in `src/`. A line `# %% [markdown
 text cell (its lines start with `# `). A line `# %%` starts a code cell. This script turns
 every source into an `.ipynb` file with no outputs, so the notebooks stay easy to diff.
 
-    uv run python examples/molding-press/notebooks/build_notebooks.py
+    uv run python examples/molding-press/notebooks/analyst/build_notebooks.py
 
 The test `tests/integration/test_molding_press_notebooks.py` fails when an `.ipynb` file
 is not the one its source makes.
