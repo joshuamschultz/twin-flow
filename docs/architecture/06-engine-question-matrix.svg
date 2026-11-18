@@ -6,11 +6,11 @@
 <rect x="36.0" y="112.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
 <text x="56.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="56.0" y="124.8">Have</tspan></text>
 <text x="84.0" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="84.0" y="125.0">built today</tspan></text>
-<rect x="188.1" y="112.0" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="188.1" y="112.0" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="214.7" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="214.7" y="124.8">Extend</tspan></text>
 <text x="249.2" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="249.2" y="125.0">exists, needs more</tspan></text>
-<rect x="404.2" y="112.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="421.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="421.0" y="124.8">New</tspan></text>
+<rect x="404.2" y="112.0" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="421.0" y="124.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="421.0" y="124.8">New</tspan></text>
 <text x="445.8" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="445.8" y="125.0">to build</tspan></text>
 <circle cx="535.0" cy="121" r="6" fill="#0055bc"/>
 <text x="558.0" y="125.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="558.0" y="125.0">engine answers it</tspan></text>
@@ -25,11 +25,11 @@
 <rect x="706.5" y="200.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
 <text x="726.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="726.5" y="212.8">Have</tspan></text>
 <text x="901.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="middle" font-weight="600"><tspan x="901.5" y="186.0">Step / Markov</tspan></text>
-<rect x="884.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="901.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="901.5" y="212.8">New</tspan></text>
+<rect x="884.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="901.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="901.5" y="212.8">New</tspan></text>
 <text x="1076.5" y="186.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="middle" font-weight="600"><tspan x="1076.5" y="186.0">Continuous</tspan></text>
-<rect x="1059.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="1076.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1076.5" y="212.8">New</tspan></text>
+<rect x="1059.7" y="200.0" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="1076.5" y="212.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="1076.5" y="212.8">New</tspan></text>
 <line x1="36.0" y1="234.0" x2="1164.0" y2="234.0" stroke="#dfe3e8" stroke-width="1" fill="none"/>
 <text x="52.0" y="263.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="52.0" y="263.0">When will this order finish?</tspan></text>
 <circle cx="551.5" cy="258.0" r="7" fill="#0055bc"/>

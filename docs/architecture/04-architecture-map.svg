@@ -7,11 +7,11 @@
 <rect x="64.0" y="164.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
 <text x="84.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="84.0" y="176.8">Have</tspan></text>
 <text x="112.0" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="112.0" y="177.0">built today</tspan></text>
-<rect x="216.1" y="164.0" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="216.1" y="164.0" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="242.7" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="242.7" y="176.8">Extend</tspan></text>
 <text x="277.2" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="277.2" y="177.0">exists, needs more</tspan></text>
-<rect x="432.2" y="164.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="449.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="449.0" y="176.8">New</tspan></text>
+<rect x="432.2" y="164.0" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="449.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="449.0" y="176.8">New</tspan></text>
 <text x="473.8" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="473.8" y="177.0">to build</tspan></text>
 <rect x="556.0" y="165.0" width="22.0" height="16.0" rx="3" fill="#002550"/>
 <text x="586.0" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="586.0" y="177.0">state layer, the base</tspan></text>
@@ -31,7 +31,7 @@
 <text x="578.3" y="254.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="578.3" y="254.0">Inventory</tspan></text>
 <text x="578.3" y="275.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="578.3" y="275.7">Stock on hand per part and</tspan><tspan x="578.3" dy="17.5">location.</tspan></text>
 <rect x="848.7" y="230.0" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="1055.9" y="239.0" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="1055.9" y="239.0" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="1082.5" y="251.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="1082.5" y="251.8">Extend</tspan></text>
 <text x="859.7" y="254.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="859.7" y="254.0">Work logs</tspan></text>
 <text x="859.7" y="275.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="859.7" y="275.7">MES or timecards: start, stop,</tspan><tspan x="859.7" dy="17.5">scrap, downtime.</tspan></text>
@@ -41,12 +41,12 @@
 <text x="297.0" y="342.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="342.2">Demand history</tspan></text>
 <text x="297.0" y="363.9" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="363.9">Past sales, used to fit the</tspan><tspan x="297.0" dy="17.5">forecast.</tspan></text>
 <rect x="567.3" y="318.2" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="794.1" y="327.2" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="810.9" y="340.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="810.9" y="340.0">New</tspan></text>
+<rect x="794.1" y="327.2" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="810.9" y="340.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="810.9" y="340.0">New</tspan></text>
 <text x="578.3" y="342.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="578.3" y="342.2">Costs and prices</tspan></text>
 <text x="578.3" y="363.9" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="578.3" y="363.9">Price, unit cost, holding, setup,</tspan><tspan x="578.3" dy="17.5">lost-sale cost.</tspan></text>
 <rect x="848.7" y="318.2" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="1055.9" y="327.2" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="1055.9" y="327.2" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="1082.5" y="340.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="1082.5" y="340.0">Extend</tspan></text>
 <text x="859.7" y="342.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="859.7" y="342.2">Connectors</tspan></text>
 <text x="859.7" y="363.9" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="859.7" y="363.9">CSV now. ERP and MES links later.</tspan><tspan x="859.7" dy="17.5">Data is checked against itself.</tspan></text>
@@ -72,13 +72,13 @@
 <text x="859.7" y="498.4" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="859.7" y="498.4">Calendars</tspan></text>
 <text x="859.7" y="520.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="859.7" y="520.1">Shifts, holidays, planned downtime.</tspan></text>
 <rect x="286.0" y="562.6" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="512.8" y="571.6" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="529.6" y="584.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="529.6" y="584.4">New</tspan></text>
+<rect x="512.8" y="571.6" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="529.6" y="584.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="529.6" y="584.4">New</tspan></text>
 <text x="297.0" y="586.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="586.6">Money rules</tspan></text>
 <text x="297.0" y="608.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="608.3">How each event turns into dollars.</tspan></text>
 <rect x="567.3" y="562.6" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="794.1" y="571.6" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="810.9" y="584.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="810.9" y="584.4">New</tspan></text>
+<rect x="794.1" y="571.6" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="810.9" y="584.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="810.9" y="584.4">New</tspan></text>
 <text x="578.3" y="586.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="578.3" y="586.6">State groups</tspan></text>
 <text x="578.3" y="608.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="578.3" y="608.3">"Stock = low / ok / high by days of</tspan><tspan x="578.3" dy="17.5">cover."</tspan></text>
 <rect x="848.7" y="562.6" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
@@ -93,17 +93,17 @@
 <text x="80.0" y="735.8" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="17" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="80.0" y="735.8">3. Checker</tspan></text>
 <text x="80.0" y="754.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="80.0" y="754.3">Stops bad models before</tspan><tspan x="80.0" dy="17.5">they run.</tspan></text>
 <rect x="286.0" y="718.8" width="271.3" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="493.3" y="727.8" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="493.3" y="727.8" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="519.8" y="740.6" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="519.8" y="740.6">Extend</tspan></text>
 <text x="297.0" y="742.8" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="742.8">Model checker</tspan></text>
 <text x="297.0" y="764.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="764.5">Exists. It will also say what each</tspan><tspan x="297.0" dy="17.5">engine needs, for example "Markov</tspan><tspan x="297.0" dy="17.5">needs state groups."</tspan></text>
 <rect x="567.3" y="718.8" width="271.3" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="794.1" y="727.8" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="810.9" y="740.6" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="810.9" y="740.6">New</tspan></text>
+<rect x="794.1" y="727.8" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="810.9" y="740.6" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="810.9" y="740.6">New</tspan></text>
 <text x="578.3" y="742.8" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="578.3" y="742.8">Policy checker</tspan></text>
 <text x="578.3" y="764.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="578.3" y="764.5">Loads each policy file, runs it on</tspan><tspan x="578.3" dy="17.5">test states, and names the file and</tspan><tspan x="578.3" dy="17.5">line if it fails.</tspan></text>
 <rect x="848.7" y="718.8" width="271.3" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="1055.9" y="727.8" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="1055.9" y="727.8" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="1082.5" y="740.6" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="1082.5" y="740.6">Extend</tspan></text>
 <text x="859.7" y="742.8" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="859.7" y="742.8">Fit check</tspan></text>
 <text x="859.7" y="764.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="859.7" y="764.5">Does the model match last month's</tspan><tspan x="859.7" dy="17.5">real logs? It gives a score and the</tspan><tspan x="859.7" dy="17.5">gaps.</tspan></text>
@@ -116,18 +116,18 @@
 <text x="80.0" y="909.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="17" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="80.0" y="909.5">4a. Policies folder</tspan></text>
 <text x="80.0" y="928.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="80.0" y="928.0">Drop a .py file in. It is found and tested on its own.</tspan></text>
 <rect x="80.0" y="948.0" width="236.0" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="271.5" y="957.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="288.2" y="969.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="288.2" y="969.8">New</tspan></text>
+<rect x="271.5" y="957.0" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="288.2" y="969.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="288.2" y="969.8">New</tspan></text>
 <text x="91.0" y="972.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="91.0" y="972.0">policies/*.py</tspan></text>
 <text x="91.0" y="993.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="91.0" y="993.7">One function: decide(state).</tspan><tspan x="91.0" dy="17.5">It returns an action name.</tspan></text>
 <rect x="326.0" y="948.0" width="236.0" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="497.9" y="957.0" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="497.9" y="957.0" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="524.5" y="969.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="524.5" y="969.8">Extend</tspan></text>
 <text x="337.0" y="972.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="337.0" y="972.0">Built-in rules</tspan></text>
 <text x="337.0" y="993.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="337.0" y="993.7">FIFO, EDD, SPT, critical ratio</tspan><tspan x="337.0" dy="17.5">today. Add lowest cover,</tspan><tspan x="337.0" dy="17.5">wheel, campaign, min/max.</tspan></text>
 <rect x="80.0" y="1053.7" width="236.0" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="271.5" y="1062.7" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="288.2" y="1075.5" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="288.2" y="1075.5">New</tspan></text>
+<rect x="271.5" y="1062.7" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="288.2" y="1075.5" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="288.2" y="1075.5">New</tspan></text>
 <text x="91.0" y="1077.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="91.0" y="1077.7">Learned (RL)</tspan></text>
 <text x="91.0" y="1099.4" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="91.0" y="1099.4">A trained policy saved as a</tspan><tspan x="91.0" dy="17.5">file. It races like any other</tspan><tspan x="91.0" dy="17.5">policy.</tspan></text>
 <rect x="326.0" y="1053.7" width="236.0" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
@@ -150,18 +150,18 @@
 <text x="895.0" y="972.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="895.0" y="972.0">Schedule</tspan></text>
 <text x="895.0" y="993.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="895.0" y="993.7">The best plan for a fixed set</tspan><tspan x="895.0" dy="17.5">of orders. CP-SAT solver.</tspan></text>
 <rect x="638.0" y="1053.7" width="236.0" height="113.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="829.5" y="1062.7" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="846.2" y="1075.5" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="846.2" y="1075.5">New</tspan></text>
+<rect x="829.5" y="1062.7" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="846.2" y="1075.5" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="846.2" y="1075.5">New</tspan></text>
 <text x="649.0" y="1077.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="649.0" y="1077.7">Step / Markov</tspan></text>
 <text x="649.0" y="1099.4" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="649.0" y="1099.4">The plant moves one day or</tspan><tspan x="649.0" dy="17.5">shift at a time. Best for</tspan><tspan x="649.0" dy="17.5">policies and RL. Port it from</tspan><tspan x="649.0" dy="17.5">the RL repo.</tspan></text>
 <rect x="884.0" y="1053.7" width="236.0" height="113.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="1075.5" y="1062.7" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="1092.2" y="1075.5" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1075.5">New</tspan></text>
+<rect x="1075.5" y="1062.7" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="1092.2" y="1075.5" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1075.5">New</tspan></text>
 <text x="895.0" y="1077.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="895.0" y="1077.7">Continuous</tspan></text>
 <text x="895.0" y="1099.4" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="895.0" y="1099.4">Material flows as rates. Fast</tspan><tspan x="895.0" dy="17.5">big-picture what-ifs. No</tspan><tspan x="895.0" dy="17.5">single jobs.</tspan></text>
 <rect x="638.0" y="1176.9" width="236.0" height="95.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="829.5" y="1185.9" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="846.2" y="1198.7" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="846.2" y="1198.7">New</tspan></text>
+<rect x="829.5" y="1185.9" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="846.2" y="1198.7" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="846.2" y="1198.7">New</tspan></text>
 <text x="649.0" y="1200.9" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="649.0" y="1200.9">More later</tspan></text>
 <text x="649.0" y="1222.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="649.0" y="1222.6">Hidden Markov, queueing,</tspan><tspan x="649.0" dy="17.5">agent-based. Each one only has</tspan><tspan x="649.0" dy="17.5">to meet the engine contract.</tspan></text>
 <line x1="581.0" y1="920.5" x2="612.0" y2="920.5" stroke="#0055bc" stroke-width="2" fill="none"/>
@@ -175,18 +175,18 @@
 <rect x="80.0" y="1439.1" width="89.0" height="20.0" rx="4" fill="#002550" stroke="#8fa6c4" stroke-width="1"/>
 <text x="124.5" y="1453.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="11" fill="#eef4ff" text-anchor="middle"><tspan x="124.5" y="1453.1">build first</tspan></text>
 <rect x="286.0" y="1350.6" width="271.3" height="95.7" rx="6" fill="#003b82" stroke="#2e4c82" stroke-width="1"/>
-<rect x="512.8" y="1359.6" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="529.6" y="1372.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="529.6" y="1372.4">New</tspan></text>
+<rect x="512.8" y="1359.6" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="529.6" y="1372.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="529.6" y="1372.4">New</tspan></text>
 <text x="297.0" y="1374.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#eef4ff" text-anchor="start" font-weight="600"><tspan x="297.0" y="1374.6">Snapshots</tspan></text>
 <text x="297.0" y="1396.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#c7d6e8" text-anchor="start"><tspan x="297.0" y="1396.3">Stock, setups, queues, WIP, orders,</tspan><tspan x="297.0" dy="17.5">staff, clock. Taken each shift, at</tspan><tspan x="297.0" dy="17.5">each decision, or at each event.</tspan></text>
 <rect x="567.3" y="1350.6" width="271.3" height="95.7" rx="6" fill="#003b82" stroke="#2e4c82" stroke-width="1"/>
-<rect x="794.1" y="1359.6" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="810.9" y="1372.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1372.4">New</tspan></text>
+<rect x="794.1" y="1359.6" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="810.9" y="1372.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1372.4">New</tspan></text>
 <text x="578.3" y="1374.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#eef4ff" text-anchor="start" font-weight="600"><tspan x="578.3" y="1374.6">Moves</tspan></text>
 <text x="578.3" y="1396.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#c7d6e8" text-anchor="start"><tspan x="578.3" y="1396.3">State before, action, what</tspan><tspan x="578.3" dy="17.5">happened, state after. This one row</tspan><tspan x="578.3" dy="17.5">feeds everything.</tspan></text>
 <rect x="848.7" y="1350.6" width="271.3" height="95.7" rx="6" fill="#003b82" stroke="#2e4c82" stroke-width="1"/>
-<rect x="1075.5" y="1359.6" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="1092.2" y="1372.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1372.4">New</tspan></text>
+<rect x="1075.5" y="1359.6" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="1092.2" y="1372.4" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1372.4">New</tspan></text>
 <text x="859.7" y="1374.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#eef4ff" text-anchor="start" font-weight="600"><tspan x="859.7" y="1374.6">Dollar ledger</tspan></text>
 <text x="859.7" y="1396.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#c7d6e8" text-anchor="start"><tspan x="859.7" y="1396.3">Revenue, production, setup, holding</tspan><tspan x="859.7" dy="17.5">and lost-sale cost per move.</tspan></text>
 <rect x="286.0" y="1456.3" width="271.3" height="78.2" rx="6" fill="#003b82" stroke="#2e4c82" stroke-width="1"/>
@@ -195,13 +195,13 @@
 <text x="297.0" y="1480.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#eef4ff" text-anchor="start" font-weight="600"><tspan x="297.0" y="1480.3">Decision trace</tspan></text>
 <text x="297.0" y="1502.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#c7d6e8" text-anchor="start"><tspan x="297.0" y="1502.0">Versioned, fingerprinted,</tspan><tspan x="297.0" dy="17.5">replayable. Already in policy.py.</tspan></text>
 <rect x="567.3" y="1456.3" width="271.3" height="78.2" rx="6" fill="#003b82" stroke="#2e4c82" stroke-width="1"/>
-<rect x="794.1" y="1465.3" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="810.9" y="1478.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1478.1">New</tspan></text>
+<rect x="794.1" y="1465.3" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="810.9" y="1478.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1478.1">New</tspan></text>
 <text x="578.3" y="1480.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#eef4ff" text-anchor="start" font-weight="600"><tspan x="578.3" y="1480.3">Save and restart</tspan></text>
 <text x="578.3" y="1502.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#c7d6e8" text-anchor="start"><tspan x="578.3" y="1502.0">Start any run from a saved state,</tspan><tspan x="578.3" dy="17.5">or from "the plant right now."</tspan></text>
 <rect x="848.7" y="1456.3" width="271.3" height="78.2" rx="6" fill="#003b82" stroke="#2e4c82" stroke-width="1"/>
-<rect x="1075.5" y="1465.3" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="1092.2" y="1478.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1478.1">New</tspan></text>
+<rect x="1075.5" y="1465.3" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="1092.2" y="1478.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1478.1">New</tspan></text>
 <text x="859.7" y="1480.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#eef4ff" text-anchor="start" font-weight="600"><tspan x="859.7" y="1480.3">Grouped views</tspan></text>
 <text x="859.7" y="1502.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#c7d6e8" text-anchor="start"><tspan x="859.7" y="1502.0">The same state seen simply, using</tspan><tspan x="859.7" dy="17.5">the groups set in step 2.</tspan></text>
 <line x1="600.0" y1="1550.5" x2="600.0" y2="1589.5" stroke="#0055bc" stroke-width="2" fill="none"/>
@@ -216,8 +216,8 @@
 <text x="297.0" y="1636.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="1636.5">Event, stock, resource</tspan><tspan x="297.0" dy="18.2">logs</tspan></text>
 <text x="297.0" y="1676.4" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="1676.4">What happened, when, on which</tspan><tspan x="297.0" dy="17.5">machine.</tspan></text>
 <rect x="567.3" y="1612.5" width="271.3" height="96.4" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="794.1" y="1621.5" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="810.9" y="1634.3" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1634.3">New</tspan></text>
+<rect x="794.1" y="1621.5" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="810.9" y="1634.3" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1634.3">New</tspan></text>
 <text x="578.3" y="1636.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="578.3" y="1636.5">States and moves tables</tspan></text>
 <text x="578.3" y="1658.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="578.3" y="1658.2">The state layer's output, as</tspan><tspan x="578.3" dy="17.5">tables.</tspan></text>
 <rect x="848.7" y="1612.5" width="271.3" height="96.4" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
@@ -247,27 +247,27 @@
 <text x="859.7" y="1810.9" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="859.7" y="1810.9">What-if sweeps</tspan></text>
 <text x="859.7" y="1832.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="859.7" y="1832.6">More staff, bigger batch, new</tspan><tspan x="859.7" dy="17.5">buffer, side by side.</tspan></text>
 <rect x="286.0" y="1875.1" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="512.8" y="1884.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="529.6" y="1896.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="529.6" y="1896.9">New</tspan></text>
+<rect x="512.8" y="1884.1" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="529.6" y="1896.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="529.6" y="1896.9">New</tspan></text>
 <text x="297.0" y="1899.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="1899.1">Policy race</tspan></text>
 <text x="297.0" y="1920.8" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="1920.8">All policies, same dice. Ranked by</tspan><tspan x="297.0" dy="17.5">profit over time.</tspan></text>
 <rect x="567.3" y="1875.1" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="794.1" y="1884.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="810.9" y="1896.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1896.9">New</tspan></text>
+<rect x="794.1" y="1884.1" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="810.9" y="1896.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="810.9" y="1896.9">New</tspan></text>
 <text x="578.3" y="1899.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="578.3" y="1899.1">Markov map</tspan></text>
 <text x="578.3" y="1920.8" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="578.3" y="1920.8">How the plant moves between states.</tspan><tspan x="578.3" dy="17.5">Where it gets stuck.</tspan></text>
 <rect x="848.7" y="1875.1" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="1075.5" y="1884.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="1092.2" y="1896.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1896.9">New</tspan></text>
+<rect x="1075.5" y="1884.1" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="1092.2" y="1896.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="1092.2" y="1896.9">New</tspan></text>
 <text x="859.7" y="1899.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="859.7" y="1899.1">Money leaks</tspan></text>
 <text x="859.7" y="1920.8" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="859.7" y="1920.8">Which states lose the most dollars,</tspan><tspan x="859.7" dy="17.5">and why.</tspan></text>
 <rect x="286.0" y="1963.3" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="512.8" y="1972.3" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="529.6" y="1985.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="529.6" y="1985.1">New</tspan></text>
+<rect x="512.8" y="1972.3" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="529.6" y="1985.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="529.6" y="1985.1">New</tspan></text>
 <text x="297.0" y="1987.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="1987.3">RL training</tspan></text>
 <text x="297.0" y="2009.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="2009.0">Learn a policy from the moves.</tspan><tspan x="297.0" dy="17.5">Later phase.</tspan></text>
 <rect x="567.3" y="1963.3" width="271.3" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="774.6" y="1972.3" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="774.6" y="1972.3" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="801.1" y="1985.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="801.1" y="1985.1">Extend</tspan></text>
 <text x="578.3" y="1987.3" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="578.3" y="1987.3">Twin vs real</tspan></text>
 <text x="578.3" y="2009.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="578.3" y="2009.0">How close the model is to the real</tspan><tspan x="578.3" dy="17.5">plant.</tspan></text>
@@ -278,7 +278,7 @@
 <text x="80.0" y="2136.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="17" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="80.0" y="2136.5">8. People and</tspan><tspan x="80.0" dy="22.0">agents</tspan></text>
 <text x="80.0" y="2177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="80.0" y="2177.0">Same results, four doors.</tspan></text>
 <rect x="286.0" y="2119.5" width="412.0" height="60.7" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="633.9" y="2128.5" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="633.9" y="2128.5" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="660.5" y="2141.3" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="660.5" y="2141.3">Extend</tspan></text>
 <text x="297.0" y="2143.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="2143.5">One-page report</tspan></text>
 <text x="297.0" y="2165.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="2165.2">HTML report. Add the policy race and Markov map.</tspan></text>
@@ -288,12 +288,12 @@
 <text x="719.0" y="2143.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="719.0" y="2143.5">Web workspace</tspan></text>
 <text x="719.0" y="2165.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="719.0" y="2165.2">Click-through screens for planners.</tspan></text>
 <rect x="286.0" y="2190.2" width="412.0" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="633.9" y="2199.2" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="633.9" y="2199.2" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="660.5" y="2212.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="660.5" y="2212.0">Extend</tspan></text>
 <text x="297.0" y="2214.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="297.0" y="2214.2">Command line</tspan></text>
 <text x="297.0" y="2235.9" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="297.0" y="2235.9">The six commands at the top of this page.</tspan></text>
 <rect x="708.0" y="2190.2" width="412.0" height="78.2" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
-<rect x="1055.9" y="2199.2" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="1055.9" y="2199.2" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="1082.5" y="2212.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="1082.5" y="2212.0">Extend</tspan></text>
 <text x="719.0" y="2214.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="719.0" y="2214.2">Agents (MCP / SDK)</tspan></text>
 <text x="719.0" y="2235.9" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12.5" fill="#54585c" text-anchor="start"><tspan x="719.0" y="2235.9">AI agents read states and moves, run experiments and</tspan><tspan x="719.0" dy="17.5">propose policies.</tspan></text>

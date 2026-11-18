@@ -39,6 +39,7 @@ experiment:
   race:
     episodes: 40              # runs per rule in a race
     seed: 7
+    baseline: lowest_cover    # compare every rule with what the planner does today
 assumptions:
   - One color or mold change a day at most, made at the start of the day.
   - A sale we cannot fill is lost. The customer buys elsewhere.
