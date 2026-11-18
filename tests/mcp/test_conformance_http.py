@@ -53,7 +53,12 @@ from _mcp_helpers import assert_valid_structured_content, describe, error_payloa
 from fixtures.generate import small_shop
 
 PLANNER = "planner"
-PROFILE_TOML = '[erp.class_weights]\n"A-KEY" = 4\n"B-CORE" = 2\n"C-SPOT" = 1\n'
+# Two pipelines, so the real TF-003 portfolio (default `("baseline",)`) yields the two plans
+# compare_plans needs; the contract fake ignores the profile's portfolio.
+PROFILE_TOML = (
+    'default_portfolio = ["baseline", "atcs"]\n'
+    '[erp.class_weights]\n"A-KEY" = 4\n"B-CORE" = 2\n"C-SPOT" = 1\n'
+)
 SOLVE_KEY = "conformance-solve"
 PAGE_LIMIT = 7
 MAX_MCP_BODY = 16 * 1024 * 1024

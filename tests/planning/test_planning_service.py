@@ -1005,8 +1005,12 @@ def test_scenario_plan_time_limit_applied_comes_from_the_solver_result(
         name = "ignores-budget"
         capabilities = BaselineSolver().capabilities
 
-        def solve(self, problem: Any, *, objective: Any, budget_seconds: float) -> Any:
-            schedule = BaselineSolver().solve(problem, objective=objective, budget_seconds=60.0)
+        def solve(
+            self, problem: Any, *, objective: Any, budget_seconds: float, context: Any
+        ) -> Any:  # the TF-003 seam passes a SolveContext (D-070)
+            schedule = BaselineSolver().solve(
+                problem, objective=objective, budget_seconds=60.0, context=context
+            )
             return schedule.model_copy(update={"budget_enforced": False})
 
     monkeypatch.setattr(workspace_module, "build_solver", lambda name: IgnoresBudget())

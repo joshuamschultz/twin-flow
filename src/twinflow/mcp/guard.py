@@ -45,7 +45,7 @@ from twinflow.application.solver_port import UnsupportedSolver
 from twinflow.data.errors import DataError, EventConflictError
 from twinflow.erp.profile import ProfileError
 from twinflow.mcp.spec import ToolServices, ToolSpec
-from twinflow.scheduling import OptionalDependencyError
+from twinflow.scheduling.seam import OptionalDependencyError
 from twinflow.service.audit import ToolAuditor
 from twinflow.service.auth import SCOPES, Caller
 from twinflow.service.limits import (

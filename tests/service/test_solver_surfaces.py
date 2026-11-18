@@ -42,6 +42,7 @@ from twinflow.application.workspace import Workspace
 from twinflow.scheduling import BaselineSolver, Feature, ObjectiveSpec, Problem, Schedule
 from twinflow.scheduling.baseline import CAPABILITIES as BASELINE_CAPABILITIES
 from twinflow.scheduling.model import SolveResult
+from twinflow.scheduling.seam import SolveContext
 from twinflow.sdk import TwinflowClient, TwinflowError
 from twinflow.service.app import create_app
 
@@ -101,10 +102,17 @@ class FifoSolver:
         return BASELINE_CAPABILITIES
 
     def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
+        self,
+        problem: Problem,
+        *,
+        objective: ObjectiveSpec,
+        budget_seconds: float,
+        context: SolveContext,  # the TF-003 seam passes one (D-070)
     ) -> Schedule:
         self._calls.append("fifo")
-        schedule = self._inner.solve(problem, objective=objective, budget_seconds=budget_seconds)
+        schedule = self._inner.solve(
+            problem, objective=objective, budget_seconds=budget_seconds, context=context
+        )
         return schedule.model_copy(update={"solver": "fifo"})
 
 

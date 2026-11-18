@@ -12,25 +12,27 @@ One forward pass over the compiled problem, in three phases:
 Each operation tries every option (only the pinned machine when the pin names one) with
 ``MachineTimeline.find_slot`` on its effective calendar, filtered by operator capacity,
 the transfer-lot end bound, ``max_lag`` and ``pin.latest_start``, and keeps the option that
-completes first (tie: lowest machine id). Gates follow the SDD Data Model: material gate
-g = start (attached) or setup_end (detached); without overlap g >= pred.end + min_lag;
-with ``overlap_quantity`` q, g >= pred.setup_end + pred.fixed + q * pred.unit + min_lag
-and end >= pred.end + q * succ.unit.
+completes first (ties: lowest ``preference_cost``, then lowest machine id). Gates follow
+the SDD Data Model: material gate g = start (attached) or setup_end (detached); without
+overlap g >= pred.end + min_lag; with ``overlap_quantity`` q, g >= pred.setup_end +
+pred.fixed + q * pred.unit + min_lag and end >= pred.end + q * succ.unit.
 
 The pass never backtracks, so it cannot prove a problem has no plan: an operation it
 cannot place returns UNKNOWN with ``max_lag_unmet`` or ``no_feasible_slot``, and a plan
 that ends after ``problem.horizon_end`` returns UNKNOWN with ``horizon_exceeded``, never
 INFEASIBLE. Operations of held or done jobs and operations in state ``done`` are not
-scheduled and count as finished for precedence. Restart rules are not modeled (TF-003).
+scheduled and count as finished for precedence. Restart rules (D-074) are passed to each
+machine's timeline, which adds the warm-up to the setup phase after a long idle.
 The budget is a monotonic deadline checked before each placement: a pass that outlives it
-returns UNKNOWN with ``time_limit`` (the pass has no anytime result). One placement scans
-the machine's gaps, so a pass is O(n^2) in operations per machine (faster search: TF-003).
+returns UNKNOWN with ``time_limit`` (the pass has no anytime result). One placement skips
+the gaps too short for its run in one vectorized step (``MachineTimeline``), so it visits
+only gaps that may fit; the worst case stays O(n) per placement when every gap is long
+enough but rejected for setups, operators or calendars.
 """
 
 from __future__ import annotations
 
 import heapq
-import math
 import time
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -49,24 +51,28 @@ from twinflow.scheduling.model import (
     SchedulingProfile,
 )
 from twinflow.scheduling.objectives import evaluate, primary_kind
+from twinflow.scheduling.seam import Feature, SolveContext
 from twinflow.scheduling.setups import SetupTable
-from twinflow.scheduling.solver import Feature
 from twinflow.scheduling.timeline import (
+    Gate,
     MachineTimeline,
+    Placed,
     PoolNeed,
     PoolTimeline,
     ShiftCrossing,
     Slot,
+    SlotCheck,
     SlotRequest,
     effective_calendar,
     hold_operators,
+    material_gate,
     operator_retry,
 )
 
 NAME = "baseline"
-CAPABILITIES = frozenset(Feature) - {Feature.RESTART}
+CAPABILITIES = frozenset(Feature)
 _SLACK = 1e-9
-"""Float slack on upper bounds (max_lag, latest_start); far below the verifier's 1e-6."""
+"""Float slack on the horizon bound; far below the verifier's 1e-6."""
 
 
 # --- plain problem values ------------------------------------------------------------------------
@@ -78,6 +84,7 @@ class _Option:
     fixed: float
     unit: float
     run: float
+    preference_cost: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,32 +113,6 @@ class _Op:
     batch_family: str | None
 
 
-@dataclass(frozen=True, slots=True)
-class _Placed:
-    """Where a predecessor ended up, with the chosen option's fixed and unit seconds."""
-
-    setup_end: float
-    end: float
-    fixed: float
-    unit: float
-
-    def transfer(self, quantity: float) -> float:
-        """Time the first `quantity` units are done: setup_end + fixed + q * unit."""
-        return self.setup_end + self.fixed + quantity * self.unit
-
-
-@dataclass(frozen=True, slots=True)
-class _Gate:
-    """Bounds on an operation's material gate from its release and placed predecessors.
-
-    `lots` holds (pred.end, q) per transfer-lot link for the end >= pred.end + q * unit rule.
-    """
-
-    ready: float
-    limit: float
-    lots: tuple[tuple[float, float], ...]
-
-
 def _options(op: Operation) -> tuple[_Option, ...]:
     pinned_machine = op.pin.machine_id if op.pin else None
     return tuple(
@@ -140,6 +121,7 @@ def _options(op: Operation) -> tuple[_Option, ...]:
             o.fixed_seconds,
             o.unit_seconds,
             o.fixed_seconds + op.quantity * o.unit_seconds,
+            o.preference_cost,
         )
         for o in sorted(op.options, key=lambda o: o.machine_id)
         if pinned_machine is None or o.machine_id == pinned_machine
@@ -188,47 +170,6 @@ def _issue(code: str, op_id: str, message: str) -> ScheduleIssue:
     return ScheduleIssue(code=code, path=op_id, message=message)
 
 
-# --- slot filter ---------------------------------------------------------------------------------
-
-
-class _SlotCheck:
-    """`find_slot` filter for one (operation, option): None accepts, else a retry start.
-
-    Upper bounds (pin latest_start, max_lag) only get worse later, so they reject for good
-    (inf); `missed_max_lag` records why. The transfer-lot end bound and operator capacity
-    ask for a later start.
-    """
-
-    __slots__ = ("_end_floor", "_gate", "_op", "_pools", "missed_max_lag")
-
-    def __init__(
-        self, op: _Op, gate: _Gate, option: _Option, pools: dict[str, PoolTimeline]
-    ) -> None:
-        self._op = op
-        self._gate = gate
-        self._pools = pools
-        self._end_floor = max((end + q * option.unit for end, q in gate.lots), default=-math.inf)
-        self.missed_max_lag = False
-
-    def __call__(self, slot: Slot) -> float | None:
-        latest = self._op.latest_start
-        if latest is not None and slot.start > latest + _SLACK:
-            return math.inf
-        material = slot.setup_end if self._op.detached else slot.start
-        if material > self._gate.limit + _SLACK:
-            self.missed_max_lag = True
-            return math.inf
-        retry: float | None = None
-        if slot.end < self._end_floor - _SLACK:
-            shifted = slot.start + (self._end_floor - slot.end)
-            retry = max(shifted, math.nextafter(slot.start, math.inf))
-        if self._op.needs:
-            blocked = operator_retry(slot, self._op.needs, self._pools)
-            if blocked is not None:
-                retry = blocked if retry is None else max(retry, blocked)
-        return retry
-
-
 # --- the list scheduler --------------------------------------------------------------------------
 
 
@@ -253,6 +194,12 @@ class _ListScheduler:
                 setups,
                 available_from=m.state.available_from,
                 batch_capacity=m.batch.capacity if m.batch else None,
+                restart=(
+                    (m.restart.idle_threshold_seconds, m.restart.warmup_seconds)
+                    if m.restart
+                    else None
+                ),
+                now=problem.now,
             )
             for m in problem.machines
         }
@@ -265,7 +212,7 @@ class _ListScheduler:
         }
         self._calendars: dict[tuple[str, tuple[str, ...]], Intervals] = {}
         self._running: set[str] = set()
-        self.placed: dict[str, _Placed] = {}
+        self.placed: dict[str, Placed] = {}
         self.assignments: list[Assignment] = []
 
     # --- phases --------------------------------------------------------------------------
@@ -356,37 +303,39 @@ class _ListScheduler:
 
     # --- one pending operation -----------------------------------------------------------
 
-    def _gate(self, op: _Op) -> _Gate:
-        ready, limit = op.material_ready, math.inf
-        lots: list[tuple[float, float]] = []
-        for link in op.links:
-            pred = self.placed[link.pred_id]
-            base = pred.end if link.overlap is None else pred.transfer(link.overlap)
-            ready = max(ready, base + link.min_lag)
-            if link.max_lag is not None:
-                limit = min(limit, base + link.max_lag)
-            if link.overlap is not None:
-                lots.append((pred.end, link.overlap))
-        return _Gate(ready, limit, tuple(lots))
+    def _gate(self, op: _Op) -> Gate:
+        placed = ((link, self.placed[link.pred_id]) for link in op.links)
+        return material_gate(op.material_ready, placed)
 
     def _place(self, op: _Op) -> ScheduleIssue | None:
-        """Place `op` on the option that completes first; an issue when none can."""
+        """Place `op` on the option that completes first; an issue when none can.
+
+        Ties on completion go to the lowest preference cost; options are in machine id
+        order, so a full tie keeps the lowest machine id.
+        """
         gate = self._gate(op)
         best: _Candidate | None = None
         missed_max_lag = False
         for option in op.options:
             request = self._request(op, option, gate)
-            check = _SlotCheck(op, gate, option, self._pools)
+            check = SlotCheck(
+                gate,
+                unit=option.unit,
+                latest_start=op.latest_start,
+                detached=op.detached,
+                needs=op.needs,
+                pools=self._pools,
+            )
             slot = self._timelines[option.machine_id].find_slot(request, check)
             missed_max_lag |= check.missed_max_lag
-            if slot is not None and (best is None or slot.end < best.slot.end):
+            if slot is not None and (best is None or _ranks_before(slot, option, best)):
                 best = _Candidate(option, request, slot)
         if best is None:
             return _unplaceable(op.id, missed_max_lag)
         self._commit(op.id, op.needs, best)
         return None
 
-    def _request(self, op: _Op, option: _Option, gate: _Gate) -> SlotRequest:
+    def _request(self, op: _Op, option: _Option, gate: Gate) -> SlotRequest:
         return SlotRequest(
             op_id=op.id,
             run_seconds=option.run,
@@ -414,7 +363,7 @@ class _ListScheduler:
         batch_id = self._timelines[machine_id].place(chosen.request, slot)
         if needs:
             hold_operators(slot, needs, self._pools)
-        self.placed[op_id] = _Placed(
+        self.placed[op_id] = Placed(
             slot.setup_end, slot.end, chosen.option.fixed, chosen.option.unit
         )
         self.assignments.append(
@@ -427,6 +376,11 @@ class _ListScheduler:
                 batch_id=batch_id,
             )
         )
+
+
+def _ranks_before(slot: Slot, option: _Option, best: _Candidate) -> bool:
+    """Earlier completion wins; on a tie, the lower preference cost."""
+    return (slot.end, option.preference_cost) < (best.slot.end, best.option.preference_cost)
 
 
 def _unplaceable(op_id: str, missed_max_lag: bool) -> ScheduleIssue:
@@ -468,15 +422,24 @@ class BaselineSolver:
 
     @property
     def capabilities(self) -> frozenset[Feature]:
-        """Every feature except `restart` (warm-up after idle is TF-003)."""
+        """Every feature, `restart` included (D-074)."""
         return CAPABILITIES
 
     def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
+        self,
+        problem: Problem,
+        *,
+        objective: ObjectiveSpec,
+        budget_seconds: float,
+        context: SolveContext,
     ) -> Schedule:
-        """One pass over `problem`, cut off with `time_limit` after `budget_seconds`."""
+        """One pass over `problem`, cut off with `time_limit` at `context.deadline`.
+
+        `budget_seconds` is the same budget `context.deadline` was built from; the pass
+        reads the deadline only.
+        """
         started = time.perf_counter()
-        scheduler = _ListScheduler(problem, time.monotonic() + budget_seconds)
+        scheduler = _ListScheduler(problem, context.deadline)
         issue = scheduler.run(problem) or _horizon_issue(problem, scheduler.assignments)
         if issue is not None:
             elapsed = time.perf_counter() - started

@@ -1,19 +1,23 @@
 """Scheduling problem model v2: contracts, solvers, validator, verifier and objectives.
 
 The facade re-exports the public names of the submodules. `solve` is the one entry point
-(validate, compile overrides, refuse unsupported features, run, verify, evaluate);
-`ORToolsSolver` imports ortools only when it is built, so importing this package never
-needs the optional `scheduling` extra.
+(validate, compile overrides, refuse unsupported features, run, verify, evaluate).
+Solvers are built by name through the registry (`get_solver`, `available_solvers`). The
+TF-005 planning functions (`solve_portfolio`, `get_pareto_menu`, `resolve_with_overrides`,
+`insert_rush_order`) come from `portfolio.api` and compose solvers by name too. The
+facade imports no algorithm module, so importing this package never needs the optional
+`scheduling` extra (D-069).
 """
 
 from twinflow.scheduling.baseline import BaselineSolver
-from twinflow.scheduling.cpsat import OptionalDependencyError, ORToolsSolver
+from twinflow.scheduling.features import problem_features
 from twinflow.scheduling.model import (
     SCHEMA_VERSION,
     AbsDiffTerm,
     Assignment,
     BatchCapacity,
     Calendar,
+    Candidate,
     CompiledProblem,
     EpsilonBound,
     EpsilonConstraint,
@@ -29,6 +33,7 @@ from twinflow.scheduling.model import (
     LockOverride,
     Machine,
     MachineState,
+    MenuEntry,
     MismatchTerm,
     ObjectiveKind,
     ObjectiveSpec,
@@ -39,6 +44,7 @@ from twinflow.scheduling.model import (
     Override,
     OvertimeInterval,
     Pin,
+    PortfolioResult,
     Precedence,
     PreferMachineOverride,
     PreviousAssignment,
@@ -62,9 +68,20 @@ from twinflow.scheduling.model import (
 )
 from twinflow.scheduling.objectives import SENSE, evaluate, primary_kind, rank
 from twinflow.scheduling.overrides import apply_overrides
+from twinflow.scheduling.portfolio.api import (
+    get_pareto_menu,
+    insert_rush_order,
+    resolve_with_overrides,
+    solve_portfolio,
+)
 from twinflow.scheduling.profile import default_profile, load_profile
+from twinflow.scheduling.registry import UnknownSolverError
+from twinflow.scheduling.registry import available as available_solvers
+from twinflow.scheduling.registry import get as get_solver
+from twinflow.scheduling.registry import is_registered as is_registered_solver
+from twinflow.scheduling.seam import Feature, SolveContext, Solver
 from twinflow.scheduling.setups import SetupTable
-from twinflow.scheduling.solver import Feature, Solver, problem_features, solve
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import parse_request, validate
 from twinflow.scheduling.verifier import verify
 
@@ -76,6 +93,7 @@ __all__ = [
     "BaselineSolver",
     "BatchCapacity",
     "Calendar",
+    "Candidate",
     "CompiledProblem",
     "EpsilonBound",
     "EpsilonConstraint",
@@ -92,18 +110,18 @@ __all__ = [
     "LockOverride",
     "Machine",
     "MachineState",
+    "MenuEntry",
     "MismatchTerm",
-    "ORToolsSolver",
     "ObjectiveKind",
     "ObjectiveSpec",
     "Operation",
     "OperationStatus",
     "OperatorNeed",
     "OperatorPool",
-    "OptionalDependencyError",
     "Override",
     "OvertimeInterval",
     "Pin",
+    "PortfolioResult",
     "Precedence",
     "PreferMachineOverride",
     "PreviousAssignment",
@@ -117,24 +135,33 @@ __all__ = [
     "SchedulingProfile",
     "SetupFunction",
     "SetupTable",
+    "SolveContext",
     "SolveRequest",
     "SolveResult",
     "Solver",
     "SplitOverride",
+    "UnknownSolverError",
     "VerificationResult",
     "WeightedSum",
     "WeightedTerm",
     "WorkCenter",
     "apply_overrides",
+    "available_solvers",
     "default_profile",
     "evaluate",
+    "get_pareto_menu",
+    "get_solver",
+    "insert_rush_order",
+    "is_registered_solver",
     "load_profile",
     "parse_request",
     "primary_kind",
     "problem_features",
     "rank",
     "request_json_schema",
+    "resolve_with_overrides",
     "solve",
+    "solve_portfolio",
     "validate",
     "verify",
 ]

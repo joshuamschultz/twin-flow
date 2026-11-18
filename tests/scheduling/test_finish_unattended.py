@@ -259,7 +259,7 @@ def test_solve_reports_unattended_feature() -> None:
 
 def test_ortools_refuses_unattended_with_unsupported_feature() -> None:
     pytest.importorskip("ortools")
-    from twinflow.scheduling import ORToolsSolver
+    from twinflow.scheduling.algorithms.cpsat import ORToolsSolver
 
     solver = ORToolsSolver()
     assert Feature.UNATTENDED not in solver.capabilities
@@ -294,3 +294,38 @@ def test_validate_overlap_with_unattended_op_requires_forbid(
             "problem.jobs[0].operations[1].predecessors[0].overlap_quantity",
         )
     ]
+
+
+# --- every registered solver (TF-003 merge) ----------------------------------------------------
+
+
+def _registered_names() -> list[str]:
+    from twinflow.scheduling import available_solvers
+
+    return [info.name for info in available_solvers()]
+
+
+@pytest.mark.parametrize("name", _registered_names())
+def test_every_registered_solver_verifies_or_refuses_unattended_ops(name: str) -> None:
+    # Ops longer than a shift on one calendared oven: a solver either verifies or refuses
+    # by name (ortools: unsupported_feature); it never crashes or returns a bad plan.
+    from twinflow.scheduling import get_solver
+    from twinflow.scheduling.seam import OptionalDependencyError
+
+    try:
+        solver = get_solver(name)
+    except OptionalDependencyError:
+        pytest.skip(f"{name} needs an optional extra")
+    jobs = [
+        Job(id=f"J{k}", due=30 * H, operations=(_op(f"J{k}:10", seconds=(3 + k) * H),))
+        for k in range(4)
+    ]
+
+    result = solve(_request(*jobs), solver=solver, budget_seconds=5.0)
+
+    codes = [issue.code for issue in result.issues]
+    if result.schedule.status in ("FEASIBLE", "OPTIMAL"):
+        assert result.verified is True, (name, result.issues)
+    else:
+        assert codes, (name, result.schedule.status)
+        assert "solver_error" not in codes, (name, result.issues)
