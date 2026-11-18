@@ -188,18 +188,65 @@ def _handle_scenario_import(args: argparse.Namespace) -> int:
     return 0
 
 
+def _issue_line(issue: Any) -> str:
+    """`error: $.experiment.policy: what is wrong. Fix: how` for a capsule issue."""
+    line = f"{issue.severity}: {issue.path}: {issue.message}"
+    suggestion = getattr(issue, "suggestion", None)
+    return f"{line} Fix: {suggestion}" if suggestion else line
+
+
+def _setting_issues(capsule: Any, file: Path) -> list[Any]:
+    """Typos and bad values in `experiment:` that a project run would flag (REQ-221).
+
+    The settings table lives with the extensions, which only the CLI may import, so the
+    command line adds this check to the capsule's own validation.
+    """
+    from twinflow.extensions.project import DOMAINS, read_config
+    from twinflow.scenario import ValidationIssue
+
+    if capsule.model.get("domain") not in DOMAINS:
+        return []
+    _, problems = read_config(capsule.experiment, file)
+    return [
+        ValidationIssue(f"$.{p.field}", p.message, p.severity, p.fix)
+        for p in problems
+        if p.field is not None
+    ]
+
+
 def _handle_scenario_validate(args: argparse.Namespace) -> int:
-    capsule = load_capsule(args.capsule)
-    issues = capsule.validate()
+    file = _capsule_file(args.capsule)
+    capsule = load_capsule(file)
+    issues = [*capsule.validate(), *_setting_issues(capsule, file)]
     for issue in issues:
-        print(f"{issue.severity}: {issue.path}: {issue.message}")
-    return 0 if not issues else 1
+        print(_issue_line(issue))
+    return 0 if not any(i.severity == "error" for i in issues) else 1
+
+
+def _capsule_file(path: str) -> Path:
+    """The capsule file: the path itself, or the one `*.twin.yaml` in a folder."""
+    target = Path(path)
+    if not target.exists():
+        raise ValueError(f"{target} was not found. Fix: give the path of a .twin.yaml capsule.")
+    if target.is_file():
+        return target
+    found = sorted(target.glob("*.twin.yaml"))
+    if len(found) == 1:
+        return found[0]
+    reason = "holds no .twin.yaml capsule" if not found else "holds more than one capsule"
+    raise ValueError(f"The folder {target} {reason}. Fix: name the capsule file you mean.")
 
 
 def _handle_scenario_run(args: argparse.Namespace) -> int:
     from twinflow.application.scenarios import evaluate_capsule, validate_content
+    from twinflow.scenario import CapsuleValidationError
 
-    capsule = validate_content(Path(args.capsule).read_text(encoding="utf-8"))
+    try:
+        capsule = validate_content(_capsule_file(args.capsule).read_text(encoding="utf-8"))
+    except CapsuleValidationError as exc:
+        for issue in exc.issues:
+            print(_issue_line(issue), file=sys.stderr)
+        return 1
     reps = args.reps if args.reps is not None else capsule.experiment.get("replications", 1)
     seed = args.seed if args.seed is not None else capsule.experiment.get("seed", 0)
     if not 1 <= reps <= 50 or not 0 <= seed <= 2**32 - 1:
