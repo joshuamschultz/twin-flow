@@ -6,6 +6,46 @@ All notable changes to twinflow are recorded here. The format follows
 
 ## [Unreleased]
 
+### TF-006: state layer, drop-in rules and decision reports
+
+This block covers the TF-006 work. It is the first release where a plant's rules, views and
+reports are plain files that a planner can read and change.
+
+- **State layer:** twinflow records how a plant moves from one situation to the next. A
+  capsule turns on `experiment.state_capture`. `twinflow states` and `twinflow markov` read
+  the recorded moves, show the top situations, and estimate the likely next moves.
+- **Engines:** any engine can run as a Gymnasium-style environment, with view or feature
+  observations. Custom engine files run only from the CLI or Python, not from the workspace.
+- **Extensions:** one loader covers every kind of extension file: policy, reward, view,
+  feature, demand, observation and engine. A project file with the name of a built-in
+  replaces it. `twinflow extensions list` and `check` report each problem in plain words.
+- **Drop-in rules:** eleven built-in rules are plain Python files. A project keeps its own
+  rules in `policies/`. `twinflow policies list`, `check` and `race` work with them.
+- **Race:** every rule runs on the same random demand, with common random numbers, so the
+  comparison is fair. The race reports score and dollars per run with a 95% range. It tunes
+  each rule's settings on separate seeds, finds money leaks, and draws Markov maps for the
+  top rules.
+- **Improve:** `twinflow improve` races a candidate rule against your current rules. The
+  candidate is copied into `policies/` only when the paired interval is above zero.
+- **CLI commands:** `twinflow new` starts from a make-to-stock, job-shop or custom-engine
+  template. `scenario run --summary` and `run --orders` print plain lines. `states --html`
+  and `markov --html` write a page.
+- **Decision-first reports:** each report is one offline HTML file and leads with the
+  decision. `race.html`, `report.html` (run viewer), `sweep.html`, `states.html`,
+  `improve.html` and `project.html` each answer one question, listed in
+  [the CLI reference](docs/cli.md#report-pages). Reports can also publish to the workspace
+  DECISIONS pages, with `--workspace` or `TWINFLOW_WORKSPACE_ROOT`.
+- **Front end:** the decision views share one set of design tokens. Every view has its
+  workspace list and page. Report sentences use plain words. A test checks that they read at
+  grade 6 or lower and that they use no banned word.
+- **Retired:** the old Plotly and Mermaid race page, and the classic tools and legacy tabs in
+  the front end. Their reports and pages are replaced by the decision views above.
+- **Examples:** a molding-press capsule with two readable rules and a candidate rule, a CNC
+  job shop with state capture, and three business showcases (plastics molding, CNC job shop
+  and pump supply) with notebooks.
+- **How-to guides:** eleven plain-language guides in [`docs/how-to`](docs/how-to/README.md).
+  A test runs every command in them as written.
+
 ### Added
 
 - **TF-004 simulation link:** every verified plan (ERP or scenario) runs in the new
