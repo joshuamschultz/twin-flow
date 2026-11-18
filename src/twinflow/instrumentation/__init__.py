@@ -1,4 +1,4 @@
-"""Layer 4 — ProcessExecution log -> KPIs -> sweep harness. Reads the event table only."""
+"""Layer 4, ProcessExecution log -> KPIs -> sweep harness. Reads the event table only."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def compute_kpis(
     labor_pool_capacity: dict[str, int] | int = 1,
 ) -> KpiSet:
     """Public API: every reported KPI from the single event table. A thin facade
-    delegating to `KpiEngine` (COMP-023) — no KPI is computed anywhere outside
+    delegating to `KpiEngine` (COMP-023), no KPI is computed anywhere outside
     that component."""
     return KpiEngine().compute(
         event_paths=event_paths,

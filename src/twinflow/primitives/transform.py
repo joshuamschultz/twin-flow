@@ -1,4 +1,4 @@
-"""COMP-010 Transform — the one conversion contract: bundles in -> bundles out.
+"""COMP-010 Transform, the one conversion contract: bundles in -> bundles out.
 
 Absorbs the former Transform/Split/Assemble/Batch/Yield archetypes (D-043).
 Remainders and scrap are ordinary output bundles, never special cases.
@@ -36,7 +36,7 @@ class OutputSpec:
 @dataclass(frozen=True)
 class TransformSpec:
     """A compiled transform: an ordered list of output specs. Output bundles are
-    produced in this same order — a remainder or scrap bundle is just another
+    produced in this same order, a remainder or scrap bundle is just another
     entry in the list, never a distinguished special case (D-043)."""
 
     outputs: list[OutputSpec]
@@ -46,7 +46,7 @@ class Transform:
     """Applies a compiled TransformSpec to a list of input Bundles.
 
     One code path serves every shape in structure.md's primitives table
-    (cut, pour, transform, assemble, scrap, bin) — the shape lives entirely
+    (cut, pour, transform, assemble, scrap, bin), the shape lives entirely
     in how many OutputSpecs the spec declares, never in a branch here (D-043).
     """
 

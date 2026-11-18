@@ -231,6 +231,17 @@ plan = load_plan("plan.csv", model.registry)
 results = ReplicationRunner("model.yaml").run(plan, reps=30, base_seed=42)
 ```
 
+## Decision reports and how-to guides
+
+Each command that makes a report writes one offline HTML file. Open it in a browser. The
+race report, `race.html`, leads with the decision: which rule earns the most, and by how much.
+The other pages are `report.html` (the run viewer), `sweep.html`, `states.html`,
+`improve.html` and `project.html`. The [CLI reference](docs/cli.md#report-pages) lists the
+command, the flags and the question each page answers.
+
+New to twinflow? Start with the [how-to guides](docs/how-to/README.md). They take you from a
+new folder to a race of rules, one step at a time. Each command in them is tested.
+
 ---
 
 ## ✅ What you get today

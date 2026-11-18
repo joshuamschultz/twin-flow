@@ -1,4 +1,4 @@
-"""COMP-006 Stock — a material level pulled from by name; blocks when empty."""
+"""COMP-006 Stock, a material level pulled from by name; blocks when empty."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class Stock:
     order before it runs dry.
 
     A second optional `on_level_change(stock, delta, kind)` observer fires AFTER the
-    level actually changes — a negative `delta`/`"consume"` after a `get`, a positive
+    level actually changes, a negative `delta`/`"consume"` after a `get`, a positive
     `delta`/`"replenish"` after a `put`. The driver uses it to record the inventory
     log; the primitive stays domain-agnostic.
     """
@@ -48,7 +48,7 @@ class Stock:
         self._on_level_change = on_level_change
 
     def set_reorder_hook(self, on_change: Callable[[Stock], None] | None) -> None:
-        """Set (or clear) the pre-pull reorder observer after construction — used by
+        """Set (or clear) the pre-pull reorder observer after construction, used by
         the driver so a multi-echelon hook can reference the whole stocks map, which
         only exists once every stock has been built."""
         self._on_change = on_change

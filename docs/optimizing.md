@@ -1,4 +1,4 @@
-# Optimizing — making decisions with the twin
+# Optimizing: making decisions with the twin
 
 ![A wireframe hill with a dotted path to a marker on the highest peak](images/headers/optimizing.webp)
 
@@ -25,10 +25,10 @@ use:
 
 `[0]` selects a list item by index; `[mill]` selects the list item whose `name` is `mill`.
 
-## Level 1 — what-if sweeps (try every option, side by side)
+## Level 1: what-if sweeps (try every option, side by side)
 
 A sweep runs a grid of options and reports them all, fairly paired with common random
-numbers. It picks **no winner** — you read the trade-off.
+numbers. It picks **no winner**, you read the trade-off.
 
 Write a small JSON grid (`sweep.json`):
 
@@ -43,7 +43,7 @@ twinflow balance model.yaml --plan plan.csv --sweep sweep.json --reps 30
 ```
 
 You get each option's KPIs (with bands) next to each other. Sweep more than one lever by
-adding keys — the tool runs the full grid (every combination). Sweeps are also the only
+adding keys, the tool runs the full grid (every combination). Sweeps are also the only
 way today to compare a **categorical** lever like a dispatch rule:
 
 ```json
@@ -52,20 +52,20 @@ way today to compare a **categorical** lever like a dispatch rule:
 
 Use a sweep when the grid is small and you want to *see* the whole trade space.
 
-## Level 2 — optimize (let the twin search)
+## Level 2: optimize (let the twin search)
 
 When the grid is large, search it instead of enumerating it. Every optimization has three
 parts: a **space** (which levers, over what range), an **objective** (what "better"
 means), and an **optimizer** (how to search).
 
-### Objectives — what "better" means
+### Objectives: what "better" means
 
 Pick one with `--objective` (CLI) or `OBJECTIVES.create(name)` (Python):
 
 | Objective | Direction | Rewards |
 |---|---|---|
 | `on_time_pct` | maximize | average on-time delivery |
-| `robust_on_time` | maximize | the **low edge** of the on-time band — reliably good, not luckily good |
+| `robust_on_time` | maximize | the **low edge** of the on-time band, reliably good, not luckily good |
 | `makespan` | minimize | finishing everything sooner |
 | `mean_lateness` | minimize | less average tardiness |
 | `utilization` | maximize | busier machines |
@@ -74,7 +74,7 @@ Pick one with `--objective` (CLI) or `OBJECTIVES.create(name)` (Python):
 Prefer `robust_on_time` when you must *promise* a date: it optimizes the number you can
 defend, not the average you might miss.
 
-### Cost functions — putting a price on it
+### Cost functions: putting a price on it
 
 Cost functions turn a run into money (every rate is an assumption you supply):
 
@@ -90,13 +90,13 @@ Cost functions turn a run into money (every rate is an assumption you supply):
 Turn a cost into a minimize-objective with `CostObjective`, or blend cost with service
 using `WeightedObjective`.
 
-### Optimizers — how to search
+### Optimizers: how to search
 
 | Optimizer | Use when |
 |---|---|
 | `grid` | the space is small; you want every point evaluated |
 | `random` | the space is large; a quick, unbiased scan |
-| `hill_climb` | smooth surfaces (staffing, capacity) — usually the best default |
+| `hill_climb` | smooth surfaces (staffing, capacity), usually the best default |
 | `genetic` | levers interact and a hill climb gets stuck |
 
 `budget` is the number of **real (simulated) evaluations** the search may spend. Repeated
@@ -110,7 +110,7 @@ twinflow optimize model.yaml --plan plan.csv \
   --objective robust_on_time --optimizer hill_climb --budget 12 --reps 12
 ```
 
-- `--lever PATH:MIN:MAX[:STEP]` — repeat for more than one lever. Ranges are integers.
+- `--lever PATH:MIN:MAX[:STEP]`: repeat for more than one lever. Ranges are integers.
 - Prints the winning levers, the best score, its on-time band, and how many evaluations
   it used.
 
@@ -138,7 +138,7 @@ for scenario, score in result.history:  # the search trail, for a convergence ch
     print(scenario.levers, score)
 ```
 
-## Worked example A — staffing for on-time delivery
+## Worked example A: staffing for on-time delivery
 
 Question: how many operators to hit on-time without over-hiring?
 
@@ -151,7 +151,7 @@ twinflow optimize model.yaml --plan plan.csv \
 Read the result: the headcount that maximizes the *reliable* on-time %, with its band. If
 the band barely moves past a certain headcount, that is your point of diminishing returns.
 
-## Worked example B — capacity vs cost
+## Worked example B: capacity vs cost
 
 Question: is a second machine at the bottleneck worth it? Optimize on-time, then price each
 option with a cost function and compare in Python:
@@ -181,7 +181,7 @@ print("best:", result.best.scenario.levers, "on-time:", result.best_score)
 print("cost of best: $", round(cost.cost(result.best)))
 ```
 
-## Worked example C — inventory optimization
+## Worked example C: inventory optimization
 
 Because a stock's `reorder_point` and `refill_to` are ordinary levers, tuning inventory is
 just optimization. Minimize holding + stockout cost by searching the reorder point:
@@ -209,10 +209,10 @@ print("best reorder point:", result.best.scenario.levers, "spend: $", round(resu
 ```
 
 Set the reorder point too low and you pay stockout penalties; too high and you pay to hold
-inventory. The optimizer finds the balance — and the twin still reports the service-level
+inventory. The optimizer finds the balance, and the twin still reports the service-level
 band so you can see the risk you are buying.
 
-## Level 3 — surrogate models (screen before you simulate)
+## Level 3: surrogate models (screen before you simulate)
 
 When even one evaluation is expensive, fit a cheap **surrogate** on the runs you already
 did, then let it rank the whole grid to pick the few points worth really simulating:
@@ -230,7 +230,7 @@ the twin still produces the honest, banded answer.
 
 ## Adding your own objective, cost, or optimizer
 
-All four kinds live in registries you can extend with one call — no core change. See
+All four kinds live in registries you can extend with one call, no core change. See
 [modules.md](modules.md) for the pattern and how to write a new one.
 
 ## Next

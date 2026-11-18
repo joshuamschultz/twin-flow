@@ -1,4 +1,4 @@
-"""COMP-012 LaborPool — a named, skilled pool of operators gated by shift calendars.
+"""COMP-012 LaborPool, a named, skilled pool of operators gated by shift calendars.
 
 Unload requests outrank fresh load requests so machines get unblocked before new lots.
 """
@@ -45,7 +45,7 @@ class LaborPool:
 
     @property
     def available(self) -> int:
-        """Operators free right now — 0 whenever off-shift, held or not."""
+        """Operators free right now, 0 whenever off-shift, held or not."""
         if not self.shift_calendar.is_on_shift(self.env.now):
             return 0
         return int(self._resource.capacity) - self._resource.count

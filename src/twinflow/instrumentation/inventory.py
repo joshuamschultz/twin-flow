@@ -1,4 +1,4 @@
-"""Inventory instrumentation — stock levels over time -> supply-chain KPIs.
+"""Inventory instrumentation, stock levels over time -> supply-chain KPIs.
 
 Every change to a stock's level (a consume, a replenishment delivery, the initial seed)
 and every replenishment order placed is recorded as one row in a per-run
@@ -9,7 +9,7 @@ orders were placed, and how much was replenished.
 
 The level column always carries the level AFTER the event, so the log is a step
 function of on-hand inventory over `[0, horizon]` that integrates directly. A model with
-no stocks produces an empty log, and every KPI is an empty dict — never a crash.
+no stocks produces an empty log, and every KPI is an empty dict, never a crash.
 """
 
 from __future__ import annotations

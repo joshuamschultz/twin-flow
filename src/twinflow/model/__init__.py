@@ -1,4 +1,4 @@
-"""Layer 2 — config in, routing graph + BOM out. The only YAML/expression trust boundary."""
+"""Layer 2, config in, routing graph + BOM out. The only YAML/expression trust boundary."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ MAX_EXPRESSION_LENGTH = 200
 @dataclass(frozen=True)
 class LaborPoolConfig:
     """Raw declarative shape of one `labor.pools` entry (model.yaml's `labor`
-    section). Not a runtime `primitives.labor.LaborPool` — that is env-bound and
+    section). Not a runtime `primitives.labor.LaborPool`, that is env-bound and
     RunContext/env is built fresh every `RunDriver.run()` call, never here, so a
     `CompiledModel` can only carry the declarative shape a driver later builds a
     fresh `LaborPool` from (COMP-012, COMP-019)."""
@@ -54,14 +54,14 @@ class LaborPoolConfig:
     """Operator-absence disruption (A4): the seeded probability that each headcount
     slot is unavailable for a run (0.0 = fully staffed, the default). The driver draws
     the number of absent slots once per run from the SOURCE_ABSENCE stream and builds
-    the pool with the reduced effective headcount (a documented alpha simplification —
+    the pool with the reduced effective headcount (a documented alpha simplification,
     absence is per-run, not per-shift, until a real shift calendar lands)."""
 
 
 @dataclass(frozen=True)
 class ReleaseConfig:
     """Order-release control (A2). `policy` is one of `plan` (release each order on its
-    start_date — the historical default), `wip_cap`/`conwip` (hold new releases while
+    start_date: the historical default), `wip_cap`/`conwip` (hold new releases while
     the count of in-system orders is at `wip_cap`, releasing the next held order as one
     completes). `wip_cap` is required for the capped policies."""
 
@@ -72,7 +72,7 @@ class ReleaseConfig:
 @dataclass(frozen=True)
 class StockConfig:
     """Raw declarative shape of one top-level `stocks[*]` entry (model.yaml's
-    `stocks` section). Not a runtime `primitives.stock.Stock` — that is
+    `stocks` section). Not a runtime `primitives.stock.Stock`, that is
     env-bound and built fresh every `RunDriver.run()` call, never here, so a
     `CompiledModel` can only carry the declarative shape a driver later builds
     a fresh `Stock` from (D-044), mirroring `LaborPoolConfig`/`labor_pools`. A
@@ -131,8 +131,8 @@ def load_model(path: str) -> CompiledModel:
     """Public API: parse + validate + compile a model.yaml into a CompiledModel.
 
     Parses exactly once (`model.loader.load_raw_model`), then validates
-    (`ModelValidator`) before compiling (`LocationCompiler`) — never the reverse
-    order — so a config broken enough to crash the compiler still surfaces as a
+    (`ModelValidator`) before compiling (`LocationCompiler`), never the reverse
+    order: so a config broken enough to crash the compiler still surfaces as a
     `ModelValidationError` naming the offending path rather than an uncaught
     exception (D-007, `model/validate.py`'s own documented guarantee: it inspects
     the raw parse tree and never calls `LocationCompiler.compile()` for exactly
@@ -179,7 +179,7 @@ def validate_model(path: str) -> list[ValidationError]:
 
     The non-raising counterpart to `load_model`, for `twinflow validate`: it reports
     every `ValidationError` (empty list means the model may run) rather than
-    stopping at the first or raising a `ModelValidationError`. Never compiles — the
+    stopping at the first or raising a `ModelValidationError`. Never compiles, the
     validator inspects the raw parse tree directly (D-007).
     """
     raw_model = load_raw_model(path)

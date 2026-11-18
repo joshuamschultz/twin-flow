@@ -1,14 +1,14 @@
-"""COMP-024 SweepHarness — a declared lever grid with CRN pairing across sweep points.
+"""COMP-024 SweepHarness, a declared lever grid with CRN pairing across sweep points.
 
 Runs the cartesian product of a declared lever grid and reports the KPIs of every
 resulting configuration side by side. Selects no winner and applies no objective
 function (D-035, D-042: Optuna/OR-Tools/NSGA-II rejected because no objective is
-defined for v1 — grid/random sweep with KPIs reported side by side, instead).
+defined for v1, grid/random sweep with KPIs reported side by side, instead).
 
 Every sweep point runs `reps` replications at the SAME `base_seed` and
 `replication_index=0..reps-1` sequence via the already-shipped `ReplicationRunner`
 (COMP-020), so replications pair by index across points for common random numbers
-(CRN, D-033) — the pairing survives a config change that alters draw counts, because
+(CRN, D-033), the pairing survives a config change that alters draw counts, because
 `RngRegistry` derives each stream from `(base_seed, replication_index, source_index)`
 only, never from anything point-specific or draw-count-derived.
 
@@ -239,7 +239,7 @@ def orders_frame(
     plan: list[WorkOrder], compiled: CompiledModel, event_log_path: Path
 ) -> pl.DataFrame:
     """One (order, lot) row per lot observed at that order's part's terminal
-    routing location in this run's own event log — the join key `KpiEngine`
+    routing location in this run's own event log, the join key `KpiEngine`
     needs, rebuilt per replication since lot ids are generated fresh (per-
     location, per-firing) every run."""
     del compiled
@@ -296,7 +296,7 @@ def _kpi_rows_for_point(
 
 def _write_partition(out_dir: Path, point_id: str, results: list[RunResult]) -> None:
     """Write one hive-style `sweep_point=<id>` directory holding every
-    replication's event rows, `replication` as an ordinary column — never its
+    replication's event rows, `replication` as an ordinary column, never its
     own directory level."""
     partition_dir = out_dir / f"sweep_point={point_id}"
     partition_dir.mkdir(parents=True, exist_ok=True)

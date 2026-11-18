@@ -186,7 +186,7 @@ export function WhatIf({ policies, config, runs, limit = 8 }: Props) {
 function Move({ value }: { value: number }) {
   const words =
     value > 0 ? `up ${value}` : value < 0 ? `down ${-value}` : "no change";
-  const mark = value > 0 ? `▲${value}` : value < 0 ? `▼${-value}` : "–";
+  const mark = value > 0 ? `▲${value}` : value < 0 ? `▼${-value}` : "-";
   const tone = value > 0 ? "tf-up" : value < 0 ? "tf-dn" : "tf-eq";
   return (
     <span className={`tf-wi-move ${tone}`}>

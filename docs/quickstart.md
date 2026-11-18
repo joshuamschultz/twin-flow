@@ -78,6 +78,6 @@ tabs.
 
 ## Next
 
-- [modeling.md](modeling.md) — build your own floor
-- [modules.md](modules.md) — objectives, costs, optimizers, ML models, and how to add your own
+- [modeling.md](modeling.md), build your own floor
+- [modules.md](modules.md), objectives, costs, optimizers, ML models, and how to add your own
 - [cli.md](cli.md) · [api.md](api.md) · [frontend.md](frontend.md)

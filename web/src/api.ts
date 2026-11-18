@@ -1,6 +1,6 @@
 /**
  * Typed client for the twinflow FastAPI backend. Every function hits a
- * relative `/api/...` path — the Vite dev server proxies these to
+ * relative `/api/...` path, the Vite dev server proxies these to
  * `http://localhost:8000` (see vite.config.ts); a production build expects
  * the same origin to serve both the app and the API.
  */

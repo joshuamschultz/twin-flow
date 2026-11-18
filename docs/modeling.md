@@ -3,7 +3,7 @@
 ![A flat floor plan with machines and a conveyor rising out of it in 3D](images/headers/modeling.webp)
 
 A floor is one `model.yaml` plus a production plan (`.xlsx`/`.csv`). The engine has no
-per-client code — every capability below is declarative config the Layer-2 compiler
+per-client code, every capability below is declarative config the Layer-2 compiler
 turns into pure primitives. This page is the config reference; the README's "building
 blocks" section is the plain-language tour.
 
@@ -56,16 +56,16 @@ Add `cv: C` to any time model (or set `defaults.cycle_time_cv`) for a lognormal 
 
 ## Core knobs
 
-- **`scrap: {rate, thing, uom}`** — a fixed fraction becomes a scrap output bundle.
-- **`batch_size: "200 piece"`** — accumulate to a threshold in the thing's own unit
+- **`scrap: {rate, thing, uom}`**: a fixed fraction becomes a scrap output bundle.
+- **`batch_size: "200 piece"`**: accumulate to a threshold in the thing's own unit
   before the operation fires (otherwise arrival order).
-- **`capacity: N`** — N identical machines in parallel at this center.
-- **`split_output: true`** — explode each output lot after the transform into quantity-one
+- **`capacity: N`**: N identical machines in parallel at this center.
+- **`split_output: true`**: explode each output lot after the transform into quantity-one
   bundles, preserving its thing, unit, and attributes. A fractional remainder becomes
   one final fractional bundle. This lets whole units move through later queues and capacity
   slots separately; the default keeps output lots intact.
-- **`setup_key: grp_x`** — parts in the same group run back to back; see changeover.
-- **`output_stocks: {thing: stock_name}`** — route an output back into a named stock
+- **`setup_key: grp_x`**: parts in the same group run back to back; see changeover.
+- **`output_stocks: {thing: stock_name}`**: route an output back into a named stock
   (recycle / remelt).
 
 Locations that name the same `machine` use one physical machine pool, with each physical

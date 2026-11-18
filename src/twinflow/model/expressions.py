@@ -1,4 +1,4 @@
-"""COMP-015 ExpressionSandbox — the ONLY importer of simpleeval (D-002), pinned >=1.0.5.
+"""COMP-015 ExpressionSandbox, the ONLY importer of simpleeval (D-002), pinned >=1.0.5.
 
 Compiles every config expression behind a whitelist with project-imposed depth and
 length limits and the MAX_POWER guard active. Wraps errors naming the offending path.
@@ -10,7 +10,7 @@ that is not plain arithmetic/comparison over declared attribute names:
 
 - `ast.Attribute` and `ast.Call` are never in the allow-list, which is what stops the
   CVE-2026-32640 dunder-attribute-chain escape (`__class__.__bases__[0]...`,
-  `__globals__['__builtins__']`) before it can be evaluated at all — not merely
+  `__globals__['__builtins__']`) before it can be evaluated at all, not merely
   refused by simpleeval's own runtime checks.
 - Every `ast.Name` id must be present in the caller-declared `allowed_names` set and
   must not start with `_`; this is a whitelist by declaration, not by whatever keys
@@ -28,7 +28,7 @@ import ast
 from collections.abc import Callable
 from typing import Any
 
-import simpleeval  # noqa: F401 — this module is intentionally the sole simpleeval importer.
+import simpleeval  # noqa: F401, this module is intentionally the sole simpleeval importer.
 
 # Allow-list of AST node types a config expression may contain. Deliberately excludes
 # ast.Attribute, ast.Call, ast.Subscript, ast.Lambda, ast.Import and every statement

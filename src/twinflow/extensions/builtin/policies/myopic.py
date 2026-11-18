@@ -1,4 +1,4 @@
-"""Pick the most money today. Skip tomorrow.
+"""Run what earns the most money today. It does not plan for tomorrow.
 
 For each choice (rest the press, or run one product) work out today's expected
 money: sales at the usual demand, less making cost, switch cost, holding cost

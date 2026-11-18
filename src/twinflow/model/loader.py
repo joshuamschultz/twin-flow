@@ -1,4 +1,4 @@
-"""COMP-014 ModelLoader — the ONLY importer of PyYAML in the system (D-001).
+"""COMP-014 ModelLoader, the ONLY importer of PyYAML in the system (D-001).
 
 Reads one model.yaml with yaml.safe_load; produces an unvalidated parse tree.
 Never resolves includes or external references.
@@ -16,7 +16,7 @@ MAX_NESTING = 32
 class RawModel:
     """The unvalidated parse tree of one model.yaml.
 
-    `data` is the verbatim dict `yaml.safe_load` returned — no compiling, no
+    `data` is the verbatim dict `yaml.safe_load` returned, no compiling, no
     defaulting, no mutation. The named accessors below are convenience
     lookups into that same dict, one per committed top-level section.
     """

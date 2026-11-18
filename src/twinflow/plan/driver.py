@@ -1,11 +1,11 @@
-"""COMP-019 RunDriver — executes one terminating replication.
+"""COMP-019 RunDriver, executes one terminating replication.
 
 Seeds initial WIP, releases work orders on their start dates subject to any WIP ceiling,
 returns when the plan completes. Callable in-process with no subprocess and no re-parse
 (D-041): `RunDriver.__init__` takes an already-loaded `CompiledModel` once; every `run()`
 call builds fresh per-replication runtime state (RunContext/env, RngRegistry, Stocks,
 Locations, LaborPools, EventLog) so two runs never share mutable state and stay
-independent (CRN-correct) — the `CompiledModel` itself, including every `LocationSpec`
+independent (CRN-correct), the `CompiledModel` itself, including every `LocationSpec`
 in it, is treated as read-only config and is never mutated.
 """
 
@@ -63,7 +63,7 @@ class RunResult:
 class _AlwaysOnShiftCalendar:
     """Default `primitives.labor.ShiftCalendar`: `model.yaml`'s `labor.pools`
     entries declare no shift calendar yet, so every pool is treated as always on
-    shift — the same "no client data yet, so default to the least-restrictive
+    shift: the same "no client data yet, so default to the least-restrictive
     option" pattern D-027/D-021 already apply elsewhere. Flagged as an assumption
     for the (not-yet-built) COMP-025 AssumptionsCollector to name.
     """
@@ -99,7 +99,7 @@ class _RoutingSink(list[Bundle]):
     `Location._fire`'s output step is duck-typed on `.append()` only (never
     `isinstance(..., list)`), so this list subclass satisfies COMP-007's
     `LocationSpecLike.destinations` contract unchanged while additionally
-    routing the bundle onward — no primitives/model change needed.
+    routing the bundle onward, no primitives/model change needed.
     """
 
     def __init__(self, downstream: Location) -> None:
@@ -127,7 +127,7 @@ class _WorkTracker:
     An order is registered when released and completes when its finished units (the
     terminal outputs of its part's last routing step, tagged with its `order_id`)
     accumulate to its ordered qty. `drained` fires once every expected order has
-    completed — the `until` an active-control `env.run()` waits on, since a breakdown
+    completed: the `until` an active-control `env.run()` waits on, since a breakdown
     process would otherwise keep the sim alive forever. `slot_free` fires on each
     completion so a WIP-cap release gate can admit the next held order.
     """
@@ -255,7 +255,7 @@ class RunDriver:
     `__init__` stores the `CompiledModel` and derives the read-only, compile-time
     lookups every `run()` call needs (per-location spec, skill -> labor pool
     name). `run()` never re-parses or re-compiles `model.yaml` and never spawns a
-    subprocess (D-041) — it is pure in-process `env.run()`.
+    subprocess (D-041), it is pure in-process `env.run()`.
     """
 
     def __init__(self, compiled: CompiledModel) -> None:
@@ -284,7 +284,7 @@ class RunDriver:
         """Run one terminating replication: seed WIP, release orders, simulate.
 
         Builds a FRESH RunContext(env), RngRegistry, EventLog, LaborPools and
-        Locations for this call only — nothing built here is reused by a later
+        Locations for this call only, nothing built here is reused by a later
         `run()` call, which is what keeps replications independent (CRN-correct)
         even though they share the same `CompiledModel`.
 
@@ -498,17 +498,17 @@ class RunDriver:
     def _build_stocks(
         self, env: simpy.Environment, inventory_log: InventoryLog
     ) -> dict[str, Stock]:
-        """Fresh `Stock`s from the compiled declarative shape — env-bound, so
+        """Fresh `Stock`s from the compiled declarative shape, env-bound, so
         never built at `load_model()` time (only here, once per `run()` call).
         A stock's `name` doubles as its material identity (D-044).
 
         Built in two passes: first every `Stock` (with an inventory-logging
         `on_level_change` observer and a seeded initial-level row), then the reorder
-        hooks — set second because a multi-echelon hook references the whole stocks
+        hooks: set second because a multi-echelon hook references the whole stocks
         map. A stock declaring `reorder_point`/`refill_to` places an order-up-to
         replenishment that arrives after `lead_time` (instantaneous when `lead_time`
         is 0), optionally pulling the order quantity from a `supplier` stock. The
-        hooks are pure Layer-3 policy — the `Stock` primitive stays reorder-agnostic.
+        hooks are pure Layer-3 policy, the `Stock` primitive stays reorder-agnostic.
         """
         recorder = self._inventory_recorder(inventory_log)
         stocks: dict[str, Stock] = {}
@@ -533,7 +533,7 @@ class RunDriver:
         inventory_log: InventoryLog,
     ) -> Callable[[Stock, float, str], None]:
         """A level-change observer that records `(stock, t, level-after, delta, kind)`
-        to the inventory log — the pure Layer-3 side of `Stock.on_level_change`."""
+        to the inventory log, the pure Layer-3 side of `Stock.on_level_change`."""
 
         def record(stock: Stock, delta: float, kind: str) -> None:
             inventory_log.record(stock.thing, stock.env.now, stock.level, delta, kind)
@@ -611,7 +611,7 @@ class RunDriver:
         in_transit[0] = False
 
     def _build_labor_pools(self, env: simpy.Environment, rng: RngRegistry) -> dict[str, LaborPool]:
-        """Fresh `LaborPool`s from the compiled declarative shape — env-bound, so
+        """Fresh `LaborPool`s from the compiled declarative shape, env-bound, so
         never built at `load_model()` time (only here, once per `run()` call).
 
         A pool declaring `absence_rate > 0` has some headcount slots absent this run
@@ -764,7 +764,7 @@ class RunDriver:
         self, specs: dict[str, LocationSpec], stocks: dict[str, Stock]
     ) -> None:
         """Rewrite each declared `output_stocks` thing's `destinations[thing]`
-        to the matching fresh, env-bound `Stock` built this run — mirrors
+        to the matching fresh, env-bound `Stock` built this run, mirrors
         `_wire_routing`'s post-compile `destinations` rewrite for Location ->
         Location routing (D-044). A thing with no `stock_destinations` entry
         keeps its existing routing/default sink."""

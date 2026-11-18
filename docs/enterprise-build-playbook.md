@@ -35,7 +35,7 @@ Preserve existing layer boundaries: engine/primitives do not import service, per
 Use local filesystem artifacts for offline mode. Use PostgreSQL for service metadata and an object store for retained inputs/results when introducing enterprise hosting. An event table and immutable snapshots are sufficient initially; a separate graph database, streaming platform, or distributed simulator needs a measured justification.
 
 <a id="rm-01"></a>
-## RM-01 — Correctness, statistical meaning, and execution isolation
+## RM-01: Correctness, statistical meaning, and execution isolation
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-01).
 
@@ -52,7 +52,7 @@ Use local filesystem artifacts for offline mode. Use PostgreSQL for service meta
 7. Eliminate process-wide `os.chdir`. Pass `artifact_dir`, run ID, and execution settings explicitly through scoring, replication, and driver. Bound total compute across requests; do not give every request its own unrestricted CPU-sized pool. Preserve absolute paths only inside trusted worker code.
 8. Retain model, plan/snapshot, resolved defaults, plugin versions, seed scheme, engine commit, dependency lock/container digest, and result schema. Canonical numeric/result fields are reproducibility targets; timestamps/run IDs are intentionally different.
 
-**Statistical kernel sketch** — complete paired samples, at least two independent replications; this is a CI on a mean difference, not a delivery-date interval:
+**Statistical kernel sketch**: complete paired samples, at least two independent replications; this is a CI on a mean difference, not a delivery-date interval:
 
 ```python
 import numpy as np
@@ -78,7 +78,7 @@ def paired_mean_ci(baseline, candidate, confidence=0.95):
 **Acceptance:** no order disappears from accounting; no arbitrary replacement of missing values with zero; utilization uses recorded resource identity and available resource-time; blocked/material/labor waits have evidence; paired statistics match independent calculations; canceled and concurrent runs preserve isolation. Update public metric descriptions and the misleading calibration/variability wording in existing docs.
 
 <a id="rm-02"></a>
-## RM-02 — Single-file scenario contracts and import/export
+## RM-02: Single-file scenario contracts and import/export
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-02).
 
@@ -95,7 +95,7 @@ def paired_mean_ci(baseline, candidate, confidence=0.95):
 5. Build CLI import/validate/run/export and a browser drop-file → issues → assumptions → baseline flow. Validation errors include entity, field path, severity, and suggested repair. Agent and UI edits call the same patch service.
 6. Define package limits before uploads: byte count, entity count, YAML nesting/aliases, expression complexity, and total scenario evaluation budget. An optional `.twin` ZIP archive must reject traversal paths, symlinks, decompression bombs, and unlisted contents; verify manifest digests. Connector credentials never enter the capsule.
 
-**Proposed capsule excerpt** — abbreviated design, not a runnable current example:
+**Proposed capsule excerpt**: abbreviated design, not a runnable current example:
 
 ```yaml
 schema_version: "0.1"
@@ -128,7 +128,7 @@ provenance:
   captured_at: "2026-09-12T08:00:00-05:00"
 ```
 
-**Proposed API usage** — implement these commands in this step:
+**Proposed API usage**: implement these commands in this step:
 
 ```bash
 twinflow scenario import --model model.yaml --plan plan.csv --out shop.twin.yaml
@@ -139,7 +139,7 @@ twinflow scenario run shop.twin.yaml --out ./artifacts/baseline
 **Acceptance:** migration fixtures for every existing example; canonical round-trip equality; API/CLI identical diagnostics; malicious/oversized input rejection; documented small-model loading target; fully offline baseline from a complete capsule. A draft schema excerpt must never be presented as a complete runnable example in the final product documentation.
 
 <a id="rm-03"></a>
-## RM-03 — HMLV mechanics and credible dates
+## RM-03: HMLV mechanics and credible dates
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-03).
 
@@ -184,7 +184,7 @@ class OperationState:
 **Acceptance:** hand-solved cases for overnight shifts, DST boundaries, different setups on two machines, attended/unattended time, expiring skills, incompatible tooling, split lots feeding assembly, and WIP on a superseded route. Ensure a capacity increase is not assumed to improve every objective under every dispatch policy; test physical invariants rather than false monotonicity rules.
 
 <a id="rm-04"></a>
-## RM-04 — Agent contracts and a shared application layer
+## RM-04: Agent contracts and a shared application layer
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-04).
 
@@ -208,7 +208,7 @@ The [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk
 
 Prefer semantic edits such as `set_resource_calendar` or `change_order_release` to unrestricted dictionary paths. Validate editable fields, type, units, range, and model capability. A scenario cannot authorize itself, change tenant ownership, or grant operational write access.
 
-**Adapter sketch** — the application/auth functions are proposed, not existing imports:
+**Adapter sketch**: the application/auth functions are proposed, not existing imports:
 
 ```python
 from mcp.server import MCPServer
@@ -232,7 +232,7 @@ Normal result envelopes include `schema_version`, scenario/snapshot/result IDs, 
 **Acceptance:** two clients complete import → validate → branch → evaluate → compare → explain; stale versions and forbidden edits fail with repairable errors; canceled jobs stop consuming budget within a published bound; one user cannot retrieve another project's job/artifact. Add a set of intentionally unsupported questions to ensure the agent can abstain.
 
 <a id="rm-05"></a>
-## RM-05 — Operational data, snapshots, and validation
+## RM-05: Operational data, snapshots, and validation
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-05).
 
@@ -285,7 +285,7 @@ This is an evaluation workflow design. Implement maturity/censoring and cohort d
 **Acceptance:** duplicated, reordered, delayed, and corrected source events yield the intended snapshot; raw-to-normalized lineage is queryable; holding out the future changes fitted estimates; incomplete/unknown cases remain explicit; a partner accepts the forecast validation report. “Calibration matched historical average KPIs” is insufficient evidence of forecast validity.
 
 <a id="rm-06"></a>
-## RM-06 — Solver-assisted scheduling and robust optimization
+## RM-06: Solver-assisted scheduling and robust optimization
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-06).
 
@@ -302,7 +302,7 @@ This is an evaluation workflow design. Implement maturity/censoring and cohort d
 5. Rank candidates across replications using business-defined metrics. Separate search seeds from independent validation seeds; test winner selection bias and correlated disruptions. Use paired comparisons only when scenario/event pairing is meaningful.
 6. Produce alternatives with incremental cost, risk, service impact, and schedule churn. Find binding constraints with targeted relax-and-rerun experiments. Call these effects “within this model”; they are not automatically causal effects in the real operation.
 
-**Small OR-Tools feasibility example** — two sequential operations sharing one machine; later add optional resources, calendars, and other constraints:
+**Small OR-Tools feasibility example**: two sequential operations sharing one machine; later add optional resources, calendars, and other constraints:
 
 ```python
 from ortools.sat.python import cp_model
@@ -326,7 +326,7 @@ else:
 **Acceptance:** independently check assignments and all constraints; compare small cases with enumeration/known optima; benchmark against FIFO/EDD/SPT and current planning practice; retain results on fresh seeds; report no date when no validated feasible plan exists. Do not maximize utilization as a default goal: high utilization can worsen queueing and responsiveness.
 
 <a id="rm-07"></a>
-## RM-07 — Front-office cases and information dependencies
+## RM-07: Front-office cases and information dependencies
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-07).
 
@@ -367,7 +367,7 @@ This DSL is proposed. Resolve references with typed operators and a restricted i
 Also ship a standalone office capsule, such as invoice resolution or purchase approval, that has no manufacturing entities. Its baseline and agent workflow must run through the same import and evaluation contracts. Likewise, RM-08 must include a distribution-only network fixture so supply-chain modeling does not require a factory.
 
 <a id="rm-08"></a>
-## RM-08 — Industry-neutral complex supply networks
+## RM-08: Industry-neutral complex supply networks
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-08).
 
@@ -407,7 +407,7 @@ The gate engine checks evidence against configured rules. It does not interpret 
 **Acceptance:** test a network with at least three supplier tiers, alternative processes, shared sub-tier capacity, components feeding assembly, split shipments, quality holds, document expiry, and engineering changes. Add at least two contrasting industry profiles to prove that core code has no aerospace-only branching. Confirm quantity conservation, no double allocation, correct revision effectivity, traceable affected dates, and access separation between partners. Validate against actual network history where available; label unobserved supplier mechanisms as assumed.
 
 <a id="rm-09"></a>
-## RM-09 — Durable service, security, and enterprise operation
+## RM-09: Durable service, security, and enterprise operation
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-09).
 
@@ -425,7 +425,7 @@ The gate engine checks evidence against configured rules. It does not interpret 
 6. Trace API request → scenario → job attempt → worker → result with shared IDs. Measure queue delay, run duration, error rate, computation volume, artifact bytes, and calibration freshness. Define on-call procedures and customer-visible degraded behavior.
 7. Add database/schema migration rehearsal, artifact compatibility, release rollback, vulnerability/dependency review, signed artifacts, and support/EOL policy. Test restore and cross-tenant denial in CI and deployment drills. Maintain procurement documentation, architecture/data-flow diagrams, incident contacts, and a responsibility matrix.
 
-**PostgreSQL isolation sketch** — assumes table `scenario_versions(tenant_id uuid, ...)` exists:
+**PostgreSQL isolation sketch**: assumes table `scenario_versions(tenant_id uuid...)` exists:
 
 ```sql
 ALTER TABLE scenario_versions ENABLE ROW LEVEL SECURITY;
@@ -438,10 +438,10 @@ WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
 
 Set tenant context transaction-locally from verified application identity, using a parameterized database call. Use a non-superuser application role without `BYPASSRLS`; PostgreSQL documents privileged-role bypass behavior. Restrict direct database access and reset pooled context. RLS supplements application authorization; repeat isolation checks for artifacts and caches. See the [PostgreSQL policy documentation](https://www.postgresql.org/docs/current/ddl-rowsecurity.html).
 
-**Acceptance:** kill a worker mid-run and recover without duplicate published results; retry an API request without duplicate billed work; verify a canceled process is actually stopped; restore metadata plus artifacts; prove unauthorized cross-project reads fail; rehearse a rollback. Do not call a deployment compliant or certified solely because these controls exist—customer-specific assessments and evidence are a separate acceptance activity.
+**Acceptance:** kill a worker mid-run and recover without duplicate published results; retry an API request without duplicate billed work; verify a canceled process is actually stopped; restore metadata plus artifacts; prove unauthorized cross-project reads fail; rehearse a rollback. Do not call a deployment compliant or certified solely because these controls exist, customer-specific assessments and evidence are a separate acceptance activity.
 
 <a id="rm-10"></a>
-## RM-10 — Scale, policy interaction, and controlled writeback
+## RM-10: Scale, policy interaction, and controlled writeback
 
 [Roadmap outcome and gate](enterprise-roadmap.md#rm-10).
 

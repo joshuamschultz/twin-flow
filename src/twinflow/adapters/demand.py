@@ -1,4 +1,4 @@
-"""Demand generation — turn a demand description into a production plan.
+"""Demand generation, turn a demand description into a production plan.
 
 Today a plan is imported (`.xlsx`/`.csv`); this surface lets one be *generated* from a
 product mix and an arrival process, so scenarios can be swept over demand, not only over
@@ -6,7 +6,7 @@ levers. Every generator returns the same canonical `list[WorkOrder]` the run dri
 already consumes, and every generator is seeded, so a generated plan is reproducible.
 
 A `Forecaster` (see `forecast.py`) can supply the arrival rate or order size a generator
-uses — the seam where a demand forecast feeds the twin.
+uses: the seam where a demand forecast feeds the twin.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""COMP-011 TimeModel — cycle time per (Location, part type).
+"""COMP-011 TimeModel, cycle time per (Location, part type).
 
 Distribution, rate-based, or attribute-scaled, with an optional load/run/unload split.
 Every draw comes from the cycle_time source stream (COMP-003); TimeModel never touches
@@ -56,14 +56,14 @@ class TimeModel:
         return PhaseTimes(load=self.load, run=self._run(bundle, generator), unload=self.unload)
 
     def estimate(self, bundle: Bundle) -> float:
-        """A deterministic expected total time for `bundle`, drawing NO randomness —
+        """A deterministic expected total time for `bundle`, drawing NO randomness,
         the processing-time proxy a dispatch rule (SPT / critical-ratio) orders by.
 
         Exact for the closed-form kinds: `rate_based` is `qty / rate`,
         `attribute_scaled` is `base * scale(bundle)`, both plus fixed load/unload. A
         `distribution` or `batch_hold` kind has no closed-form mean exposed here, so it
         falls back to `bundle.qty` as a monotone size proxy (documented alpha
-        simplification — the ordering, not the absolute value, is what a dispatch rule
+        simplification: the ordering, not the absolute value, is what a dispatch rule
         consumes).
         """
         if self.kind == KIND_RATE_BASED:
@@ -99,7 +99,7 @@ class TimeModel:
                 raise ValueError("rate_based TimeModel requires a nonzero rate")
             base = bundle.qty / rate
         else:
-            # KIND_ATTRIBUTE_SCALED — validated as the only remaining option in __init__.
+            # KIND_ATTRIBUTE_SCALED: validated as the only remaining option in __init__.
             attr_base: float = self.params["base"]
             scale: Callable[[Bundle], float] = self.params["scale"]
             base = attr_base * scale(bundle)

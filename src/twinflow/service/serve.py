@@ -1,4 +1,4 @@
-"""`python -m twinflow.service.serve` — run the twinflow API with uvicorn.
+"""`python -m twinflow.service.serve`, run the twinflow API with uvicorn.
 
 A thin runner so the front end (and `twinflow serve`) has one command to start the
 local service. Requires the `api` extra (`pip install -e ".[api]"`).

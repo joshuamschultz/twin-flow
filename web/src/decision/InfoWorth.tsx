@@ -60,7 +60,7 @@ export function InfoWorth({ model }: { model: Source }) {
                             : null;
                         return (
                           <td key={o}>
-                            {value === undefined ? "–" : usd(value)}
+                            {value === undefined ? "-" : usd(value)}
                             {drop !== null && Number.isFinite(drop) && (
                               <span className="tf-det-muted">
                                 {signedUsd(drop)}

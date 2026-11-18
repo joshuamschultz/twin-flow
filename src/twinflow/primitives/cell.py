@@ -14,7 +14,7 @@ class Machine:
 
     Setup groups, not part locks (D-047): a machine's state is its current
     setup group, never the last part type it ran. Each instance owns its own
-    mutable ``current_setup`` — a capacity-N Location is N independent
+    mutable ``current_setup``, a capacity-N Location is N independent
     Machine instances sharing one SetupPolicy.
     """
 
@@ -46,7 +46,7 @@ class SetupPolicy:
     def changeover(self, current_setup: str | None, bundle: Bundle) -> tuple[float, str]:
         """Return (seconds, new_setup) for moving to bundle's setup group.
 
-        Raises KeyError if bundle.thing has no declared setup key — fail
+        Raises KeyError if bundle.thing has no declared setup key, fail
         closed on an undeclared part type (D-007) rather than default to
         zero changeover time.
         """

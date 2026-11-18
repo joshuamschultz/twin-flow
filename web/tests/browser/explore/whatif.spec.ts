@@ -69,7 +69,9 @@ test("sliders work by keyboard", async ({ page }) => {
   await expect(s).toHaveValue("1.1");
   await page.keyboard.press("End");
   await expect(s).toHaveValue("3");
-  await expect(page.getByRole("status")).toContainText("Changeover-aware run-out");
+  await expect(page.getByRole("status")).toContainText(
+    "Changeover-aware run-out",
+  );
   await page.keyboard.press("Home");
   await expect(s).toHaveValue("0");
 });

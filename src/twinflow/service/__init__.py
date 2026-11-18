@@ -1,4 +1,4 @@
-"""twinflow.service — an optional local REST API over the engine + module surface.
+"""twinflow.service, an optional local REST API over the engine + module surface.
 
 The core engine never imports this package, so a plain install stays dependency-light
 (`pip install -e ".[api]"` adds FastAPI/uvicorn). The API is the seam the React front

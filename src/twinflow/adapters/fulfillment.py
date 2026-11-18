@@ -1,9 +1,9 @@
-"""Orders & deliveries — fulfillment KPIs derived from a run's order outcomes.
+"""Orders & deliveries, fulfillment KPIs derived from a run's order outcomes.
 
 An order is delivered when its finished units complete within the horizon; it is on
 time when it completes by its due date, and backordered when it does not complete at
 all. These read straight off the `KpiSet` the twin already produces (completion and
-signed lateness per order), so no engine change is needed — deliveries are a reporting
+signed lateness per order), so no engine change is needed, deliveries are a reporting
 view over orders the plan already carries.
 """
 

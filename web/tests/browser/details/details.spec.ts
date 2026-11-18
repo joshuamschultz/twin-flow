@@ -50,6 +50,22 @@ test("a table that is wider than the page scrolls inside its card", async ({
     .toBeGreaterThan(0);
 });
 
+test("at 1280 the full table fits its card, Source column included", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openFixture(page, url, "c=full-table", loadModel());
+  const region = page.getByRole("region", { name: "All rules, full table" });
+  const metrics = await region.evaluate((el) => ({
+    scroll: el.scrollWidth,
+    client: el.clientWidth,
+  }));
+  expect(metrics.scroll).toBeLessThanOrEqual(metrics.client);
+  await expect(
+    page.getByRole("columnheader", { name: "Source" }),
+  ).toBeInViewport();
+});
+
 test("a broken rule lists its file, line, message and fix", async ({
   page,
 }) => {

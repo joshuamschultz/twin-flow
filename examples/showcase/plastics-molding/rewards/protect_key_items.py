@@ -15,7 +15,7 @@ def reward(move, key_items=(), fine_per_unit=0.0):
     # Units asked for but not shipped show up as events named "lost.<bin>".
     units_short = 0.0
     for name, units in move.events.items():
-        if name.startswith("lost.") and name[len("lost."):] in key_items:
+        if name.startswith("lost.") and name[len("lost.") :] in key_items:
             units_short += units
     # KEY LINE: the day's dollars (sales less every cost) less the contract fine.
     return move.ledger.total - fine_per_unit * units_short

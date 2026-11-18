@@ -7,7 +7,7 @@ A twin is only useful if its numbers match your floor. This guide covers setting
 choosing what to tune, and the honest limits of the defaults. It assumes you can run a
 twin ([running.md](running.md)).
 
-## 1. Variation — how random is your floor
+## 1. Variation: how random is your floor
 
 Real cycle times are not exact. `cv` (coefficient of variation) says how much they wobble.
 
@@ -18,10 +18,10 @@ defaults:
 
 You can also set `cv` on a single time model to override the default there. What it does:
 
-- `cv: 0` — deterministic. Every replication is identical, every band is a point. Use only
+- `cv: 0`: deterministic. Every replication is identical, every band is a point. Use only
   for testing.
-- `cv: 0.1` — steady floor. Narrow bands.
-- `cv: 0.3+` — jumpy floor. Wide bands.
+- `cv: 0.1`: steady floor. Narrow bands.
+- `cv: 0.3+`: jumpy floor. Wide bands.
 
 **The `cv` controls the width of your confidence ranges.** If your real floor swings more
 than the twin shows, raise `cv`; if the twin looks noisier than reality, lower it. Getting
@@ -31,7 +31,7 @@ confidence) or too loose (useless).
 Rule of thumb starting points: machining/assembly `~0.15`, manual or mixed work `~0.25`,
 highly variable or new processes `~0.35`.
 
-## 2. Replications — how many runs
+## 2. Replications: how many runs
 
 Variation only shows up across replications. Set `--reps` high enough that the band is
 stable:
@@ -40,7 +40,7 @@ stable:
 - If the band still shifts noticeably when you re-run, raise `--reps`.
 - `--reps 1` hides all variation. Never trust a one-rep number.
 
-## 3. Calibration — reproduce your real history
+## 3. Calibration: reproduce your real history
 
 This is the step that earns trust: *"the twin reproduced my last 8 weeks within 5%."*
 
@@ -106,10 +106,10 @@ print("within tolerance:", result.within_tolerance)
 
 `CalibrationResult` gives you:
 
-- **`best_params`** — the parameter values that best reproduced your floor.
-- **`distance`** — the weighted gap between simulated and observed KPIs (0 = perfect).
-- **`within_tolerance`** — did it meet the `tolerance` you set.
-- **`search`** — the full optimization trail, if you want to inspect it.
+- **`best_params`**: the parameter values that best reproduced your floor.
+- **`distance`**: the weighted gap between simulated and observed KPIs (0 = perfect).
+- **`within_tolerance`**: did it meet the `tolerance` you set.
+- **`search`**: the full optimization trail, if you want to inspect it.
 
 ### Which KPIs can I match on?
 
@@ -124,7 +124,7 @@ average gap across their entries).
 - A small `distance` within `tolerance` means the twin reproduces your floor. Now its
   predictions are believable, and an optimum found on it is trustworthy.
 - A large `distance` means the model is missing something real (a disruption, a routing, a
-  constraint). Do not tune your way past it — fix the model, then recalibrate.
+  constraint). Do not tune your way past it, fix the model, then recalibrate.
 
 ## 4. Choosing what to tune
 
@@ -136,7 +136,7 @@ KPIs you care about:
 - **Unsure of scrap or yield?** Tune the `scrap.rate`.
 - **Unsure of inventory policy?** Tune `reorder_point` / `refill_to`.
 
-## 5. Sensitivity — find what matters before you tune
+## 5. Sensitivity: find what matters before you tune
 
 Before calibrating, a quick sweep tells you which levers actually move the outcome, so you
 tune the ones that matter and ignore the ones that do not:
@@ -153,16 +153,16 @@ optimizing). If a small change swings the band, that is where your attention bel
 Every report opens with the assumptions the engine had to make. Know them before you
 trust a number:
 
-- **No shift calendar yet** — pools are treated as always on shift. If your floor runs one
+- **No shift calendar yet**: pools are treated as always on shift. If your floor runs one
   shift, the twin will look faster than reality until you account for it.
-- **Disruptions are opt-in** — a model with no `breakdown`/`absence` assumes everything
+- **Disruptions are opt-in**: a model with no `breakdown`/`absence` assumes everything
   goes right. A schedule that assumes nothing breaks is exactly the one a plant manager
   distrusts. Add disruptions (see
   [modeling.md](modeling.md#disruptions-seeded-reproducible)) before you promise dates.
-- **Defaults are least-restrictive** — where data is missing, the twin picks the option
+- **Defaults are least-restrictive**: where data is missing, the twin picks the option
   that constrains the floor least, and names it as an assumption. Replace assumptions with
   your real data as you get it.
-- **Instantaneous vs lead-time refills** — check your stock `lead_time`; a default of 0
+- **Instantaneous vs lead-time refills**: check your stock `lead_time`; a default of 0
   means refills are instant, which flatters inventory.
 
 Calibration is how you close the gap between these defaults and your real floor. Do it once

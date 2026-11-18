@@ -110,16 +110,16 @@ surface these directly.
 ## 6. Inventory economics and optimization
 
 Because a stock's `reorder_point` and `refill_to` are ordinary config levers,
-**inventory optimization is just [optimization](optimizing.md)** — no special machinery.
+**inventory optimization is just [optimization](optimizing.md)**: no special machinery.
 The [module surface](modules.md) adds the money and service pieces:
 
 | Piece | Kind | Meaning |
 |---|---|---|
-| `inventory_holding_cost` | cost | `sum(average level) * rate/unit/hr * hours` — the capital tied up in stock |
-| `stockout_penalty` | cost | `sum(stockout hours) * penalty/hr` — the cost of running out |
+| `inventory_holding_cost` | cost | `sum(average level) * rate/unit/hr * hours`, the capital tied up in stock |
+| `stockout_penalty` | cost | `sum(stockout hours) * penalty/hr`, the cost of running out |
 | `service_level` | objective (max) | 100 minus the average share of the run each stock sat empty |
 
-The classic trade-off — hold less inventory (cheaper) vs. stock out more (costly) — falls
+The classic trade-off, hold less inventory (cheaper) vs. stock out more (costly), falls
 straight out: search the reorder points against a `total_cost` of holding + stockout, or
 maximize `service_level`.
 

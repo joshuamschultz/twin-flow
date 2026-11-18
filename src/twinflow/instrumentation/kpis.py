@@ -35,7 +35,7 @@ class WaitClassifier:
         Binding-constraint rule (D-034): blocked is always
         `release_time - actual_end`. Pre-start wait (`actual_start -
         queue_arrival_time`) is attributed entirely to whichever input became
-        available last — material if `material_ready_time` is at or after
+        available last, material if `material_ready_time` is at or after
         `actual_start`, otherwise the resource (starved), including the
         nullable case where no material gate is tracked at all.
         """
@@ -123,7 +123,7 @@ class KpiEngine:
         loop calls `read_parquet` per file (D-017). `orders` links to events via
         `lot_id`; an order's completion is the max `release_time` across every
         event row whose `lot_id` belongs to that order. `labor_pool_capacity` is a
-        per-run fact supplied by the caller, not an event-table column — the
+        per-run fact supplied by the caller, not an event-table column, the
         committed schema has no operator/pool column (documented v1 gap; the
         single "default" pool is attributed every row's run interval per D-045,
         operator held for the same interval as the machine).
@@ -377,7 +377,7 @@ class KpiEngine:
 
     @staticmethod
     def _busy_seconds_by_location(events: pl.DataFrame) -> dict[str, float]:
-        """sum(actual_end - actual_start) per location_id — the shared basis for
+        """sum(actual_end - actual_start) per location_id, the shared basis for
         utilization and machine hours."""
         grouped = events.group_by("location_id").agg(
             pl.col("busy_seconds").sum().alias("busy_seconds")
@@ -474,7 +474,7 @@ class KpiEngine:
 
     @staticmethod
     def _event_counts_by_location(events: pl.DataFrame) -> dict[str, int]:
-        """Row count per location_id via `pl.len()` — counts every row including
+        """Row count per location_id via `pl.len()`, counts every row including
         nulls, unlike `col(x).count()`, which silently skips them."""
         counts = events.group_by("location_id").agg(pl.len().alias("count"))
         return {

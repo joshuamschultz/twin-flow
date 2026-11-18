@@ -19,7 +19,7 @@ ScoringSurface(model, plan)  ──►  Scenario ──► Evaluation (KPIs + ba
 ```
 
 Each kind lives in its own registry. Adding one is a single `register(name, factory)`
-call — never a core edit. This is the module-system analogue of the compiler's single
+call: never a core edit. This is the module-system analogue of the compiler's single
 growth point: capability is added at one place, not branched through the core.
 
 ## The scoring surface
@@ -40,11 +40,11 @@ print(evaluation.kpis.run_hours)
 ```
 
 Every scenario runs at the same `base_seed`, so replication *i* of one scenario shares
-its random draws with replication *i* of another — common random numbers, so
+its random draws with replication *i* of another, common random numbers, so
 comparisons are fair rather than noisy. A lever path is the same dot-path scheme sweeps
 use: `labor.pools[0].headcount`, `locations[mill_shaft].capacity`.
 
-## Objectives — KPIs → one score
+## Objectives: KPIs → one score
 
 An objective declares a `direction` (`"max"` or `"min"`) and a `score(evaluation)`. The
 optimizer only needs to compare two scores; it never learns which metric it is.
@@ -67,11 +67,11 @@ objective = OBJECTIVES.create("robust_on_time")
 Combine metrics with `WeightedObjective` (a linear blend, each term oriented so higher
 is always better), or turn a cost into an objective with `CostObjective`.
 
-## Cost functions — config + KPIs → money
+## Cost functions: config + KPIs → money
 
 A cost function reads the scenario's configuration (headcount, capacity) and its result
 (lateness) and returns money. It never runs the simulator. Every rate is an assumption
-you supply — the module invents no numbers.
+you supply, the module invents no numbers.
 
 | Name | Cost |
 |---|---|
@@ -85,7 +85,7 @@ you supply — the module invents no numbers.
 Because a stock's `reorder_point` and `refill_to` are ordinary config levers
 (`stocks[resin].reorder_point`), **inventory optimization is just optimization**: search
 those levers with any optimizer against a `total_cost` of holding + stockout, or maximize
-`service_level`. No special machinery — the unified surface already covers it.
+`service_level`. No special machinery, the unified surface already covers it.
 
 ```python
 from twinflow.modules import LaborCost, CapacityCost, TotalCost, CostObjective
@@ -94,7 +94,7 @@ cost = TotalCost((LaborCost(wage_per_hour=40.0), CapacityCost(cost_per_machine=1
 minimise_cost = CostObjective("spend", cost)  # direction "min"
 ```
 
-## Optimizers — search the lever space
+## Optimizers: search the lever space
 
 Every optimizer takes the same four things (a surface, a `LeverSpace`, an objective, an
 evaluation `budget`) and returns the same `OptimizationResult`. They **propose**; they
@@ -132,7 +132,7 @@ smaller than the budget.
 A `LeverSpace` domain is either an `IntRange(low, high, step)` (staffing, capacity,
 buffers) or a `Choice((...))` (a categorical knob).
 
-## Surrogate models — learn the surface
+## Surrogate models: learn the surface
 
 A surrogate is a cheap stand-in that, once fit on a handful of real evaluations,
 predicts an objective's score for any unseen lever point instantly. Use it to rank a
@@ -151,7 +151,7 @@ surrogate.fit(result.evaluations, OBJECTIVES.create("on_time_pct"))
 ranking = predicted_ranking(surrogate, space)  # [(levers, predicted_score), ...]
 ```
 
-A surrogate is an approximation, never the truth — its ranking chooses *what to
+A surrogate is an approximation, never the truth, its ranking chooses *what to
 simulate*, and the twin still produces the honest, uncertainty-carrying score.
 
 ## Adding your own module
@@ -173,9 +173,9 @@ OBJECTIVES.register(
 ```
 
 The same pattern works for `COSTS`, `OPTIMIZERS`, and `MODELS`. A duplicate name is
-rejected (fail closed), and every registry exposes `.names()` for discovery — which is
+rejected (fail closed), and every registry exposes `.names()` for discovery, which is
 exactly what the REST API's `/api/modules` endpoint returns.
 
 To write a brand-new optimizer or surrogate, implement the corresponding `Protocol`
-(`Optimizer`, `SurrogateModel`) — a class with the required methods and a `name` — and
+(`Optimizer`, `SurrogateModel`), a class with the required methods and a `name`, and
 register a factory for it.

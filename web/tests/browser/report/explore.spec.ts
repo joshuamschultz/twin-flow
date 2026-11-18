@@ -51,7 +51,9 @@ test("what if turns amber for a new leader and resets", async ({ page }) => {
   const section = page.locator("#whatif");
   await section.getByLabel("Keeping stock costs").fill("3");
   const say = section.getByRole("status");
-  await expect(say).toContainText("Changeover-aware run-out would win by $1,046");
+  await expect(say).toContainText(
+    "Changeover-aware run-out would win by $1,046",
+  );
   await expect(say.locator(".tf-takeaway")).toHaveClass(/tf-warn/);
   await section.getByRole("button", { name: "Reset to my costs" }).click();
   await expect(say).toContainText("Family campaign wins.");

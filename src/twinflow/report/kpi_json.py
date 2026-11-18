@@ -1,4 +1,4 @@
-"""COMP-027 KpiJsonSidecar — machine-readable JSON of every KPI, a versioned contract.
+"""COMP-027 KpiJsonSidecar, machine-readable JSON of every KPI, a versioned contract.
 
 Serializes the objective-agnostic minimum set (D-042, tech.md): signed lateness
 per order, labor hours by pool and skill, machine hours by machine, setup
@@ -39,7 +39,7 @@ class KpiJsonSidecar:
     def _nest_labor_hours(
         labor_hours_by_pool_skill: dict[tuple[str, str], float],
     ) -> dict[str, dict[str, float]]:
-        """`(pool, skill) -> hours` becomes `{pool: {skill: hours}}` — JSON has
+        """`(pool, skill) -> hours` becomes `{pool: {skill: hours}}`, JSON has
         no tuple keys, so the tuple key becomes two nesting levels."""
         nested: dict[str, dict[str, float]] = {}
         for (pool, skill), hours in labor_hours_by_pool_skill.items():

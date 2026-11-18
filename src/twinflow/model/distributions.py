@@ -1,4 +1,4 @@
-"""COMP-038 Distribution builders — Layer 2 config sugar (D-044).
+"""COMP-038 Distribution builders, Layer 2 config sugar (D-044).
 
 Turns a declared `time_model` distribution (or an optional `cv`) into a pure
 `Callable[[numpy.random.Generator], float]`. Primitives never see this module:

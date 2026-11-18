@@ -1,11 +1,11 @@
-"""COMP-017 ModelValidator — the only safety net, run before any plan exists.
+"""COMP-017 ModelValidator, the only safety net, run before any plan exists.
 
 Checks run in order: schema, graph, expression, unit, field-combination; reports every
 failure rather than stopping at the first. Each failure names the offending config path
 (D-055, ".claude/decisions-log.md").
 
-Inspects the RAW `model.yaml` parse tree directly — never calls
-`LocationCompiler.compile()` — so a config broken enough to crash the compiler (e.g. an
+Inspects the RAW `model.yaml` parse tree directly, never calls
+`LocationCompiler.compile()`: so a config broken enough to crash the compiler (e.g. an
 `emits` entry with no `qty` and no `scrap` block) surfaces as a `ValidationError` naming
 the offending path, never as an uncaught exception (D-007: fail closed on malformed
 input). Per-location checks are wrapped so one broken location can never suppress the
@@ -172,7 +172,7 @@ def _graph_checks(
     labor_pools = cast(dict[str, Any], data.get("labor", {})).get("pools", [])
     declared_skills = {skill for pool in labor_pools for skill in pool.get("skills", [])}
 
-    # Per-location reference checks (machine, labor_skill) — path uses the location's
+    # Per-location reference checks (machine, labor_skill), path uses the location's
     # own index in the original `locations` list.
     errors.extend(_location_reference_checks(data, machine_names, declared_skills))
     errors.extend(_shared_machine_checks(data))

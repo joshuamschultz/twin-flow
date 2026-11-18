@@ -70,6 +70,16 @@
   padding-right: 6px;
 }
 .tf-tune-table th[scope="row"],
+/* The full table holds eleven columns. Headers wrap and cells sit closer so
+   it fits a 1280 page without a side scroll; narrower pages still scroll. */
+.tf-det-table th,
+.tf-det-table td {
+  padding: 6px 8px;
+}
+.tf-det-table thead th {
+  white-space: normal;
+  vertical-align: bottom;
+}
 .tf-det-table th[scope="row"] {
   text-align: left;
   font: 400 13px var(--ba-font-body);

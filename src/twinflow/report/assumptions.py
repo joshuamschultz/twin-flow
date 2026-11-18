@@ -1,7 +1,7 @@
-"""COMP-025 AssumptionsCollector — every default the engine actually substituted, named.
+"""COMP-025 AssumptionsCollector, every default the engine actually substituted, named.
 
 Derives the Assumptions block by inspecting an already-built `CompiledModel` passed
-IN — never by reaching up into `model/` or `plan/`, which may not import `report/`
+IN: never by reaching up into `model/` or `plan/`, which may not import `report/`
 (structure.md: "report/ depends on instrumentation/, never the reverse"; report may
 depend on model, never model on report). `setup` and `machine_eligibility` are
 unconditional in v1: the compiler declares no changeover matrix and no eligibility

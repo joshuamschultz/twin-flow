@@ -23,7 +23,7 @@ are what the schedule has to survive.
 
 ---
 
-## 1. Dispatch — which queued job a center runs next
+## 1. Dispatch: which queued job a center runs next
 
 Add a `dispatch:` field to a work center. When more than one job is waiting, the center
 runs them in the order the rule chooses instead of first-come-first-served.
@@ -43,7 +43,7 @@ locations:
 | `critical_ratio` | the job with the least slack per unit of work | balance urgency against size |
 
 - `fifo` is the default, so a model with no `dispatch` field behaves exactly as before.
-- The rule matters most at the **bottleneck** — the slow center where the queue builds.
+- The rule matters most at the **bottleneck**, the slow center where the queue builds.
 - These four names come from `twinflow.policy.DISPATCH_NAMES` and are listed by
   `GET /api/adapters` as `dispatch_policies`. Set one per location with `dispatch:`.
 
@@ -66,10 +66,10 @@ twinflow balance examples/active-control/model.yaml --plan examples/active-contr
 
 ---
 
-## 2. Order release — how work enters the floor
+## 2. Order release: how work enters the floor
 
 By default every order is released on its `start_date`. That can flood the floor. A
-release policy holds work in a backlog and lets it on only when the floor has room —
+release policy holds work in a backlog and lets it on only when the floor has room,
 CONWIP-style flow control a planner actually uses.
 
 ```yaml
@@ -89,7 +89,7 @@ on-time band and WIP move.
 
 ---
 
-## 3. Disruptions — plan for a bad day
+## 3. Disruptions: plan for a bad day
 
 A schedule that assumes everything goes right is the one a plant manager distrusts. These
 add real, **seeded** disruptions so your dates survive a machine failure or a short crew.
@@ -106,10 +106,10 @@ locations:
 ```
 
 - `mtbf` (mean time between failures) and the `mttr` (mean time to repair) accept a
-  **duration string** — `"20m"`, `"5m"`, `"40h"`, `"90s"` — or a plain number of seconds.
+  **duration string**: `"20m"`, `"5m"`, `"40h"`, `"90s"`, or a plain number of seconds.
 - `mttr` is a distribution (`dist` + `mean` + `cv`), so repair times vary like real ones.
 - The machine fails on a seeded schedule and is unavailable for the drawn repair time.
-- **Alpha limitation, stated plainly:** breakdowns are *non-preemptive* — a failure seizes
+- **Alpha limitation, stated plainly:** breakdowns are *non-preemptive*, a failure seizes
   the machine at the next job boundary and delays what follows, rather than interrupting a
   job mid-cut.
 - Downtime is reported per machine in the run metadata
@@ -170,11 +170,11 @@ Because `--reps` is greater than 1, every KPI comes back as a mean with a low-to
 ## What is not here yet (honest list)
 
 - **Resource/labor assignment policy** (choosing *which* machine or operator, by skill or
-  load) — deferred; today acquisition is machine-then-operator in a fixed order.
-- **Mid-run decide-act loop** (a policy or agent choosing the next action *during* a run) —
+  load), deferred; today acquisition is machine-then-operator in a fixed order.
+- **Mid-run decide-act loop** (a policy or agent choosing the next action *during* a run),
   deferred; control is set at config time for now. The Gymnasium wrapper was removed in
   TF-001 (reachable at git tag `pre-cleanup`).
-- **Downtime as a confidence band** — breakdown downtime is in `run_meta` today, not yet a
+- **Downtime as a confidence band**: breakdown downtime is in `run_meta` today, not yet a
   rendered KPI with a low-to-high range like the others.
 
 See also: [modeling](modeling.md) · [optimizing](optimizing.md) · [supply-chain](supply-chain.md) · [troubleshooting](troubleshooting.md).

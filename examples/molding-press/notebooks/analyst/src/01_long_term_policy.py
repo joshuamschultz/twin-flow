@@ -27,7 +27,6 @@ import dataclasses
 import os
 import shutil
 import tempfile
-import textwrap
 import time
 from pathlib import Path
 
@@ -46,7 +45,13 @@ from twinflow.report import decision, theme
 FAST = os.environ.get("TWINFLOW_FAST") == "1"
 EPISODES = 10 if FAST else 200  # runs per rule in the race
 TUNE_EPISODES = 3 if FAST else 30  # runs per setting when a rule is tuned
-print("fast mode" if FAST else "full mode", "| runs per rule:", EPISODES, "| runs per tuning try:", TUNE_EPISODES)
+print(
+    "fast mode" if FAST else "full mode",
+    "| runs per rule:",
+    EPISODES,
+    "| runs per tuning try:",
+    TUNE_EPISODES,
+)
 
 pl.Config.set_tbl_rows(40)
 pl.Config.set_tbl_cols(20)
@@ -94,11 +99,14 @@ print("capsule file:", project.capsule_file.name)
 print("project is ready:", project.ok, "| problems:", len(project.problems))
 print()
 capsule_text = (WORK / "molding-press.twin.yaml").read_text()
-print("\n".join(line for line in capsule_text.splitlines() if not line.lstrip().startswith("- {id:")))
+print(
+    "\n".join(line for line in capsule_text.splitlines() if not line.lstrip().startswith("- {id:"))
+)
 
 # %% [markdown]
 # The capsule has four parts we care about:
-# - **model**: the plant. The press, the products, the changeover costs and the holding and lost-sale rates.
+# - **model**: the plant. The press, the products, the changeover costs and the holding and
+#   lost-sale rates.
 # - **experiment**: how to run and race it. Here it holds the seed and the default rule.
 # - **assumptions**: what the model takes as true.
 # - **provenance**: where the numbers came from.
@@ -112,14 +120,42 @@ economics = model["economics"]["defaults"]
 rows = [
     ("horizon (days in one run)", model["horizon"], "How many days we plan."),
     ("start_cover_days", model["start_cover_days"], "Days of average sales on the shelf on day 0."),
-    ("within-family changeover cost ($)", changeover["within_family"]["cost"], "Same color, new size."),
-    ("within-family output lost", changeover["within_family"]["output_lost"], "Share of the day's output lost."),
-    ("across-family changeover cost ($)", changeover["across_family"]["cost"], "New color. The press must be purged."),
-    ("across-family output lost", changeover["across_family"]["output_lost"], "Share of the day's output lost."),
-    ("holding rate (per night)", economics["holding_rate"], "Share of the unit cost, for each night a unit sits."),
-    ("lost-sale rate", economics["lost_sale_rate"], "Share of the price, charged on top of the missed sale."),
+    (
+        "within-family changeover cost ($)",
+        changeover["within_family"]["cost"],
+        "Same color, new size.",
+    ),
+    (
+        "within-family output lost",
+        changeover["within_family"]["output_lost"],
+        "Share of the day's output lost.",
+    ),
+    (
+        "across-family changeover cost ($)",
+        changeover["across_family"]["cost"],
+        "New color. The press must be purged.",
+    ),
+    (
+        "across-family output lost",
+        changeover["across_family"]["output_lost"],
+        "Share of the day's output lost.",
+    ),
+    (
+        "holding rate (per night)",
+        economics["holding_rate"],
+        "Share of the unit cost, for each night a unit sits.",
+    ),
+    (
+        "lost-sale rate",
+        economics["lost_sale_rate"],
+        "Share of the price, charged on top of the missed sale.",
+    ),
 ]
-pl.DataFrame([(name, f"{value:g}", meaning) for name, value, meaning in rows], schema=["setting", "value", "meaning"], orient="row")
+pl.DataFrame(
+    [(name, f"{value:g}", meaning) for name, value, meaning in rows],
+    schema=["setting", "value", "meaning"],
+    orient="row",
+)
 
 # %% [markdown]
 # The per-product numbers go in one table. There is one row per product.
@@ -147,16 +183,24 @@ rounded(
 )
 
 # %% [markdown]
-# How busy is the press? For each product, demand divided by run rate is the share of a day we must run it.
+# How busy is the press? For each product, demand divided by run rate is the share of a day we
+# must run it.
 # The sum should be high, but below 100%, so the choices matter.
 
 # %%
 facts = project.facts
 busy = sum(facts.demand_rate[p] / facts.run_rate[p] for p in facts.products)
 lost = changeover["within_family"]["output_lost"]
-with_changeovers = sum(facts.demand_rate[p] / (facts.run_rate[p] * (1 - 0.5 * lost)) for p in facts.products)
-print(f"products: {len(facts.products)}, actions: {len(project.actions)} (every product, plus idle)")
-print(f"Press busy time needed: {busy:.0%} of days (about {with_changeovers:.0%} once changeovers cost output)")
+with_changeovers = sum(
+    facts.demand_rate[p] / (facts.run_rate[p] * (1 - 0.5 * lost)) for p in facts.products
+)
+print(
+    f"products: {len(facts.products)}, actions: {len(project.actions)} (every product, plus idle)"
+)
+print(
+    f"Press busy time needed: {busy:.0%} of days (about {with_changeovers:.0%} once changeovers "
+    "cost output)"
+)
 print()
 print("The capsule says the model takes these as true:")
 for line in project.capsule.assumptions:
@@ -187,7 +231,8 @@ rounded(
 
 # %% [markdown]
 # A policy file does not get the raw snapshot. It gets a **policy state**.
-# This is the same facts, with helpers added: days of cover, days left, family of each product and more.
+# This is the same facts, with helpers added: days of cover, days left, family of each product and
+# more.
 # These are the names a `decide(state)` function can use.
 
 # %%
@@ -200,13 +245,16 @@ print("actions to choose from:", ", ".join(state.actions))
 # %% [markdown]
 # ## Step 3. The transition and the ledger
 #
-# The **transition** says how today becomes tomorrow. Given the state, our action and the random demand:
-# 1. If we run a product, the press makes units. A changeover costs part of the day. Output cannot pass the storage limit.
+# The **transition** says how today becomes tomorrow. Given the state, our action and the random
+# demand:
+# 1. If we run a product, the press makes units. A changeover costs part of the day. Output cannot
+# pass the storage limit.
 # 2. Customers buy what we have. Demand we cannot meet is lost.
 # 3. The day goes up by one. The press stays set up for the product we ran.
 #
 # In twinflow one call does it: `engine.step(action)`. It returns a **move**.
-# A move holds the state before, the action, the events of the day, the state after and the money ledger.
+# A move holds the state before, the action, the events of the day, the state after and the money
+# ledger.
 #
 # To see one day by hand, we draw the demand ourselves with numpy. Then we hand it to the engine.
 
@@ -236,7 +284,8 @@ rounded(
 )
 
 # %% [markdown]
-# **Add changeovers.** We run the first product again. This time we start the press set up for other products.
+# **Add changeovers.** We run the first product again. This time we start the press set up for
+# other products.
 # The same color means a small output loss. A new color means a big one.
 
 # %%
@@ -261,7 +310,9 @@ rounded(
         {
             "case": list(moves),
             "units of GRY-S made": [m.events["made.GRY-S"] for m in moves.values()],
-            "share of a full day": [m.events["made.GRY-S"] / facts.run_rate["GRY-S"] for m in moves.values()],
+            "share of a full day": [
+                m.events["made.GRY-S"] / facts.run_rate["GRY-S"] for m in moves.values()
+            ],
         }
     ),
     2,
@@ -281,7 +332,8 @@ rounded(
 # - **lost sales** is the penalty for each unit of demand we could not meet.
 #
 # Each move carries this split in `move.ledger`.
-# The race ranks rules by a **reward file**. The default one is `dollars`. We print its source below.
+# The race ranks rules by a **reward file**. The default one is `dollars`. We print its source
+# below.
 
 # %%
 ledger_parts = ["revenue", "production", "setup", "holding", "lost_sales", "late"]
@@ -290,7 +342,10 @@ rounded(
     pl.DataFrame(
         {
             "case": list(ledgers),
-            **{part: [getattr(ledger, part) for ledger in ledgers.values()] for part in ledger_parts},
+            **{
+                part: [getattr(ledger, part) for ledger in ledgers.values()]
+                for part in ledger_parts
+            },
             "total": [ledger.total for ledger in ledgers.values()],
         }
     )
@@ -306,10 +361,11 @@ rounded(
 
 # %%
 ledger = ledgers[CASES[0][0]]
+costs = ledger.production + ledger.setup + ledger.holding + ledger.lost_sales + ledger.late
 print(
     f"{ledger.revenue:,.1f} - {ledger.production:,.1f} - {ledger.setup:,.1f} - "
     f"{ledger.holding:,.1f} - {ledger.lost_sales:,.1f} - {ledger.late:,.1f} = "
-    f"{ledger.revenue - ledger.production - ledger.setup - ledger.holding - ledger.lost_sales - ledger.late:,.1f}"
+    f"{ledger.revenue - costs:,.1f}"
 )
 print(f"ledger.total = {ledger.total:,.1f}")
 print()
@@ -325,7 +381,8 @@ print(project.extensions.get("reward", "dollars").file.read_text())
 # Twinflow ships with built-in rules. A company can add its own (see the last section).
 #
 # Here is every policy file the project can use.
-# `settings tried` is the grid in the file's `SETTINGS`. The race tries each value to find the best one.
+# `settings tried` is the grid in the file's `SETTINGS`. The race tries each value to find the
+# best one.
 
 # %%
 policy_files = project.extensions.of("policy")
@@ -334,14 +391,18 @@ pl.DataFrame(
         "policy": [p.name for p in policy_files],
         "source": [p.source for p in policy_files],
         "what it does": [p.summary for p in policy_files],
-        "settings grid": [", ".join(f"{k}: {len(v)} values" for k, v in p.grid.items()) or "none" for p in policy_files],
+        "settings grid": [
+            ", ".join(f"{k}: {len(v)} values" for k, v in p.grid.items()) or "none"
+            for p in policy_files
+        ],
         "file": [p.file.name for p in policy_files],
     }
 )
 
 # %% [markdown]
 # Open one file. This is the rule that stays with one color until that color is stocked up.
-# Read `decide`. It is plain Python. It takes the state and returns the name of a product, or `"idle"`.
+# Read `decide`. It is plain Python. It takes the state and returns the name of a product, or
+# `"idle"`.
 
 # %%
 campaign = project.extensions.get("policy", "family_campaign")
@@ -353,11 +414,14 @@ print(campaign.file.read_text())
 
 # %%
 for target_days in (6, 14, 30):
-    print(f"family_campaign with target_days={target_days}:", campaign(state, target_days=target_days))
+    print(
+        f"family_campaign with target_days={target_days}:", campaign(state, target_days=target_days)
+    )
 print("lowest_cover:", project.extensions.get("policy", "lowest_cover")(state))
 
 # %% [markdown]
-# **A quick look.** We run every rule with its default setting on a few random runs of the same demand (the code names the number).
+# **A quick look.** We run every rule with its default setting on a few random runs of the same
+# demand (the code names the number).
 # This is only a first look. The fair race comes next.
 
 # %%
@@ -369,8 +433,15 @@ def mean_profit(runs):
     return float(np.mean([sum(m.ledger.total for m in run) for run in runs]))
 
 
-quick = {name: mean_profit(analysis.run_episodes(project, name, QUICK_RUNS, seed=1)) for name in project.extensions.names("policy")}
-rounded(pl.DataFrame({"policy": list(quick), "mean profit ($)": list(quick.values())}).sort("mean profit ($)", descending=True))
+quick = {
+    name: mean_profit(analysis.run_episodes(project, name, QUICK_RUNS, seed=1))
+    for name in project.extensions.names("policy")
+}
+rounded(
+    pl.DataFrame({"policy": list(quick), "mean profit ($)": list(quick.values())}).sort(
+        "mean profit ($)", descending=True
+    )
+)
 
 # %% [markdown]
 # **Tune each rule fairly.** Each rule has settings, like target days.
@@ -386,10 +457,16 @@ rounded(pl.DataFrame({"policy": list(quick), "mean profit ($)": list(quick.value
 # The same seed gives the same demand to every rule. This is called common random numbers.
 
 # %%
-runs_a = analysis.run_episodes(project, "family_campaign", 2, seed=3, settings={"target_days": 14.0})
+runs_a = analysis.run_episodes(
+    project, "family_campaign", 2, seed=3, settings={"target_days": 14.0}
+)
 runs_b = analysis.run_episodes(project, "lowest_cover", 2, seed=3)
-demand_a = [{k: v for k, v in m.events.items() if k.startswith("demand.")} for run in runs_a for m in run]
-demand_b = [{k: v for k, v in m.events.items() if k.startswith("demand.")} for run in runs_b for m in run]
+demand_a = [
+    {k: v for k, v in m.events.items() if k.startswith("demand.")} for run in runs_a for m in run
+]
+demand_b = [
+    {k: v for k, v in m.events.items() if k.startswith("demand.")} for run in runs_b for m in run
+]
 print("Same demand for both rules:", demand_a == demand_b)
 rounded(
     pl.DataFrame(
@@ -411,7 +488,8 @@ rounded(
 #
 # Every rule runs on the same demand draws.
 #
-# One detail. The built-in `random` rule keeps its dice between calls, so its numbers depend on what ran before.
+# One detail. The built-in `random` rule keeps its dice between calls, so its numbers depend on
+# what ran before.
 # We open the project again, so every rule starts the race fresh.
 
 # %%
@@ -426,7 +504,9 @@ winner = result.ranking()[0].policy
 palette = theme.colors_for([row.policy for row in result.ranking()])
 view_model = race_view_model(result, project)  # the race as decision-first data, for the page below
 today = view_model["baseline"]["policy"]  # the rule the plant runs today
-focus = theme.colors_for(palette, pick=winner, today=today)  # blue is the pick, grey is today, the rest are quiet
+focus = theme.colors_for(
+    palette, pick=winner, today=today
+)  # blue is the pick, grey is today, the rest are quiet
 print("the winner:", winner, tuned[winner], "| today:", today)
 
 # %% [markdown]
@@ -434,18 +514,21 @@ print("the winner:", winner, tuned[winner], "| today:", today)
 #
 # ### The answer first
 # The race result holds every number we need. We start with the decision.
-# `decision.show` draws the same view as the report page: what to do, what it is worth against today, and what to watch.
+# `decision.show` draws the same view as the report page: what to do, what it is worth against
+# today, and what to watch.
 # Every chart below asks one question. A number is a gap from today, the rule the plant runs now.
 
 # %%
 decision.show(view_model)
 
 # %% [markdown]
-# The functions in `twinflow.extensions.analysis` turn the race result into tables and plotly charts.
+# The functions in `twinflow.extensions.analysis` turn the race result into tables and plotly
+# charts.
 #
 # ### Final profit table
 # Mean and spread of profit per run. **Fill rate** is the share of demand we met.
-# **Changeovers** counts the days the press switched product. **Cross-family** counts the costly ones.
+# **Changeovers** counts the days the press switched product. **Cross-family** counts the costly
+# ones.
 
 # %%
 final = pl.DataFrame(
@@ -453,10 +536,14 @@ final = pl.DataFrame(
         "policy": [r.policy for r in result.ranking()],
         "mean profit ($)": [r.dollars.mean for r in result.ranking()],
         "std ($)": [r.dollars.std for r in result.ranking()],
-        "fill rate (%)": [None if r.fill_rate is None else 100 * r.fill_rate for r in result.ranking()],
+        "fill rate (%)": [
+            None if r.fill_rate is None else 100 * r.fill_rate for r in result.ranking()
+        ],
         "changeovers / run": [r.changeovers for r in result.ranking()],
         "cross-family / run": [r.cross_family for r in result.ranking()],
-        "best setting": [", ".join(f"{k}={v:g}" for k, v in r.settings.items()) for r in result.ranking()],
+        "best setting": [
+            ", ".join(f"{k}={v:g}" for k, v in r.settings.items()) for r in result.ranking()
+        ],
     }
 )
 rounded(final)
@@ -468,15 +555,43 @@ rounded(final)
 
 # %%
 parts = analysis.parts_per_run(result)
-gap = parts.select((pl.col("revenue") - pl.col("production") - pl.col("setup") - pl.col("holding") - pl.col("lost_sales") - pl.col("late") - pl.col("total")).abs().max()).item()
+gap = parts.select(
+    (
+        pl.col("revenue")
+        - pl.col("production")
+        - pl.col("setup")
+        - pl.col("holding")
+        - pl.col("lost_sales")
+        - pl.col("late")
+        - pl.col("total")
+    )
+    .abs()
+    .max()
+).item()
 print(f"Largest gap between the parts and the total: {gap:.6f} dollars")
 
 fig = go.Figure()
-for part, sign in [("revenue", 1), ("production", -1), ("setup", -1), ("holding", -1), ("lost_sales", -1)]:
+for part, sign in [
+    ("revenue", 1),
+    ("production", -1),
+    ("setup", -1),
+    ("holding", -1),
+    ("lost_sales", -1),
+]:
     fig.add_bar(name=part, x=parts["policy"], y=sign * parts[part])
-fig.add_scatter(x=parts["policy"], y=parts["total"], mode="markers", name="net profit", marker={"color": theme.palette().headline, "size": 10})
+fig.add_scatter(
+    x=parts["policy"],
+    y=parts["total"],
+    mode="markers",
+    name="net profit",
+    marker={"color": theme.palette().headline, "size": 10},
+)
 fig.update_layout(barmode="relative", yaxis_title="dollars per run", height=500)
-theme.question(fig, "Where does the money go for each rule?", "Bars up are money in. Bars down are money out. The dot is what is left.")
+theme.question(
+    fig,
+    "Where does the money go for each rule?",
+    "Bars up are money in. Bars down are money out. The dot is what is left.",
+)
 
 # %% [markdown]
 # ### Every tuning try, and the winner
@@ -489,47 +604,104 @@ rounded(analysis.tuning_summary(result).sort("best", descending=True))
 # %%
 trials = analysis.tuning_trials(result)
 fig = go.Figure()
-for is_best, symbol, size, color in [(False, "circle", 8, theme.palette().quiet), (True, "diamond", 13, theme.palette().pick)]:
+for is_best, symbol, size, color in [
+    (False, "circle", 8, theme.palette().quiet),
+    (True, "diamond", 13, theme.palette().pick),
+]:
     part = trials.filter(pl.col("best") == is_best)
     fig.add_scatter(
-        x=part["policy"], y=part["dollars"], text=part["settings"], mode="markers",
-        name="best setting" if is_best else "other tries", marker={"symbol": symbol, "size": size, "color": color},
+        x=part["policy"],
+        y=part["dollars"],
+        text=part["settings"],
+        mode="markers",
+        name="best setting" if is_best else "other tries",
+        marker={"symbol": symbol, "size": size, "color": color},
     )
 fig.update_layout(yaxis_title="mean profit on the tuning demand ($)", height=500)
-theme.question(fig, "Does the setting matter for each rule?", "A tall column of dots means a bad setting costs real money.")
+theme.question(
+    fig,
+    "Does the setting matter for each rule?",
+    "A tall column of dots means a bad setting costs real money.",
+)
 
 # %% [markdown]
 # ### Profit over time
 # The running total of profit, day by day, as a mean over all runs.
-# We draw it as the gap from today's rule. Today is the grey zero line. A line above zero is a rule that has earned more so far.
-# Then one small chart for each rule, with a band of one standard deviation. The band shows how much runs differ.
+# We draw it as the gap from today's rule. Today is the grey zero line. A line above zero is a
+# rule that has earned more so far.
+# Then one small chart for each rule, with a band of one standard deviation. The band shows how
+# much runs differ.
 
 # %%
 cumulative = analysis.cumulative_profit(result)
-running = {name: cumulative.filter(pl.col("policy") == name).sort("day")["mean"].to_list() for name in palette}
+running = {
+    name: cumulative.filter(pl.col("policy") == name).sort("day")["mean"].to_list()
+    for name in palette
+}
 gap = theme.vs_today(running, today)
 days = cumulative.filter(pl.col("policy") == today).sort("day")["day"].to_list()
 fig = go.Figure()
-for name in sorted(palette, key=lambda n: n in (today, winner)):  # draw the pick and today last, on top
-    fig.add_scatter(x=days, y=gap[name], name=name, mode="lines", line={"color": focus[name], "width": 3 if name in (today, winner) else 1.5})
+for name in sorted(
+    palette, key=lambda n: n in (today, winner)
+):  # draw the pick and today last, on top
+    fig.add_scatter(
+        x=days,
+        y=gap[name],
+        name=name,
+        mode="lines",
+        line={"color": focus[name], "width": 3 if name in (today, winner) else 1.5},
+    )
 fig.update_layout(xaxis_title="Day", yaxis_title="dollars ahead of today", height=550)
-theme.question(fig, "When does each rule pull ahead of today?", f"{winner} ends the run {theme.delta_text(gap[winner][-1])}.")
+theme.question(
+    fig,
+    "When does each rule pull ahead of today?",
+    f"{winner} ends the run {theme.delta_text(gap[winner][-1])}.",
+)
 
 # %%
 names = list(palette)
 columns = 3
-fig = make_subplots(rows=-(-len(names) // columns), cols=columns, subplot_titles=names, shared_xaxes=True)
+fig = make_subplots(
+    rows=-(-len(names) // columns), cols=columns, subplot_titles=names, shared_xaxes=True
+)
 for i, name in enumerate(names):
     part = cumulative.filter(pl.col("policy") == name)
     row, col = i // columns + 1, i % columns + 1
-    fig.add_scatter(x=part["day"], y=part["high"], mode="lines", line={"width": 0}, showlegend=False, row=row, col=col)
     fig.add_scatter(
-        x=part["day"], y=part["low"], mode="lines", line={"width": 0}, fill="tonexty",
-        fillcolor=theme.faded(palette[name]), showlegend=False, row=row, col=col,
+        x=part["day"],
+        y=part["high"],
+        mode="lines",
+        line={"width": 0},
+        showlegend=False,
+        row=row,
+        col=col,
     )
-    fig.add_scatter(x=part["day"], y=part["mean"], mode="lines", line={"color": palette[name]}, showlegend=False, row=row, col=col)
+    fig.add_scatter(
+        x=part["day"],
+        y=part["low"],
+        mode="lines",
+        line={"width": 0},
+        fill="tonexty",
+        fillcolor=theme.faded(palette[name]),
+        showlegend=False,
+        row=row,
+        col=col,
+    )
+    fig.add_scatter(
+        x=part["day"],
+        y=part["mean"],
+        mode="lines",
+        line={"color": palette[name]},
+        showlegend=False,
+        row=row,
+        col=col,
+    )
 fig.update_layout(height=900)
-theme.question(fig, "How much do runs differ for each rule?", "The line is the mean. The band is one standard deviation.")
+theme.question(
+    fig,
+    "How much do runs differ for each rule?",
+    "The line is the mean. The band is one standard deviation.",
+)
 
 # %% [markdown]
 # ### Who leads early? Who leads at the end?
@@ -553,21 +725,37 @@ rounded(table.sort(f"rank day {LAST_DAY}"))
 
 # %%
 early_leaders = [p for p in ranks if ranks[p][EARLY_DAY - 1] == 1]
-print(f"Best after {EARLY_DAY} days: {', '.join(early_leaders)}. Best after {LAST_DAY} days: {winner}.")
+print(
+    f"Best after {EARLY_DAY} days: {', '.join(early_leaders)}. Best after {LAST_DAY} days: "
+    f"{winner}."
+)
 second = result.ranking()[1].policy
 for challenger in (winner, second):
     for leader in early_leaders:
         if leader != challenger:
-            print(f"{challenger} passes {leader} on day {analysis.first_day_passed(result, leader, challenger)}")
+            print(
+                f"{challenger} passes {leader} on day "
+                f"{analysis.first_day_passed(result, leader, challenger)}"
+            )
 
 highlight = list(dict.fromkeys([*early_leaders, winner, second, today, "setup_aware_runout"]))
 rank_table = analysis.rank_by_day(result)
 fig = go.Figure()
 for name in highlight:
-    fig.add_scatter(x=rank_table["day"], y=rank_table[name], name=name, mode="lines", line={"color": focus[name]})
+    fig.add_scatter(
+        x=rank_table["day"],
+        y=rank_table[name],
+        name=name,
+        mode="lines",
+        line={"color": focus[name]},
+    )
 fig.update_yaxes(autorange="reversed", title_text="rank (1 is best)")
 fig.update_layout(xaxis_title="Day", height=550)
-theme.question(fig, "Who leads early, and who leads at the end?", f"{winner} is the pick. Today's rule, {today}, is grey.")
+theme.question(
+    fig,
+    "Who leads early, and who leads at the end?",
+    f"{winner} is the pick. Today's rule, {today}, is grey.",
+)
 
 # %% [markdown]
 # ### Does the length of the plan change who wins?
@@ -576,28 +764,43 @@ theme.question(fig, "Who leads early, and who leads at the end?", f"{winner} is 
 # %%
 HORIZONS = [10, 30, 60] if FAST else [10, 30, 60, 120]
 horizon_runs = 5 if FAST else 100
-# The built-in `random` rule keeps its dice between calls. A fresh project for each plan length gives it fresh dice.
+# The built-in `random` rule keeps its dice between calls. A fresh project for each plan length
+# gives it fresh dice.
 one_column_each = [
-    analysis.horizon_table(Project.open(WORK), list(palette), [h], episodes=horizon_runs, seed=7, settings=tuned)
+    analysis.horizon_table(
+        Project.open(WORK), list(palette), [h], episodes=horizon_runs, seed=7, settings=tuned
+    )
     for h in HORIZONS
 ]
-by_horizon = pl.concat([one_column_each[0], *(t.drop("policy") for t in one_column_each[1:])], how="horizontal")
+by_horizon = pl.concat(
+    [one_column_each[0], *(t.drop("policy") for t in one_column_each[1:])], how="horizontal"
+)
 horizon_columns = [f"{h} days" for h in HORIZONS]
 rounded(by_horizon)
 
 # %%
-rank_columns = [pl.col(c).rank("min", descending=True).cast(pl.Int64).alias(f"rank, {c}") for c in horizon_columns]
+rank_columns = [
+    pl.col(c).rank("min", descending=True).cast(pl.Int64).alias(f"rank, {c}")
+    for c in horizon_columns
+]
 by_horizon.select("policy", *rank_columns)
 
 # %%
 fig = go.Figure()
 for row in by_horizon.iter_rows(named=True):
     fig.add_scatter(
-        x=HORIZONS, y=[row[c] for c in horizon_columns], name=row["policy"], mode="lines+markers",
+        x=HORIZONS,
+        y=[row[c] for c in horizon_columns],
+        name=row["policy"],
+        mode="lines+markers",
         line={"color": focus[row["policy"]]},
     )
 fig.update_layout(xaxis_title="Days in the plan", yaxis_title="mean profit ($)", height=500)
-theme.question(fig, "Does the best rule change with the plan length?", "Lines that cross are a rule that wins short plans and loses long ones.")
+theme.question(
+    fig,
+    "Does the best rule change with the plan length?",
+    "Lines that cross are a rule that wins short plans and loses long ones.",
+)
 
 # %% [markdown]
 # ### The Markov chain map of the winning rule
@@ -606,7 +809,8 @@ theme.question(fig, "Does the best rule change with the plan length?", "Lines th
 # With so many products there are far too many exact states to map.
 # So the map uses a small **family view**, named `family` here.
 # For each color family it asks if the thinnest product is low, medium or high on stock.
-# It also notes which family the press is on. We show the most visited states (the code names the number).
+# It also notes which family the press is on. We show the most visited states (the code names the
+# number).
 
 # %%
 MAP_RUNS = 20 if FAST else 300
@@ -615,10 +819,18 @@ map_moves = [m for run in map_runs for m in run]
 chain = project.markov(map_moves, "family", top_k=15)
 print(f"{len(chain.share)} different family states were visited in {chain.moves:,} days")
 print(f"The top 15 cover {chain.coverage:.1%} of all days")
-theme.question(analysis.markov_heatmap({"family": chain}), "Where does the plant go next?", "Each row is where we are. Each column is where we go. A bright cell is a likely move.")
+theme.question(
+    analysis.markov_heatmap({"family": chain}),
+    "Where does the plant go next?",
+    "Each row is where we are. Each column is where we go. A bright cell is a likely move.",
+)
 
 # %%
-theme.question(analysis.markov_network({"family": chain}), "Which states does the plant visit most?", "Big dots are common states. Thick arrows are likely moves.")
+theme.question(
+    analysis.markov_network({"family": chain}),
+    "Which states does the plant visit most?",
+    "Big dots are common states. Thick arrows are likely moves.",
+)
 
 # %% [markdown]
 # ### Stock by product by day, one run
@@ -626,7 +838,11 @@ theme.question(analysis.markov_network({"family": chain}), "Which states does th
 # Dashed lines mark the days the press changed product.
 
 # %%
-theme.question(analysis.inventory_grid(project, map_runs[0]), "Which products run thin, and when?", "Orange is low stock. Dashed lines are the days the press changed product.")
+theme.question(
+    analysis.inventory_grid(project, map_runs[0]),
+    "Which products run thin, and when?",
+    "Orange is low stock. Dashed lines are the days the press changed product.",
+)
 
 # %% [markdown]
 # ### The same race as one web page
@@ -694,7 +910,9 @@ MINE = Path(tempfile.mkdtemp(prefix="twinflow-mine-"))
 
 # The capsule picks the score in its experiment section. One new line does it.
 mine_capsule = (WORK / "molding-press.twin.yaml").read_text()
-mine_capsule = mine_capsule.replace("  policy: lowest_cover", "  score: calm_press\n  policy: lowest_cover")
+mine_capsule = mine_capsule.replace(
+    "  policy: lowest_cover", "  score: calm_press\n  policy: lowest_cover"
+)
 (MINE / "molding-press.twin.yaml").write_text(mine_capsule)
 
 mine = Project.open(MINE)
@@ -702,13 +920,20 @@ print("project is ready:", mine.ok, "| files with problems:", len(mine.extension
 print("the race scores by:", mine.config.score)
 
 # %%
-mine_settings = RaceSettings(episodes=EPISODES, seed=2024, tune_episodes=TUNE_EPISODES, tune_seed=777)
-mine_result = race(mine, ["stay_in_color", "lowest_cover", "family_campaign"], settings=mine_settings)
+mine_settings = RaceSettings(
+    episodes=EPISODES, seed=2024, tune_episodes=TUNE_EPISODES, tune_seed=777
+)
+mine_result = race(
+    mine, ["stay_in_color", "lowest_cover", "family_campaign"], settings=mine_settings
+)
 rounded(
     pl.DataFrame(
         {
             "policy": [r.policy for r in mine_result.ranking()],
-            "best setting": [", ".join(f"{k}={v:g}" for k, v in r.settings.items()) or "none" for r in mine_result.ranking()],
+            "best setting": [
+                ", ".join(f"{k}={v:g}" for k, v in r.settings.items()) or "none"
+                for r in mine_result.ranking()
+            ],
             "score (calm_press)": [r.score.mean for r in mine_result.ranking()],
             "dollars": [r.dollars.mean for r in mine_result.ranking()],
         }
@@ -726,7 +951,9 @@ rounded(
 broken = MINE / "policies" / "broken_rule.py"
 broken.write_text('NAME = "broken_rule"\n\n\ndef decide(state):\n    return "make-everything"\n')
 with_broken = Project.open(MINE)
-skipped = race(with_broken, ["broken_rule", "lowest_cover"], settings=RaceSettings(episodes=2, tune_episodes=1)).skipped
+skipped = race(
+    with_broken, ["broken_rule", "lowest_cover"], settings=RaceSettings(episodes=2, tune_episodes=1)
+).skipped
 for problem in skipped:
     print(problem.where, "|", problem.message)
     print("  fix:", problem.fix)
@@ -738,9 +965,12 @@ for problem in skipped:
 # Nothing here is a learned (RL) policy. All rules are hand-made and tuned in the same fair way.
 #
 # **What this says about long-term thinking.**
-# - Early in the run, a rule that does little can lead. Money spent on changeovers has not paid back yet.
-# - Later, the rule that holds a run in one color wins. It pays the cheap changeovers and avoids the costly ones.
-# - A rule that looks one day ahead skips the cost today. It slowly runs out of stock and loses sales.
+# - Early in the run, a rule that does little can lead. Money spent on changeovers has not paid
+#   back yet.
+# - Later, the rule that holds a run in one color wins. It pays the cheap changeovers and avoids
+#   the costly ones.
+# - A rule that looks one day ahead skips the cost today. It slowly runs out of stock and loses
+#   sales.
 # - The plan length changes the winner. A short plan favors rules that do little.
 # - Switching too often hurts, mostly the costly color changes.
 #
@@ -753,14 +983,26 @@ for problem in skipped:
 
 # %%
 top = result.ranking()
-print(f"Winner: {winner}, with ${top[0].dollars.mean:,.1f} per run (std ${top[0].dollars.std:,.1f}). Next: {top[1].policy}, ${top[1].dollars.mean:,.1f}.")
+print(
+    f"Winner: {winner}, with ${top[0].dollars.mean:,.1f} per run (std "
+    f"${top[0].dollars.std:,.1f}). Next: {top[1].policy}, ${top[1].dollars.mean:,.1f}."
+)
 tries = analysis.tuning_summary(result)["settings tried"].max()
-print(f"Tuning: each rule had at most {tries} tries, on {TUNE_EPISODES} runs of seed 777. Scored on {EPISODES} runs of seed 2024.")
+print(
+    f"Tuning: each rule had at most {tries} tries, on {TUNE_EPISODES} runs of seed 777. Scored on "
+    f"{EPISODES} runs of seed 2024."
+)
 print()
 print(f"After {EARLY_DAY} days the leader was {', '.join(early_leaders)}:")
 for name in early_leaders:
-    print(f"  {name}: ${means[name][EARLY_DAY - 1]:,.1f} on day {EARLY_DAY}, rank {ranks[name][LAST_DAY - 1]} on day {LAST_DAY} (${means[name][LAST_DAY - 1]:,.1f})")
-print(f"{winner} was rank {ranks[winner][EARLY_DAY - 1]} on day {EARLY_DAY}, and passed the early leader(s) on day:")
+    print(
+        f"  {name}: ${means[name][EARLY_DAY - 1]:,.1f} on day {EARLY_DAY}, rank "
+        f"{ranks[name][LAST_DAY - 1]} on day {LAST_DAY} (${means[name][LAST_DAY - 1]:,.1f})"
+    )
+print(
+    f"{winner} was rank {ranks[winner][EARLY_DAY - 1]} on day {EARLY_DAY}, and passed the early "
+    "leader(s) on day:"
+)
 for name in early_leaders:
     if name != winner:
         print(f"  {name}: day {analysis.first_day_passed(result, name, winner)}")
@@ -771,6 +1013,14 @@ for column in horizon_columns:
     print(f"  {column}: {leader['policy']} (${leader[column]:,.1f})")
 print()
 switchers = sorted(top, key=lambda r: -r.changeovers)[:3]
-print("Most changeovers per run:", "; ".join(f"{r.policy} {r.changeovers:.1f} ({r.cross_family:.1f} across families)" for r in switchers))
-print(f"{winner}: {top[0].changeovers:.1f} changeovers per run, {top[0].cross_family:.1f} across families")
+print(
+    "Most changeovers per run:",
+    "; ".join(
+        f"{r.policy} {r.changeovers:.1f} ({r.cross_family:.1f} across families)" for r in switchers
+    ),
+)
+print(
+    f"{winner}: {top[0].changeovers:.1f} changeovers per run, {top[0].cross_family:.1f} across "
+    "families"
+)
 print(f"Markov map: the top 15 family states cover {chain.coverage:.1%} of all days")

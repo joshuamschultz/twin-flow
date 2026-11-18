@@ -1,4 +1,4 @@
-# RM-04 — Agent decision workspace
+# RM-04: Agent decision workspace
 
 [Roadmap](../../enterprise-roadmap.md#rm-04)
 

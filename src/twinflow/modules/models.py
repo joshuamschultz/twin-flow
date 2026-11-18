@@ -1,4 +1,4 @@
-"""Surrogate models — learn the scoring surface so search can look before it leaps.
+"""Surrogate models, learn the scoring surface so search can look before it leaps.
 
 Simulating a scenario is expensive; a surrogate is a cheap stand-in that, once fit on
 a handful of real evaluations, predicts an objective's score for any unseen lever
@@ -10,7 +10,7 @@ surrogate and a **nearest-neighbour** one. They share a featuriser that turns a 
 point into a numeric vector (numbers pass through; categoricals become stable indices
 learned at fit time). New surrogates register in `MODELS`.
 
-A surrogate is an approximation, never the truth — its ranking chooses *what to
+A surrogate is an approximation, never the truth, its ranking chooses *what to
 simulate*, and the twin still produces the honest, uncertainty-carrying score.
 """
 
@@ -141,7 +141,7 @@ def predicted_ranking(
     model: SurrogateModel, space: LeverSpace
 ) -> list[tuple[dict[str, Any], float]]:
     """Rank every grid point of `space` by the surrogate's predicted score, best
-    first is left to the caller (it does not know the objective's direction here —
+    first is left to the caller (it does not know the objective's direction here,
     scores are returned raw). The cheap screen that decides what to simulate next.
     """
     return [(point, model.predict(point)) for point in space.grid()]

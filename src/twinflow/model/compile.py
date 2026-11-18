@@ -1,4 +1,4 @@
-"""COMP-016 LocationCompiler — plain-language Location config -> transform/location specs.
+"""COMP-016 LocationCompiler, plain-language Location config -> transform/location specs.
 
 The single growth point for new config sugar, and therefore the seam that replaces a
 plugin system. Primitives never learn what a scrap rate is (D-044).
@@ -6,8 +6,8 @@ plugin system. Primitives never learn what a scrap rate is (D-044).
 Every ratio in the YAML surface (a plain `emits[i].qty`, or a `scrap.rate` split) is
 declared relative to `consumes[0]`, the "basis" input. The compiled `Transform`'s
 output qty callables re-derive that ratio against the ACTUAL qty of `consumes[0].thing`
-present in the bundles a firing consumes at runtime — never a value baked in at
-compile time — which is what lets one firing consume 40 units and another 2.5 ft
+present in the bundles a firing consumes at runtime, never a value baked in at
+compile time, which is what lets one firing consume 40 units and another 2.5 ft
 through the identical compiled spec.
 
 The BOM rollup (`_rolled_up_bom`) walks the same declared ratios backward, offline,
@@ -94,7 +94,7 @@ class LocationCompiler:
         pull_rule = PullRule(setup_key_of=setup_key_of, spec=loc.get("batch_size"))
         # A declared `changeover_seconds` is the setup/changeover time this center
         # charges when a job's setup group differs from the machine's current one
-        # (including the cold-start setup of the first job). Absent means 0.0 — the
+        # (including the cold-start setup of the first job). Absent means 0.0, the
         # historical v1 default. Primitives never learn what a changeover is (D-044);
         # the compiler turns the plain-language number into a SetupPolicy.
         changeover_seconds = float(loc.get("changeover_seconds", 0.0))
@@ -169,7 +169,7 @@ _DURATION_UNITS = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
 
 def parse_duration(value: Any) -> float:
     """Seconds from a number (already seconds) or a `<number><unit>` string, unit in
-    {s, m, h, d} — so `mtbf: "40h"` reads as 144000. A bare number stays as-is."""
+    {s, m, h, d}, so `mtbf: "40h"` reads as 144000. A bare number stays as-is."""
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
     text = str(value).strip()
@@ -253,7 +253,7 @@ def _all_output_things(loc: RawLocation) -> list[str]:
 
 
 def _output_uom(loc: RawLocation, thing: str) -> str:
-    """The declared uom for one output `thing` — from `emits` or the `scrap` block."""
+    """The declared uom for one output `thing`, from `emits` or the `scrap` block."""
     scrap = loc.get("scrap")
     if scrap is not None and thing == scrap["thing"]:
         return str(scrap["uom"])
@@ -292,7 +292,7 @@ def _declared_output_ratio(loc: RawLocation, output_thing: str) -> float:
 
 def _ratio_qty_fn(ratio: float, basis_thing: str) -> QtyFn:
     """A QtyFn that scales `ratio` against the ACTUAL qty of `basis_thing` in the
-    inputs a firing consumes at runtime — never a value baked in at compile time."""
+    inputs a firing consumes at runtime, never a value baked in at compile time."""
 
     def qty_fn(inputs: list[Bundle]) -> float:
         actual_basis_qty = sum(bundle.qty for bundle in inputs if bundle.thing == basis_thing)
@@ -303,7 +303,7 @@ def _ratio_qty_fn(ratio: float, basis_thing: str) -> QtyFn:
 
 def _build_transform_spec(loc: RawLocation) -> TransformSpec:
     """Compile `consumes`/`emits`/`scrap` into the one bundles-in/bundles-out
-    contract (D-043, D-044) — no hand-written emit expression anywhere."""
+    contract (D-043, D-044), no hand-written emit expression anywhere."""
     basis_thing = loc["consumes"][0]["thing"]
     outputs = [
         OutputSpec(

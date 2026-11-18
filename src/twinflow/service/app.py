@@ -1,8 +1,8 @@
-"""FastAPI application — the local REST surface the React front end drives.
+"""FastAPI application, the local REST surface the React front end drives.
 
 Endpoints group into four concerns: discovery (`/api/modules`, `/api/models`),
 the visual model (`/api/models/{name}/floor`, `/levers`), work (`/api/run`,
-`/api/sweep`, `/api/optimize` — each returns a job id), and polling (`/api/jobs`).
+`/api/sweep`, `/api/optimize`, each returns a job id), and polling (`/api/jobs`).
 Heavy work runs on the `JobStore`'s background threads; the request returns
 immediately with an id the UI polls.
 
@@ -101,7 +101,7 @@ class ModelCatalog:
 
     def resolve(self, name: str) -> tuple[str, str]:
         """(`model_path`, `plan_path`) for example `name`; 404 if either is missing.
-        `name` is a single path segment — never a nested or absolute path."""
+        `name` is a single path segment, never a nested or absolute path."""
         if "/" in name or name in (".", "..") or "\\" in name:
             raise HTTPException(status_code=400, detail=f"invalid model name {name!r}")
         model_path = self._root / name / "model.yaml"
@@ -487,7 +487,7 @@ def _optimize_work(
 
 def _build_space(request: OptimizeRequest) -> LeverSpace:
     """Turn an `OptimizeRequest.space` into a `LeverSpace` (400 on a malformed
-    domain — neither a `{min,max}` range nor a `{choices}` set)."""
+    domain: neither a `{min,max}` range nor a `{choices}` set)."""
     domains: dict[str, Domain] = {}
     for path, spec in request.space.items():
         if spec.choices is not None:

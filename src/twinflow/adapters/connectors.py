@@ -1,15 +1,15 @@
-"""Data connectors — the unified seam between the twin and a system of record.
+"""Data connectors, the unified seam between the twin and a system of record.
 
 A real ERP/MES integration is a separate, later job; what ships here is the *surface*
 it plugs into, so that job is a single class + one `register(...)` call, never a change
 to the core. Three capabilities, each a small protocol:
 
-- **PlanSource** — read a production plan into the canonical `WorkOrder` contract.
-- **ResultSink** — write the twin's results (KPIs, a chosen schedule) back out.
-- **ActualSource** — read a real production event log for plan-vs-actual reconciliation.
+- **PlanSource**: read a production plan into the canonical `WorkOrder` contract.
+- **ResultSink**: write the twin's results (KPIs, a chosen schedule) back out.
+- **ActualSource**: read a real production event log for plan-vs-actual reconciliation.
 
-A connector implements whichever it can. The README's promise — "a connector to a system
-of record becomes a column mapping onto the existing plan contract, not a rewrite" — is
+A connector implements whichever it can. The README's promise, "a connector to a system
+of record becomes a column mapping onto the existing plan contract, not a rewrite", is
 made concrete by `FieldMapping`: an ERP's own column names are remapped onto twinflow's
 canonical plan columns, and the shipped `load_plan` does the rest.
 

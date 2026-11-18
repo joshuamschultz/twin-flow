@@ -1,4 +1,4 @@
-# RM-04 user guide — agent decision workspace
+# RM-04 user guide: agent decision workspace
 
 RM-04 connects one deterministic application layer to FastAPI, the Python `TwinflowClient`, MCP stdio tools, and the React workspace. Start with `python -m twinflow.service.serve`; browser and agents call the same `/api/workspace` routes.
 

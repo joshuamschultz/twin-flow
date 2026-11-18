@@ -5,7 +5,7 @@ import type { PolicyRow, RaceViewModel } from "./types";
 
 type Source = Pick<RaceViewModel, "about" | "policies">;
 
-const NONE = "–";
+const NONE = "-";
 const SOURCE_WORDS: Record<string, string> = {
   project: "Your project",
   builtin: "Built in",

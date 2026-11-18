@@ -50,7 +50,7 @@ trace each blocking dependency to affected orders.
 Supplier risks use a configured uniform delay range and optional `common_risk_group`. One latent
 uniform quantile per group per replication is mapped through each supplier's own minimum/maximum
 range, preserving correlation without replacing unequal supplier distributions.
-`limits.replications` is bounded to 1–1000, `max_events` to 1–1,000,000, and
+`limits.replications` is bounded to 1-1000, `max_events` to 1-1,000,000, and
 `max_wall_seconds` to 300. Recursive explosion, allocation, gates, supplies, orders, and
 replications cooperatively consume the budget. Exhaustion returns `limit_reached`, the reason,
 completed replication count, and work count.
