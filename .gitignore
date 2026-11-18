@@ -9,7 +9,7 @@ build/
 dist/
 runs/
 
-# Working / planning files — keep out of the pushed repo
+# Working / planning files, keep out of the pushed repo
 .claude/
 # Codex and agent-local configuration, instructions, and planning files
 .codex/
@@ -29,3 +29,10 @@ web/test-results/
 web/playwright-report/
 
 /artifacts/
+
+# Report pages the CLI writes next to an example's inputs (project, states, improve, race, sweep)
+examples/**/project.html
+examples/**/states.html
+examples/**/improve.html
+examples/**/race.html
+examples/**/sweep.html
