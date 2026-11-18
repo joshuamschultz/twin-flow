@@ -159,6 +159,8 @@ class PolicyResult:
     vs_best: Stat | None = None
     dollar_warning: str | None = None
     leaks: tuple[Leak, ...] = ()
+    avg_stock: float | None = None  # mean units on hand at the end of a day, all products
+    lost_units: float | None = None  # units of demand not met, per run
     extra: Mapping[str, Any] = field(default=_EMPTY)
 
     def to_json(self) -> dict[str, Any]:
@@ -178,6 +180,8 @@ class PolicyResult:
             "changeovers": self.changeovers,
             "cross_family": self.cross_family,
             "idle_share": self.idle_share,
+            "avg_stock": self.avg_stock,
+            "lost_units": self.lost_units,
             "money_leaks": [leak.to_json() for leak in self.leaks],
             "episode_score": list(self.episode_score),
             "episode_dollars": list(self.episode_dollars),
@@ -448,6 +452,8 @@ class _Tally:
     cross: int = 0
     idle: int = 0
     decisions: int = 0
+    stock: float = 0.0  # units on hand after each move, summed over moves
+    lost: float = 0.0
 
     def add(self, moves: Sequence[Move]) -> None:
         family = self.project.facts.family
@@ -467,6 +473,9 @@ class _Tally:
                     self.sold += value
                 elif key.startswith("demand."):
                     self.asked += value
+                elif key.startswith("lost."):
+                    self.lost += value
+            self.stock += sum(move.after.stock.values())
             self.decisions += 1
             self.idle += move.action == "idle"
             for line, before in move.before.setup.items():
@@ -514,6 +523,8 @@ def _result(
         changeovers=tally.switches / episodes,
         cross_family=tally.cross / episodes,
         idle_share=tally.idle / max(1, tally.decisions),
+        avg_stock=tally.stock / tally.decisions if tally.decisions else None,
+        lost_units=tally.lost / episodes,
         score=stat(episode_score, level),
         dollars=stat(episode_dollars, level),
         cumulative_score=band(daily_score),
@@ -896,6 +907,8 @@ def race(
     results: list[PolicyResult] = []
     trials: list[Trial] = []
     kept: dict[str, tuple[MoveTable, float]] = {}
+    baseline = project.baseline  # kept beside the top policies (REQ-229)
+    baseline_table: MoveTable | None = None
     chains: dict[str, MarkovChain] = {}
     for policy in extensions:
         if fixed is not None and policy.name in fixed:
@@ -931,7 +944,9 @@ def race(
                 leaks = tuple(money_leaks(chain, chosen.episodes))
                 first.result = replace(first.result, leaks=leaks)
             results += [run.result for run in runs]
-            if first.table is not None:
+            if first.table is not None and policy.name == baseline:
+                baseline_table = first.table
+            elif first.table is not None:
                 _keep(kept, policy.name, first.table, first.result.score.mean, chosen.top_policies)
     ranked: list[PolicyResult] = []
     for mask in masks:
@@ -944,16 +959,38 @@ def race(
         results=tuple(ranked),
         skipped=tuple(skipped),
         problems=tuple(skipped),
-        kept=MappingProxyType({name: table for name, (table, _) in kept.items()}),
+        kept=MappingProxyType(
+            _kept_with_baseline(kept, baseline, baseline_table, ranked, chosen.top_policies)
+        ),
         trials=tuple(trials),
         chains=MappingProxyType(
             {
                 r.policy: chains[r.policy]
-                for r in ranked[: chosen.top_policies]
-                if r.observation == masks[0] and r.policy in chains
+                for r in ranked
+                if r.observation == masks[0]
+                and r.policy in chains
+                and (r.rank <= chosen.top_policies or r.policy == baseline)
             }
         ),
     )
+
+
+def _kept_with_baseline(
+    kept: Mapping[str, tuple[MoveTable, float]],
+    baseline: str,
+    table: MoveTable | None,
+    ranked: Sequence[PolicyResult],
+    top: int,
+) -> dict[str, MoveTable]:
+    """The top policies' moves plus the baseline's (first observation), in ranking order.
+    When the baseline is itself in the top, the extra policy kept beside it is dropped."""
+    out = {name: t for name, (t, _) in kept.items()}
+    if table is not None:
+        out[baseline] = table
+    first = ranked[0].observation if ranked else None
+    order = {r.policy: r.rank for r in ranked if r.observation == first}
+    chosen = [n for n in out if n == baseline or order.get(n, top + 1) <= top]
+    return {n: out[n] for n in sorted(chosen, key=lambda n: order.get(n, len(order) + 1))}
 
 
 def _keep(

@@ -1,0 +1,803 @@
+{
+ "_about": "Abbreviated real output of twinflow.extensions.report_model.race_view_model for examples/molding-press, 40 runs, seed 0. Lists are cut; the full document is race-view-model.full.json.",
+ "about": {
+  "title": "Policy race: molding-press",
+  "project": "molding-press",
+  "episodes": 40,
+  "seed": 0,
+  "tune_episodes": 30,
+  "horizon_days": 60,
+  "score": "dollars",
+  "score_is_dollars": true,
+  "interval": 0.95,
+  "observation": "full",
+  "view": "family",
+  "policies_raced": 12,
+  "method": "Every policy ran 40 times on the same customer orders, each run 60 days long. Policies with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
+ },
+ "recommendation": {
+  "policy": "family_campaign",
+  "label": "Family campaign",
+  "settings": {
+   "target_days": 16
+  },
+  "dollars_per_run": 65410,
+  "same_as_baseline": false,
+  "sentence": "Run family_campaign instead of lowest_cover. It makes $22,088 more per run, about $134,370 more a year.",
+  "why": "Main reason: it spends $35,355 less per run on changeovers, with 33 fewer changeovers to another family."
+ },
+ "baseline": {
+  "policy": "lowest_cover",
+  "label": "Lowest cover",
+  "source": "setting",
+  "settings": {
+   "stop_days": 10.0
+  },
+  "rank": 5,
+  "dollars_per_run": 43322
+ },
+ "delta": {
+  "per_run": 22088,
+  "per_year": 134370,
+  "runs_per_year": 6.08,
+  "low_per_run": 19733,
+  "high_per_run": 24444,
+  "low_per_year": 120042,
+  "high_per_year": 148699,
+  "assumption": "A year is 365 days, so about 6.1 runs of 60 days. Each run starts fresh, so this is a rough guide."
+ },
+ "confidence": {
+  "interval": 0.95,
+  "mean": 22088,
+  "low": 19733,
+  "high": 24444,
+  "wins": 40,
+  "runs": 40,
+  "level": "very_likely_better",
+  "words": "Very likely better",
+  "detail": "We are 95% sure it earns between $19,733 and $24,444 more per run on average. It came out ahead in 40 of 40 runs."
+ },
+ "floor": [
+  {
+   "key": "changeovers",
+   "label": "Changeovers per run",
+   "unit": "count",
+   "recommended": 45.3,
+   "baseline": 59.0,
+   "change": -13.7,
+   "better": true,
+   "words": "14 fewer changeovers"
+  },
+  {
+   "key": "cross_family",
+   "label": "Changeovers to another family per run",
+   "unit": "count",
+   "recommended": 8.4,
+   "baseline": 41.1,
+   "change": -32.6,
+   "better": true,
+   "words": "33 fewer changeovers to another family"
+  },
+  {
+   "key": "fill_rate",
+   "label": "Orders filled",
+   "unit": "share",
+   "recommended": 0.9673,
+   "baseline": 0.9402,
+   "change": 0.0271,
+   "better": true,
+   "words": "2.7 points more orders filled"
+  },
+  {
+   "key": "avg_stock",
+   "label": "Average stock on hand",
+   "unit": "units",
+   "recommended": 3378.0,
+   "baseline": 1312.7,
+   "change": 2065.3,
+   "better": false,
+   "words": "2,065 more units in stock"
+  },
+  {
+   "key": "lost_units",
+   "label": "Sales lost per run",
+   "unit": "units",
+   "recommended": 495.9,
+   "baseline": 907.8,
+   "change": -411.9,
+   "better": true,
+   "words": "412 fewer units of lost sales"
+  }
+ ],
+ "drivers": [
+  {
+   "part": "setup",
+   "gain": 35355,
+   "words": "it spends $35,355 less per run on changeovers"
+  },
+  {
+   "part": "revenue",
+   "gain": 5405,
+   "words": "it sells $5,405 more per run"
+  },
+  {
+   "part": "lost_sales",
+   "gain": 1622,
+   "words": "it spends $1,622 less per run on lost sales"
+  },
+  {
+   "part": "late",
+   "gain": 0,
+   "words": "it spends $0 less per run on late orders"
+  },
+  {
+   "part": "production",
+   "gain": -7195,
+   "words": "it spends $7,195 more per run on making product"
+  },
+  {
+   "part": "holding",
+   "gain": -13098,
+   "words": "it spends $13,098 more per run on keeping stock"
+  }
+ ],
+ "parts": [
+  "revenue",
+  "production",
+  "setup",
+  "holding",
+  "lost_sales",
+  "late"
+ ],
+ "policies": [
+  {
+   "policy": "family_campaign",
+   "label": "Family campaign",
+   "about": "Stay with one family until it is stocked up, then move on.",
+   "rank": 1,
+   "source": "project",
+   "settings": {
+    "target_days": 16
+   },
+   "is_baseline": false,
+   "is_recommended": true,
+   "score": {
+    "mean": 65410.32,
+    "low": 64252.1555039647,
+    "high": 66568.48752603531
+   },
+   "dollars": {
+    "mean": 65410,
+    "low": 64252,
+    "high": 66568,
+    "std": 3621,
+    "n": 40
+   },
+   "vs_best": null,
+   "vs_baseline": {
+    "mean": 22088,
+    "low": 19733,
+    "high": 24444,
+    "std": 7365,
+    "n": 40
+   },
+   "parts": {
+    "revenue": 262026,
+    "production": 152858,
+    "setup": 17510,
+    "holding": 23080,
+    "lost_sales": 3168,
+    "late": 0
+   },
+   "fill_rate": 0.9673,
+   "changeovers": 45.3,
+   "cross_family": 8.4,
+   "idle_share": 0.2008,
+   "avg_stock": 3378.0,
+   "lost_units": 495.9,
+   "dollar_warning": null,
+   "profit_by_day": {
+    "mean": [
+     1067,
+     1501,
+     2034,
+     2450,
+     "... 56 more days (one per day of the run)"
+    ],
+    "low": [
+     717,
+     919,
+     1414,
+     1766,
+     "... 56 more days (one per day of the run)"
+    ],
+    "high": [
+     1417,
+     2084,
+     2654,
+     3134,
+     "... 56 more days (one per day of the run)"
+    ]
+   }
+  },
+  {
+   "policy": "lowest_cover",
+   "label": "Lowest cover",
+   "about": "Make the product that will run out first.",
+   "rank": 5,
+   "source": "builtin",
+   "settings": {
+    "stop_days": 10.0
+   },
+   "is_baseline": true,
+   "is_recommended": false,
+   "score": {
+    "mean": 43322.07,
+    "low": 41454.86207236648,
+    "high": 45189.274627633524
+   },
+   "dollars": {
+    "mean": 43322,
+    "low": 41455,
+    "high": 45189,
+    "std": 5838,
+    "n": 40
+   },
+   "vs_best": {
+    "mean": -22088,
+    "low": -24444,
+    "high": -19733,
+    "std": 7365,
+    "n": 40
+   },
+   "vs_baseline": null,
+   "parts": {
+    "revenue": 256621,
+    "production": 145662,
+    "setup": 52865,
+    "holding": 9982,
+    "lost_sales": 4790,
+    "late": 0
+   },
+   "fill_rate": 0.9402,
+   "changeovers": 59.0,
+   "cross_family": 41.1,
+   "idle_share": 0.0,
+   "avg_stock": 1312.7,
+   "lost_units": 907.8,
+   "dollar_warning": null,
+   "profit_by_day": {
+    "mean": [
+     1067,
+     1860,
+     2784,
+     3650,
+     "... 56 more days (one per day of the run)"
+    ],
+    "low": [
+     717,
+     1205,
+     2029,
+     2735,
+     "... 56 more days (one per day of the run)"
+    ],
+    "high": [
+     1417,
+     2514,
+     3538,
+     4565,
+     "... 56 more days (one per day of the run)"
+    ]
+   }
+  },
+  "... 10 more policies, same shape"
+ ],
+ "products": [
+  {
+   "id": "GRY-S",
+   "family": "grey",
+   "abc": "A",
+   "demand_rate": 60.0,
+   "max_storage": 1500,
+   "low_stock": 180.0
+  },
+  {
+   "id": "GRY-M",
+   "family": "grey",
+   "abc": "A",
+   "demand_rate": 40.0,
+   "max_storage": 1000,
+   "low_stock": 120.0
+  },
+  "... 10 more products"
+ ],
+ "families": [
+  "grey",
+  "black",
+  "natural"
+ ],
+ "example_runs": {
+  "family_campaign": {
+   "episode": 0,
+   "start_stock": {
+    "GRY-S": 480,
+    "GRY-M": 320,
+    "GRY-L": 144,
+    "GRY-XL": 48,
+    "BLK-S": 360,
+    "BLK-M": 176,
+    "BLK-L": 72,
+    "BLK-XL": 40,
+    "NAT-S": 160,
+    "NAT-M": 128,
+    "NAT-L": 64,
+    "NAT-XL": 32
+   },
+   "days": [
+    {
+     "day": 1,
+     "action": "GRY-S",
+     "setup": "GRY-S",
+     "family": "grey",
+     "changeover": false,
+     "cross_family": false,
+     "stock": {
+      "GRY-S": 867,
+      "GRY-M": 296,
+      "GRY-L": 125,
+      "GRY-XL": 45,
+      "BLK-S": 307,
+      "BLK-M": 151,
+      "BLK-L": 65,
+      "BLK-XL": 32,
+      "NAT-S": 137,
+      "NAT-M": 114,
+      "NAT-L": 53,
+      "NAT-XL": 28
+     },
+     "demand": 254.0,
+     "sold": 254.0,
+     "lost": 0.0,
+     "profit": 1046,
+     "cumulative": 1046
+    },
+    {
+     "day": 2,
+     "action": "GRY-L",
+     "setup": "GRY-L",
+     "family": "grey",
+     "changeover": true,
+     "cross_family": false,
+     "stock": {
+      "GRY-S": 811,
+      "GRY-M": 257,
+      "GRY-L": 354,
+      "GRY-XL": 41,
+      "BLK-S": 259,
+      "BLK-M": 119,
+      "BLK-L": 50,
+      "BLK-XL": 25,
+      "NAT-S": 106,
+      "NAT-M": 94,
+      "NAT-L": 45,
+      "NAT-XL": 27
+     },
+     "demand": 275.0,
+     "sold": 275.0,
+     "lost": 0.0,
+     "profit": 641,
+     "cumulative": 1687
+    },
+    "... 58 more days"
+   ]
+  },
+  "lowest_cover": {
+   "episode": 0,
+   "start_stock": {
+    "GRY-S": 480,
+    "GRY-M": 320,
+    "GRY-L": 144,
+    "GRY-XL": 48,
+    "BLK-S": 360,
+    "BLK-M": 176,
+    "BLK-L": 72,
+    "BLK-XL": 40,
+    "NAT-S": 160,
+    "NAT-M": 128,
+    "NAT-L": 64,
+    "NAT-XL": 32
+   },
+   "days": [
+    {
+     "day": 1,
+     "action": "GRY-S",
+     "setup": "GRY-S",
+     "family": "grey",
+     "changeover": false,
+     "cross_family": false,
+     "stock": {
+      "GRY-S": 867,
+      "GRY-M": 296,
+      "GRY-L": 125,
+      "GRY-XL": 45,
+      "BLK-S": 307,
+      "BLK-M": 151,
+      "BLK-L": 65,
+      "BLK-XL": 32,
+      "NAT-S": 137,
+      "NAT-M": 114,
+      "NAT-L": 53,
+      "NAT-XL": 28
+     },
+     "demand": 254.0,
+     "sold": 254.0,
+     "lost": 0.0,
+     "profit": 1046,
+     "cumulative": 1046
+    },
+    {
+     "day": 2,
+     "action": "BLK-XL",
+     "setup": "BLK-XL",
+     "family": "black",
+     "changeover": true,
+     "cross_family": true,
+     "stock": {
+      "GRY-S": 811,
+      "GRY-M": 257,
+      "GRY-L": 111,
+      "GRY-XL": 41,
+      "BLK-S": 259,
+      "BLK-M": 119,
+      "BLK-L": 50,
+      "BLK-XL": 115,
+      "NAT-S": 106,
+      "NAT-M": 94,
+      "NAT-L": 45,
+      "NAT-XL": 27
+     },
+     "demand": 275.0,
+     "sold": 275.0,
+     "lost": 0.0,
+     "profit": 1294,
+     "cumulative": 2340
+    },
+    "... 58 more days"
+   ]
+  }
+ },
+ "markov": {
+  "family_campaign": {
+   "view": "family",
+   "moves": 2400,
+   "coverage": 0.755,
+   "nodes": [
+    {
+     "id": "s0",
+     "label": "grey:ok black:ok natural:ok | grey",
+     "parts_of_label": {
+      "levels": {
+       "grey": "ok",
+       "black": "ok",
+       "natural": "ok"
+      },
+      "setup": "grey"
+     },
+     "share": 0.0854,
+     "visits": 205,
+     "sticky": true,
+     "stay": 0.722,
+     "per_day": 1383,
+     "per_run": 7087,
+     "leak_per_run": 1890,
+     "money_per_day": {
+      "revenue": 4563,
+      "production": 2812,
+      "setup": 130,
+      "holding": 239,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "losing": false,
+     "top_leak": false
+    },
+    {
+     "id": "s1",
+     "label": "grey:high black:high natural:high | grey",
+     "parts_of_label": {
+      "levels": {
+       "grey": "high",
+       "black": "high",
+       "natural": "high"
+      },
+      "setup": "grey"
+     },
+     "share": 0.0667,
+     "visits": 160,
+     "sticky": true,
+     "stay": 0.6,
+     "per_day": 1440,
+     "per_run": 5761,
+     "leak_per_run": 2919,
+     "money_per_day": {
+      "revenue": 4503,
+      "production": 2333,
+      "setup": 250,
+      "holding": 480,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "losing": false,
+     "top_leak": true
+    },
+    "... 13 more states"
+   ],
+   "edges": [
+    {
+     "from": "s0",
+     "to": "s0",
+     "prob": 0.722,
+     "self": true
+    },
+    {
+     "from": "s0",
+     "to": "s9",
+     "prob": 0.1024,
+     "self": false
+    },
+    {
+     "from": "s1",
+     "to": "s1",
+     "prob": 0.6,
+     "self": true
+    },
+    "... 34 more edges"
+   ]
+  },
+  "lowest_cover": {
+   "view": "family",
+   "moves": 2400,
+   "coverage": 0.9146,
+   "nodes": [
+    {
+     "id": "s0",
+     "label": "grey:low black:low natural:low | grey",
+     "parts_of_label": {
+      "levels": {
+       "grey": "low",
+       "black": "low",
+       "natural": "low"
+      },
+      "setup": "grey"
+     },
+     "share": 0.2292,
+     "visits": 550,
+     "sticky": false,
+     "stay": 0.3382,
+     "per_day": 508,
+     "per_run": 6991,
+     "leak_per_run": 14957,
+     "money_per_day": {
+      "revenue": 4116,
+      "production": 2520,
+      "setup": 811,
+      "holding": 145,
+      "lost_sales": 132,
+      "late": 0
+     },
+     "losing": false,
+     "top_leak": true
+    },
+    {
+     "id": "s1",
+     "label": "grey:low black:low natural:low | black",
+     "parts_of_label": {
+      "levels": {
+       "grey": "low",
+       "black": "low",
+       "natural": "low"
+      },
+      "setup": "black"
+     },
+     "share": 0.1383,
+     "visits": 332,
+     "sticky": false,
+     "stay": 0.1687,
+     "per_day": 513,
+     "per_run": 4256,
+     "leak_per_run": 9844,
+     "money_per_day": {
+      "revenue": 4118,
+      "production": 2419,
+      "setup": 911,
+      "holding": 148,
+      "lost_sales": 127,
+      "late": 0
+     },
+     "losing": false,
+     "top_leak": true
+    },
+    "... 13 more states"
+   ],
+   "edges": [
+    {
+     "from": "s0",
+     "to": "s0",
+     "prob": 0.3382,
+     "self": true
+    },
+    {
+     "from": "s0",
+     "to": "s1",
+     "prob": 0.3382,
+     "self": false
+    },
+    {
+     "from": "s0",
+     "to": "s2",
+     "prob": 0.1309,
+     "self": false
+    },
+    "... 71 more edges"
+   ]
+  }
+ },
+ "leaks": {
+  "family_campaign": [
+   {
+    "state": "grey:ok black:high natural:high | natural",
+    "share": 0.0604,
+    "visits": 145,
+    "per_visit": 1089,
+    "per_run": 3949,
+    "parts": {
+     "setup": 2355,
+     "holding": 1594,
+     "lost_sales": 0,
+     "late": 0
+    },
+    "cause": "setup",
+    "cause_words": "changeovers"
+   },
+   {
+    "state": "grey:high black:low natural:low | grey",
+    "share": 0.065,
+    "visits": 156,
+    "per_visit": 937,
+    "per_run": 3653,
+    "parts": {
+     "setup": 1780,
+     "holding": 1069,
+     "lost_sales": 804,
+     "late": 0
+    },
+    "cause": "setup",
+    "cause_words": "changeovers"
+   },
+   "... 3 more leaks"
+  ],
+  "lowest_cover": [
+   {
+    "state": "grey:low black:low natural:low | grey",
+    "share": 0.2292,
+    "visits": 550,
+    "per_visit": 1088,
+    "per_run": 14957,
+    "parts": {
+     "setup": 11150,
+     "holding": 1994,
+     "lost_sales": 1813,
+     "late": 0
+    },
+    "cause": "setup",
+    "cause_words": "changeovers"
+   },
+   {
+    "state": "grey:low black:low natural:low | black",
+    "share": 0.1383,
+    "visits": 332,
+    "per_visit": 1186,
+    "per_run": 9844,
+    "parts": {
+     "setup": 7560,
+     "holding": 1227,
+     "lost_sales": 1057,
+     "late": 0
+    },
+    "cause": "setup",
+    "cause_words": "changeovers"
+   },
+   "... 3 more leaks"
+  ]
+ },
+ "tuning": [
+  {
+   "policy": "abc_wheel",
+   "chosen": {
+    "days_per_slot": 2
+   },
+   "tried": 6,
+   "trials": [
+    {
+     "settings": {
+      "days_per_slot": 1
+     },
+     "score": 25949.8,
+     "dollars": 25950,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "days_per_slot": 2
+     },
+     "score": 37085.8,
+     "dollars": 37086,
+     "problem": null,
+     "chosen": true
+    },
+    "... 4 more trials"
+   ]
+  },
+  {
+   "policy": "dollar_shortfall",
+   "chosen": {
+    "target_days": 8.0
+   },
+   "tried": 12,
+   "trials": [
+    {
+     "settings": {
+      "target_days": 3.0
+     },
+     "score": 32388.17,
+     "dollars": 32388,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "target_days": 4.0
+     },
+     "score": 31853.34,
+     "dollars": 31853,
+     "problem": null,
+     "chosen": false
+    },
+    "... 10 more trials"
+   ]
+  },
+  "... 7 more policies"
+ ],
+ "views": {
+  "observations": [
+   "full"
+  ],
+  "dollars": {
+   "family_campaign": {
+    "full": 65410
+   },
+   "lowest_cover": {
+    "full": 43322
+   }
+  }
+ },
+ "what_if": {
+  "parts": [
+   "setup",
+   "holding",
+   "lost_sales"
+  ],
+  "words": {
+   "setup": "changeovers",
+   "holding": "keeping stock",
+   "lost_sales": "lost sales"
+  },
+  "min": 0.0,
+  "max": 3.0,
+  "step": 0.1,
+  "note": "Policies act the same here. Rerun the race to retune them.",
+  "formula": "profit = revenue - production - setup x m1 - holding x m2 - lost_sales x m3 - late"
+ },
+ "warnings": []
+}

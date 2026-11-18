@@ -27,6 +27,7 @@ experiment:
 | `experiment.race.interval` | `0.95` | How sure the intervals in the race report are (0.95 means 95%). |
 | `experiment.race.promote_rule` | `interval_above_zero` | When `twinflow improve` keeps a candidate: interval_above_zero (the paired interval against the best is above zero) or mean_above_zero (it wins on average). |
 | `experiment.race.top_policies` | `3` | How many of the best policies get a Markov map and saved moves. |
+| `experiment.race.baseline` | `first policy file, else lowest_cover` | The policy that stands for what the plant does today. The race report shows every number as a change from it. |
 | `experiment.race.decision_timeout_s` | `2.0` | Seconds one decision may take in the race before the policy is stopped as slow. |
 | `experiment.checker.time_limit_ms` | `20.0` | Average milliseconds a decision (or any extension call) may take in the check. |
 | `experiment.checker.samples` | `200` | Most sample states the check tries each file on. |

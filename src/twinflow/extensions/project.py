@@ -74,6 +74,7 @@ class Setting:
     choices: tuple[str, ...] = ()
     minimum: float = 0.0
     maximum: float | None = None
+    shown: str | None = None  # how the docs print a default worked out from the project
 
 
 # Defaults follow D-143 (separate tuning seed), D-144 (promotion rule), D-147 (20 ms) and
@@ -151,6 +152,14 @@ DEFAULTS: tuple[Setting, ...] = (
         minimum=1,
     ),
     Setting(
+        "experiment.race.baseline",
+        None,
+        "The policy that stands for what the plant does today. The race report shows "
+        "every number as a change from it.",
+        "name",
+        shown="first policy file, else lowest_cover",
+    ),
+    Setting(
         "experiment.race.decision_timeout_s",
         2.0,
         "Seconds one decision may take in the race before the policy is stopped as slow.",
@@ -218,6 +227,7 @@ class RaceSettings:
     promote_rule: str = "interval_above_zero"
     top_policies: int = 3
     decision_timeout_s: float = 2.0
+    baseline: str | None = None  # None: the project's first policy file, else lowest_cover
 
 
 @dataclass(frozen=True)
@@ -565,6 +575,7 @@ class Project:
         problems += _selection_problems(config, extensions, file, domain)
         problems += _view_clashes(views, extensions)
         problems += _markov_view_problems(config, views, extensions, file)
+        problems += _baseline_problems(config, extensions, file)
         return cls(
             folder=file.parent,
             capsule_file=file,
@@ -580,6 +591,31 @@ class Project:
             views=MappingProxyType(views),
             actions=actions,
         )
+
+    @property
+    def baseline(self) -> str:
+        """The policy that stands for what the plant does today (REQ-229):
+        `experiment.race.baseline`, else the first project policy file by name, else
+        `lowest_cover`. An unknown name in the capsule is a problem and falls back."""
+        return self._baseline()[0]
+
+    @property
+    def baseline_source(self) -> str:
+        """Where the baseline came from: setting, first policy file or built-in default."""
+        return self._baseline()[1]
+
+    def _baseline(self) -> tuple[str, str]:
+        named = self.config.race.baseline
+        if named is not None and named in self.extensions.names("policy"):
+            return named, "setting"
+        files = sorted(
+            (p for p in self.extensions.of("policy") if p.source == "project"),
+            key=lambda p: (p.file.name, p.name),
+        )
+        files = [p for p in files if p.decision == "make_next"]
+        if files:
+            return files[0].name, "first policy file"
+        return "lowest_cover", "built-in default"
 
     @property
     def ok(self) -> bool:
@@ -804,6 +840,24 @@ def _markov_view_problems(
     ]
 
 
+def _baseline_problems(config: ProjectConfig, extensions: Extensions, file: Path) -> list[Problem]:
+    """`experiment.race.baseline` must name a policy (REQ-229)."""
+    name = config.race.baseline
+    known = extensions.names("policy")
+    if name is None or name in known:
+        return []
+    return [
+        Problem(
+            "config",
+            "unknown_name",
+            f"experiment.race.baseline names {name!r}, but there is no policy with that name.",
+            did_you_mean(name, known) or "Name a policy file in policies/ or a built-in rule.",
+            file,
+            field="experiment.race.baseline",
+        )
+    ]
+
+
 def _view_clashes(views: Mapping[str, GroupedView], extensions: Extensions) -> list[Problem]:
     return [
         Problem(
@@ -883,7 +937,8 @@ def render_defaults_markdown() -> str:
     ]
     for setting in DEFAULTS:
         meaning = setting.meaning.replace("|", "\\|")
-        lines.append(f"| `{setting.key}` | `{_shown(setting.default)}` | {meaning} |")
+        default = setting.shown or _shown(setting.default)
+        lines.append(f"| `{setting.key}` | `{default}` | {meaning} |")
     lines += [
         "",
         "To change how a policy, reward, view, feature, demand or observation file works,",
