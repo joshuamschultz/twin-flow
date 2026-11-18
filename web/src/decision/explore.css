@@ -1,0 +1,87 @@
+/* Compare two (3.5) and What if (3.6). Values from the mockup. */
+.tf-cmp-pickers {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.tf-cmp-pickers label {
+  font-size: 12px;
+  color: var(--tf-meta);
+  display: grid;
+  gap: 4px;
+}
+.tf-cmp-pickers select {
+  background: var(--ba-surface);
+  border: 1px solid var(--ba-rule);
+  border-radius: 2px;
+  padding: 8px 10px;
+  min-width: 220px;
+  min-height: 40px;
+  color: var(--ba-headline);
+  font: 500 14px var(--ba-font-body);
+}
+.tf-cmp-vs {
+  font: 500 12px var(--ba-font-mono);
+  color: var(--tf-meta);
+  padding-top: 18px;
+}
+.tf-cmp .tf-takeaway {
+  margin: 0 0 14px;
+}
+.tf-cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.tf-cmp-table th,
+.tf-cmp-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--tf-border);
+  vertical-align: middle;
+  text-align: left;
+}
+.tf-cmp-table thead th {
+  font: 500 11px var(--ba-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tf-meta);
+  padding: 8px 10px;
+}
+.tf-cmp-table tbody th[scope="row"] {
+  font-weight: 400;
+  color: var(--ba-body);
+}
+.tf-cmp-table .tf-n {
+  text-align: right;
+  font-family: var(--ba-font-mono);
+  white-space: nowrap;
+}
+.tf-cmp-table tr.tf-cmp-grp th {
+  font: 500 11px var(--ba-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tf-meta);
+  background: var(--ba-surface-2);
+  padding: 6px 10px;
+}
+.tf-cmp-barcol {
+  width: 22%;
+}
+.tf-cmp-pair {
+  display: grid;
+  gap: 3px;
+  min-width: 120px;
+}
+.tf-cmp-pair i {
+  display: block;
+  height: 7px;
+  border-radius: 2px;
+}
+.tf-cmp-a {
+  background: var(--tf-pick);
+}
+.tf-cmp-b {
+  background: var(--tf-today);
+}
