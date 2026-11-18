@@ -29,7 +29,6 @@ import time
 from pathlib import Path
 
 import numpy as np
-import plotly.colors
 import plotly.graph_objects as go
 import polars as pl
 from plotly.subplots import make_subplots
@@ -38,6 +37,8 @@ from twinflow.extensions import analysis
 from twinflow.extensions.project import Project, RaceSettings
 from twinflow.extensions.race import race
 from twinflow.extensions.report import write_race_report
+from twinflow.extensions.report_model import race_view_model
+from twinflow.report import decision, theme
 
 FAST = os.environ.get("TWINFLOW_FAST") == "1"
 EPISODES = 10 if FAST else 200  # runs per rule in the race
@@ -63,18 +64,9 @@ def rounded(table: pl.DataFrame, digits: int = 1) -> pl.DataFrame:
     return table.with_columns(pl.col(pl.Float64).round(digits))
 
 
-COLORS = plotly.colors.qualitative.Dark24
-
-
-def colors_for(names):
-    """One fixed color for each rule, so a rule looks the same in every chart."""
-    return {name: COLORS[i % len(COLORS)] for i, name in enumerate(names)}
-
-
-def faded(color, alpha=0.18):
-    """A see-through version of a `#rrggbb` color, for bands."""
-    red, green, blue = (int(color[i : i + 2], 16) for i in (1, 3, 5))
-    return f"rgba({red},{green},{blue},{alpha})"
+# Every chart in this notebook draws with the twinflow design tokens: the same colors and fonts
+# as the report pages. `theme.apply()` sets them as the Plotly default.
+theme.apply()
 
 
 # %% [markdown]
@@ -428,14 +420,25 @@ print(f"raced {len(result.ranking())} rules in {time.time() - started:.1f} secon
 print("rules skipped because of a problem:", len(result.skipped))
 tuned = {row.policy: dict(row.settings) for row in result.ranking()}
 winner = result.ranking()[0].policy
-palette = colors_for([row.policy for row in result.ranking()])
-print("the winner:", winner, tuned[winner])
+palette = theme.colors_for([row.policy for row in result.ranking()])
+view_model = race_view_model(result, project)  # the race as decision-first data, for the page below
+today = view_model["baseline"]["policy"]  # the rule the plant runs today
+focus = theme.colors_for(palette, pick=winner, today=today)  # blue is the pick, grey is today, the rest are quiet
+print("the winner:", winner, tuned[winner], "| today:", today)
 
 # %% [markdown]
 # ## Step 7. Analysis and charts
 #
-# The race result holds every number we need. The functions in `twinflow.extensions.analysis`
-# turn it into tables and plotly charts.
+# ### The answer first
+# The race result holds every number we need. We start with the decision.
+# `decision.show` draws the same view as the report page: what to do, what it is worth against today, and what to watch.
+# Every chart below asks one question. A number is a gap from today, the rule the plant runs now.
+
+# %%
+decision.show(view_model)
+
+# %% [markdown]
+# The functions in `twinflow.extensions.analysis` turn the race result into tables and plotly charts.
 #
 # ### Final profit table
 # Mean and spread of profit per run. **Fill rate** is the share of demand we met.
@@ -457,7 +460,7 @@ rounded(final)
 
 # %% [markdown]
 # ### Reward check: where the money goes
-# Up bars are money in. Down bars are money out. The black dot is net profit.
+# Up bars are money in. Down bars are money out. The dark dot is net profit.
 # The parts must add up to the total. We check that too.
 
 # %%
@@ -468,9 +471,9 @@ print(f"Largest gap between the parts and the total: {gap:.6f} dollars")
 fig = go.Figure()
 for part, sign in [("revenue", 1), ("production", -1), ("setup", -1), ("holding", -1), ("lost_sales", -1)]:
     fig.add_bar(name=part, x=parts["policy"], y=sign * parts[part])
-fig.add_scatter(x=parts["policy"], y=parts["total"], mode="markers", name="net profit", marker={"color": "black", "size": 10})
-fig.update_layout(barmode="relative", template="plotly_white", title="Dollars per run, by cause", yaxis_title="dollars per run", height=500)
-fig
+fig.add_scatter(x=parts["policy"], y=parts["total"], mode="markers", name="net profit", marker={"color": theme.palette().headline, "size": 10})
+fig.update_layout(barmode="relative", yaxis_title="dollars per run", height=500)
+theme.question(fig, "Where does the money go for each rule?", "Bars up are money in. Bars down are money out. The dot is what is left.")
 
 # %% [markdown]
 # ### Every tuning try, and the winner
@@ -483,28 +486,31 @@ rounded(analysis.tuning_summary(result).sort("best", descending=True))
 # %%
 trials = analysis.tuning_trials(result)
 fig = go.Figure()
-for is_best, symbol, size in [(False, "circle", 8), (True, "diamond", 13)]:
+for is_best, symbol, size, color in [(False, "circle", 8, theme.palette().quiet), (True, "diamond", 13, theme.palette().pick)]:
     part = trials.filter(pl.col("best") == is_best)
     fig.add_scatter(
         x=part["policy"], y=part["dollars"], text=part["settings"], mode="markers",
-        name="best setting" if is_best else "other tries", marker={"symbol": symbol, "size": size},
+        name="best setting" if is_best else "other tries", marker={"symbol": symbol, "size": size, "color": color},
     )
-fig.update_layout(template="plotly_white", title="Profit of every tuning try", yaxis_title="mean profit on the tuning demand ($)", height=500)
-fig
+fig.update_layout(yaxis_title="mean profit on the tuning demand ($)", height=500)
+theme.question(fig, "Does the setting matter for each rule?", "A tall column of dots means a bad setting costs real money.")
 
 # %% [markdown]
 # ### Profit over time
 # The running total of profit, day by day, as a mean over all runs.
+# We draw it as the gap from today's rule. Today is the grey zero line. A line above zero is a rule that has earned more so far.
 # Then one small chart for each rule, with a band of one standard deviation. The band shows how much runs differ.
 
 # %%
 cumulative = analysis.cumulative_profit(result)
+running = {name: cumulative.filter(pl.col("policy") == name).sort("day")["mean"].to_list() for name in palette}
+gap = theme.vs_today(running, today)
+days = cumulative.filter(pl.col("policy") == today).sort("day")["day"].to_list()
 fig = go.Figure()
-for name in palette:
-    part = cumulative.filter(pl.col("policy") == name)
-    fig.add_scatter(x=part["day"], y=part["mean"], name=name, mode="lines", line={"color": palette[name]})
-fig.update_layout(template="plotly_white", title="Mean running profit", xaxis_title="Day", yaxis_title="dollars", height=550)
-fig
+for name in sorted(palette, key=lambda n: n in (today, winner)):  # draw the pick and today last, on top
+    fig.add_scatter(x=days, y=gap[name], name=name, mode="lines", line={"color": focus[name], "width": 3 if name in (today, winner) else 1.5})
+fig.update_layout(xaxis_title="Day", yaxis_title="dollars ahead of today", height=550)
+theme.question(fig, "When does each rule pull ahead of today?", f"{winner} ends the run {theme.delta_text(gap[winner][-1])}.")
 
 # %%
 names = list(palette)
@@ -516,11 +522,11 @@ for i, name in enumerate(names):
     fig.add_scatter(x=part["day"], y=part["high"], mode="lines", line={"width": 0}, showlegend=False, row=row, col=col)
     fig.add_scatter(
         x=part["day"], y=part["low"], mode="lines", line={"width": 0}, fill="tonexty",
-        fillcolor=faded(palette[name]), showlegend=False, row=row, col=col,
+        fillcolor=theme.faded(palette[name]), showlegend=False, row=row, col=col,
     )
     fig.add_scatter(x=part["day"], y=part["mean"], mode="lines", line={"color": palette[name]}, showlegend=False, row=row, col=col)
-fig.update_layout(template="plotly_white", title="Running profit with a band of one standard deviation", height=900)
-fig
+fig.update_layout(height=900)
+theme.question(fig, "How much do runs differ for each rule?", "The line is the mean. The band is one standard deviation.")
 
 # %% [markdown]
 # ### Who leads early? Who leads at the end?
@@ -551,14 +557,14 @@ for challenger in (winner, second):
         if leader != challenger:
             print(f"{challenger} passes {leader} on day {analysis.first_day_passed(result, leader, challenger)}")
 
-highlight = list(dict.fromkeys([*early_leaders, winner, second, "lowest_cover", "setup_aware_runout"]))
+highlight = list(dict.fromkeys([*early_leaders, winner, second, today, "setup_aware_runout"]))
 rank_table = analysis.rank_by_day(result)
 fig = go.Figure()
 for name in highlight:
-    fig.add_scatter(x=rank_table["day"], y=rank_table[name], name=name, mode="lines", line={"color": palette[name]})
-fig.update_yaxes(autorange="reversed", title="rank (1 is best)")
-fig.update_layout(template="plotly_white", title="Rank by day", xaxis_title="Day", height=550)
-fig
+    fig.add_scatter(x=rank_table["day"], y=rank_table[name], name=name, mode="lines", line={"color": focus[name]})
+fig.update_yaxes(autorange="reversed", title_text="rank (1 is best)")
+fig.update_layout(xaxis_title="Day", height=550)
+theme.question(fig, "Who leads early, and who leads at the end?", f"{winner} is the pick. Today's rule, {today}, is grey.")
 
 # %% [markdown]
 # ### Does the length of the plan change who wins?
@@ -585,10 +591,10 @@ fig = go.Figure()
 for row in by_horizon.iter_rows(named=True):
     fig.add_scatter(
         x=HORIZONS, y=[row[c] for c in horizon_columns], name=row["policy"], mode="lines+markers",
-        line={"color": palette[row["policy"]]},
+        line={"color": focus[row["policy"]]},
     )
-fig.update_layout(template="plotly_white", title="Final profit by plan length", xaxis_title="Days in the plan", yaxis_title="mean profit ($)", height=500)
-fig
+fig.update_layout(xaxis_title="Days in the plan", yaxis_title="mean profit ($)", height=500)
+theme.question(fig, "Does the best rule change with the plan length?", "Lines that cross are a rule that wins short plans and loses long ones.")
 
 # %% [markdown]
 # ### The Markov chain map of the winning rule
@@ -606,10 +612,10 @@ map_moves = [m for run in map_runs for m in run]
 chain = project.markov(map_moves, "family", top_k=15)
 print(f"{len(chain.share)} different family states were visited in {chain.moves:,} days")
 print(f"The top 15 cover {chain.coverage:.1%} of all days")
-analysis.markov_heatmap({"family": chain})
+theme.question(analysis.markov_heatmap({"family": chain}), "Where does the plant go next?", "Each row is where we are. Each column is where we go. A bright cell is a likely move.")
 
 # %%
-analysis.markov_network({"family": chain})
+theme.question(analysis.markov_network({"family": chain}), "Which states does the plant visit most?", "Big dots are common states. Thick arrows are likely moves.")
 
 # %% [markdown]
 # ### Stock by product by day, one run
@@ -617,7 +623,7 @@ analysis.markov_network({"family": chain})
 # Dashed lines mark the days the press changed product.
 
 # %%
-analysis.inventory_grid(project, map_runs[0])
+theme.question(analysis.inventory_grid(project, map_runs[0]), "Which products run thin, and when?", "Orange is low stock. Dashed lines are the days the press changed product.")
 
 # %% [markdown]
 # ### The same race as one web page

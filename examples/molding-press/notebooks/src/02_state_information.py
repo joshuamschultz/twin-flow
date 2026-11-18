@@ -31,12 +31,16 @@ import polars as pl
 from twinflow.extensions import analysis
 from twinflow.extensions.project import Project, RaceSettings
 from twinflow.extensions.race import race
+from twinflow.report import theme
 from twinflow.state.records import Snapshot
 
 FAST = os.environ.get("TWINFLOW_FAST") == "1"
 EPISODES = 10 if FAST else 150  # runs per rule and view in the race
 TUNE_EPISODES = 3 if FAST else 30  # runs per setting when a rule is tuned
 print("fast mode" if FAST else "full mode", "| runs per rule and view:", EPISODES, "| runs per tuning try:", TUNE_EPISODES)
+
+# Every chart draws with the twinflow design tokens, the same colors and fonts as the report pages.
+theme.apply()
 
 pl.Config.set_tbl_rows(40)
 pl.Config.set_tbl_cols(20)
@@ -248,8 +252,8 @@ rounded(analysis.profit_by_view(result, loss=True))
 fig = go.Figure()
 for name in RULES:
     fig.add_bar(name=name, x=by_view["observation"], y=by_view[name])
-fig.update_layout(barmode="group", template="plotly_white", title="Mean profit by view", yaxis_title="mean profit per run ($)", height=500)
-fig
+fig.update_layout(barmode="group", yaxis_title="mean profit per run ($)", height=500)
+theme.question(fig, "Does a rule earn less when it sees less?", "Compare each bar with the full view. A shorter bar is money lost to what the rule could not see.")
 
 # %% [markdown]
 # Why do some rules lose so much, and one rule gain?
@@ -323,8 +327,8 @@ fig = go.Figure()
 pairs = [f"{label} / {action}" for label, action in zip(entropy["label"], entropy["action"], strict=True)]
 fig.add_bar(name="grouped view (family view + action)", x=pairs, y=entropy["grouped view"])
 fig.add_bar(name="full view (exact state + action)", x=pairs, y=entropy["full view"])
-fig.update_layout(barmode="group", template="plotly_white", title="Spread of tomorrow's family view (bits)", yaxis_title="bits", height=550)
-fig
+fig.update_layout(barmode="group", yaxis_title="spread of tomorrow's family view (bits)", height=550)
+theme.question(fig, "Does the exact state tell us more about tomorrow?", "A taller bar means tomorrow is harder to predict.")
 
 # %% [markdown]
 # The exact stock narrows tomorrow's bucket. The grouped view is blurrier.
@@ -384,7 +388,7 @@ moves = [m for run in s_big_s_runs for m in run]
 chains = {"full": project.markov(moves, "full", top_k=15), "bucketed (family)": project.markov(moves, "family", top_k=15)}
 for name, chain in chains.items():
     print(f"{name:18s}: {len(chain.share):,} different states in {chain.moves:,} days; top 15 cover {chain.coverage:.1%} of all days")
-analysis.markov_heatmap(chains)
+theme.question(analysis.markov_heatmap(chains), "Where does the plant go next, in each view?", "Each row is where we are. Each column is where we go. A bright cell is a likely move.")
 
 # %% [markdown]
 # Rows do not add to 1 because tomorrow can be a state outside the top states.
@@ -396,7 +400,7 @@ analysis.markov_heatmap(chains)
 # In the **bucketed** view the plant revisits the same states again and again, so the map shows real structure.
 
 # %%
-analysis.markov_network(chains)
+theme.question(analysis.markov_network(chains), "How does each view group the plant's days?", "Big dots are common states. Thick arrows are likely moves.")
 
 # %% [markdown]
 # ### Stock by product by day, one run
@@ -404,7 +408,7 @@ analysis.markov_network(chains)
 # Bottom: the same, squashed to low, medium and high (the bucketed view).
 
 # %%
-analysis.inventory_grid(project, s_big_s_runs[0])
+theme.question(analysis.inventory_grid(project, s_big_s_runs[0]), "Which products run thin, and when?", "Orange is low stock. Dashed lines are the days the press changed product.")
 
 # %% [markdown]
 # # Conclusion

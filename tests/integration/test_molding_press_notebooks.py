@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import re
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -118,3 +119,22 @@ def test_notebook_runs_top_to_bottom_in_fast_mode(
     monkeypatch.chdir(FOLDER)
     namespace = run_cells(name)
     assert namespace["FAST"] is True
+
+
+def _code(name: str) -> str:
+    return "\n".join(_text(c) for c in _cells(name) if c["cell_type"] == "code")
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_charts_follow_the_design_tokens(name: str) -> None:
+    """B-38: the notebook sets the twinflow theme, and no chart brings its own palette or title."""
+    code = _code(name)
+    assert "theme.apply(" in code
+    for banned in ("plotly_white", "Dark24", "qualitative"):
+        assert banned not in code, f"{name}: use twinflow.report.theme, not {banned}"
+    assert not re.search(r"\btitle=", code), "set the title with theme.question"
+    assert "theme.question(" in code, "every chart title is a question"
+
+
+def test_first_notebook_shows_the_race_view_inline() -> None:
+    assert "decision.show(" in _code("01_long_term_policy")
