@@ -306,7 +306,7 @@ def test_floor_rows_for_the_hero(model: dict[str, Any]) -> None:
     assert rows["changeovers"]["note"].startswith("Colour changes drop from ")
     assert rows["changeovers"]["note"].endswith("Those cost $1,200 each.")
     assert rows["fill_rate"]["short"] == "+2.7 points"
-    assert rows["fill_rate"]["note"] == "Fewer shoppers find empty shelves."
+    assert rows["fill_rate"]["note"] == "Fewer orders find an empty shelf."
     assert rows["avg_stock"]["short"] == "2.6 times more"
     assert rows["avg_stock"]["unit"] == "units"
     assert rows["rest_days"]["unit"] == "days"

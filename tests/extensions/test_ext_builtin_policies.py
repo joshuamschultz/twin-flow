@@ -42,6 +42,14 @@ def test_there_are_eleven_and_only_eleven(builtins: dict[str, Extension]) -> Non
     assert all(ext.summary for ext in builtins.values())
 
 
+def test_summaries_say_what_the_rule_does(builtins: dict[str, Extension]) -> None:
+    """Each summary is a plain sentence about the rule, not a fragment (TF-006 copy pass)."""
+    for name, ext in builtins.items():
+        first = ext.summary.split(". ")[0]
+        assert len(first.split()) >= 4, f"{name}: {ext.summary!r} opens with a fragment"
+        assert "Skip tomorrow" not in ext.summary and "come round" not in ext.summary
+
+
 @pytest.mark.parametrize("name", PURE)
 def test_equals_its_rule_on_500_states(
     name: str, builtins: dict[str, Extension], press_model: StepModel, sample_states: list[Snapshot]

@@ -104,7 +104,7 @@ def _abc_sequence(model: StepModel) -> list[int]:
 
 
 def abc_wheel(state: Snapshot, model: StepModel, *, days_per_slot: int = 1) -> str:
-    """Fast sellers come round often, slow sellers rarely."""
+    """Fast sellers get a turn often, slow sellers less often."""
     sequence = _abc_sequence(model)
     return model.product_ids[sequence[(state.period // days_per_slot) % len(sequence)]]
 

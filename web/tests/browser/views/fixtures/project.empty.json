@@ -72,7 +72,7 @@
     {
       "policy": "abc_wheel",
       "label": "ABC wheel",
-      "about": "A wheel. Fast sellers come round often, slow ones rarely.",
+      "about": "Run products in a set order. Fast sellers get a turn often, slow sellers less often.",
       "source": "builtin",
       "file": null,
       "is_baseline": false,
@@ -142,7 +142,7 @@
     {
       "policy": "myopic",
       "label": "Best for today only",
-      "about": "Pick the most money today. Skip tomorrow.",
+      "about": "Run what earns the most money today. It does not plan for tomorrow.",
       "source": "builtin",
       "file": null,
       "is_baseline": false,

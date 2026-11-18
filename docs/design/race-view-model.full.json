@@ -136,7 +136,7 @@
    "better": true,
    "words": "2.7 points more orders filled",
    "short": "+2.7 points",
-   "note": "Fewer shoppers find empty shelves.",
+   "note": "Fewer orders find an empty shelf.",
    "attention": false
   },
   {
@@ -2404,7 +2404,7 @@
   {
    "policy": "abc_wheel",
    "label": "ABC wheel",
-   "about": "A wheel. Fast sellers come round often, slow ones rarely.",
+   "about": "Run products in a set order. Fast sellers get a turn often, slow sellers less often.",
    "rank": 7,
    "source": "builtin",
    "settings": {
@@ -3499,7 +3499,7 @@
   {
    "policy": "myopic",
    "label": "Best for today only",
-   "about": "Pick the most money today. Skip tomorrow.",
+   "about": "Run what earns the most money today. It does not plan for tomorrow.",
    "rank": 10,
    "source": "builtin",
    "settings": {},

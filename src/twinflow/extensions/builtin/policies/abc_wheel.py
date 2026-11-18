@@ -1,4 +1,4 @@
-"""A wheel. Fast sellers come round often, slow ones rarely.
+"""Run products in a set order. Fast sellers get a turn often, slow sellers less often.
 
 The wheel turns four times. A products run on every turn, B products on every
 second turn, C products on every fourth turn.

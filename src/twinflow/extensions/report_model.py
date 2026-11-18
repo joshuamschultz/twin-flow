@@ -329,8 +329,8 @@ def _note(
         return f"{words} Those cost {_money(cost)} each." if cost else words
     if key == "fill_rate":
         if way == 0:
-            return "Shoppers find empty shelves about as often."
-        return f"{'Fewer' if way > 0 else 'More'} shoppers find empty shelves."
+            return "About as many orders find an empty shelf."
+        return f"{'Fewer' if way > 0 else 'More'} orders find an empty shelf."
     if key == "avg_stock":
         return {
             1: "You need the room and the cash for it.",
