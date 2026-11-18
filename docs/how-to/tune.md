@@ -19,6 +19,7 @@ experiment:
 | `experiment.score` | `dollars` | The reward file the race ranks policies by. Dollars are always shown next to it. |
 | `experiment.demand` | `poisson` | The demand file that draws each day's customer demand. Draws are made once per seed, so every policy sees the same dice. |
 | `experiment.features` | `[]` | Feature files whose values every policy state gets (state.features) and every recorded state keeps (extra). |
+| `experiment.observation` | `[full]` | What policies may see: full, no_setup, bucketed, no_days_left, own_product, or an observation file. Join masks with + (bucketed+no_days_left). A list races every policy under each one. |
 | `experiment.race.episodes` | `200` | Runs per policy in the race. Every policy runs on the same demand draws. |
 | `experiment.race.seed` | `0` | Seed of the race's demand draws. |
 | `experiment.race.tune_episodes` | `30` | Runs per trial setting when the race tunes a policy's SETTINGS. |

@@ -271,7 +271,7 @@ def _policy_inputs(ext: Extension, samples: Samples) -> tuple[list[tuple[Any, ..
     )
 
 
-def _observation_value(value: Any, args: Sequence[Any]) -> str | None:
+def observation_validator(value: Any, args: Sequence[Any]) -> str | None:
     if isinstance(value, PolicyState):
         return None
     return (
@@ -295,7 +295,7 @@ def check_extension(
     if ext.kind in ("view", "feature"):
         return _run(ext, [(s,) for s in samples.states], _plain(ext.kind), limits)
     if ext.kind == "observation":
-        return _run(ext, [(s,) for s in samples.states], _observation_value, limits)
+        return _run(ext, [(s,) for s in samples.states], observation_validator, limits)
     if ext.kind == "demand":
         rng = np.random.default_rng(samples.seed)
         products = samples.facts.products

@@ -38,6 +38,7 @@ from twinflow.extensions.checker import (
     call_checked,
     check_engine,
     demand_validator,
+    observation_validator,
 )
 from twinflow.extensions.kinds import check_return
 from twinflow.extensions.loader import (
@@ -55,6 +56,7 @@ from twinflow.state.markov import MarkovChain, estimate
 from twinflow.state.records import Move, Snapshot
 
 FEATURE_PREFIX = "feature."  # feature values in a snapshot's `extra` (REQ-219)
+MASK_JOIN = "+"  # `bucketed+no_days_left`: observation masks applied left to right (REQ-226)
 
 CAPSULE_SUFFIX = ".twin.yaml"
 DOMAINS = ("make_to_stock", "custom")  # the domains a project can run (D-134, REQ-223)
@@ -95,6 +97,14 @@ DEFAULTS: tuple[Setting, ...] = (
         (),
         "Feature files whose values every policy state gets (state.features) and every "
         "recorded state keeps (extra).",
+        "names",
+    ),
+    Setting(
+        "experiment.observation",
+        ("full",),
+        "What policies may see: full, no_setup, bucketed, no_days_left, own_product, or an "
+        "observation file. Join masks with + (bucketed+no_days_left). A list races every "
+        "policy under each one.",
         "names",
     ),
     Setting(
@@ -240,6 +250,10 @@ class ProjectConfig:
     @property
     def demand(self) -> str:
         return str(self.values["experiment.demand"])
+
+    @property
+    def observations(self) -> tuple[str, ...]:
+        return tuple(self.values["experiment.observation"])
 
     @property
     def race(self) -> RaceSettings:
@@ -596,16 +610,40 @@ class Project:
             return EpisodePlan(self.engine(), tuple(int(s) for s in starts))
         return EpisodePlan(self.engine(self.demand_draws(episodes, seed)), tuple(range(episodes)))
 
-    def decider(self, policy: Extension, engine: Engine, **settings: Any) -> Decide:
+    def decider(
+        self,
+        policy: Extension,
+        engine: Engine,
+        *,
+        settings: Mapping[str, Any] | None = None,
+        observation: str | None = None,
+    ) -> Decide:
         """`decide` as the engine calls it: snapshot in, action out (REQ-202). The policy
-        sees the full view with features, then the chosen settings are passed. A raise or a
-        bad action raises `ExtensionFailed` with the file, line and fix."""
+        sees the view with features, masked by `observation` (default: the first of
+        `experiment.observation`, REQ-226), and is called with `settings`. A raise or a bad
+        action raises `ExtensionFailed` with the file, line and fix. The engine still steps
+        the real state, so the dollar ledger is the real one."""
+        mask = self.config.observations[0] if observation is None else observation
+        chosen = dict(settings or {})
 
         def decide(snapshot: Snapshot) -> str:
-            state = self.policy_state(snapshot, engine.actions(snapshot))
-            return str(call_checked(policy, (state,), settings, validate=_policy_check))
+            state = self.observe(self.policy_state(snapshot, engine.actions(snapshot)), mask)
+            return str(call_checked(policy, (state,), chosen, validate=_policy_check))
 
         return decide
+
+    # --- observation masks (REQ-226) -----------------------------------------------------------
+
+    def observe(self, state: PolicyState, observation: str | None = None) -> PolicyState:
+        """What a policy sees under a mask (default: the first of `experiment.observation`).
+        Masks joined with `+` apply left to right; a broken observation file raises
+        `ExtensionFailed`."""
+        mask = self.config.observations[0] if observation is None else observation
+        seen = state
+        for name in mask.split(MASK_JOIN):
+            ext = self.extensions.get("observation", name)
+            seen = call_checked(ext, (seen,), validate=observation_validator)
+        return seen
 
     def _step_model(self) -> StepModel:
         if self.model is None:
@@ -784,6 +822,11 @@ def _selection_problems(
     if domain == "make_to_stock":  # a custom engine makes its own demand
         wanted.append(("demand", "experiment.demand", config.demand))
     wanted += [("feature", "experiment.features", name) for name in config.features]
+    wanted += [
+        ("observation", "experiment.observation", part)
+        for mask in config.observations
+        for part in mask.split(MASK_JOIN)
+    ]
     problems = []
     for kind, key, name in wanted:
         known = extensions.names(kind)
