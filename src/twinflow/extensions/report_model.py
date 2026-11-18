@@ -26,6 +26,7 @@ import polars as pl
 
 from twinflow import __version__
 from twinflow.extensions.analysis import with_horizon
+from twinflow.extensions.markov_view import cap, leak_rows, markov_view, state_words
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import (
     MoveTable,
@@ -36,7 +37,6 @@ from twinflow.extensions.race import (
     stat,
 )
 from twinflow.state.groups import GroupedView
-from twinflow.state.markov import MarkovChain
 from twinflow.state.records import LEDGER_PARTS, Move, unflatten
 
 SCHEMA_VERSION = 1
@@ -101,12 +101,6 @@ COLOURS = frozenset(
     "black white grey gray red blue green yellow orange purple pink brown natural clear "
     "beige silver gold tan navy".split()
 )  # families named like this are colours, so a change between them is a colour change
-LEAK_TRY = {  # one thing to try, keyed on a leak's biggest cause (R19)
-    "setup": "Try longer runs of one family so the {line} changes over less.",
-    "holding": "Try smaller lots or lower targets so less stock sits on the shelf.",
-    "lost_sales": "Try starting the short products sooner so they do not run out.",
-    "late": "Try putting the late orders first.",
-}
 TOUCHY_SPREAD = 0.25  # tuning is touchy when settings spread more than 25% of the best
 
 
@@ -823,151 +817,6 @@ def _example_runs(project: Project, result: RaceResult, episode: int | None) -> 
     return runs
 
 
-def _label_parts(text: str) -> dict[str, Any] | None:
-    """`grey:ok black:high | natural` as levels and setup, when a label has that shape."""
-    stock, _, setup = text.partition(" | ")
-    pairs = [p.split(":", 1) for p in stock.split()]
-    if not pairs or any(len(p) != 2 for p in pairs):
-        return None
-    return {"levels": {k: v for k, v in pairs}, "setup": setup or None}
-
-
-DEFAULT_LEVELS = ("out", "low", "ok", "high")
-NORMAL_LEVELS = frozenset({"ok", "normal"})
-
-
-def _cap(text: str) -> str:
-    return text[:1].upper() + text[1:]
-
-
-def _level_word(name: str) -> str:
-    return "OK" if name == "ok" else name
-
-
-def _join_and(items: list[str]) -> str:
-    return items[0] if len(items) < 2 else f"{', '.join(items[:-1])} and {items[-1]}"
-
-
-def _is_normal(level: str, names: Sequence[str]) -> bool:
-    """The level a reader expects most days. It is left out of a state's title."""
-    if any(n in NORMAL_LEVELS for n in names):
-        return level in NORMAL_LEVELS
-    odd = len(names) >= 3 and len(names) % 2 == 1
-    return odd and level in names and names.index(level) == (len(names) - 1) // 2
-
-
-def state_words(text: str, levels: Sequence[str] | None, line: str) -> dict[str, str]:
-    """Plain words for a state label (DESIGN.md 3.8, R18). The one source of state words.
-
-    `grey:high black:ok natural:low | black` reads "Grey high, natural low" and
-    "Press on black". Families at one level are joined ("black and natural low"), the
-    highest level comes first, the normal level is left out, and a state where every
-    family sits at one level reads "All stock OK". A label of another shape is kept."""
-    parts = _label_parts(text)
-    if parts is None:
-        return {"title": text, "setup": ""}
-    names = list(levels) if levels else list(DEFAULT_LEVELS)
-    setup = parts["setup"]
-    if setup is None:
-        where = ""
-    elif setup == "idle":
-        where = f"{_cap(line)} rests"
-    else:
-        where = f"{_cap(line)} on {setup}"
-    by_level: dict[str, list[str]] = {}
-    for family, level in parts["levels"].items():
-        by_level.setdefault(level, []).append(family)
-    if len(by_level) == 1:
-        return {"title": f"All stock {_level_word(next(iter(by_level)))}", "setup": where}
-    rank = {name: i for i, name in enumerate(names)}
-    shown = sorted(
-        (lv for lv in by_level if not _is_normal(lv, names)), key=lambda lv: -rank.get(lv, -1)
-    )
-    title = ", ".join(f"{_join_and(by_level[lv])} {_level_word(lv)}" for lv in shown)
-    return {"title": _cap(title), "setup": where}
-
-
-def _graph(
-    chain: MarkovChain,
-    episodes: int,
-    leak_states: set[str],
-    line: str = "line",
-    levels: Sequence[str] | None = None,
-) -> dict[str, Any]:
-    ids = {state: f"s{i}" for i, state in enumerate(chain.states)}
-    sticky = set(chain.sticky)
-    nodes = []
-    for i, state in enumerate(chain.states):
-        money = chain.money.get(state)
-        per_day = money.total if money is not None else 0.0
-        visits = money.visits if money is not None else 0
-        parts = {p: _dollars(getattr(money, p)) for p in LEDGER_PARTS} if money else {}
-        leak = (
-            visits * sum(getattr(money, p) for p in ("setup", "holding", "lost_sales", "late"))
-            if money is not None
-            else 0.0
-        )
-        nodes.append(
-            {
-                "id": ids[state],
-                "label": state,
-                "parts_of_label": _label_parts(state),
-                "words": state_words(state, levels, line),
-                "share": _share(chain.share[state]),
-                "visits": visits,
-                "sticky": state in sticky,
-                "stay": _share(float(chain.matrix[i, i])),
-                "per_day": _dollars(per_day),
-                "per_run": _dollars(visits * per_day / max(1, episodes)),
-                "leak_per_run": _dollars(leak / max(1, episodes)),
-                "money_per_day": parts,
-                "losing": per_day < 0,
-                "top_leak": state in leak_states,
-            }
-        )
-    edges = [
-        {
-            "from": ids[e.source],
-            "to": ids[e.target],
-            "prob": _share(e.prob),
-            "self": e.source == e.target,
-        }
-        for e in chain.edges
-    ]
-    return {
-        "view": chain.view,
-        "moves": chain.moves,
-        "coverage": _share(chain.coverage),
-        "nodes": nodes,
-        "edges": edges,
-    }
-
-
-def _leak_rows(
-    row: PolicyResult,
-    chain: MarkovChain | None,
-    line: str = "line",
-    levels: Sequence[str] | None = None,
-) -> list[dict[str, Any]]:
-    ids = {state: f"s{i}" for i, state in enumerate(chain.states)} if chain is not None else {}
-    return [
-        {
-            "state": leak.state,
-            "state_id": ids.get(leak.state),
-            "words": state_words(leak.state, levels, line),
-            "share": _share(leak.share),
-            "visits": leak.visits,
-            "per_visit": _dollars(leak.per_visit),
-            "per_run": _dollars(leak.per_run),
-            "parts": {k: _dollars(v) for k, v in leak.parts.items()},
-            "cause": leak.cause,
-            "cause_words": leak.cause_words,
-            "try": LEAK_TRY.get(leak.cause, "Look at what the {line} does here.").format(line=line),
-        }
-        for leak in row.leaks
-    ]
-
-
 def _setting_words(settings: Mapping[str, Any]) -> str:
     """One setting for people: `{"target_days": 16.0}` is `target days 16`."""
     parts = []
@@ -986,8 +835,8 @@ def _tuning_words(rows: Sequence[Mapping[str, Any]], touchy: bool) -> str:
     worst = min(scored, key=lambda r: r["dollars"])
     gap = best["dollars"] - worst["dollars"]
     words = (
-        f"{_cap(_setting_words(best['settings']))} gave the most profit. "
-        f"{_cap(_setting_words(worst['settings']))} gave the least, {_money(gap)} less per run."
+        f"{cap(_setting_words(best['settings']))} gave the most profit. "
+        f"{cap(_setting_words(worst['settings']))} gave the least, {_money(gap)} less per run."
     )
     if touchy:
         return words + " This rule is touchy. Check its setting again when demand changes."
@@ -1272,11 +1121,14 @@ def race_view_model(
         families=_families(project),
         example_runs=_example_runs(project, result, None if same else _typical(gaps)),
         markov={
-            name: _graph(chain, settings.episodes, leak_states.get(name, set()), line, level_names)
+            name: markov_view(
+                chain, settings.episodes, leak_states.get(name, set()), line, level_names
+            )
             for name, chain in result.chains.items()
         },
         leaks={
-            r.policy: _leak_rows(r, result.chains.get(r.policy), line, level_names) for r in ranked
+            r.policy: leak_rows(r.leaks, result.chains.get(r.policy), line, level_names)
+            for r in ranked
         },
         tuning=tuning,
         views=_views(result, project),
@@ -1324,12 +1176,41 @@ def _what_if() -> dict[str, Any]:
     }
 
 
+def economics_of(project: Project) -> dict[str, Any]:
+    """Changeover costs and rates of the project (R14), for the project view."""
+    return _economics(project)
+
+
+def stat_json(item: Stat | None) -> dict[str, Any] | None:
+    """A `Stat` as the view-model shape (rounded for people)."""
+    return _stat(item)
+
+
+def confidence_between(best: PolicyResult, base: PolicyResult, level: float) -> dict[str, Any]:
+    """How sure we are that `best` beats `base`, with the run-by-run gaps (as in the race)."""
+    return {
+        **_confidence(best, base, level, False),
+        "gaps": [_dollars(x) for x in _gaps(best, base)],
+    }
+
+
+def floor_between(
+    best: PolicyResult, base: PolicyResult, project: Project, kept: Mapping[str, MoveTable]
+) -> list[dict[str, Any]]:
+    """What changes on the floor when `best` replaces `base`."""
+    return _floor(best, base, False, project, _horizon(project, [best]), kept)
+
+
 __all__ = [
     "KEYS",
     "SCHEMA_VERSION",
+    "confidence_between",
     "early_leader_block",
+    "economics_of",
+    "floor_between",
     "horizon_check",
     "label",
     "race_view_model",
+    "stat_json",
     "state_words",
 ]

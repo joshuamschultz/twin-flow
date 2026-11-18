@@ -10,53 +10,30 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, TypeVar
 
-import polars as pl
-
-from twinflow.state.groups import GroupedView, default_views
-from twinflow.state.markov import MarkovChain, estimate
-from twinflow.state.recorder import MOVES_FILE, read_moves
-from twinflow.state.records import LEDGER_PARTS, Move
+from twinflow.extensions.states_model import (
+    Gathered,
+    NoMovesError,
+    StatesError,
+    estimate_chain,
+    gather,
+    states_view_model,
+)
+from twinflow.report import decision
+from twinflow.state.markov import MarkovChain
+from twinflow.state.records import LEDGER_PARTS
 
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
 
-_CAPTURE_HINT = (
-    "Turn on state capture: experiment.state_capture: {every_hours: 4} for a factory model, "
-    "then run again. A make-to-stock run writes moves by itself."
-)
+STATES_PAGE = "states.html"
 _FEW_MOVES_PER_EPISODE = 5  # fewer than this per run is too little to read
-_SCENARIO_FILE = "scenario.json"
-_NO_FACTS = (
-    "Note: no product facts (families, demand rates) were found for this run, "
-    "so view {view} cannot be built. Showing view full instead."
-)
 
 
 class _UserError(Exception):
     """A problem the user can fix. The message says where and how."""
-
-
-@dataclass(frozen=True)
-class Gathered:
-    """Every move found under one folder."""
-
-    folder: Path
-    runs: int
-    episodes: int
-    moves: tuple[Move, ...]
-
-
-@dataclass(frozen=True)
-class Facts:
-    """The static model facts a grouped view needs, and the views the model defines."""
-
-    demand_rate: Mapping[str, float] | None
-    families: Mapping[str, str] | None
-    views: Mapping[str, GroupedView]
 
 
 def add_states_subcommands(subparsers: argparse._SubParsersAction[ParserT]) -> None:
@@ -66,6 +43,8 @@ def add_states_subcommands(subparsers: argparse._SubParsersAction[ParserT]) -> N
     states.add_argument("--view", default="family")
     states.add_argument("--top", type=int, default=10)
     states.add_argument("--project", help="a project folder whose views/ files --view can use")
+    states.add_argument("--min-prob", type=float, default=0.05)
+    states.add_argument("--html", action="store_true", help="also write states.html")
     states.set_defaults(handler=lambda args: _guarded(_handle_states, args))
 
     markov = subparsers.add_parser("markov")
@@ -75,82 +54,19 @@ def add_states_subcommands(subparsers: argparse._SubParsersAction[ParserT]) -> N
     markov.add_argument("--project", help="a project folder whose views/ files --view can use")
     markov.add_argument("--min-prob", type=float, default=0.05)
     markov.add_argument("--out", default=None)
+    markov.add_argument("--html", action="store_true", help="also write states.html")
     markov.set_defaults(handler=lambda args: _guarded(_handle_markov, args))
 
 
 def _guarded(handler: Any, args: argparse.Namespace) -> int:
     try:
         return int(handler(args))
-    except _UserError as exc:
+    except (_UserError, StatesError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except Exception as exc:  # an internal failure: say so and use exit code 2
         print(f"internal error: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
-
-
-# --- finding and reading the moves ---------------------------------------------------------
-
-
-def gather(run_dir: str) -> Gathered:
-    """Read every `moves.parquet` at or under `run_dir`."""
-    folder = Path(run_dir)
-    if not folder.is_dir():
-        raise _UserError(
-            f"{folder} does not exist or is not a folder. "
-            "Fix: give the folder a run wrote, such as the one after --out."
-        )
-    files = sorted(folder.rglob(MOVES_FILE))
-    moves: list[Move] = []
-    episodes = 0
-    for file in files:
-        moves.extend(read_moves(file.parent))
-        episodes += int(pl.read_parquet(file, columns=["episode"])["episode"].n_unique())
-    if not moves:
-        raise _UserError(f"No moves found in {folder}. {_CAPTURE_HINT}")
-    return Gathered(folder, len(files), episodes, tuple(moves))
-
-
-def _facts_near(folder: Path) -> Facts:
-    """Model facts from the `scenario.json` a run wrote beside its replication folders."""
-    views = default_views()
-    for place in (folder, *folder.parents[:2]):
-        found = place / _SCENARIO_FILE
-        if found.is_file():
-            return _facts_from(found, views)
-    return Facts(None, None, views)
-
-
-def _facts_from(file: Path, views: dict[str, GroupedView]) -> Facts:
-    from twinflow.engines.step.model import parse_step_model
-
-    try:
-        model = json.loads(file.read_text(encoding="utf-8")).get("model", {})
-    except (OSError, ValueError, AttributeError):
-        return Facts(None, None, views)
-    if model.get("domain") != "make_to_stock":
-        return Facts(None, None, views)
-    parsed, _ = parse_step_model(model)
-    if parsed is None:
-        return Facts(None, None, views)
-    return Facts(
-        {p.id: p.demand_rate for p in parsed.products},
-        {p.id: p.family for p in parsed.products},
-        {**views, **parsed.views},
-    )
-
-
-def _choose_view(name: str, facts: Facts) -> tuple[GroupedView, str | None]:
-    """The view to use, and a note when it had to fall back to `full`."""
-    if name not in facts.views:
-        known = ", ".join(sorted(facts.views))
-        raise _UserError(
-            f"No view named {name!r}. Fix: use one of: {known}. "
-            "A view file in a project's views/ folder needs --project DIR."
-        )
-    if name != "full" and facts.demand_rate is None:
-        return facts.views["full"], _NO_FACTS.format(view=name)
-    return facts.views[name], None
 
 
 def _project_chain(
@@ -167,28 +83,41 @@ def _project_chain(
         return project.markov(gathered.moves, view_name, top_k=top, min_prob=min_prob)
     except ExtensionNotFound as exc:
         raise _UserError(f"{exc} Fix: check the --view name and the views/ folder.") from exc
-    except (ExtensionFailed, ProjectError) as exc:
-        raise _UserError(str(exc)) from exc
-    except UserError as exc:
+    except (ExtensionFailed, ProjectError, UserError) as exc:
         raise _UserError(str(exc)) from exc
 
 
 def _estimate(
-    gathered: Gathered, view_name: str, top: int, min_prob: float, project: str | None = None
+    gathered: Gathered, args: argparse.Namespace, top: int, min_prob: float
 ) -> tuple[MarkovChain, str | None]:
-    if project is not None:
-        return _project_chain(gathered, project, view_name, top, min_prob), None
-    facts = _facts_near(gathered.folder)
-    view, note = _choose_view(view_name, facts)
-    chain = estimate(
-        gathered.moves,
-        view,
-        demand_rate=facts.demand_rate,
-        families=facts.families,
-        top_k=top,
-        min_prob=min_prob,
+    """The chain for `--view`, through the project's views when `--project` is given."""
+    if args.project is not None:
+        return _project_chain(gathered, args.project, args.view, top, min_prob), None
+    return estimate_chain(gathered, args.view, top, min_prob)
+
+
+def _write_page(
+    args: argparse.Namespace, gathered: Gathered | None, folder: Path, top: int, min_prob: float
+) -> None:
+    """`--html`: write the states page next to the run (or into `--out`)."""
+    chain = note = None
+    if gathered is not None and args.project is not None:
+        chain, note = _estimate(gathered, args, top, min_prob)
+    model = states_view_model(
+        args.run_dir, view=args.view, top=top, min_prob=min_prob, chain=chain, note=note
     )
-    return chain, note
+    page = decision.write(folder / STATES_PAGE, model)
+    print(f"Wrote {page}")
+
+
+def _gather_or_page(args: argparse.Namespace, folder: Path, top: int, min_prob: float) -> Gathered:
+    """Read the moves. With `--html` and no moves, still write the page: it says how to fix it."""
+    try:
+        return gather(args.run_dir)
+    except NoMovesError:
+        if args.html and Path(args.run_dir).is_dir():
+            _write_page(args, None, folder, top, min_prob)
+        raise
 
 
 # --- states ---------------------------------------------------------------------------------
@@ -197,8 +126,8 @@ def _estimate(
 def _handle_states(args: argparse.Namespace) -> int:
     if args.top < 1:
         raise _UserError(f"--top is {args.top}. Fix: give a whole number of 1 or more.")
-    gathered = gather(args.run_dir)
-    chain, note = _estimate(gathered, args.view, args.top, 0.05, args.project)
+    gathered = _gather_or_page(args, Path(args.run_dir), args.top, args.min_prob)
+    chain, note = _estimate(gathered, args, args.top, 0.05)
     moves = gathered.moves
     unique = {s.digest for m in moves for s in (m.before, m.after)}
     start = min(m.before.t for m in moves)
@@ -222,6 +151,8 @@ def _handle_states(args: argparse.Namespace) -> int:
     for part in LEDGER_PARTS:
         print(f"  {part:<10} {sum(getattr(m.ledger, part) for m in moves):>14,.2f}")
     print(f"  {'total':<10} {sum(m.ledger.total for m in moves):>14,.2f}")
+    if args.html:
+        _write_page(args, gathered, gathered.folder, args.top, args.min_prob)
     return 0
 
 
@@ -233,15 +164,17 @@ def _handle_markov(args: argparse.Namespace) -> int:
         raise _UserError(f"--top is {args.top}. Fix: give a whole number of 1 or more.")
     if not 0.0 <= args.min_prob <= 1.0:
         raise _UserError(f"--min-prob is {args.min_prob}. Fix: give a number from 0 to 1.")
-    gathered = gather(args.run_dir)
-    chain, note = _estimate(gathered, args.view, args.top, args.min_prob, args.project)
-    target = Path(args.out) if args.out else gathered.folder
+    target = Path(args.out) if args.out else Path(args.run_dir)
+    gathered = _gather_or_page(args, target, args.top, args.min_prob)
+    chain, note = _estimate(gathered, args, args.top, args.min_prob)
     target.mkdir(parents=True, exist_ok=True)
     (target / "markov.json").write_text(
         json.dumps(chain.to_json(), indent=2) + "\n", encoding="utf-8"
     )
     (target / "markov.mmd").write_text(chain.to_mermaid(), encoding="utf-8")
     _print_chain(chain, note, target)
+    if args.html:
+        _write_page(args, gathered, target, args.top, args.min_prob)
     return 0
 
 

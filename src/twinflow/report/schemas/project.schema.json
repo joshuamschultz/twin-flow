@@ -1,0 +1,424 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "twinflow/project.schema.json",
+  "title": "ProjectViewModel",
+  "description": "The project view model (docs/design/DATA-CONTRACT.md section 5). Built by twinflow.extensions.project_model.project_view_model.",
+  "type": "object",
+  "properties": {
+    "view": {
+      "const": "project"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "twinflow_version": {
+      "type": "string"
+    },
+    "about": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "folder": {
+          "type": "string"
+        },
+        "capsule": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "project",
+        "folder",
+        "capsule",
+        "domain",
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "needs_fixes",
+            "broken"
+          ]
+        },
+        "headline": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "integer"
+        },
+        "warnings": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "level",
+        "headline",
+        "errors",
+        "warnings"
+      ],
+      "additionalProperties": false
+    },
+    "twin": {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "label"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "products": {
+          "type": "integer"
+        },
+        "families": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "products": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "products"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "horizon": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        "costs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "lines",
+        "products",
+        "families",
+        "horizon",
+        "costs",
+        "assumptions",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "policy": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "about": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "project",
+              "builtin"
+            ]
+          },
+          "file": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_baseline": {
+            "type": "boolean"
+          },
+          "settings_tried": {
+            "type": "integer"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "policy",
+          "label",
+          "about",
+          "source",
+          "file",
+          "is_baseline",
+          "settings_tried",
+          "ok"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rules_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "score": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "is_dollars": {
+          "type": "boolean"
+        },
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "is_dollars",
+        "file"
+      ],
+      "additionalProperties": false
+    },
+    "views": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "state_view",
+              "observation"
+            ]
+          },
+          "about": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "about"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "extensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "file": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "file",
+          "ok"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ]
+          },
+          "where": {
+            "type": "string"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity",
+          "where",
+          "message",
+          "fix"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "recent": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "race",
+              "run",
+              "improve"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string"
+          },
+          "sentence": {
+            "type": "string"
+          },
+          "href": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "view",
+          "id",
+          "when",
+          "sentence"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "agent_summary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "view",
+    "schema_version",
+    "about",
+    "status",
+    "twin",
+    "rules",
+    "score",
+    "views",
+    "extensions",
+    "problems",
+    "recent",
+    "agent_summary"
+  ],
+  "additionalProperties": true,
+  "$defs": {}
+}
