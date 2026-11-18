@@ -1,0 +1,1559 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "twinflow/race.schema.json",
+  "title": "RaceViewModel",
+  "description": "The race view model (docs/design/DATA-CONTRACT.md section 1). Built by twinflow.extensions.report_model.race_view_model.",
+  "type": "object",
+  "properties": {
+    "view": {
+      "const": "race"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "twinflow_version": {
+      "type": "string"
+    },
+    "about": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "episodes": {
+          "type": "integer"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "tune_episodes": {
+          "type": "integer"
+        },
+        "horizon_days": {
+          "type": "integer"
+        },
+        "score": {
+          "type": "string"
+        },
+        "score_is_dollars": {
+          "type": "boolean"
+        },
+        "interval": {
+          "type": "number"
+        },
+        "observation": {
+          "type": "string"
+        },
+        "view": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policies_raced": {
+          "type": "integer"
+        },
+        "method": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "project",
+        "episodes",
+        "seed",
+        "tune_episodes",
+        "horizon_days",
+        "score",
+        "score_is_dollars",
+        "interval",
+        "observation",
+        "view",
+        "policies_raced",
+        "method"
+      ],
+      "additionalProperties": false,
+      "title": "RaceAbout"
+    },
+    "recommendation": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/$defs/Settings"
+        },
+        "dollars_per_run": {
+          "type": "number"
+        },
+        "same_as_baseline": {
+          "type": "boolean"
+        },
+        "sentence": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "sentence",
+        "why"
+      ],
+      "additionalProperties": false,
+      "title": "Recommendation"
+    },
+    "baseline": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "policy": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/$defs/Settings"
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "dollars_per_run": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "policy",
+        "label",
+        "source",
+        "settings",
+        "rank",
+        "dollars_per_run"
+      ],
+      "additionalProperties": false,
+      "title": "Baseline"
+    },
+    "delta": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "per_run": {
+          "type": "number"
+        },
+        "per_year": {
+          "type": "number"
+        },
+        "runs_per_year": {
+          "type": "number"
+        },
+        "low_per_run": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high_per_run": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "low_per_year": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high_per_year": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "assumption": {
+          "type": "string"
+        },
+        "long_check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LongCheck"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "per_run",
+        "per_year",
+        "runs_per_year",
+        "low_per_run",
+        "high_per_run",
+        "assumption"
+      ],
+      "additionalProperties": false,
+      "title": "Delta"
+    },
+    "confidence": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "interval": {
+          "type": "number"
+        },
+        "mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "wins": {
+          "type": "integer"
+        },
+        "runs": {
+          "type": "integer"
+        },
+        "words": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "very_likely_better",
+            "maybe_better",
+            "maybe_worse",
+            "very_likely_worse",
+            "same_policy",
+            "unknown"
+          ]
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "interval",
+        "mean",
+        "low",
+        "high",
+        "wins",
+        "runs",
+        "words",
+        "detail",
+        "level"
+      ],
+      "additionalProperties": false,
+      "title": "Confidence"
+    },
+    "floor": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FloorRow"
+      }
+    },
+    "drivers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Driver"
+      }
+    },
+    "parts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LedgerPart"
+      }
+    },
+    "policies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PolicyRow"
+      }
+    },
+    "products": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Product"
+      }
+    },
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "example_runs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ExampleRun"
+      }
+    },
+    "markov": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/MarkovView"
+      }
+    },
+    "leaks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/Leak"
+        }
+      }
+    },
+    "tuning": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Tuning"
+      }
+    },
+    "views": {
+      "type": "object",
+      "properties": {
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dollars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "below": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "below"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "observations",
+        "dollars"
+      ],
+      "additionalProperties": false,
+      "title": "Views"
+    },
+    "what_if": {
+      "type": "object",
+      "properties": {
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LedgerPart"
+          }
+        },
+        "words": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number"
+        },
+        "note": {
+          "type": "string"
+        },
+        "formula": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "parts",
+        "words",
+        "min",
+        "max",
+        "step",
+        "note",
+        "formula"
+      ],
+      "additionalProperties": false,
+      "title": "WhatIf"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Warning"
+      }
+    },
+    "timing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Timing"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cautions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Caution"
+      }
+    },
+    "economics": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "changeover": {
+          "type": "object",
+          "properties": {
+            "within_family": {
+              "$ref": "#/$defs/Cost"
+            },
+            "across_family": {
+              "$ref": "#/$defs/Cost"
+            }
+          },
+          "required": [
+            "within_family",
+            "across_family"
+          ],
+          "additionalProperties": false
+        },
+        "holding_rate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "lost_sale_rate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "changeover",
+        "holding_rate",
+        "lost_sale_rate"
+      ],
+      "additionalProperties": false,
+      "title": "Economics"
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Problem"
+      }
+    },
+    "agent_summary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "view",
+    "schema_version",
+    "about",
+    "recommendation",
+    "baseline",
+    "delta",
+    "confidence",
+    "floor",
+    "drivers",
+    "parts",
+    "policies",
+    "products",
+    "families",
+    "example_runs",
+    "markov",
+    "leaks",
+    "tuning",
+    "views",
+    "what_if",
+    "warnings",
+    "cautions",
+    "problems",
+    "agent_summary"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "LedgerPart": {
+      "type": "string",
+      "enum": [
+        "revenue",
+        "production",
+        "setup",
+        "holding",
+        "lost_sales",
+        "late"
+      ]
+    },
+    "Stat": {
+      "type": "object",
+      "properties": {
+        "mean": {
+          "type": "number"
+        },
+        "low": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "std": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "n": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mean",
+        "low",
+        "high"
+      ],
+      "additionalProperties": false,
+      "title": "Stat"
+    },
+    "Settings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "string",
+          "boolean",
+          "null"
+        ]
+      },
+      "title": "Settings"
+    },
+    "Band": {
+      "type": "object",
+      "properties": {
+        "mean": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "low": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "high": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "mean",
+        "low",
+        "high"
+      ],
+      "additionalProperties": false,
+      "title": "Band"
+    },
+    "Problem": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message",
+        "fix"
+      ],
+      "additionalProperties": false,
+      "title": "Problem"
+    },
+    "Warning": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "fix"
+      ],
+      "additionalProperties": false,
+      "title": "Warning"
+    },
+    "Caution": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warn"
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "body",
+        "severity"
+      ],
+      "additionalProperties": false,
+      "title": "Caution"
+    },
+    "FloorRow": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "count",
+            "share",
+            "units",
+            "days"
+          ]
+        },
+        "recommended": {
+          "type": "number"
+        },
+        "baseline": {
+          "type": "number"
+        },
+        "change": {
+          "type": "number"
+        },
+        "better": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "words": {
+          "type": "string"
+        },
+        "short": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "attention": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "unit",
+        "recommended",
+        "baseline",
+        "change",
+        "better",
+        "words",
+        "short",
+        "note",
+        "attention"
+      ],
+      "additionalProperties": false,
+      "title": "FloorRow"
+    },
+    "Driver": {
+      "type": "object",
+      "properties": {
+        "part": {
+          "$ref": "#/$defs/LedgerPart"
+        },
+        "gain": {
+          "type": "number"
+        },
+        "words": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "part",
+        "gain",
+        "words"
+      ],
+      "additionalProperties": false,
+      "title": "Driver"
+    },
+    "PolicyRow": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "about": {
+          "type": "string"
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/$defs/Settings"
+        },
+        "is_baseline": {
+          "type": "boolean"
+        },
+        "is_recommended": {
+          "type": "boolean"
+        },
+        "score": {
+          "$ref": "#/$defs/Stat"
+        },
+        "dollars": {
+          "$ref": "#/$defs/Stat"
+        },
+        "vs_best": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vs_baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stat"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "fill_rate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "changeovers": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "cross_family": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "idle_share": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "avg_stock": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "lost_units": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "dollar_warning": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profit_by_day": {
+          "$ref": "#/$defs/Band"
+        },
+        "dollars_by_run": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "wins_vs_baseline": {
+          "type": "integer"
+        },
+        "stock_by_day": {
+          "type": "object",
+          "properties": {
+            "mean": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "required": [
+            "mean"
+          ],
+          "additionalProperties": false
+        },
+        "stock_start": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "stock_end": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "stock_peak": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "out_share_by_product": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "policy",
+        "label",
+        "about",
+        "rank",
+        "source",
+        "settings",
+        "is_baseline",
+        "is_recommended",
+        "score",
+        "dollars",
+        "vs_best",
+        "vs_baseline",
+        "parts",
+        "fill_rate",
+        "changeovers",
+        "cross_family",
+        "idle_share",
+        "avg_stock",
+        "lost_units",
+        "dollar_warning",
+        "profit_by_day",
+        "dollars_by_run",
+        "wins_vs_baseline",
+        "stock_by_day",
+        "stock_start",
+        "stock_end",
+        "stock_peak",
+        "out_share_by_product"
+      ],
+      "additionalProperties": false,
+      "title": "PolicyRow"
+    },
+    "Product": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "family": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "abc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "demand_rate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_storage": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "low_stock": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "family"
+      ],
+      "additionalProperties": false,
+      "title": "Product"
+    },
+    "Day": {
+      "type": "object",
+      "properties": {
+        "day": {
+          "type": "integer"
+        },
+        "action": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "setup": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "family": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changeover": {
+          "type": "boolean"
+        },
+        "cross_family": {
+          "type": "boolean"
+        },
+        "stock": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "demand": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sold": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "lost": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "lost_by_product": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "parts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "profit": {
+          "type": "number"
+        },
+        "cumulative": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "day",
+        "action",
+        "setup",
+        "family",
+        "changeover",
+        "cross_family",
+        "stock",
+        "profit",
+        "cumulative"
+      ],
+      "additionalProperties": false,
+      "title": "Day"
+    },
+    "ExampleRun": {
+      "type": "object",
+      "properties": {
+        "episode": {
+          "type": "integer"
+        },
+        "why": {
+          "type": "string",
+          "enum": [
+            "typical",
+            "first"
+          ]
+        },
+        "start_stock": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Day"
+          }
+        }
+      },
+      "required": [
+        "episode",
+        "start_stock",
+        "days"
+      ],
+      "additionalProperties": false,
+      "title": "ExampleRun"
+    },
+    "StateNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "parts_of_label": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "levels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "setup": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "levels",
+            "setup"
+          ],
+          "additionalProperties": false
+        },
+        "words": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "setup": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "setup"
+          ],
+          "additionalProperties": false
+        },
+        "share": {
+          "type": "number"
+        },
+        "visits": {
+          "type": "integer"
+        },
+        "sticky": {
+          "type": "boolean"
+        },
+        "stay": {
+          "type": "number"
+        },
+        "per_day": {
+          "type": "number"
+        },
+        "per_run": {
+          "type": "number"
+        },
+        "leak_per_run": {
+          "type": "number"
+        },
+        "money_per_day": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "losing": {
+          "type": "boolean"
+        },
+        "top_leak": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "parts_of_label",
+        "share",
+        "visits",
+        "stay",
+        "per_day",
+        "money_per_day"
+      ],
+      "additionalProperties": false,
+      "title": "StateNode"
+    },
+    "StateEdge": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "prob": {
+          "type": "number"
+        },
+        "self": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "prob",
+        "self"
+      ],
+      "additionalProperties": false,
+      "title": "StateEdge"
+    },
+    "MarkovView": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "type": "string"
+        },
+        "moves": {
+          "type": "integer"
+        },
+        "coverage": {
+          "type": "number"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StateNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StateEdge"
+          }
+        }
+      },
+      "required": [
+        "view",
+        "moves",
+        "coverage",
+        "nodes",
+        "edges"
+      ],
+      "additionalProperties": false,
+      "title": "MarkovView"
+    },
+    "Leak": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "state_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "share": {
+          "type": "number"
+        },
+        "visits": {
+          "type": "integer"
+        },
+        "per_visit": {
+          "type": "number"
+        },
+        "per_run": {
+          "type": "number"
+        },
+        "parts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "cause": {
+          "type": "string"
+        },
+        "cause_words": {
+          "type": "string"
+        },
+        "try": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "share",
+        "per_run",
+        "parts",
+        "cause",
+        "cause_words"
+      ],
+      "additionalProperties": false,
+      "title": "Leak"
+    },
+    "Trial": {
+      "type": "object",
+      "properties": {
+        "settings": {
+          "$ref": "#/$defs/Settings"
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "dollars": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "problem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chosen": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "settings",
+        "score",
+        "dollars",
+        "problem",
+        "chosen"
+      ],
+      "additionalProperties": false,
+      "title": "Trial"
+    },
+    "Tuning": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string"
+        },
+        "chosen": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Settings"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tried": {
+          "type": "integer"
+        },
+        "spread": {
+          "type": "number"
+        },
+        "touchy": {
+          "type": "boolean"
+        },
+        "trials": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Trial"
+          }
+        }
+      },
+      "required": [
+        "policy",
+        "chosen",
+        "tried",
+        "trials"
+      ],
+      "additionalProperties": false,
+      "title": "Tuning"
+    },
+    "LongCheck": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer"
+        },
+        "runs": {
+          "type": "integer"
+        },
+        "per_run": {
+          "type": "number"
+        },
+        "per_year": {
+          "type": "number"
+        },
+        "low_per_year": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "high_per_year": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "pass_day": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "words": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "days",
+        "runs",
+        "per_run",
+        "per_year",
+        "low_per_year",
+        "high_per_year",
+        "pass_day",
+        "words"
+      ],
+      "additionalProperties": false,
+      "title": "LongCheck"
+    },
+    "Timing": {
+      "type": "object",
+      "properties": {
+        "gap_by_day": {
+          "$ref": "#/$defs/Band"
+        },
+        "pass_day": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "lowest": {
+          "type": "object",
+          "properties": {
+            "day": {
+              "type": "integer"
+            },
+            "dollars": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "day",
+            "dollars"
+          ],
+          "additionalProperties": false
+        },
+        "words": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "gap_by_day",
+        "pass_day",
+        "lowest",
+        "words"
+      ],
+      "additionalProperties": false,
+      "title": "Timing"
+    },
+    "Cost": {
+      "type": "object",
+      "properties": {
+        "cost": {
+          "type": "number"
+        },
+        "output_lost": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "cost",
+        "output_lost"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

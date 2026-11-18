@@ -1,0 +1,124 @@
+/* ---------------------------------------------------------------------
+   twinflow decision views: the decision token layer (--tf-*).
+
+   Sits on top of the BlackArc brand layer in ../index.css (--ba-*), which
+   it does not change. Values are DESIGN.md section 8.1. Theme follows
+   prefers-color-scheme, and data-theme="light|dark" on <html> wins both
+   ways, as in index.css.
+
+   tokens.json is generated from this file and index.css by
+   scripts/export-tokens.mjs. Never edit tokens.json by hand.
+--------------------------------------------------------------------- */
+
+:root {
+  /* What the colours mean */
+  --tf-pick: #0073fe; /* the recommended rule, selected things */
+  --tf-today: #7b8794; /* what we do today, context series */
+  --tf-gain: #0055bc; /* money gained, as text */
+  --tf-gain-fill: #0073fe; /* money gained, as a bar */
+  --tf-loss: #f68d2e; /* money lost, out of stock, choke point (fill) */
+  --tf-loss-text: #8a4c11; /* the same, as text */
+
+  /* Stock ramp: low, ok, high cover. Out of stock is orange. */
+  --tf-seq-1: #d6e6ff;
+  --tf-seq-2: #8fbaff;
+  --tf-seq-3: #2f7de8;
+  --tf-out: #f68d2e;
+
+  /* Product families. Theme series for families with plain names. */
+  --tf-fam-1: #0073fe;
+  --tf-fam-2: #002550;
+  --tf-fam-3: #b98a3a;
+  --tf-fam-4: #7b8794;
+  --tf-fam-5: #0e7c8f;
+  /* Literal colours for families named after a colour (owner decision 4). */
+  --tf-fam-grey: #8a94a3;
+  --tf-fam-black: #0b1220;
+  --tf-fam-natural: #b98a3a;
+
+  /* Chart furniture */
+  --tf-grid: #e7ebf0;
+  --tf-axis: #9aa4b1;
+
+  /* Report ground, meta text and borders (decision views only) */
+  --tf-page: #f6f8fb;
+  --tf-meta: #6b7280;
+  --tf-border: #dfe3e8;
+
+  /* Hero band: always light ink on navy */
+  --tf-hero-bg: #002550;
+  --tf-hero-ink: #ffffff;
+  --tf-hero-sub: #c7d6e8;
+  --tf-hero-muted: #8fa6c4;
+  --tf-hero-line: #2e4c82;
+  --tf-hero-accent: #9cc2ff;
+  --tf-hero-warn: #f9a85d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tf-pick: #5a9cff;
+    --tf-today: #8493a8;
+    --tf-gain: #9cc2ff;
+    --tf-gain-fill: #5a9cff;
+    --tf-loss: #f68d2e;
+    --tf-loss-text: #f9a85d;
+    --tf-seq-1: #1d3a68;
+    --tf-seq-2: #2f66bd;
+    --tf-seq-3: #8fbaff;
+    --tf-out: #f68d2e;
+    --tf-fam-1: #5a9cff;
+    --tf-fam-2: #e6ecf5;
+    --tf-fam-3: #c99a4a;
+    --tf-fam-4: #8493a8;
+    --tf-fam-5: #22d3ee;
+    --tf-fam-grey: #8493a8;
+    --tf-fam-black: #e6ecf5;
+    --tf-fam-natural: #c99a4a;
+    --tf-grid: #1c3157;
+    --tf-axis: #6f86a8;
+    --tf-page: #05080f;
+    --tf-meta: #8fa6c4;
+    --tf-border: #26406e;
+    --tf-hero-bg: #0f1e38;
+    --tf-hero-ink: #ffffff;
+    --tf-hero-sub: #c7d6e8;
+    --tf-hero-muted: #8fa6c4;
+    --tf-hero-line: #2e4c82;
+    --tf-hero-accent: #9cc2ff;
+    --tf-hero-warn: #f9a85d;
+  }
+}
+
+:root[data-theme="dark"] {
+  --tf-pick: #5a9cff;
+  --tf-today: #8493a8;
+  --tf-gain: #9cc2ff;
+  --tf-gain-fill: #5a9cff;
+  --tf-loss: #f68d2e;
+  --tf-loss-text: #f9a85d;
+  --tf-seq-1: #1d3a68;
+  --tf-seq-2: #2f66bd;
+  --tf-seq-3: #8fbaff;
+  --tf-out: #f68d2e;
+  --tf-fam-1: #5a9cff;
+  --tf-fam-2: #e6ecf5;
+  --tf-fam-3: #c99a4a;
+  --tf-fam-4: #8493a8;
+  --tf-fam-5: #22d3ee;
+  --tf-fam-grey: #8493a8;
+  --tf-fam-black: #e6ecf5;
+  --tf-fam-natural: #c99a4a;
+  --tf-grid: #1c3157;
+  --tf-axis: #6f86a8;
+  --tf-page: #05080f;
+  --tf-meta: #8fa6c4;
+  --tf-border: #26406e;
+  --tf-hero-bg: #0f1e38;
+  --tf-hero-ink: #ffffff;
+  --tf-hero-sub: #c7d6e8;
+  --tf-hero-muted: #8fa6c4;
+  --tf-hero-line: #2e4c82;
+  --tf-hero-accent: #9cc2ff;
+  --tf-hero-warn: #f9a85d;
+}

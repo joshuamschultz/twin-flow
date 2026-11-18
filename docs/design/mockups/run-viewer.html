@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run viewer: cnc-shop</title>
+<!-- twinflow decision views: static design mockup (TF-006 T-270). Self-contained. No network. -->
+<style>
+/* twinflow decision views. Static mockup. Tokens mirror web/src/index.css (BlackArc). */
+:root {
+  --ba-navy-900: #001a38; --ba-navy: #002550; --ba-yale: #003b82; --ba-medium: #0055bc;
+  --ba-azure: #0073fe; --ba-azure-300: #5a9cff; --ba-azure-200: #9cc2ff; --ba-azure-100: #d6e6ff;
+  --ba-azure-50: #eef4ff; --ba-cyan: #22d3ee; --ba-signal: #f68d2e; --ba-signal-700: #8a4c11;
+  --ba-white: #fff;
+  --ba-font-display: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ba-font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ba-font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  --ba-radius-control: 2px; --ba-radius-surface: 4px;
+
+  --ba-page: #f6f8fb; --ba-surface: #fff; --ba-surface-2: #f4f5f6;
+  --ba-headline: #002550; --ba-body: #243042; --ba-body-2: #54585c; --ba-meta: #6b7280;
+  --ba-border: #dfe3e8; --ba-rule: #c7d6e8; --ba-tint: #eef4ff; --ba-tint-strong: #d6e6ff;
+  --ba-accent: #0073fe; --ba-link: #0055bc; --ba-focus: #0073fe; --ba-on-accent: #fff;
+  --ba-signal-text: #8a4c11; --ba-signal-wash: rgba(246,141,46,.1); --ba-signal-border: rgba(246,141,46,.45);
+
+  /* Decision tokens (new in TF-006) */
+  --tf-pick: #0073fe;         /* the recommended rule */
+  --tf-today: #7b8794;        /* what we do today */
+  --tf-gain: #0055bc;         /* money gained */
+  --tf-gain-fill: #0073fe;
+  --tf-loss: #f68d2e;         /* money lost */
+  --tf-loss-text: #8a4c11;
+  --tf-grid: #e7ebf0;
+  --tf-axis: #9aa4b1;
+  --tf-seq-1: #d6e6ff; --tf-seq-2: #8fbaff; --tf-seq-3: #2f7de8; /* low, ok, high cover */
+  --tf-out: #f68d2e;
+  --tf-fam-grey: #8a94a3; --tf-fam-black: #0b1220; --tf-fam-natural: #b98a3a;
+  --tf-fam-black-ink: #fff;
+  --tf-hero-bg: #002550; --tf-hero-ink: #fff; --tf-hero-sub: #c7d6e8; --tf-hero-line: #2e4c82;
+}
+:root[data-theme="dark"] {
+  --ba-page: #05080f; --ba-surface: #0f1e38; --ba-surface-2: #0b1628;
+  --ba-headline: #fff; --ba-body: #c7d6e8; --ba-body-2: #9fb3cd; --ba-meta: #8fa6c4;
+  --ba-border: #26406e; --ba-rule: #2e4c82; --ba-tint: rgba(90,156,255,.1); --ba-tint-strong: rgba(90,156,255,.18);
+  --ba-accent: #5a9cff; --ba-link: #5a9cff; --ba-focus: #5a9cff; --ba-on-accent: #001a38;
+  --ba-signal-text: #f68d2e; --ba-signal-wash: rgba(246,141,46,.12); --ba-signal-border: rgba(246,141,46,.4);
+  --tf-pick: #5a9cff; --tf-today: #8493a8; --tf-gain: #9cc2ff; --tf-gain-fill: #5a9cff;
+  --tf-loss: #f68d2e; --tf-loss-text: #f9a85d; --tf-grid: #1c3157; --tf-axis: #6f86a8;
+  --tf-seq-1: #1d3a68; --tf-seq-2: #2f66bd; --tf-seq-3: #8fbaff;
+  --tf-fam-grey: #8493a8; --tf-fam-black: #e6ecf5; --tf-fam-natural: #c99a4a; --tf-fam-black-ink: #05080f;
+  --tf-hero-bg: #0f1e38; --tf-hero-line: #2e4c82;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 108px; }
+body { margin: 0; background: var(--ba-page); color: var(--ba-body); font: 400 15px/1.55 var(--ba-font-body); -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-family: var(--ba-font-display); color: var(--ba-headline); letter-spacing: -0.02em; line-height: 1.15; margin: 0; font-weight: 500; }
+p { margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+a { color: var(--ba-link); }
+:focus-visible { outline: 2px solid var(--ba-focus); outline-offset: 2px; }
+.num { font-family: var(--ba-font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+/* top bar + section nav */
+.top { background: var(--ba-surface); border-bottom: 1px solid var(--ba-border); position: sticky; top: 0; z-index: 20; }
+.top-row { display: flex; align-items: center; gap: 16px; height: 56px; }
+.brand { font: 650 20px var(--ba-font-display); letter-spacing: -1px; color: var(--ba-headline); }
+.brand i { color: var(--ba-accent); font-style: normal; }
+.crumb { color: var(--ba-meta); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.crumb b { color: var(--ba-body); font-weight: 500; }
+.spacer { flex: 1; }
+.btn { border: 1px solid var(--ba-border); background: var(--ba-surface); border-radius: var(--ba-radius-control); padding: 7px 12px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ba-headline); white-space: nowrap; }
+.btn:hover { background: var(--ba-tint); }
+.btn.primary { background: var(--ba-accent); border-color: var(--ba-accent); color: var(--ba-on-accent); }
+.hero .btn { background: transparent; border-color: var(--tf-hero-line); color: #fff; }
+.hero .btn.primary { background: #fff; border-color: #fff; color: #002550; }
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabs a { padding: 10px 12px; font-size: 13px; color: var(--ba-body-2); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.tabs a.on { color: var(--ba-headline); border-color: var(--ba-accent); font-weight: 500; }
+.tabs a:hover { color: var(--ba-headline); }
+
+/* hero */
+.hero { background: var(--tf-hero-bg); color: var(--tf-hero-ink); border-bottom: 1px solid var(--tf-hero-line); padding: 40px 0 36px; }
+.eyebrow { font: 500 11px var(--ba-font-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ba-meta); }
+.hero .eyebrow { color: #9cc2ff; }
+.hero h1 { color: #fff; font-size: clamp(32px, 4vw, 48px); margin: 10px 0 12px; }
+.hero h1 em { font-style: normal; color: #9cc2ff; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.lede { font-size: 18px; line-height: 1.5; color: var(--tf-hero-sub); max-width: 56ch; }
+.lede b { color: #fff; font-weight: 600; }
+.money-row { display: flex; gap: 36px; margin: 26px 0 6px; flex-wrap: wrap; }
+.money .v { font: 500 44px/1 var(--ba-font-mono); letter-spacing: -0.04em; color: #fff; }
+.money .v.small { font-size: 30px; padding-top: 12px; }
+.money .k { font-size: 13px; color: var(--tf-hero-sub); margin-top: 8px; }
+.sure { margin-top: 26px; border-top: 1px solid var(--tf-hero-line); padding-top: 18px; }
+.sure-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--ba-font-mono); letter-spacing: .04em; padding: 3px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.hero .badge { color: #9cc2ff; }
+.sure-head span.t { color: var(--tf-hero-sub); font-size: 14px; }
+.hero svg text { fill: #c7d6e8; }
+.hero-actions { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+.floor { background: rgba(255,255,255,.04); border: 1px solid var(--tf-hero-line); border-radius: var(--ba-radius-surface); }
+.floor h3 { color: #fff; font-size: 15px; padding: 16px 18px 4px; }
+.floor-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 13px 18px; border-top: 1px solid var(--tf-hero-line); align-items: center; }
+.floor-row:first-of-type { border-top: 0; }
+.floor-row .k { font-size: 13px; color: var(--tf-hero-sub); }
+.floor-row .ft { font: 500 20px var(--ba-font-mono); color: #fff; letter-spacing: -0.03em; }
+.floor-row .ft s { text-decoration: none; color: #8fa6c4; font-size: 15px; }
+.floor-row .d { font-size: 13px; text-align: right; color: #9cc2ff; }
+.floor-row .d.warn { color: #f9a85d; }
+.floor-row .why { grid-column: 1 / -1; font-size: 12.5px; color: #8fa6c4; }
+
+/* sections */
+section.s { padding: 44px 0 8px; }
+.s-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+.s-head h2 { font-size: 26px; margin-top: 6px; }
+.s-head p { color: var(--ba-body-2); max-width: 62ch; margin-top: 6px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid-a { align-items: start; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; }
+.card { background: var(--ba-surface); border: 1px solid var(--ba-border); border-radius: var(--ba-radius-surface); padding: 20px; min-width: 0; }
+.card h3 { font-size: 17px; }
+.card .sub { color: var(--ba-body-2); font-size: 13.5px; margin: 4px 0 14px; }
+.takeaway { margin-top: 14px; padding: 10px 12px; background: var(--ba-tint); border-left: 2px solid var(--ba-accent); font-size: 13.5px; color: var(--ba-body); border-radius: 0 2px 2px 0; }
+.takeaway.warn { background: var(--ba-signal-wash); border-color: var(--tf-loss); }
+.note { font-size: 12.5px; color: var(--ba-meta); margin-top: 10px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ba-body-2); margin: 0 0 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+svg text { font-family: var(--ba-font-body); font-size: 11.5px; fill: var(--ba-body-2); }
+svg text.m { font-family: var(--ba-font-mono); }
+svg text.strong { fill: var(--ba-headline); font-weight: 600; }
+svg { display: block; max-width: 100%; }
+
+/* watch-outs */
+.watch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.watch .card { border-left: 3px solid var(--tf-loss); }
+.watch h3 { font-size: 15px; }
+.watch p { font-size: 13.5px; color: var(--ba-body-2); margin-top: 6px; }
+
+/* waterfall + bars (HTML) */
+.wf-row, .lb-row { display: grid; align-items: center; gap: 12px; font-size: 13.5px; }
+.wf-row { grid-template-columns: 170px minmax(0, 1fr) 84px; padding: 6px 0; }
+.wf-row.total { border-top: 1px solid var(--ba-border); margin-top: 6px; padding-top: 12px; font-weight: 600; color: var(--ba-headline); }
+.track { position: relative; height: 22px; }
+.track .bar { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; min-width: 2px; }
+.track .zero { position: absolute; top: -4px; bottom: -4px; width: 1px; background: var(--tf-axis); }
+.track .link { position: absolute; top: 20px; height: 14px; width: 1px; background: var(--tf-grid); }
+.gain { background: var(--tf-gain-fill); } .loss { background: var(--tf-loss); } .todayc { background: var(--tf-today); }
+.val { text-align: right; font-family: var(--ba-font-mono); font-size: 13px; }
+.val.g { color: var(--tf-gain); } .val.l { color: var(--tf-loss-text); }
+.lb-row { grid-template-columns: 22px 190px minmax(0, 1fr) 150px; padding: 7px 8px; border-radius: 2px; }
+.lb-row.pick { background: var(--ba-tint); }
+.lb-row.today { background: var(--ba-surface-2); }
+.lb-row .rk { font-family: var(--ba-font-mono); color: var(--ba-meta); font-size: 12px; }
+.lb-row .nm { color: var(--ba-headline); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag { font: 500 10px var(--ba-font-mono); letter-spacing: .08em; text-transform: uppercase; padding: 2px 5px; border-radius: 2px; margin-left: 6px; border: 1px solid var(--ba-rule); color: var(--ba-body-2); vertical-align: 1px; }
+.tag.pick { background: var(--ba-accent); border-color: var(--ba-accent); color: var(--ba-on-accent); }
+.whisk { position: absolute; top: 10px; height: 2px; background: var(--ba-headline); opacity: .75; }
+.lb-axis { display: grid; grid-template-columns: 22px 190px minmax(0, 1fr) 150px; gap: 12px; padding: 0 8px; font-size: 11.5px; color: var(--ba-meta); }
+.lb-axis .ax { position: relative; height: 18px; }
+.lb-axis .ax span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+details.more { margin-top: 10px; }
+details.more summary { cursor: pointer; font-size: 13px; color: var(--ba-link); padding: 6px 8px; }
+
+/* compare */
+.pickers { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.pickers label { font-size: 12px; color: var(--ba-meta); display: grid; gap: 4px; }
+select { background: var(--ba-surface); border: 1px solid var(--ba-rule); border-radius: 2px; padding: 8px 10px; min-width: 220px; color: var(--ba-headline); font-weight: 500; }
+.vs { font: 500 12px var(--ba-font-mono); color: var(--ba-meta); padding-top: 18px; }
+table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.cmp th { text-align: left; font: 500 11px var(--ba-font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ba-meta); padding: 8px 10px; border-bottom: 1px solid var(--ba-border); }
+table.cmp td { padding: 9px 10px; border-bottom: 1px solid var(--ba-border); vertical-align: middle; }
+table.cmp td.n, table.cmp th.n { text-align: right; font-family: var(--ba-font-mono); }
+table.cmp tr.grp td { font: 500 11px var(--ba-font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ba-meta); background: var(--ba-surface-2); padding: 6px 10px; }
+.pair { display: grid; gap: 3px; min-width: 120px; }
+.pair i { display: block; height: 7px; border-radius: 2px; }
+.pill { display: inline-block; font: 500 12px var(--ba-font-mono); padding: 2px 7px; border-radius: 999px; }
+.pill.g { background: var(--ba-tint-strong); color: var(--tf-gain); }
+.pill.l { background: var(--ba-signal-wash); color: var(--tf-loss-text); }
+.pill.n { background: var(--ba-surface-2); color: var(--ba-body-2); }
+
+/* what-if */
+.sliders { display: grid; gap: 18px; }
+.slider label { display: flex; justify-content: space-between; font-size: 13.5px; color: var(--ba-headline); font-weight: 500; }
+.slider label span { font-family: var(--ba-font-mono); color: var(--ba-accent); }
+.slider small { color: var(--ba-meta); font-size: 12.5px; }
+input[type=range] { width: 100%; accent-color: var(--ba-accent); margin: 8px 0 2px; }
+.honest { display: flex; gap: 10px; align-items: flex-start; border: 1px dashed var(--ba-rule); border-radius: 2px; padding: 10px 12px; font-size: 13px; color: var(--ba-body-2); margin-top: 18px; }
+.honest b { color: var(--ba-headline); }
+.wi-row { display: grid; grid-template-columns: 22px 30px 180px minmax(0, 1fr) 80px; gap: 10px; align-items: center; padding: 6px 8px; font-size: 13.5px; border-radius: 2px; }
+.wi-row.pick { background: var(--ba-tint); }
+.move { font: 500 11px var(--ba-font-mono); }
+.move.up { color: var(--tf-gain); } .move.dn { color: var(--tf-loss-text); } .move.eq { color: var(--ba-meta); }
+
+/* replay */
+.scrub { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; }
+.scrub .day { font: 500 22px var(--ba-font-mono); color: var(--ba-headline); min-width: 92px; }
+.lane h3 { display: flex; align-items: center; gap: 8px; }
+.lane .rowlab { font: 500 10.5px var(--ba-font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ba-meta); margin: 12px 0 4px; }
+.daybox { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.daybox div { background: var(--ba-surface-2); border-radius: 2px; padding: 8px 10px; }
+.daybox .k { font-size: 11.5px; color: var(--ba-meta); }
+.daybox .v { font: 500 15px var(--ba-font-mono); color: var(--ba-headline); margin-top: 2px; white-space: nowrap; }
+.daybox .v.l { color: var(--tf-loss-text); }
+.dayline { font-size: 13.5px; margin-top: 10px; color: var(--ba-body); min-height: 42px; }
+
+/* state map */
+.map-grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; }
+.seg { display: inline-flex; border: 1px solid var(--ba-rule); border-radius: 2px; overflow: hidden; }
+.seg button { border: 0; background: var(--ba-surface); padding: 7px 12px; font-size: 13px; cursor: pointer; color: var(--ba-body-2); }
+.seg button.on { background: var(--ba-headline); color: var(--ba-surface); font-weight: 500; }
+.node { cursor: pointer; }
+.node rect.box { fill: var(--ba-surface); stroke: var(--ba-rule); }
+.node.sel rect.box { stroke: var(--ba-accent); stroke-width: 2; }
+.node.dim { opacity: .86; }
+.edge { fill: none; stroke: var(--tf-axis); opacity: .28; }
+.edge.out { stroke: var(--ba-accent); opacity: 1; }
+.edge.in { stroke: var(--tf-today); opacity: .7; stroke-dasharray: 3 3; }
+.edge.hide { opacity: .16; }
+.panel h3 { font-size: 16px; line-height: 1.3; }
+.panel .big { font: 500 26px var(--ba-font-mono); color: var(--ba-headline); letter-spacing: -0.03em; }
+.panel .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+.panel .kv .k { font-size: 12px; color: var(--ba-meta); }
+.panel h4 { font: 500 11px var(--ba-font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ba-meta); margin: 16px 0 6px; }
+.nx { display: grid; grid-template-columns: minmax(0, 1fr) 70px 38px; gap: 8px; align-items: center; font-size: 13px; padding: 4px 0; }
+.nx button { all: unset; cursor: pointer; color: var(--ba-link); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx .b { height: 7px; background: var(--ba-surface-2); border-radius: 2px; }
+.nx .b i { display: block; height: 100%; background: var(--ba-accent); border-radius: 2px; }
+.mrow { display: grid; grid-template-columns: 110px minmax(0, 1fr) 62px; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
+.mrow .b { height: 9px; position: relative; }
+.mrow .b i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+
+/* leaks, tuning, details */
+.leak { display: grid; grid-template-columns: 30px minmax(0, 1.2fr) minmax(0, 1fr) 90px; gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid var(--ba-border); }
+.leak:first-of-type { border-top: 0; }
+.leak .rk { font: 500 18px var(--ba-font-mono); color: var(--ba-meta); }
+.leak b { color: var(--ba-headline); font-weight: 500; }
+.leak .try { font-size: 13px; color: var(--ba-body-2); margin-top: 3px; }
+.stack { display: flex; height: 14px; gap: 2px; }
+.stack i { display: block; border-radius: 2px; }
+.c-setup { background: #0073fe; } .c-hold { background: #7b8794; } .c-lost { background: #f68d2e; }
+:root[data-theme="dark"] .c-setup { background: #5a9cff; }
+table.full { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.full th, table.full td { padding: 8px 10px; border-bottom: 1px solid var(--ba-border); text-align: right; white-space: nowrap; }
+table.full th { font: 500 10.5px var(--ba-font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ba-meta); }
+table.full td { font-family: var(--ba-font-mono); }
+table.full th:nth-child(-n+2), table.full td:nth-child(-n+2) { text-align: left; font-family: var(--ba-font-body); }
+.scroll { overflow-x: auto; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.facts div { border: 1px solid var(--ba-border); border-radius: 2px; padding: 10px 12px; background: var(--ba-surface); }
+.facts .k { font-size: 11.5px; color: var(--ba-meta); } .facts .v { font: 500 14px var(--ba-font-mono); color: var(--ba-headline); margin-top: 2px; }
+footer { color: var(--ba-meta); font-size: 12.5px; padding: 36px 0 48px; }
+.tip { position: fixed; pointer-events: none; background: var(--ba-headline); color: var(--ba-surface); font-size: 12px; padding: 6px 8px; border-radius: 2px; z-index: 50; max-width: 260px; line-height: 1.4; display: none; }
+
+/* run viewer */
+.ord { display: grid; grid-template-columns: 64px 92px minmax(0, 1fr) 118px minmax(0, 210px); gap: 12px; align-items: center; padding: 9px 8px; border-top: 1px solid var(--ba-border); font-size: 13.5px; }
+.ord.head { border-top: 0; font: 500 10.5px var(--ba-font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ba-meta); }
+.ord .id { font-family: var(--ba-font-mono); color: var(--ba-headline); font-weight: 500; }
+.ord .why { font-size: 12.5px; color: var(--ba-body-2); }
+.status { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--ba-font-mono); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.status.ok { background: var(--ba-tint-strong); color: var(--tf-gain); }
+.status.risk { background: var(--ba-signal-wash); color: var(--tf-loss-text); border: 1px solid var(--ba-signal-border); }
+.status.late { background: var(--tf-loss); color: #2b1500; }
+.lever { display: grid; grid-template-columns: 30px minmax(0, 1fr) 200px 90px; gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid var(--ba-border); }
+.lever:first-of-type { border-top: 0; }
+
+@media (max-width: 900px) {
+  .wrap { padding: 0 20px; }
+  .hero-grid, .grid2, .grid-a, .map-grid { grid-template-columns: minmax(0, 1fr); }
+  .watch { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lb-row, .lb-axis { grid-template-columns: 22px 150px minmax(0, 1fr) 130px; }
+  .crumb .opt { display: none; }
+  .leak { grid-template-columns: 30px minmax(0, 1fr) 90px; } .leak .stackcell { grid-column: 2 / -1; }
+  .ord { grid-template-columns: 60px 88px minmax(0, 1fr) 118px; } .ord .why { grid-column: 1 / -1; padding-bottom: 4px; } .ord.head .why { display: none; }
+  .lever { grid-template-columns: 30px minmax(0, 1fr) 90px; } .lever .lv-bar { grid-column: 2 / -1; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media print { .top { position: static; } .tabs, .hero-actions { display: none; } }
+.caution { margin-top: 14px; font-size: 13.5px; color: #f9c592; border-left: 2px solid #f68d2e; padding: 6px 12px; background: rgba(246,141,46,.1); }
+.caution b { color: #fff; } .caution a { color: #9cc2ff; }
+.ord.head .why { font-size: 10.5px; color: var(--ba-meta); } #ord-axis span { white-space: nowrap; }
+.money { min-width: 0; } .money-row.three { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 24px; }
+.daybox > div { display: flex; flex-direction: column; justify-content: space-between; }
+</style></head><body>
+<header class="top">
+  <div class="wrap top-row">
+    <span class="brand">twinflow<i>.</i></span>
+    <span class="crumb"><b>Run viewer</b> · cnc-shop <span class="opt">· 10 orders · 30 test runs · times in minutes</span></span>
+    <span class="spacer"></span>
+    <button class="btn" onclick="toggleTheme()" aria-label="Switch light or dark theme">Light / dark</button>
+    <button class="btn" onclick="print()">Print</button>
+  </div>
+  <nav class="wrap tabs" aria-label="Sections"><a href="#answer" class="on">Answer</a><a href="#orders">Orders at risk</a><a href="#choke">Choke point</a><a href="#fix">Best fix</a><a href="#details">Details</a></nav>
+</header>
+<div class="hero" id="answer" data-spy>
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">Will my orders finish on time?</div>
+      <h1>Most will. <em>Watch WO-9.</em></h1>
+      <p class="lede">In 30 test runs, about <b>9 of 10 orders</b> finished on time. WO-9 was late in more than half of the runs. Every order at risk is a shaft, and every shaft waits for the <b>shaft mill</b>.</p>
+      <div class="money-row three">
+        <div class="money"><div class="v">87%</div><div class="k">of orders on time. Likely 83% to 91%.</div></div>
+        <div class="money"><div class="v small">1.3</div><div class="k">late orders in a normal run</div></div>
+        <div class="money"><div class="v small">99%</div><div class="k">how busy the shaft mill is</div></div>
+      </div>
+      <div class="hero-actions"><a class="btn primary" href="#orders">See orders at risk</a><a class="btn" href="#fix">See the best fix</a></div>
+    </div>
+    <div class="floor">
+      <h3>The one change that helps most</h3>
+      <div class="floor-row"><div><div class="k">Add a second shaft mill</div><div class="ft"><s>87% →</s> 99% on time</div></div><div class="d">+11 points</div><div class="why">Tested on the same 30 runs. Late orders drop from 1.3 to 0.1 per run.</div></div>
+      <div class="floor-row"><div><div class="k">Orders at risk today</div><div class="ft">3 of 10</div></div><div class="d warn">all shafts</div><div class="why">WO-9, WO-5 and WO-7. Each has more than a 1 in 4 chance of being late.</div></div>
+      <div class="floor-row"><div><div class="k">Everything else</div><div class="ft">Has room</div></div><div class="d">under 2% busy</div><div class="why">Saws, deburr and inspection sit idle most of the time. Do not add capacity there.</div></div>
+    </div>
+  </div>
+</div>
+<div class="wrap">
+  <section class="s" id="orders" data-spy>
+    <div class="s-head"><div><div class="eyebrow">Orders at risk</div><h2>Which orders are at risk, and why?</h2><p>Sorted by the chance of being late. The bar runs from release to the likely finish. The tick is the due time.</p></div></div>
+    <div class="card">
+      <div class="legend"><span><i style="background:var(--tf-gain-fill)"></i>Finishes with room</span><span><i style="background:var(--tf-loss)"></i>Finish may pass the due time</span><span><i style="background:var(--ba-headline);width:2px;height:12px"></i>Due</span><span><i style="background:var(--ba-headline);opacity:.5;height:3px"></i>Likely range of the finish</span></div>
+      <div class="ord head"><span>Order</span><span>Part</span><span id="ord-axis" style="position:relative;height:14px"></span><span>Late chance</span><span class="why">Why</span></div>
+      <div id="ord-list"></div>
+      <div class="takeaway"><b>The risk is all in one place.</b> Shaft orders released at minute 10 or later queue at the shaft mill. Bracket orders finish 8 to 17 minutes early.</div>
+    </div>
+  </section>
+  <section class="s" id="choke" data-spy>
+    <div class="s-head"><div><div class="eyebrow">Choke point</div><h2>Where does the line choke?</h2><p>How busy each step is. A step near 100% has no room left. Work piles up in front of it.</p></div></div>
+    <div class="card"><div id="flow"></div><div class="takeaway warn"><b>The shaft mill is the choke point.</b> It is busy 99% of the time. The bracket mill is next at 83% and will choke if bracket orders grow by a fifth.</div></div>
+  </section>
+  <section class="s" id="fix" data-spy>
+    <div class="s-head"><div><div class="eyebrow">Best fix</div><h2>What one change would help most?</h2><p>Each change was tested on the same 30 runs as today's plan.</p></div></div>
+    <div class="card"><div id="levers"></div><p class="note">Not tested yet: overtime on the shaft mill, releasing shaft orders sooner, moving the WO-9 due time. In the workspace, pick one and press Test.</p></div>
+  </section>
+  <section class="s" id="details" data-spy>
+    <div class="s-head"><div><div class="eyebrow">Details</div><h2>The full numbers</h2></div></div>
+    <div class="facts"><div><div class="k">Test runs</div><div class="v">30</div></div><div><div class="k">Orders</div><div class="v">10</div></div><div><div class="k">Range shown</div><div class="v">90%</div></div><div><div class="k">Random seed</div><div class="v">0</div></div></div>
+    <div class="card scroll"><table class="full"><thead><tr><th>Order</th><th>Part</th><th>Qty</th><th>Released</th><th>Due</th><th>Likely finish</th><th>Range</th><th>Room</th><th>Late chance</th></tr></thead><tbody id="ord-body"></tbody></table></div>
+  </section>
+  <footer>twinflow run viewer · cnc-shop · static design mockup with real numbers from <span class="num">twinflow run examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv --reps 30</span> and <span class="num">twinflow balance</span></footer>
+</div>
+
+<script>
+const D = {"meta":{"project":"cnc-shop","reps":30,"on_time":87.33333333333333,"lo":83.34783332686935,"hi":91.31883333979731,"level":0.9,"horizon":62},"orders":[{"id":"WO-1","part":"shaft","qty":15,"release":0.0,"due":25.0,"finish":9.177781071293888,"lo":8.742340366827474,"hi":9.613221775760303,"slack":15.82221892870611,"late_chance":0.0},{"id":"WO-2","part":"bracket","qty":20,"release":1.6666666666666667,"due":26.666666666666668,"finish":13.335382092109587,"lo":12.787134499648586,"hi":13.883629684570586,"slack":13.331284574557081,"late_chance":0.0},{"id":"WO-3","part":"shaft","qty":25,"release":5.0,"due":33.333333333333336,"finish":23.365103807658695,"lo":22.415810943634288,"hi":24.314396671683106,"slack":9.968229525674634,"late_chance":0.0},{"id":"WO-4","part":"bracket","qty":10,"release":6.666666666666667,"due":35.0,"finish":18.501322036070885,"lo":17.810991946721103,"hi":19.19165212542067,"slack":16.498677963929115,"late_chance":0.0},{"id":"WO-5","part":"shaft","qty":30,"release":10.0,"due":41.666666666666664,"finish":40.80160539741467,"lo":39.359839451249876,"hi":42.24337134357947,"slack":0.8650612692519906,"late_chance":0.43},{"id":"WO-6","part":"bracket","qty":18,"release":11.666666666666666,"due":43.333333333333336,"finish":28.815291270146716,"lo":28.028530181276654,"hi":29.60205235901678,"slack":14.518042063186622,"late_chance":0.0},{"id":"WO-7","part":"shaft","qty":12,"release":15.0,"due":50.0,"finish":47.25915861184732,"lo":45.84581625586791,"hi":48.672500967826736,"slack":2.7408413881526728,"late_chance":0.27},{"id":"WO-8","part":"bracket","qty":22,"release":16.666666666666668,"due":51.666666666666664,"finish":41.89766943405849,"lo":40.849351845573054,"hi":42.94598702254394,"slack":9.76899723260817,"late_chance":0.0},{"id":"WO-9","part":"shaft","qty":20,"release":20.0,"due":58.333333333333336,"finish":59.43088309645563,"lo":57.696753824444265,"hi":61.165012368466996,"slack":-1.0975497631222888,"late_chance":0.58},{"id":"WO-10","part":"bracket","qty":16,"release":21.666666666666668,"due":60.0,"finish":51.55490250237286,"lo":50.2620635020339,"hi":52.84774150271183,"slack":8.445097497627136,"late_chance":0.02}],"centres":[{"id":"deburr_bracket","busy":0.012686107149077225},{"id":"deburr_shaft","busy":0.014998752931194589},{"id":"inspect_bracket","busy":0.012607308629404103},{"id":"inspect_shaft","busy":0.014526889822650713},{"id":"mill_bracket","busy":0.832293311563714},{"id":"mill_shaft","busy":0.9872457371409845},{"id":"saw_bracket","busy":0.01259409891212607},{"id":"saw_shaft","busy":0.014526714331626807}],"levers":[{"name":"Add a second shaft mill","on_time":98.7,"tested":true,"note":"Late orders drop from 1.3 to 0.1 per run. Machine hours stay the same."},{"name":"Add a third shaft mill","on_time":99.7,"tested":true,"note":"Only 1 point better than two mills. Not worth a machine."}]};
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function mk(ns, tag, attrs, kids) {
+  const e = ns ? document.createElementNS('http://www.w3.org/2000/svg', tag) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'html') e.innerHTML = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c);
+  return e;
+}
+const h = (t, a, ...k) => mk(false, t, a, k);
+const s = (t, a, ...k) => mk(true, t, a, k);
+const M = '−';
+const usd = (v, d = 0) => (v < 0 ? M : '') + '$' + Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+const sgn = (v, d = 0) => (v > 0 ? '+' : '') + usd(v, d);
+const num = (v, d = 0) => v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+const snum = (v, d = 0) => (v > 0 ? '+' : v < 0 ? M : '') + num(Math.abs(v), d);
+const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const round3 = (v) => Math.round(v / 100) * 100;
+
+// theme
+(function () {
+  const q = new URLSearchParams(location.search).get('theme');
+  const t = q || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = t;
+})();
+function toggleTheme() {
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark';
+  window.dispatchEvent(new Event('resize'));
+}
+// tooltip
+const tipEl = h('div', { class: 'tip', role: 'status' });
+document.addEventListener('DOMContentLoaded', () => document.body.append(tipEl));
+function tip(el, text) {
+  el.addEventListener('mousemove', (e) => {
+    tipEl.textContent = typeof text === 'function' ? text() : text;
+    tipEl.style.display = 'block';
+    tipEl.style.left = Math.min(e.clientX + 12, innerWidth - 270) + 'px';
+    tipEl.style.top = e.clientY + 14 + 'px';
+  });
+  el.addEventListener('mouseleave', () => (tipEl.style.display = 'none'));
+}
+// section nav highlight
+function spy() {
+  const links = $$('.tabs a');
+  const io = new IntersectionObserver((es) => {
+    for (const e of es) if (e.isIntersecting) links.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+  }, { rootMargin: '-110px 0px -65% 0px' });
+  $$('[data-spy]').forEach((x) => io.observe(x));
+}
+let _rs = [];
+const onResize = (f) => { _rs.push(f); f(); };
+let _rt; window.addEventListener('resize', () => { clearTimeout(_rt); _rt = setTimeout(() => _rs.forEach((f) => f()), 60); });
+
+function orders() {
+  const H = D.meta.horizon, x = (v) => (v / H) * 100, list = [...D.orders].sort((a, b) => b.late_chance - a.late_chance || a.slack - b.slack);
+  $('#ord-axis').append(...[0, 20, 40, 60].map((t) => h('span', { style: `position:absolute;left:${x(t)}%;transform:translateX(${t === 60 ? '-100%' : t ? '-50%' : '0'})`, text: t + ' min' })));
+  for (const o of list) {
+    const risk = o.late_chance >= 0.5 ? 'late' : o.late_chance >= 0.2 ? 'risk' : 'ok', col = risk === 'ok' ? 'gain' : 'loss';
+    const tr = h('div', { class: 'track', style: 'height:26px' },
+      h('div', { style: `position:absolute;left:0;right:0;top:12.5px;height:1px;background:var(--tf-grid)` }),
+      h('div', { class: 'bar ' + col, style: `left:${x(o.release)}%;width:${x(o.finish - o.release)}%;top:8px;bottom:8px;opacity:${risk === 'ok' ? 0.9 : 1}` }),
+      h('div', { style: `position:absolute;left:${x(o.lo)}%;width:${x(o.hi - o.lo)}%;top:11.5px;height:3px;background:var(--ba-headline);opacity:.55;border-radius:2px` }),
+      h('div', { style: `position:absolute;left:${x(o.due)}%;top:1px;bottom:1px;width:2px;background:var(--ba-headline)` }));
+    tip(tr, `${o.id}: released at minute ${o.release.toFixed(0)}, likely done at ${o.finish.toFixed(1)} (range ${o.lo.toFixed(1)} to ${o.hi.toFixed(1)}), due at ${o.due.toFixed(1)}.`);
+    const why = o.part === 'shaft' ? (risk === 'ok' ? `Done ${o.slack.toFixed(0)} min early.` : o.slack < 0 ? `Likely ${(-o.slack).toFixed(1)} min late. It waits in line at the shaft mill.` : `Only ${o.slack.toFixed(1)} min of room. It waits in line at the shaft mill.`) : `Done ${o.slack.toFixed(0)} min early. The bracket mill has room.`;
+    $('#ord-list').append(h('div', { class: 'ord' }, h('span', { class: 'id', text: o.id }), h('span', { text: `${o.qty} ${o.part}s` }), tr,
+      h('span', {}, h('span', { class: 'status ' + risk, text: risk === 'ok' ? (o.late_chance > 0 ? `OK · ${Math.round(o.late_chance * 100)}%` : 'On time') : (risk === 'late' ? 'Late · ' : 'At risk · ') + Math.round(o.late_chance * 100) + '%' })),
+      h('span', { class: 'why', text: why })));
+    $('#ord-body').append(h('tr', {}, h('td', { text: o.id }), h('td', { text: o.part }), h('td', { text: o.qty }), h('td', { text: o.release.toFixed(1) }), h('td', { text: o.due.toFixed(1) }), h('td', { text: o.finish.toFixed(1) }), h('td', { text: `${o.lo.toFixed(1)} to ${o.hi.toFixed(1)}` }), h('td', { text: (o.slack >= 0 ? '+' : M) + Math.abs(o.slack).toFixed(1) + ' min' }), h('td', { text: Math.round(o.late_chance * 100) + '%' })));
+  }
+}
+function flow() {
+  const steps = ['saw', 'mill', 'deburr', 'inspect'], names = { saw: 'Saw', mill: 'Mill', deburr: 'Deburr', inspect: 'Inspect' }, busy = Object.fromEntries(D.centres.map((c) => [c.id, c.busy]));
+  const box = $('#flow'); box.style.cssText = 'display:grid;gap:14px';
+  for (const part of ['shaft', 'bracket']) {
+    const row = h('div', { style: 'display:grid;grid-template-columns:76px repeat(4,minmax(0,1fr));gap:0;align-items:stretch' }, h('div', { style: 'align-self:center;font-weight:500;color:var(--ba-headline)', text: cap(part) + 's' }));
+    steps.forEach((st, i) => {
+      const b = busy[`${st}_${part}`], hot = b > 0.95, warm = b > 0.75 && !hot;
+      row.append(h('div', { style: 'display:flex;align-items:center' },
+        i ? h('div', { style: `flex:0 0 22px;height:${hot ? 6 : 2}px;background:${hot ? 'var(--tf-loss)' : 'var(--tf-axis)'}`, title: hot ? 'Work piles up here' : '' }) : null,
+        h('div', { style: `flex:1;border:${hot ? 2 : 1}px solid ${hot ? 'var(--tf-loss)' : 'var(--ba-rule)'};border-radius:3px;padding:10px 12px;background:${hot ? 'var(--ba-signal-wash)' : 'var(--ba-surface)'}` },
+          h('div', { style: 'display:flex;justify-content:space-between;gap:6px;align-items:baseline' }, h('b', { style: 'color:var(--ba-headline);font-weight:500', text: names[st] }), hot ? h('span', { class: 'status late', text: 'Choke point' }) : warm ? h('span', { class: 'status risk', text: 'Next to choke' }) : null),
+          h('div', { class: 'num', style: 'font-size:22px;color:var(--ba-headline);margin:4px 0', text: pct(b, b < 0.1 ? 1 : 0) }),
+          h('div', { style: 'height:6px;background:var(--ba-surface-2);border-radius:2px' }, h('div', { style: `height:100%;width:${Math.max(1.5, b * 100)}%;background:${hot ? 'var(--tf-loss)' : 'var(--tf-gain-fill)'};border-radius:2px` })),
+          h('div', { class: 'note', style: 'margin-top:6px', text: 'busy' }))));
+    });
+    box.append(row);
+  }
+}
+const cap = (t) => t[0].toUpperCase() + t.slice(1);
+function levers() {
+  const base = D.meta.on_time;
+  D.levers.forEach((l, i) => $('#levers').append(h('div', { class: 'lever' }, h('div', { class: 'rk num', style: 'font-size:18px;color:var(--ba-meta)', text: i + 1 }),
+    h('div', {}, h('b', { style: 'color:var(--ba-headline);font-weight:500', text: l.name }), i === 0 ? h('span', { class: 'tag pick', text: 'best' }) : null, h('div', { class: 'note', style: 'margin-top:3px;font-size:13px', text: l.note })),
+    h('div', { class: 'lv-bar' }, h('div', { class: 'track', style: 'height:18px' }, h('div', { class: 'bar todayc', style: `left:0;width:${base}%;opacity:.5` }), h('div', { class: 'bar gain', style: `left:${base}%;width:${l.on_time - base}%` })), h('div', { class: 'note', style: 'margin-top:2px', text: `${base.toFixed(0)}% today → ${l.on_time.toFixed(0)}% on time` })),
+    h('div', { class: 'val g', style: 'font-size:15px', text: '+' + (l.on_time - base).toFixed(1) + ' pts' }))));
+}
+document.addEventListener('DOMContentLoaded', () => { orders(); flow(); levers(); spy(); });
+
+</script></body></html>

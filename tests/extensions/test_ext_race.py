@@ -224,3 +224,41 @@ def test_race_settings_come_from_the_capsule_unless_given(make_project: MakeProj
     result = race(project, ["idle"], settings=RaceSettings(episodes=2, seed=1, tune_episodes=1))
     assert result.settings.episodes == 2
     assert len(result.result("idle").episode_score) == 2
+
+
+# --- floor facts and the baseline (T-269, REQ-228, REQ-229) ------------------------------------
+
+
+def test_stock_and_lost_units_equal_a_hand_count(trio: tuple[Project, RaceResult]) -> None:
+    _, result = trio
+    for name in TRIO:
+        moves = result.moves(name)
+        row = result.result(name)
+        stock = [sum(m.after.stock.values()) for m in moves]
+        lost = sum(v for m in moves for k, v in m.events.items() if k.startswith("lost."))
+        assert row.avg_stock == pytest.approx(float(np.mean(stock)))
+        assert row.lost_units == pytest.approx(lost / QUICK["episodes"])
+        saved = row.to_json()
+        assert saved["avg_stock"] == row.avg_stock and saved["lost_units"] == row.lost_units
+
+
+def test_the_baseline_keeps_its_moves_and_map_outside_the_top(
+    shared_project: MakeProject,
+) -> None:
+    quick = {**QUICK, "top_policies": 1, "baseline": "idle"}
+    project = Project.open(shared_project({"race": quick}))
+    result = race(project, TRIO)
+    top = result.ranking()[0].policy
+    assert top != "idle"
+    assert list(result.kept) == [top, "idle"]
+    assert list(result.chains) == [top, "idle"]
+    assert len(result.moves("idle")) == QUICK["episodes"] * 60
+
+
+def test_a_baseline_in_the_top_adds_no_extra_policy(shared_project: MakeProject) -> None:
+    quick = {**QUICK, "top_policies": 2}
+    project = Project.open(shared_project({"race": quick}))
+    result = race(project, TRIO)
+    top = [r.policy for r in result.ranking()[:2]]
+    assert project.baseline == "lowest_cover" and "lowest_cover" in top
+    assert list(result.kept) == top and list(result.chains) == top

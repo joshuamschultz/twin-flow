@@ -47,6 +47,8 @@ experiment:
   replications: 50
   seed: 2024
   policy: lowest_cover   # a built-in rule; policies/ holds two you can read and copy
+  race:
+    baseline: lowest_cover   # what the plant does today; the race report compares every policy with it
 assumptions:
   - demand is Poisson per product per day
   - one changeover per day at most, made before the day's output

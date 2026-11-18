@@ -159,3 +159,41 @@ def test_policies_are_checked_with_the_chosen_features(make_project: MakeProject
     uses = "def decide(state):\n    return 'idle' if state.features['days_to_runout'] else 'idle'\n"
     folder = make_project({"features": ["days_to_runout"]}, {"policies/uses.py": uses})
     assert check_project(Project.open(folder)) == []
+
+
+# --- what the plant does today (REQ-229, T-269) ------------------------------------------------
+
+PLAIN = "def decide(state):\n    return 'idle'\n"
+
+
+def test_the_baseline_is_the_first_policy_file_by_name(make_project: MakeProject) -> None:
+    folder = make_project({"race": {}}, {"policies/zeta.py": PLAIN, "policies/alpha.py": PLAIN})
+    project = Project.open(folder)
+    assert project.config.race.baseline is None
+    assert project.baseline == "alpha"
+    assert project.baseline_source == "first policy file"
+
+
+def test_the_baseline_is_lowest_cover_without_policy_files(make_project: MakeProject) -> None:
+    project = Project.open(make_project({"race": {}}))
+    assert (project.baseline, project.baseline_source) == ("lowest_cover", "built-in default")
+
+
+def test_the_baseline_setting_wins(make_project: MakeProject) -> None:
+    folder = make_project({"race": {"baseline": "kanban"}}, {"policies/alpha.py": PLAIN})
+    project = Project.open(folder)
+    assert project.problems == ()
+    assert (project.baseline, project.baseline_source) == ("kanban", "setting")
+
+
+def test_an_unknown_baseline_is_a_plain_problem(make_project: MakeProject) -> None:
+    project = Project.open(make_project({"race": {"baseline": "lowest_covr"}}))
+    (problem,) = project.problems
+    assert problem.field == "experiment.race.baseline" and problem.code == "unknown_name"
+    assert "lowest_cover" in problem.fix
+    assert project.baseline == "lowest_cover"  # falls back to the default
+
+
+def test_the_tune_page_explains_the_baseline_default() -> None:
+    page = render_defaults_markdown()
+    assert "| `experiment.race.baseline` | `first policy file, else lowest_cover` |" in page

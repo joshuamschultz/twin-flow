@@ -53,6 +53,8 @@ jobs:
         run: |
           npm run build
           npm run format:check
+          npm test
+          npm run check:report
           npm audit --audit-level=moderate
           npx playwright install --with-deps chromium
       - name: Browser workflows

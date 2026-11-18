@@ -34,6 +34,7 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.8",
     "pip-audit>=2.7",
+    "jsonschema>=4.20",
     "types-PyYAML>=6",
     "fastapi>=0.110",
     "uvicorn>=0.29",
@@ -48,7 +49,7 @@ twinflow = "twinflow.cli.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json", "scheduling/problem.schema.json", "erp/erp.schema.json", "extensions/builtin/*/*.py", "templates/*/*", "templates/*/*/*"]
+twinflow = ["report/_assets/*.js", "report/_assets/*.png", "report/assets/*.html", "report/assets/*.txt", "report/schemas/*.json", "scenario/schema.json", "scheduling/problem.schema.json", "erp/erp.schema.json", "extensions/builtin/*/*.py", "templates/*/*", "templates/*/*/*"]
 
 [tool.ruff]
 line-length = 100

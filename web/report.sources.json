@@ -1,0 +1,11 @@
+{
+  "about": "Inputs of the offline report template. inline-report.mjs and the Python test hash these the same way (sorted relative paths, sha256 of each file).",
+  "files": [
+    "report.html",
+    "vite.report.config.ts",
+    "package-lock.json",
+    "scripts/inline-report.mjs",
+    "src/index.css"
+  ],
+  "dirs": ["src/decision", "src/report"]
+}
