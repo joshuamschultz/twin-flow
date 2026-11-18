@@ -1,5 +1,7 @@
 # Run your twin
 
+![One bright press line in front of a row of fading copies of the same line](../images/headers/how-to-run-your-twin.webp)
+
 This guide runs a plant many times and saves the results. It also shows how to turn on state capture for a job shop, and how to read what it recorded.
 
 ## What this does
@@ -47,15 +49,10 @@ A make-to-stock plant records its days on its own. A job shop does not. You turn
      replications: 1
      seed: 0
      state_capture:       # record how the shop moves, so `twinflow states` can read it
-       every_hours: 8
-   ```
-
-3. Change `every_hours` to a value shorter than one run. The starter shop runs about one hour of simulated time. At 8 hours, the recording catches almost nothing: 3 moves for 3 runs. Set it to `0.1`, which is 6 minutes:
-
-   ```yaml
-     state_capture:
        every_hours: 0.1
    ```
+
+3. Know what `every_hours` does. It must be shorter than one run. The starter shop runs about one hour of simulated time, so the starter uses `0.1`, which is 6 minutes. A value like 8 catches almost nothing: 3 moves for 3 runs. Leave it at `0.1` for now.
 
 4. Run the shop 3 times and save the recording.
 

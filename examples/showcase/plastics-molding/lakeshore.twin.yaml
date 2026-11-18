@@ -1,0 +1,47 @@
+# Lakeshore Molded Products: the twin capsule for press 3.
+# It ties the input files together and holds the money rules and the run settings.
+schema_version: '0.1'
+required_capabilities:
+  - make_to_stock.step
+model:
+  domain: make_to_stock
+  revision: '1'
+  period: day
+  horizon: 60                 # plan 60 days ahead
+  start_cover_days: 8         # each bin starts with about 8 days of stock
+  line:
+    id: press-3
+    changeover:               # what a mold or color change costs
+      within_family: {cost: 200, output_lost: 0.10}    # new mold, same color: $200 and 10% of the day
+      across_family: {cost: 1200, output_lost: 0.50}   # new color: $1,200 purge and half the day
+  products: data/products.csv # the item master: one row per bin
+  economics:
+    defaults: {holding_rate: 0.01, lost_sale_rate: 0.30}   # stock costs 1% of unit cost a night; a lost sale costs 30% of price
+  state_groups:
+    views:
+      simple:                 # the state map label: stock level per color, and the color in the press
+        stock:
+          by: days_of_cover
+          aggregate: family
+          levels: [{name: out, below: 1}, {name: low, below: 4}, {name: ok, below: 10}, {name: high}]
+        setup: family
+snapshot:
+  id: lakeshore-2026-11-16
+  as_of: '2026-11-16T06:00:00-06:00'
+  model_revision: '1'
+experiment:
+  id: lakeshore-press-3
+  replications: 20
+  seed: 2026
+  policy: lowest_cover        # the rule the planner uses today: run the bin that runs out first
+  demand: sales_history       # demand/sales_history.py: replay real days from data/sales-history.csv
+  score: protect_key_items    # rewards/protect_key_items.py: dollars, with a fine for lost A-item sales
+  race:
+    episodes: 40              # runs per rule in a race
+    seed: 7
+assumptions:
+  - One color or mold change a day at most, made at the start of the day.
+  - A sale we cannot fill is lost. The customer buys elsewhere.
+  - Tomorrow's sales look like a random day from the last 13 weeks.
+provenance:
+  source: Lakeshore ERP item master and 13 weeks of daily sales, exported 2026-11-16

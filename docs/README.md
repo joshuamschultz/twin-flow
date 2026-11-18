@@ -1,6 +1,6 @@
 # twinflow documentation
 
-![A factory floor and its glowing digital twin](images/twin-concept.png)
+![A small factory floor with a lighter glowing copy of itself hovering above it](images/headers/docs-index.webp)
 
 The complete manual. Whether you have never opened twinflow or you are looking up one
 config field, start here.

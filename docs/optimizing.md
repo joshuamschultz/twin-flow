@@ -1,5 +1,7 @@
 # Optimizing — making decisions with the twin
 
+![A wireframe hill with a dotted path to a marker on the highest peak](images/headers/optimizing.webp)
+
 Running the twin tells you what happens. Optimizing tells you **what to do**. This guide
 goes from "try a few options side by side" to "let the computer search for the best
 setting", with worked examples. It assumes you can already run a twin

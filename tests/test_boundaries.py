@@ -31,6 +31,7 @@ DELETED_MODULES: frozenset[str] = frozenset(
         "twinflow.scheduling.ortools",
         "twinflow.application.linear_schedule",
         "twinflow.policy_files",
+        "twinflow.scheduling.cpsat",
     }
 )
 
@@ -161,6 +162,129 @@ def test_scheduling_imports_no_surface_package() -> None:
     prefixes = tuple(f"twinflow.{name}" for name in _SCHEDULING_FORBIDDEN)
     offenders = [o for p in sorted(SCHEDULING.rglob("*.py")) for o in _imports_under(p, prefixes)]
     assert offenders == [], offenders
+
+
+ALGORITHMS = SCHEDULING / "algorithms"
+_ALGORITHMS_PACKAGE = "twinflow.scheduling.algorithms"
+
+
+def _algorithm_module_imports(path: pathlib.Path) -> list[str]:
+    """Imports of a leaf `twinflow.scheduling.algorithms.<x>` (static or by constant name).
+
+    Importing the package itself is allowed: the registry needs its `__path__` to discover
+    the leaves with `pkgutil.iter_modules` (D-069).
+    """
+    package = _package_of(path)
+    found = []
+    for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+        names = [*_imported_names(node, package), *_dynamic_import_name(node)]
+        hit = next((n for n in names if n.startswith(_ALGORITHMS_PACKAGE + ".")), None)
+        if hit is not None:
+            found.append(f"{path.relative_to(ROOT)}:{node.lineno} -> {hit}")
+    return found
+
+
+def test_algorithms_package_exists() -> None:
+    assert (ALGORITHMS / "__init__.py").is_file()
+
+
+def test_scheduling_facade_imports_no_algorithm_module() -> None:
+    assert _algorithm_module_imports(SCHEDULING / "__init__.py") == []
+
+
+def test_no_module_outside_algorithms_imports_an_algorithm_leaf() -> None:
+    outside = [p for p in sorted(SRC.rglob("*.py")) if ALGORITHMS not in p.parents]
+    offenders = [o for p in outside for o in _algorithm_module_imports(p)]
+    assert offenders == [], "leaf algorithm imports outside algorithms/:\n" + "\n".join(offenders)
+
+
+KERNEL = SCHEDULING / "kernel"
+# SDD import rules (+ DEV-1): the shared kernel sees only these core modules and itself.
+_KERNEL_ALLOWED = tuple(
+    f"twinflow.scheduling.{name}"
+    for name in ("model", "setups", "calendar_math", "timeline", "objectives", "seam", "kernel")
+)
+_KERNEL_THIRD_PARTY = frozenset({"numpy"})
+
+
+def _kernel_import_allowed(name: str) -> bool:
+    root = name.split(".")[0]
+    if root != "twinflow":
+        return root in sys.stdlib_module_names or root in _KERNEL_THIRD_PARTY
+    if name in ("twinflow", "twinflow.scheduling"):
+        return True  # the package parts of an allowed `from twinflow.scheduling import x`
+    return any(name == p or name.startswith(p + ".") for p in _KERNEL_ALLOWED)
+
+
+def test_kernel_package_exists() -> None:
+    assert (KERNEL / "__init__.py").is_file()
+
+
+def test_kernel_imports_only_core_modules_stdlib_and_numpy() -> None:
+    offenders = [
+        f"{path.relative_to(ROOT)}:{line} -> {name}"
+        for path in sorted(KERNEL.rglob("*.py"))
+        for line, name in _absolute_imports(path)
+        if not _kernel_import_allowed(name)
+    ]
+    assert offenders == [], "kernel imports outside its rule:\n" + "\n".join(offenders)
+
+
+def test_kernel_import_rule_rejects_solver_baseline_and_algorithms() -> None:
+    assert not _kernel_import_allowed("twinflow.scheduling.solver")
+    assert not _kernel_import_allowed("twinflow.scheduling.baseline")
+    assert not _kernel_import_allowed("twinflow.scheduling.verifier")
+    assert not _kernel_import_allowed("twinflow.scheduling.algorithms.cpsat")
+    assert not _kernel_import_allowed("ortools")
+    assert _kernel_import_allowed("twinflow.scheduling.kernel.index")
+    assert _kernel_import_allowed("numpy.typing")
+
+
+LEARNING = SCHEDULING / "learning"
+# D-082 + T-163/T-164: K learning sees the kernel, the model, the registry (ATCS by name at
+# call time), the solve facade and itself; never an algorithm module.
+_LEARNING_ALLOWED = tuple(
+    f"twinflow.scheduling.{name}" for name in ("kernel", "model", "registry", "solver", "learning")
+)
+_LEARNING_THIRD_PARTY = frozenset({"pydantic"})
+
+
+def _learning_import_allowed(name: str) -> bool:
+    root = name.split(".")[0]
+    if root != "twinflow":
+        return root in sys.stdlib_module_names or root in _LEARNING_THIRD_PARTY
+    if name in ("twinflow", "twinflow.scheduling"):
+        return True
+    return any(name == p or name.startswith(p + ".") for p in _LEARNING_ALLOWED)
+
+
+def test_learning_package_exists() -> None:
+    assert (LEARNING / "__init__.py").is_file()
+    assert (LEARNING / "ktable.py").is_file()
+    assert (LEARNING / "perturb.py").is_file()
+
+
+def test_learning_imports_only_kernel_model_registry_solver_stdlib_and_pydantic() -> None:
+    files = sorted(LEARNING.rglob("*.py"))
+    offenders = [
+        f"{path.relative_to(ROOT)}:{line} -> {name}"
+        for path in files
+        for line, name in _absolute_imports(path)
+        if not _learning_import_allowed(name)
+    ]
+    leaf_imports = [o for p in files for o in _algorithm_module_imports(p)]
+    assert files, "learning/ has no modules"
+    assert offenders == [], "learning imports outside its rule:\n" + "\n".join(offenders)
+    assert leaf_imports == [], leaf_imports
+
+
+def test_learning_import_rule_rejects_algorithm_modules_and_portfolio() -> None:
+    assert not _learning_import_allowed("twinflow.scheduling.algorithms.atcs")
+    assert not _learning_import_allowed("twinflow.scheduling.algorithms")
+    assert not _learning_import_allowed("twinflow.scheduling.portfolio")
+    assert not _learning_import_allowed("ortools")
+    assert _learning_import_allowed("twinflow.scheduling.kernel.stats")
+    assert _learning_import_allowed("twinflow.scheduling.registry")
 
 
 # --- TF-005: ERP contract, planning service and MCP boundaries (T-192, REQ-174) ----------------
@@ -332,7 +456,7 @@ def test_service_app_starts_without_the_mcp_package(tmp_path: pathlib.Path) -> N
 
 # TF-003 reaches the service through exactly one adapter (`application/portfolio_port.py`),
 # so a TF-003 signature change touches one file. Its modules and the portfolio functions
-# (which `twinflow.scheduling` re-exports once TF-003 merges) are named nowhere else.
+# (which `twinflow.scheduling` re-exports) are named nowhere else outside `scheduling/`.
 _TF003_MODULES = ("twinflow.scheduling.portfolio", "twinflow.scheduling.learning")
 _TF003_SYMBOLS = frozenset(
     {
@@ -368,10 +492,12 @@ def _tf003_references(path: pathlib.Path) -> list[str]:
 
 
 def test_only_the_portfolio_port_references_tf003() -> None:
+    # TF-003 itself (the `twinflow.scheduling` package and its facade) is the provider, not
+    # a consumer: the rule is about the code above it.
     offenders = [
         f"{path.relative_to(ROOT)}:{reference}"
         for path in _py_files()
-        if path != _PORTFOLIO_PORT
+        if path != _PORTFOLIO_PORT and SCHEDULING not in path.parents
         for reference in _tf003_references(path)
     ]
     assert offenders == [], offenders

@@ -1,5 +1,7 @@
 # Tuning and calibration
 
+![A solid curve and a dashed curve that almost overlap, with a caliper and a dial](images/headers/tuning.webp)
+
 A twin is only useful if its numbers match your floor. This guide covers setting how
 *variable* the floor is, making the twin **reproduce your real history** (calibration),
 choosing what to tune, and the honest limits of the defaults. It assumes you can run a

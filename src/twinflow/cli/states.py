@@ -28,6 +28,7 @@ _CAPTURE_HINT = (
     "Turn on state capture: experiment.state_capture: {every_hours: 4} for a factory model, "
     "then run again. A make-to-stock run writes moves by itself."
 )
+_FEW_MOVES_PER_EPISODE = 5  # fewer than this per run is too little to read
 _SCENARIO_FILE = "scenario.json"
 _NO_FACTS = (
     "Note: no product facts (families, demand rates) were found for this run, "
@@ -64,12 +65,14 @@ def add_states_subcommands(subparsers: argparse._SubParsersAction[ParserT]) -> N
     states.add_argument("run_dir")
     states.add_argument("--view", default="family")
     states.add_argument("--top", type=int, default=10)
+    states.add_argument("--project", help="a project folder whose views/ files --view can use")
     states.set_defaults(handler=lambda args: _guarded(_handle_states, args))
 
     markov = subparsers.add_parser("markov")
     markov.add_argument("run_dir")
     markov.add_argument("--view", default="family")
     markov.add_argument("--top", type=int, default=15)
+    markov.add_argument("--project", help="a project folder whose views/ files --view can use")
     markov.add_argument("--min-prob", type=float, default=0.05)
     markov.add_argument("--out", default=None)
     markov.set_defaults(handler=lambda args: _guarded(_handle_markov, args))
@@ -141,15 +144,40 @@ def _choose_view(name: str, facts: Facts) -> tuple[GroupedView, str | None]:
     """The view to use, and a note when it had to fall back to `full`."""
     if name not in facts.views:
         known = ", ".join(sorted(facts.views))
-        raise _UserError(f"No view named {name!r}. Fix: use one of: {known}.")
+        raise _UserError(
+            f"No view named {name!r}. Fix: use one of: {known}. "
+            "A view file in a project's views/ folder needs --project DIR."
+        )
     if name != "full" and facts.demand_rate is None:
         return facts.views["full"], _NO_FACTS.format(view=name)
     return facts.views[name], None
 
 
+def _project_chain(
+    gathered: Gathered, project_dir: str, view_name: str, top: int, min_prob: float
+) -> MarkovChain:
+    """The chain under a view of the project: its YAML views and its view files."""
+    from twinflow.cli._common import UserError, open_project
+    from twinflow.extensions.checker import ExtensionFailed
+    from twinflow.extensions.loader import ExtensionNotFound
+    from twinflow.extensions.project import ProjectError
+
+    try:
+        project = open_project(project_dir)
+        return project.markov(gathered.moves, view_name, top_k=top, min_prob=min_prob)
+    except ExtensionNotFound as exc:
+        raise _UserError(f"{exc} Fix: check the --view name and the views/ folder.") from exc
+    except (ExtensionFailed, ProjectError) as exc:
+        raise _UserError(str(exc)) from exc
+    except UserError as exc:
+        raise _UserError(str(exc)) from exc
+
+
 def _estimate(
-    gathered: Gathered, view_name: str, top: int, min_prob: float
+    gathered: Gathered, view_name: str, top: int, min_prob: float, project: str | None = None
 ) -> tuple[MarkovChain, str | None]:
+    if project is not None:
+        return _project_chain(gathered, project, view_name, top, min_prob), None
     facts = _facts_near(gathered.folder)
     view, note = _choose_view(view_name, facts)
     chain = estimate(
@@ -170,7 +198,7 @@ def _handle_states(args: argparse.Namespace) -> int:
     if args.top < 1:
         raise _UserError(f"--top is {args.top}. Fix: give a whole number of 1 or more.")
     gathered = gather(args.run_dir)
-    chain, note = _estimate(gathered, args.view, args.top, 0.05)
+    chain, note = _estimate(gathered, args.view, args.top, 0.05, args.project)
     moves = gathered.moves
     unique = {s.digest for m in moves for s in (m.before, m.after)}
     start = min(m.before.t for m in moves)
@@ -183,6 +211,10 @@ def _handle_states(args: argparse.Namespace) -> int:
     print(f"Unique states: {len(unique)}")
     if note:
         print(note)
+    if len(moves) < _FEW_MOVES_PER_EPISODE * gathered.episodes:
+        print(
+            f"Only {len(moves)} moves. Lower experiment.state_capture.every_hours to record more."
+        )
     print(f"Top states (view {chain.view}), share of moves:")
     for label, share in list(chain.share.items())[: args.top]:
         print(f"  {share:6.1%}  {label}")
@@ -202,7 +234,7 @@ def _handle_markov(args: argparse.Namespace) -> int:
     if not 0.0 <= args.min_prob <= 1.0:
         raise _UserError(f"--min-prob is {args.min_prob}. Fix: give a number from 0 to 1.")
     gathered = gather(args.run_dir)
-    chain, note = _estimate(gathered, args.view, args.top, args.min_prob)
+    chain, note = _estimate(gathered, args.view, args.top, args.min_prob, args.project)
     target = Path(args.out) if args.out else gathered.folder
     target.mkdir(parents=True, exist_ok=True)
     (target / "markov.json").write_text(

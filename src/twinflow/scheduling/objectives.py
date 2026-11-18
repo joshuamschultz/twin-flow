@@ -3,7 +3,10 @@
 `evaluate` computes all thirteen `ObjectiveKind` values of one schedule with the SDD
 "Objective formulas". `rank` orders candidate schedules by their values under an
 `ObjectiveSpec`. Both are pure, deterministic and linear in the number of operations
-and candidates they read.
+and candidates they read. `JobOutcome`, `job_terms`, `signed`, `term_scale`,
+`level_tolerance` and `bound_violation` are public so the kernel's fast evaluator and
+scorer (COMP-006) use the same arithmetic as `evaluate` and `rank`. `effective_spec` adds
+churn to a spec; `reschedule` and the portfolio runner share it (neither imports the other).
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from twinflow.scheduling.model import (
     PreviousPlan,
     Schedule,
     WeightedSum,
+    WeightedTerm,
 )
 
 Sense = Literal["min", "max"]
@@ -52,16 +56,41 @@ def primary_kind(spec: ObjectiveSpec) -> ObjectiveKind:
     return spec.primary
 
 
-def _signed(kind: ObjectiveKind, value: float) -> float:
+def signed(kind: ObjectiveKind, value: float) -> float:
     """`value` turned into a quantity to minimize: maximize-sense values are negated."""
     return -value if SENSE[kind] == "max" else value
+
+
+def effective_spec(
+    spec: ObjectiveSpec, churn_weight: float, previous_op_count: int
+) -> ObjectiveSpec:
+    """`spec` with churn added, as `reschedule` and the portfolio rank (COMP-020, COMP-024).
+
+    Weighted sum: a churn term with `weight = churn_weight` and `scale = previous_op_count`
+    appended; lexicographic: a last churn level; epsilon constraint: unchanged. Unchanged
+    too without weight or previous ops, and when the spec already names churn (the caller's
+    churn term wins, and churn is never counted twice).
+    """
+    churn = ObjectiveKind.CHURN
+    if churn_weight == 0 or previous_op_count == 0:
+        return spec
+    if isinstance(spec, WeightedSum):
+        if any(term.kind is churn for term in spec.terms):
+            return spec
+        term = WeightedTerm(kind=churn, weight=churn_weight, scale=float(previous_op_count))
+        return spec.model_copy(update={"terms": (*spec.terms, term)})
+    if isinstance(spec, Lexicographic):
+        if any(level.kind is churn for level in spec.levels):
+            return spec
+        return spec.model_copy(update={"levels": (*spec.levels, LexicographicLevel(kind=churn))})
+    return spec
 
 
 # --- evaluation -------------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class _JobOutcome:
+@dataclass(frozen=True, slots=True)
+class JobOutcome:
     """A scheduled job: effective weight, completion C_j and due d_j (None when no due)."""
 
     weight: float
@@ -101,7 +130,7 @@ def evaluate(
     assignments = [a for a in schedule.assignments if a.operation_id in index.job_of_operation]
     outcomes = _job_outcomes(compiled, index, assignments)
     now = compiled.problem.now
-    values = _completion_terms(outcomes, now) | _due_terms(outcomes, now)
+    values = job_terms(outcomes, now)
     values |= _assignment_terms(assignments, index)
     values[ObjectiveKind.CHURN] = _churn(assignments, previous_plan, _churn_tolerance(compiled))
     return values
@@ -124,7 +153,7 @@ def _build_index(compiled: CompiledProblem) -> _Index:
 
 def _job_outcomes(
     compiled: CompiledProblem, index: _Index, assignments: Iterable[Assignment]
-) -> list[_JobOutcome]:
+) -> list[JobOutcome]:
     jobs: dict[str, Job] = {}
     completion: dict[str, float] = {}
     for assignment in assignments:
@@ -133,7 +162,7 @@ def _job_outcomes(
         completion[job.id] = max(completion.get(job.id, -math.inf), assignment.end)
     class_weights = compiled.profile.class_weights
     return [
-        _JobOutcome(
+        JobOutcome(
             weight=(
                 job.weight_override
                 if job.weight_override is not None
@@ -146,7 +175,12 @@ def _job_outcomes(
     ]
 
 
-def _completion_terms(outcomes: Sequence[_JobOutcome], now: float) -> dict[ObjectiveKind, float]:
+def job_terms(outcomes: Sequence[JobOutcome], now: float) -> dict[ObjectiveKind, float]:
+    """The nine job-level values (completion and due-date terms) of scheduled jobs."""
+    return _completion_terms(outcomes, now) | _due_terms(outcomes, now)
+
+
+def _completion_terms(outcomes: Sequence[JobOutcome], now: float) -> dict[ObjectiveKind, float]:
     makespan = max((o.completion for o in outcomes), default=now) - now
     return {
         ObjectiveKind.MAKESPAN: makespan,
@@ -154,7 +188,7 @@ def _completion_terms(outcomes: Sequence[_JobOutcome], now: float) -> dict[Objec
     }
 
 
-def _due_terms(outcomes: Sequence[_JobOutcome], now: float) -> dict[ObjectiveKind, float]:
+def _due_terms(outcomes: Sequence[JobOutcome], now: float) -> dict[ObjectiveKind, float]:
     due_jobs = [(o.weight, o.completion, o.due) for o in outcomes if o.due is not None]
     lateness = [(w, c - d) for w, c, d in due_jobs]
     tardy = [(w, late) for w, late in lateness if late > 0]
@@ -244,18 +278,18 @@ def _rank_weighted_sum(
     candidates: Mapping[str, ObjectiveValues], spec: WeightedSum, reference: str | None
 ) -> list[str]:
     reference_values = candidates[reference] if reference is not None else None
-    scales = [_term_scale(term.kind, term.scale, reference_values) for term in spec.terms]
+    scales = [term_scale(term.kind, term.scale, reference_values) for term in spec.terms]
 
     def score(values: ObjectiveValues) -> float:
         return math.fsum(
-            term.weight * _signed(term.kind, values[term.kind]) / scale
+            term.weight * signed(term.kind, values[term.kind]) / scale
             for term, scale in zip(spec.terms, scales, strict=True)
         )
 
     return sorted(candidates, key=lambda cid: (score(candidates[cid]), cid))
 
 
-def _term_scale(
+def term_scale(
     kind: ObjectiveKind, scale: float | None, reference_values: ObjectiveValues | None
 ) -> float:
     if scale is not None:
@@ -281,19 +315,19 @@ def _rank_lexicographic(
     if not levels or len(group) <= 1:
         return group
     level, rest_levels = levels[0], levels[1:]
-    value = {cid: _signed(level.kind, candidates[cid][level.kind]) for cid in group}
+    value = {cid: signed(level.kind, candidates[cid][level.kind]) for cid in group}
     ordered: list[str] = []
     remaining = group
     while remaining:
         best = min(value[cid] for cid in remaining)
-        limit = best + _tolerance(level, best)
+        limit = best + level_tolerance(level, best)
         band = [cid for cid in remaining if value[cid] <= limit]
         remaining = [cid for cid in remaining if value[cid] > limit]
         ordered.extend(_rank_lexicographic(band, candidates, rest_levels))
     return ordered
 
 
-def _tolerance(level: LexicographicLevel, best: float) -> float:
+def level_tolerance(level: LexicographicLevel, best: float) -> float:
     if level.tolerance_kind == "relative":
         return level.tolerance * abs(best)
     return level.tolerance
@@ -307,9 +341,14 @@ def _rank_epsilon(candidates: Mapping[str, ObjectiveValues], spec: EpsilonConstr
 
     def key(cid: str) -> tuple[bool, float, str]:
         values = candidates[cid]
-        violation = math.fsum(max(0.0, values[b.kind] - b.upper) for b in spec.bounds)
+        violation = bound_violation(spec, values)
         if violation > 0:
             return (True, violation, cid)
-        return (False, _signed(spec.primary, values[spec.primary]), cid)
+        return (False, signed(spec.primary, values[spec.primary]), cid)
 
     return sorted(candidates, key=key)
+
+
+def bound_violation(spec: EpsilonConstraint, values: ObjectiveValues) -> float:
+    """Total violation: sum over bounds of max(0, value - upper), on raw values."""
+    return math.fsum(max(0.0, values[b.kind] - b.upper) for b in spec.bounds)

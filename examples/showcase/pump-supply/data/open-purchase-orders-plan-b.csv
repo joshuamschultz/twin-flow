@@ -1,0 +1,8 @@
+id,item_id,site_id,quantity,uom,available_at,supplier_id
+PO-7781,MTR-05,plant,40,each,2026-11-24T08:00:00-06:00,volt-motors-air
+PO-7790,MTR-20,plant,30,each,2026-11-27T08:00:00-06:00,volt-motors-air
+PO-7795,IMP-300,plant,30,each,2026-11-30T08:00:00-06:00,pacific-impeller
+PO-7802,HSG-300,plant,20,each,2026-11-24T08:00:00-06:00,midwest-foundry
+PO-7810,SEAL-KIT,plant,100,each,2026-11-23T08:00:00-06:00,lakeside-seals
+PO-7821,HSG-100,plant,20,each,2026-12-07T08:00:00-06:00,midwest-foundry
+PO-7822,IMP-100,plant,20,each,2026-12-09T08:00:00-06:00,pacific-impeller

@@ -1,5 +1,7 @@
 # Glossary
 
+![An open shelf cabinet with one small factory object in each cell](images/headers/glossary.webp)
+
 Every term twinflow uses, in one place. Links point to the doc that covers it in depth.
 
 **Adapter** — a plug-in surface where an external system attaches (ERP connector,

@@ -1,0 +1,23 @@
+# Ridgeline Precision: the twin capsule. It ties the shop file and the order book together,
+# and says how to run them. Open it with: twinflow scenario run ridgeline.twin.yaml
+schema_version: '0.1'
+required_capabilities:
+  - manufacturing.basic
+model: shop.yaml                          # machines, people, shifts, routings, money
+snapshot:
+  id: ridgeline-2026-11-16
+  as_of: '2026-11-16T06:00:00-06:00'      # the order book as of Monday 6 am
+  model_revision: '1'
+  production_plan: data/open-orders.csv   # the open work orders, exported from the ERP
+experiment:
+  id: ridgeline-two-weeks
+  replications: 5
+  seed: 11
+  state_capture:                          # write down the state of the shop every 8 hours
+    every_hours: 8
+assumptions:
+  - Cycle times are the shop's standards with a 15% spread.
+  - Raw stock is always on the rack.
+  - The valve-body mill and the bracket mill are separate machines.
+provenance:
+  source: Ridgeline Precision ERP export, Monday 2026-11-16 06:00

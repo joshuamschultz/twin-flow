@@ -158,7 +158,7 @@ def test_pinedo_7_1_1_baseline_plan_replays_exactly() -> None:
 
 @pytest.mark.skipif(not HAS_ORTOOLS, reason="ortools not installed")
 def test_pinedo_7_1_1_cpsat_plan_replays_exactly() -> None:
-    from twinflow.scheduling.cpsat import ORToolsSolver
+    from twinflow.scheduling.algorithms.cpsat import ORToolsSolver
 
     request = _pinedo_request()
 

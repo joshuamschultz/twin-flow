@@ -1,5 +1,7 @@
 # Architecture
 
+![Five thin layers stacked with gaps, with arrows pointing down from each layer to the next](images/headers/architecture.webp)
+
 For developers extending twinflow. If you only want to *use* it, you never need this
 page — config is the whole interface. This explains how the engine is built and the
 rules that keep it small and correct.

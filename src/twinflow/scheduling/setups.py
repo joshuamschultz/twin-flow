@@ -14,12 +14,14 @@ machine's function is its own ``setup_function_id``, else its work center's, els
 3. ``default_seconds``.
 
 A function with no terms is decided by steps 2 and 3 only (a pure family matrix).
-``SetupTable`` memoizes values by ids for solvers and local search (Pinedo p.458-461).
+``SetupTable`` memoizes values by ids for solvers and local search (Pinedo p.458-461);
+``cache_info()`` reports its hits, misses (computations) and size (T-146, REQ-111).
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import NamedTuple
 
 from twinflow.scheduling.model import (
     AbsDiffTerm,
@@ -95,6 +97,14 @@ def setup_seconds(function: SetupFunction | None, prev: SetupSide, nxt: Operatio
     return function.default_seconds
 
 
+class SetupCacheInfo(NamedTuple):
+    """Setup cache counters: lookups served from the cache, computations, cached triples."""
+
+    hits: int
+    misses: int
+    size: int
+
+
 class SetupTable:
     """Memoized setup seconds for one problem, keyed by ids (D-064, Pinedo p.458-461).
 
@@ -103,7 +113,7 @@ class SetupTable:
     values equal ``setup_seconds`` for the same inputs. Unknown ids raise KeyError.
     """
 
-    __slots__ = ("_cache", "_functions", "_operations", "_states")
+    __slots__ = ("_cache", "_functions", "_hits", "_misses", "_operations", "_states")
 
     def __init__(
         self,
@@ -115,6 +125,8 @@ class SetupTable:
         self._states = dict(states)
         self._operations = dict(operations)
         self._cache: dict[tuple[str, str | None, str], float] = {}
+        self._hits = 0
+        self._misses = 0
 
     @classmethod
     def for_problem(cls, problem: Problem) -> SetupTable:
@@ -135,12 +147,19 @@ class SetupTable:
         """The setup function resolved for the machine (None means setup is always 0)."""
         return self._functions[machine_id]
 
+    def cache_info(self) -> SetupCacheInfo:
+        """Hits, misses (each a computation, so misses == size) and cached triples."""
+        return SetupCacheInfo(self._hits, self._misses, len(self._cache))
+
     def seconds(self, machine_id: str, prev_id: str | None, next_id: str) -> float:
         """Setup seconds before ``next_id`` on the machine; ``prev_id`` None = machine state."""
         key = (machine_id, prev_id, next_id)
         cached = self._cache.get(key)
-        if cached is None:
-            prev = self._states[machine_id] if prev_id is None else self._operations[prev_id]
-            cached = setup_seconds(self._functions[machine_id], prev, self._operations[next_id])
-            self._cache[key] = cached
-        return cached
+        if cached is not None:
+            self._hits += 1
+            return cached
+        prev = self._states[machine_id] if prev_id is None else self._operations[prev_id]
+        value = setup_seconds(self._functions[machine_id], prev, self._operations[next_id])
+        self._cache[key] = value
+        self._misses += 1
+        return value

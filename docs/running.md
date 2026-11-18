@@ -1,5 +1,7 @@
 # Running a twin and reading the results
 
+![A small production line under a band of many overlapping curves](images/headers/running.webp)
+
 This guide takes you from a model file to answers you can act on. It assumes you have a
 `model.yaml` and a plan (see [modeling.md](modeling.md)). No prior twinflow knowledge is
 needed.

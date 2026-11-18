@@ -1,5 +1,7 @@
 # Race your policies
 
+![Five conveyor lanes side by side like a race track, each with one crate, and one crate in the lead](../images/headers/how-to-race-your-policies.webp)
+
 This guide runs every rule on the same random demand. Then it ranks the rules by how much money they make.
 
 ## What this does
@@ -77,6 +79,8 @@ It plays each rule in your `policies/` folder, plus the built-in rules, over man
 
 ## What "same random demand" means
 
+![A grid where each column is one run with one demand draw, and every rule in that column plays the same draw](../images/diagrams/same-demand-race.svg)
+
 Every rule gets the same customer orders in each run. The race draws the random demand once for each run number. Then every rule plays that same set of draws. So if one rule wins, it won on the same orders as the others. It did not get lucky orders.
 
 Change `--seed` to get a different set of draws. Do not pick a seed to make one rule win.
@@ -100,7 +104,7 @@ Read the warning before you pick a winner. A rule that wins on score can still l
 ## If something goes wrong
 
 - **"The model domain is None"**: The folder is not a make-to-stock plant or a custom engine. A job shop does not race. Use `twinflow run` for a job shop. See [test orders](test-orders.md).
-- **"Skipped policies"**: A rule crashed, so the race left it out. The message names the file and the line. Fix that line. A built-in rule can be skipped in a custom engine, because it needs products the engine does not have.
+- **"Skipped policies"**: A rule crashed, so the race left it out. The message names the file and the line. Fix that line. In a custom engine the built-in rules do not race at all: they are written for make-to-stock twins, so only the files in `policies/` run.
 - **"internal error" and exit code 2**: A setting in the plant file names a reward, view, feature or demand that does not exist. Run `twinflow extensions check my-plant` to find the name.
 - **A rule you wrote is not in the ranking**: Run `twinflow policies list my-plant`. If the rule is not there, check that the file is in `policies/` and that `decide` is spelled correctly.
 

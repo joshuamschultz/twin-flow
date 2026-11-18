@@ -1,5 +1,7 @@
 # REST API
 
+![A hub cube with small packets travelling both ways between it and three panels](images/headers/api.webp)
+
 An optional local service (`twinflow.service`) the front end drives. It never lets a
 request read a file outside the models root: `model` in every request names a
 discovered example, never a free path.

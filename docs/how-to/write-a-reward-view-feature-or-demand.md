@@ -1,5 +1,7 @@
 # Write a reward, view, feature or demand
 
+![A small factory with a rack of four instrument modules beside it](../images/headers/how-to-write-a-reward-view-feature-or-demand.webp)
+
 This guide shows the other kinds of files you can add to a plant. For policy files, see [write a policy](write-a-policy.md).
 
 ## What this does
@@ -19,6 +21,8 @@ It shows one short example of each kind, and the setting in the plant file that 
 | Feature | `features/` | `features(state)` | `experiment.features` |
 | Demand | `demand/` | `demand(period, rng, model)` | `experiment.demand` |
 | Observation | `observations/` | `observe(state)` | `experiment.observation` |
+
+![Six drop-in folders: policies, rewards, views, features, demand and observations, with the function each file holds and the setting that picks it](../images/diagrams/drop-in-folders.svg)
 
 ## Steps
 

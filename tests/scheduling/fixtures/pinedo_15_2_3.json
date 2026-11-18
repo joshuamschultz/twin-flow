@@ -1,0 +1,218 @@
+{
+  "schema_version": "2.0",
+  "problem": {
+    "id": "pinedo-15.2.3",
+    "jobs": [
+      {
+        "id": "1",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 1e-06,
+        "due": 22.0,
+        "operations": [
+          {
+            "id": "1-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 7.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 1.0,
+        "due": 24.0,
+        "operations": [
+          {
+            "id": "2-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 6.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 1.0,
+        "due": 24.0,
+        "operations": [
+          {
+            "id": "3-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 7.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 2.0,
+        "due": 25.0,
+        "operations": [
+          {
+            "id": "4-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 6.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 1.0,
+        "due": 33.0,
+        "operations": [
+          {
+            "id": "5-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 5.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 1.0,
+        "due": 51.0,
+        "operations": [
+          {
+            "id": "6-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 5.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 2.0,
+        "due": 52.0,
+        "operations": [
+          {
+            "id": "7-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 8.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 1.0,
+        "due": 52.0,
+        "operations": [
+          {
+            "id": "8-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 9.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 15.2.3, p.402 (time-based decomposition, 1 || sum w_j T_j); p and d as in Example 15.2.2, p.401. The book gives job 1 weight 0; the model needs a weight > 0, so job 1 has weight 1e-06. The book optimum 0 (job 1 last, C1 = 57) becomes 35 * 1e-06; every other job is on time.",
+        "weight_override": 4.0,
+        "due": 55.0,
+        "operations": [
+          {
+            "id": "9-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 4.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "machines": [
+      {
+        "id": "M1",
+        "work_center_id": "WC-M1"
+      }
+    ],
+    "work_centers": [
+      {
+        "id": "WC-M1"
+      }
+    ]
+  },
+  "profile": {
+    "objective": {
+      "mode": "lexicographic",
+      "levels": [
+        {
+          "kind": "weighted_tardiness"
+        }
+      ]
+    }
+  }
+}

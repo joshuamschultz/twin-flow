@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 584" width="800" height="584" role="img" aria-labelledby="title desc">
+  <title id="title">A state, a move, and the Markov map</title>
+  <desc id="desc">Three parts. One: a state is a label for one day, such as grey:ok black:low natural:ok | grey. The first part is the stock level of each family and the last part is what the press is set up for. Two: a move is one step from one state to the next, one day later. Three: the Markov map counts every move. Each state shows its share of days and each arrow shows the chance of that move. A state the plant stays in at least half the time is sticky.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #fdf1e4; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="583" rx="4"/>
+
+  <text class="h" x="36" y="44">A state, a move, and the Markov map</text>
+  <text class="sub" x="36" y="66">Example numbers. Your own map comes from your own run.</text>
+
+  <text class="t" x="36" y="102">1. A state is a short label for one day</text>
+  <rect class="card" x="36" y="114" width="728" height="96" rx="4"/>
+  <text x="64" y="150" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="500" fill="#002550" xml:space="preserve">grey:ok   black:low   natural:ok</text>
+  <text x="412" y="150" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="500" fill="#8fa6c4">|</text>
+  <text x="452" y="150" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#0055bc">grey</text>
+  <path class="line" d="M64 162 V170 H384 V162"/>
+  <path class="line" d="M452 162 V170 H492 V162"/>
+  <text class="m" x="64" y="192">The stock level of each family</text>
+  <text class="m" x="452" y="192">What the press is set up for</text>
+
+  <text class="t" x="36" y="246">2. A move is one step from one day to the next</text>
+  <rect class="tint" x="36" y="258" width="290" height="40" rx="4"/>
+  <text class="code" x="50" y="283">grey:ok black:low natural:ok | grey</text>
+  <path class="line" d="M334 278 H464" marker-end="url(#arrow)"/>
+  <text class="m" x="400" y="270" text-anchor="middle">one day later</text>
+  <rect class="tint" x="474" y="258" width="290" height="40" rx="4"/>
+  <text class="code" x="488" y="283">grey:ok black:ok natural:ok | black</text>
+
+  <text class="t" x="36" y="334">3. The Markov map counts every move in the run</text>
+  <rect class="card" x="36" y="346" width="728" height="216" rx="4"/>
+
+  <path class="line" d="M92 408 C52 360 148 360 126 404" marker-end="url(#arrow)"/>
+  <text class="num" x="150" y="376">0.55 stays</text>
+  <path class="line" d="M166 440 L302 412" marker-end="url(#arrow)"/>
+  <text class="num" x="216" y="418">0.30</text>
+  <path class="line" d="M342 444 L342 474" marker-end="url(#arrow)"/>
+  <text class="num" x="352" y="466">0.40</text>
+  <path class="line" d="M304 508 L162 472" marker-end="url(#arrow)"/>
+  <text class="num" x="214" y="510">0.70</text>
+
+  <circle cx="114" cy="452" r="50" fill="#d6e6ff" stroke="#0073fe" stroke-width="2"/>
+  <text class="t" x="114" y="449" text-anchor="middle">State A</text>
+  <text class="num" x="114" y="468" text-anchor="middle">45% of days</text>
+  <circle cx="342" cy="404" r="38" fill="#eef4ff" stroke="#5a9cff" stroke-width="1.5"/>
+  <text class="t" x="342" y="402" text-anchor="middle" style="font-size: 13px">State B</text>
+  <text class="num" x="342" y="419" text-anchor="middle">30%</text>
+  <circle cx="342" cy="514" r="38" fill="#eef4ff" stroke="#5a9cff" stroke-width="1.5"/>
+  <text class="t" x="342" y="512" text-anchor="middle" style="font-size: 13px">State C</text>
+  <text class="num" x="342" y="529" text-anchor="middle">25%</text>
+
+  <path class="axis" d="M430 366 V542"/>
+  <text class="t" x="452" y="388">How to read it</text>
+  <text class="b" x="452" y="416">Percent: the share of days the plant</text>
+  <text class="b" x="452" y="434">spends in that state.</text>
+  <text class="b" x="452" y="462">Number on an arrow: the chance of</text>
+  <text class="b" x="452" y="480">that move. 0.30 means 30%.</text>
+  <text class="b" x="452" y="508">Sticky state: the plant stays in it at</text>
+  <text class="b" x="452" y="526">least half the time. State A is sticky.</text>
+</svg>

@@ -1,0 +1,217 @@
+{
+  "schema_version": "2.0",
+  "problem": {
+    "id": "pinedo-7.3.1",
+    "jobs": [
+      {
+        "id": "1",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 7.3.1, p.200-203 (J3 || sum w_j T_j, shifting bottleneck).",
+        "weight_override": 1.0,
+        "release": 5.0,
+        "due": 24.0,
+        "operations": [
+          {
+            "id": "1-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 5.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          },
+          {
+            "id": "1-2",
+            "work_center_id": "WC-M2",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M2",
+                "fixed_seconds": 10.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "predecessors": [
+              {
+                "operation_id": "1-1"
+              }
+            ]
+          },
+          {
+            "id": "1-3",
+            "work_center_id": "WC-M3",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M3",
+                "fixed_seconds": 4.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "predecessors": [
+              {
+                "operation_id": "1-2"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 7.3.1, p.200-203 (J3 || sum w_j T_j, shifting bottleneck).",
+        "weight_override": 2.0,
+        "release": 0.0,
+        "due": 18.0,
+        "operations": [
+          {
+            "id": "2-1",
+            "work_center_id": "WC-M3",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M3",
+                "fixed_seconds": 4.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          },
+          {
+            "id": "2-2",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 5.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "predecessors": [
+              {
+                "operation_id": "2-1"
+              }
+            ]
+          },
+          {
+            "id": "2-3",
+            "work_center_id": "WC-M2",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M2",
+                "fixed_seconds": 6.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "predecessors": [
+              {
+                "operation_id": "2-2"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 7.3.1, p.200-203 (J3 || sum w_j T_j, shifting bottleneck).",
+        "weight_override": 2.0,
+        "release": 0.0,
+        "due": 16.0,
+        "operations": [
+          {
+            "id": "3-1",
+            "work_center_id": "WC-M3",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M3",
+                "fixed_seconds": 5.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          },
+          {
+            "id": "3-2",
+            "work_center_id": "WC-M2",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M2",
+                "fixed_seconds": 3.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "predecessors": [
+              {
+                "operation_id": "3-1"
+              }
+            ]
+          },
+          {
+            "id": "3-3",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 7.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ],
+            "predecessors": [
+              {
+                "operation_id": "3-2"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "machines": [
+      {
+        "id": "M1",
+        "work_center_id": "WC-M1"
+      },
+      {
+        "id": "M2",
+        "work_center_id": "WC-M2"
+      },
+      {
+        "id": "M3",
+        "work_center_id": "WC-M3"
+      }
+    ],
+    "work_centers": [
+      {
+        "id": "WC-M1"
+      },
+      {
+        "id": "WC-M2"
+      },
+      {
+        "id": "WC-M3"
+      }
+    ]
+  },
+  "profile": {
+    "objective": {
+      "mode": "lexicographic",
+      "levels": [
+        {
+          "kind": "weighted_tardiness"
+        }
+      ]
+    }
+  }
+}
