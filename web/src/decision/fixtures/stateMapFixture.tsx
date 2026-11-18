@@ -1,11 +1,13 @@
 // Fixtures page for the state map and money leaks (browser tests and screenshots).
 // The test puts a race view model on window.__TF_FIXTURE__ before the page loads.
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "../../index.css";
 import "../tokens.css";
 import "../fonts/fonts.css";
 import "../decision.css";
+import { LeakList } from "../LeakList";
+import { revealState } from "../StateMapChart";
 import { raceChains, StateMapCard } from "../StateMapCard";
 import type { RaceViewModel, StateNode } from "../types";
 
@@ -36,25 +38,49 @@ const GRID_EDGES = [
 
 function RaceFixture({ m }: { m: RaceViewModel }) {
   const chains = raceChains(m);
+  const pick = m.recommendation.policy ?? chains[0]?.id;
   const [chainId, setChainId] = useState(chains[0]?.id);
   const [selected, setSelected] = useState<string | null>(null);
+  const mapRef = useRef<HTMLElement>(null);
+  const showState = (id: string) => {
+    setChainId(pick);
+    setSelected(id);
+    requestAnimationFrame(() => revealState(mapRef.current, id));
+  };
   return (
-    <section data-fixture="statemap" style={{ marginBottom: 40 }}>
-      <StateMapCard
-        chains={chains}
-        horizon={m.about.horizon_days}
-        runs={m.about.episodes}
-        levels={m.views.levels}
-        families={m.families}
-        chainId={chainId}
-        onChainChange={(id) => {
-          setChainId(id);
-          setSelected(null);
-        }}
-        selected={selected}
-        onSelect={setSelected}
-      />
-    </section>
+    <>
+      <section
+        data-fixture="statemap"
+        ref={mapRef}
+        style={{ marginBottom: 40 }}
+      >
+        <StateMapCard
+          chains={chains}
+          horizon={m.about.horizon_days}
+          runs={m.about.episodes}
+          levels={m.views.levels}
+          families={m.families}
+          chainId={chainId}
+          onChainChange={(id) => {
+            setChainId(id);
+            setSelected(null);
+          }}
+          selected={selected}
+          onSelect={setSelected}
+        />
+      </section>
+      <section
+        data-fixture="leaks"
+        className="tf-sm-card"
+        style={{ marginBottom: 40 }}
+      >
+        <LeakList
+          leaks={(pick && m.leaks[pick]) || []}
+          levels={m.views.levels}
+          onSelectState={showState}
+        />
+      </section>
+    </>
   );
 }
 

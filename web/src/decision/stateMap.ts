@@ -76,6 +76,18 @@ export function stateWords(
   return { title: cap(groups.join(", ")), setup };
 }
 
+/** Reads "grey:ok black:high | natural" back into levels and setup. Null if it is not that shape. */
+export function partsFromLabel(label: string): PartsOfLabel {
+  const [stock, setup] = label.split(" | ");
+  const pairs = stock.trim().split(/\s+/).filter(Boolean);
+  if (!pairs.length || !pairs.every((p) => /^[^:]+:[^:]+$/.test(p)))
+    return null;
+  return {
+    levels: Object.fromEntries(pairs.map((p) => p.split(":"))),
+    setup: setup?.trim() || null,
+  };
+}
+
 /** Words for a node: from its parts, else the words Python sent, else the raw label. */
 export function nodeWords(
   node: StateNode,
