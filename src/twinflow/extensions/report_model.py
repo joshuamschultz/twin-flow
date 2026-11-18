@@ -1119,6 +1119,11 @@ def _what_if() -> dict[str, Any]:
     }
 
 
+def economics_of(project: Project) -> dict[str, Any]:
+    """Changeover costs and rates of the project (R14), for the project view."""
+    return _economics(project)
+
+
 def stat_json(item: Stat | None) -> dict[str, Any] | None:
     """A `Stat` as the view-model shape (rounded for people)."""
     return _stat(item)
@@ -1143,6 +1148,7 @@ __all__ = [
     "KEYS",
     "SCHEMA_VERSION",
     "confidence_between",
+    "economics_of",
     "floor_between",
     "horizon_check",
     "label",

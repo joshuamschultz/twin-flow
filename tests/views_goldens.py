@@ -24,6 +24,9 @@ SHOP = ROOT / "examples" / "cnc-shop" / "cnc-shop.twin.yaml"
 
 def write(name: str, model: dict[str, Any]) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    folder = model.get("about", {}).get("folder")
+    if folder:  # keep the scratch path out of the fixture
+        model["about"]["folder"] = Path(folder).name
     model["generated_at"] = "2026-11-18T09:00:00+00:00"
     (OUT / name).write_text(json.dumps(model, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {OUT / name}")
@@ -79,6 +82,32 @@ def improve() -> None:
     behind = paired(second.episode_score, first.episode_score, 0.95)
     lost = t._proof(result, second.policy, behind, False)
     write("improve.lost.json", improve_view_model(lost, result))
+
+
+def project() -> None:
+    import shutil
+
+    from twinflow.extensions.project import Project
+    from twinflow.extensions.project_model import project_view_model
+
+    bad = "NAME = 'my_rule'\n\n\ndef decide(state):\n    return 'GRY-X'\n"
+    with tempfile.TemporaryDirectory() as scratch:
+        folder = Path(scratch) / "molding-press"
+        shutil.copytree(ROOT / "examples" / "molding-press", folder)
+        run = folder / "runs" / "improve-20261117T080000Z"
+        run.mkdir(parents=True)
+        (run / "improve.json").write_text(json.dumps({
+            "promoted": True, "candidate": {"name": "family_campaign"},
+            "previous_best": {"name": "lowest_stock_first"},
+            "written_at": "2026-11-17T08:00:00+00:00",
+        }))  # fmt: skip
+        (run / "improve.html").write_text("<html></html>")
+        write("project.ready.json", project_view_model(Project.open(folder)))
+        (folder / "policies" / "my_rule.py").write_text(bad)
+        write("project.broken.json", project_view_model(Project.open(folder)))
+        shutil.rmtree(folder / "policies")
+        shutil.rmtree(folder / "runs")
+        write("project.empty.json", project_view_model(Project.open(folder)))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,11 @@
 import { StatesView } from "../decision/states/StatesView";
 import { ImproveView } from "../decision/improve/ImproveView";
-import type { ImproveViewModel, StatesViewModel } from "../decision/types";
+import { ProjectView } from "../decision/project/ProjectView";
+import type {
+  ImproveViewModel,
+  ProjectViewModel,
+  StatesViewModel,
+} from "../decision/types";
 
 // Picks the view from the inlined view model (DESIGN.md 11.2).
 export type AnyViewModel = { view?: string; [key: string]: unknown };
@@ -28,6 +33,8 @@ export function ReportApp({ model }: { model: AnyViewModel | null }) {
     return <StatesView model={model as unknown as StatesViewModel} />;
   if (view === "improve")
     return <ImproveView model={model as unknown as ImproveViewModel} />;
+  if (view === "project")
+    return <ProjectView model={model as unknown as ProjectViewModel} />;
   return (
     <main className="tf-root tf-wrap" data-view={view}>
       <h1>{view === "race" ? "Policy race" : view}</h1>

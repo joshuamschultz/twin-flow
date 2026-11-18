@@ -143,6 +143,95 @@ export interface ImproveProblem {
   fix: string;
 }
 
+/**
+ * The project view model (docs/design/DATA-CONTRACT.md section 5). Built by twinflow.extensions.project_model.project_view_model.
+ */
+export interface ProjectViewModel {
+  view: "project";
+  schema_version: 1;
+  generated_at?: string;
+  twinflow_version?: string;
+  about: {
+    title: string;
+    project: string;
+    folder: string;
+    capsule: string;
+    domain: string;
+    summary: string;
+  };
+  status: {
+    level: "ready" | "needs_fixes" | "broken";
+    headline: string;
+    errors: number;
+    warnings: number;
+  };
+  twin: {
+    lines: {
+      id: string;
+      label: string;
+    }[];
+    products: number;
+    families: {
+      name: string;
+      products: number;
+    }[];
+    horizon: {
+      value: number;
+      unit: string;
+    };
+    costs: {
+      label: string;
+      value: string;
+    }[];
+    assumptions: string[];
+    provenance: string | null;
+  };
+  rules: {
+    policy: string;
+    label: string;
+    about: string;
+    source: "project" | "builtin";
+    file: string | null;
+    is_baseline: boolean;
+    settings_tried: number;
+    ok: boolean;
+  }[];
+  rules_note?: string | null;
+  score: {
+    name: string;
+    is_dollars: boolean;
+    file: string | null;
+  };
+  views: {
+    name: string;
+    kind: "state_view" | "observation";
+    about: string;
+  }[];
+  extensions: {
+    kind: string;
+    name: string;
+    file: string | null;
+    ok: boolean;
+  }[];
+  problems: {
+    severity: "error" | "warning";
+    where: string;
+    line?: number | null;
+    message: string;
+    fix: string;
+  }[];
+  recent: {
+    view: "race" | "run" | "improve";
+    id: string;
+    when: string;
+    sentence: string;
+    href?: string | null;
+  }[];
+  agent_summary: string[];
+  warnings?: string[];
+  [k: string]: unknown;
+}
+
 export type Baseline = {
   policy: string;
   label: string;
