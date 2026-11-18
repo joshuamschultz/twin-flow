@@ -10,10 +10,11 @@ from __future__ import annotations
 import argparse
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from twinflow.cli._common import UserError, guarded, open_project, race_settings, staged_project
 from twinflow.extensions.checker import check_project
+from twinflow.extensions.loader import Problem
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import PolicyResult, RaceResult, Stat, race
 from twinflow.extensions.report import write_race_report
@@ -57,9 +58,25 @@ def _table(columns: tuple[str, ...], rows: list[list[str]]) -> list[str]:
     ]
 
 
+def _policy_problems(project: Project) -> list[Problem]:
+    """The problems `policies check` reports: load problems and the sample-run checks."""
+    from twinflow.extensions.kinds import KINDS
+
+    others = set(KINDS) - {"policy"}
+    return [p for p in check_project(project) if p.kind not in others]
+
+
+def _problem_count(problems: list[Problem], entry: dict[str, Any]) -> int:
+    file = Path(entry["file"])
+    return sum(
+        1 for p in problems if p.file == file or (p.file is None and p.name == entry["name"])
+    )
+
+
 def _handle_list(args: argparse.Namespace) -> int:
     project = open_project(args.project)
     entries = [e for e in project.extensions.listing() if e["kind"] == "policy"]
+    problems = _policy_problems(project)
     rows = []
     for entry in entries:
         found = project.extensions.names("policy")
@@ -70,7 +87,7 @@ def _handle_list(args: argparse.Namespace) -> int:
                 "builtin" if entry["source"] == "builtin" else "project",
                 ext.decision if ext is not None else "-",
                 ", ".join(ext.grid) if ext is not None and ext.grid else "-",
-                str(len(entry["problems"])),
+                str(_problem_count(problems, entry)),
             ]
         )
     for line in _table(_LIST_COLUMNS, rows):
@@ -79,10 +96,7 @@ def _handle_list(args: argparse.Namespace) -> int:
 
 
 def _handle_check(args: argparse.Namespace) -> int:
-    from twinflow.extensions.kinds import KINDS
-
-    others = set(KINDS) - {"policy"}
-    problems = [p for p in check_project(open_project(args.project)) if p.kind not in others]
+    problems = _policy_problems(open_project(args.project))
     if not problems:
         print("No problems found.")
         return 0
@@ -146,6 +160,12 @@ def _handle_race(args: argparse.Namespace) -> int:
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         out = Path(args.out) if args.out else original / "runs" / f"race-{stamp}"
         print(f"Racing on {settings.episodes} runs per policy (seed {settings.seed}).", flush=True)
+        if project.engine_extension is not None:
+            print(
+                "Built-in rules are left out: they are written for make-to-stock twins. "
+                "Only the files in policies/ race.",
+                flush=True,
+            )
         result = race(
             project,
             settings=settings,
