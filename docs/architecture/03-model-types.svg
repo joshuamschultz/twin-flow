@@ -1,115 +1,115 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1009" viewBox="0 0 1200 1009" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif">
 <title>Twinflow: model types</title>
-<rect x="0" y="0" width="1200" height="1009" fill="#f3f4f2"/>
-<text x="36.0" y="46.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#1f5f8b" text-anchor="start" letter-spacing="1"><tspan x="36.0" y="46.0">twinflow · proposed architecture · draft</tspan></text>
-<text x="36.0" y="88.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="32" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="36.0" y="88.0">Model types</tspan></text>
-<text x="36.0" y="118.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5d6670" text-anchor="start"><tspan x="36.0" y="118.0">Each model is a different way to run the same twin. Every model writes the same state record.</tspan></text>
-<rect x="36.0" y="142.0" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
-<text x="56.0" y="154.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="56.0" y="154.8">Have</tspan></text>
-<text x="84.0" y="155.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="84.0" y="155.0">built today</tspan></text>
-<rect x="188.1" y="142.0" width="53.1" height="18.0" rx="4" fill="#fbf0d9"/>
-<text x="214.7" y="154.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#a26a00" text-anchor="middle" font-weight="600"><tspan x="214.7" y="154.8">Extend</tspan></text>
-<text x="249.2" y="155.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="249.2" y="155.0">exists, needs more</tspan></text>
-<rect x="404.2" y="142.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="421.0" y="154.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="421.0" y="154.8">New</tspan></text>
-<text x="445.8" y="155.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="445.8" y="155.0">to build</tspan></text>
-<rect x="36.0" y="186.0" width="366.7" height="99.1" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="351.6" y="195.0" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
-<text x="371.6" y="207.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="371.6" y="207.8">Have</tspan></text>
-<text x="47.0" y="211.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="47.0" y="211.0">Discrete event</tspan></text>
-<text x="47.0" y="233.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="47.0" y="233.5">Each job and event at its exact time. Use for</tspan><tspan x="47.0" dy="18.2">order dates, waits and bottlenecks.</tspan></text>
-<rect x="416.7" y="186.0" width="366.7" height="99.1" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="738.8" y="195.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="755.6" y="207.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="755.6" y="207.8">New</tspan></text>
-<text x="427.7" y="211.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="427.7" y="211.0">Discrete time (step)</tspan></text>
-<text x="427.7" y="233.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="427.7" y="233.5">The plant moves one shift or day at a time.</tspan><tspan x="427.7" dy="18.2">Simple and fast.</tspan></text>
-<rect x="797.3" y="186.0" width="366.7" height="99.1" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="1119.5" y="195.0" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="1136.2" y="207.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="1136.2" y="207.8">New</tspan></text>
-<text x="808.3" y="211.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="808.3" y="211.0">Markov chain</tspan></text>
-<text x="808.3" y="233.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="808.3" y="233.5">The odds of going from one state to the next</tspan><tspan x="808.3" dy="18.2">under one fixed policy. Shows where the plant</tspan><tspan x="808.3" dy="18.2">gets stuck.</tspan></text>
-<rect x="36.0" y="299.1" width="366.7" height="99.1" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="358.1" y="308.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="374.9" y="320.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="374.9" y="320.9">New</tspan></text>
-<text x="47.0" y="324.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="47.0" y="324.1">Markov decision process (MDP)</tspan></text>
-<text x="47.0" y="346.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="47.0" y="346.6">A Markov chain plus decisions and dollars. This</tspan><tspan x="47.0" dy="18.2">is the base for policies and RL.</tspan></text>
-<rect x="416.7" y="299.1" width="366.7" height="99.1" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="738.8" y="308.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="755.6" y="320.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="755.6" y="320.9">New</tspan></text>
-<text x="427.7" y="324.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="427.7" y="324.1">Hidden Markov</tspan></text>
-<text x="427.7" y="346.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="427.7" y="346.6">The true state is hidden, for example machine</tspan><tspan x="427.7" dy="18.2">wear. It is estimated from signals such as</tspan><tspan x="427.7" dy="18.2">scrap and cycle time.</tspan></text>
-<rect x="797.3" y="299.1" width="366.7" height="99.1" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="1119.5" y="308.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="1136.2" y="320.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="1136.2" y="320.9">New</tspan></text>
-<text x="808.3" y="324.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="808.3" y="324.1">Continuous flow</tspan></text>
-<text x="808.3" y="346.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="808.3" y="346.6">Material moves as rates, like water in pipes.</tspan><tspan x="808.3" dy="18.2">Use for fast big-picture what-ifs.</tspan></text>
-<rect x="36.0" y="412.2" width="366.7" height="80.9" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="358.1" y="421.2" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="374.9" y="434.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="374.9" y="434.0">New</tspan></text>
-<text x="47.0" y="437.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="47.0" y="437.2">Queueing (quick math)</tspan></text>
-<text x="47.0" y="459.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="47.0" y="459.7">Answers in a second from formulas. A sanity</tspan><tspan x="47.0" dy="18.2">check before long runs.</tspan></text>
-<rect x="416.7" y="412.2" width="366.7" height="80.9" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="732.3" y="421.2" width="40.0" height="18.0" rx="4" fill="#e4f2ea"/>
-<text x="752.3" y="434.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#2e7d4f" text-anchor="middle" font-weight="600"><tspan x="752.3" y="434.0">Have</tspan></text>
-<text x="427.7" y="437.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="427.7" y="437.2">Optimization (schedule)</tspan></text>
-<text x="427.7" y="459.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="427.7" y="459.7">Finds the best plan for a fixed set of orders.</tspan></text>
-<rect x="797.3" y="412.2" width="366.7" height="80.9" rx="6" fill="#f3f4f2" stroke="#d5d9dc" stroke-width="1"/>
-<rect x="1119.5" y="421.2" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="1136.2" y="434.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="1136.2" y="434.0">New</tspan></text>
-<text x="808.3" y="437.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="808.3" y="437.2">Agent-based</tspan></text>
-<text x="808.3" y="459.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#5d6670" text-anchor="start"><tspan x="808.3" y="459.7">Each supplier, buyer or worker has its own</tspan><tspan x="808.3" dy="18.2">rules. Use for networks. Later phase.</tspan></text>
-<rect x="36.0" y="529.1" width="1128.0" height="440.0" rx="10" fill="#ffffff" stroke="#d5d9dc" stroke-width="1"/>
-<text x="60.0" y="565.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="18" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="60.0" y="565.1">Markov models at a glance</tspan></text>
-<rect x="60.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f3f4f2" stroke="#1f5f8b" stroke-width="1.5"/>
-<text x="72.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="72.0" y="615.1">Step model</tspan></text>
-<text x="72.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="72.0" y="633.1">runs the plant</tspan></text>
-<rect x="72.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="88.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="88.8" y="689.9">New</tspan></text>
-<rect x="292.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f3f4f2" stroke="#1f5f8b" stroke-width="1.5"/>
-<text x="304.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="304.0" y="615.1">Moves</tspan></text>
-<text x="304.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="304.0" y="633.1">state before,</tspan><tspan x="304.0" dy="15.0">action, state after</tspan></text>
-<rect x="304.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="320.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="320.8" y="689.9">New</tspan></text>
-<rect x="524.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f3f4f2" stroke="#1f5f8b" stroke-width="1.5"/>
-<text x="536.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="536.0" y="615.1">Markov chain</tspan></text>
-<text x="536.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="536.0" y="633.1">odds of moving</tspan><tspan x="536.0" dy="15.0">state to state</tspan></text>
-<rect x="536.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="552.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="552.8" y="689.9">New</tspan></text>
-<rect x="756.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f3f4f2" stroke="#1f5f8b" stroke-width="1.5"/>
-<text x="768.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="768.0" y="615.1">MDP</tspan></text>
-<text x="768.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="768.0" y="633.1">chain plus</tspan><tspan x="768.0" dy="15.0">decisions and</tspan><tspan x="768.0" dy="15.0">dollars</tspan></text>
-<rect x="768.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="784.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="784.8" y="689.9">New</tspan></text>
-<rect x="988.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f3f4f2" stroke="#1f5f8b" stroke-width="1.5"/>
-<text x="1000.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="1000.0" y="615.1">RL</tspan></text>
-<text x="1000.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="1000.0" y="633.1">learns from the MDP</tspan></text>
-<rect x="1000.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="1016.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="1016.8" y="689.9">New</tspan></text>
-<line x1="214.0" y1="647.1" x2="281.0" y2="647.1" stroke="#1f5f8b" stroke-width="2" fill="none"/>
-<polygon points="280.0,642.1 280.0,652.1 288.0,647.1" fill="#1f5f8b"/>
-<text x="251.0" y="639.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="middle"><tspan x="251.0" y="639.1">records</tspan></text>
-<line x1="446.0" y1="647.1" x2="513.0" y2="647.1" stroke="#1f5f8b" stroke-width="2" fill="none"/>
-<polygon points="512.0,642.1 512.0,652.1 520.0,647.1" fill="#1f5f8b"/>
-<text x="483.0" y="625.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="middle"><tspan x="483.0" y="625.1">measured</tspan><tspan x="483.0" dy="14.0">into</tspan></text>
-<line x1="678.0" y1="647.1" x2="745.0" y2="647.1" stroke="#1f5f8b" stroke-width="2" fill="none"/>
-<polygon points="744.0,642.1 744.0,652.1 752.0,647.1" fill="#1f5f8b"/>
-<text x="715.0" y="625.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="middle"><tspan x="715.0" y="625.1">+ decisions</tspan><tspan x="715.0" dy="14.0">&amp; dollars</tspan></text>
-<line x1="910.0" y1="647.1" x2="977.0" y2="647.1" stroke="#1f5f8b" stroke-width="2" fill="none"/>
-<polygon points="976.0,642.1 976.0,652.1 984.0,647.1" fill="#1f5f8b"/>
-<text x="947.0" y="639.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="middle"><tspan x="947.0" y="639.1">learned by</tspan></text>
-<rect x="292.0" y="773.1" width="150.0" height="112.0" rx="8" fill="#f3f4f2" stroke="#1f5f8b" stroke-width="1.5"/>
-<text x="304.0" y="797.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="304.0" y="797.1">Signals</tspan></text>
-<text x="304.0" y="815.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="304.0" y="815.1">scrap, cycle time</tspan></text>
-<rect x="524.0" y="773.1" width="150.0" height="112.0" rx="8" fill="#f3f4f2" stroke="#1f5f8b" stroke-width="1.5"/>
-<text x="536.0" y="797.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#1b2128" text-anchor="start" font-weight="600"><tspan x="536.0" y="797.1">Hidden Markov</tspan></text>
-<text x="536.0" y="815.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="start"><tspan x="536.0" y="815.1">estimates the true</tspan><tspan x="536.0" dy="15.0">state, for example</tspan><tspan x="536.0" dy="15.0">machine wear</tspan></text>
-<rect x="536.0" y="859.1" width="33.5" height="18.0" rx="4" fill="#efe8fa"/>
-<text x="552.8" y="871.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#6a3fb5" text-anchor="middle" font-weight="600"><tspan x="552.8" y="871.9">New</tspan></text>
-<line x1="446.0" y1="829.1" x2="513.0" y2="829.1" stroke="#1f5f8b" stroke-width="2" fill="none"/>
-<polygon points="512.0,824.1 512.0,834.1 520.0,829.1" fill="#1f5f8b"/>
-<text x="483.0" y="821.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6670" text-anchor="middle"><tspan x="483.0" y="821.1">signals in</tspan></text>
-<line x1="599.0" y1="769.1" x2="599.0" y2="700.1" stroke="#1f5f8b" stroke-width="2" fill="none" stroke-dasharray="5 3"/>
-<polygon points="594.0,699.1 604.0,699.1 599.0,707.1" fill="#1f5f8b"/>
-<text x="611.0" y="742.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#5d6670" text-anchor="start"><tspan x="611.0" y="742.1">guesses states you cannot see</tspan></text>
-<text x="60.0" y="919.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#1b2128" text-anchor="start"><tspan x="60.0" y="919.1">How the Markov models fit together: the step model runs the plant. The Markov chain is measured from the moves it records. Add decisions</tspan><tspan x="60.0" dy="20.0">and dollars and you get the MDP, which RL learns from. A hidden Markov model guesses states you cannot see.</tspan></text>
+<rect x="0" y="0" width="1200" height="1009" fill="#f6f8fb"/>
+<text x="36.0" y="46.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#0055bc" text-anchor="start" letter-spacing="1"><tspan x="36.0" y="46.0">twinflow · proposed architecture · draft</tspan></text>
+<text x="36.0" y="88.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="32" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="36.0" y="88.0">Model types</tspan></text>
+<text x="36.0" y="118.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15.5" fill="#54585c" text-anchor="start"><tspan x="36.0" y="118.0">Each model is a different way to run the same twin. Every model writes the same state record.</tspan></text>
+<rect x="36.0" y="142.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
+<text x="56.0" y="154.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="56.0" y="154.8">Have</tspan></text>
+<text x="84.0" y="155.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="84.0" y="155.0">built today</tspan></text>
+<rect x="188.1" y="142.0" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<text x="214.7" y="154.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="214.7" y="154.8">Extend</tspan></text>
+<text x="249.2" y="155.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="249.2" y="155.0">exists, needs more</tspan></text>
+<rect x="404.2" y="142.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="421.0" y="154.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="421.0" y="154.8">New</tspan></text>
+<text x="445.8" y="155.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="445.8" y="155.0">to build</tspan></text>
+<rect x="36.0" y="186.0" width="366.7" height="99.1" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="351.6" y="195.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
+<text x="371.6" y="207.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="371.6" y="207.8">Have</tspan></text>
+<text x="47.0" y="211.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="47.0" y="211.0">Discrete event</tspan></text>
+<text x="47.0" y="233.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="47.0" y="233.5">Each job and event at its exact time. Use for</tspan><tspan x="47.0" dy="18.2">order dates, waits and bottlenecks.</tspan></text>
+<rect x="416.7" y="186.0" width="366.7" height="99.1" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="738.8" y="195.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="755.6" y="207.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="755.6" y="207.8">New</tspan></text>
+<text x="427.7" y="211.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="427.7" y="211.0">Discrete time (step)</tspan></text>
+<text x="427.7" y="233.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="427.7" y="233.5">The plant moves one shift or day at a time.</tspan><tspan x="427.7" dy="18.2">Simple and fast.</tspan></text>
+<rect x="797.3" y="186.0" width="366.7" height="99.1" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="1119.5" y="195.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="1136.2" y="207.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1136.2" y="207.8">New</tspan></text>
+<text x="808.3" y="211.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="808.3" y="211.0">Markov chain</tspan></text>
+<text x="808.3" y="233.5" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="808.3" y="233.5">The odds of going from one state to the next</tspan><tspan x="808.3" dy="18.2">under one fixed policy. Shows where the plant</tspan><tspan x="808.3" dy="18.2">gets stuck.</tspan></text>
+<rect x="36.0" y="299.1" width="366.7" height="99.1" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="358.1" y="308.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="374.9" y="320.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="374.9" y="320.9">New</tspan></text>
+<text x="47.0" y="324.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="47.0" y="324.1">Markov decision process (MDP)</tspan></text>
+<text x="47.0" y="346.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="47.0" y="346.6">A Markov chain plus decisions and dollars. This</tspan><tspan x="47.0" dy="18.2">is the base for policies and RL.</tspan></text>
+<rect x="416.7" y="299.1" width="366.7" height="99.1" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="738.8" y="308.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="755.6" y="320.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="755.6" y="320.9">New</tspan></text>
+<text x="427.7" y="324.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="427.7" y="324.1">Hidden Markov</tspan></text>
+<text x="427.7" y="346.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="427.7" y="346.6">The true state is hidden, for example machine</tspan><tspan x="427.7" dy="18.2">wear. It is estimated from signals such as</tspan><tspan x="427.7" dy="18.2">scrap and cycle time.</tspan></text>
+<rect x="797.3" y="299.1" width="366.7" height="99.1" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="1119.5" y="308.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="1136.2" y="320.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1136.2" y="320.9">New</tspan></text>
+<text x="808.3" y="324.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="808.3" y="324.1">Continuous flow</tspan></text>
+<text x="808.3" y="346.6" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="808.3" y="346.6">Material moves as rates, like water in pipes.</tspan><tspan x="808.3" dy="18.2">Use for fast big-picture what-ifs.</tspan></text>
+<rect x="36.0" y="412.2" width="366.7" height="80.9" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="358.1" y="421.2" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="374.9" y="434.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="374.9" y="434.0">New</tspan></text>
+<text x="47.0" y="437.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="47.0" y="437.2">Queueing (quick math)</tspan></text>
+<text x="47.0" y="459.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="47.0" y="459.7">Answers in a second from formulas. A sanity</tspan><tspan x="47.0" dy="18.2">check before long runs.</tspan></text>
+<rect x="416.7" y="412.2" width="366.7" height="80.9" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="732.3" y="421.2" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
+<text x="752.3" y="434.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="752.3" y="434.0">Have</tspan></text>
+<text x="427.7" y="437.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="427.7" y="437.2">Optimization (schedule)</tspan></text>
+<text x="427.7" y="459.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="427.7" y="459.7">Finds the best plan for a fixed set of orders.</tspan></text>
+<rect x="797.3" y="412.2" width="366.7" height="80.9" rx="6" fill="#f6f8fb" stroke="#dfe3e8" stroke-width="1"/>
+<rect x="1119.5" y="421.2" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="1136.2" y="434.0" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1136.2" y="434.0">New</tspan></text>
+<text x="808.3" y="437.2" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="15" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="808.3" y="437.2">Agent-based</tspan></text>
+<text x="808.3" y="459.7" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="808.3" y="459.7">Each supplier, buyer or worker has its own</tspan><tspan x="808.3" dy="18.2">rules. Use for networks. Later phase.</tspan></text>
+<rect x="36.0" y="529.1" width="1128.0" height="440.0" rx="10" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
+<text x="60.0" y="565.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="18" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="60.0" y="565.1">Markov models at a glance</tspan></text>
+<rect x="60.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f6f8fb" stroke="#0055bc" stroke-width="1.5"/>
+<text x="72.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="72.0" y="615.1">Step model</tspan></text>
+<text x="72.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="72.0" y="633.1">runs the plant</tspan></text>
+<rect x="72.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="88.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="88.8" y="689.9">New</tspan></text>
+<rect x="292.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f6f8fb" stroke="#0055bc" stroke-width="1.5"/>
+<text x="304.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="304.0" y="615.1">Moves</tspan></text>
+<text x="304.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="304.0" y="633.1">state before,</tspan><tspan x="304.0" dy="15.0">action, state after</tspan></text>
+<rect x="304.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="320.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="320.8" y="689.9">New</tspan></text>
+<rect x="524.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f6f8fb" stroke="#0055bc" stroke-width="1.5"/>
+<text x="536.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="536.0" y="615.1">Markov chain</tspan></text>
+<text x="536.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="536.0" y="633.1">odds of moving</tspan><tspan x="536.0" dy="15.0">state to state</tspan></text>
+<rect x="536.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="552.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="552.8" y="689.9">New</tspan></text>
+<rect x="756.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f6f8fb" stroke="#0055bc" stroke-width="1.5"/>
+<text x="768.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="768.0" y="615.1">MDP</tspan></text>
+<text x="768.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="768.0" y="633.1">chain plus</tspan><tspan x="768.0" dy="15.0">decisions and</tspan><tspan x="768.0" dy="15.0">dollars</tspan></text>
+<rect x="768.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="784.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="784.8" y="689.9">New</tspan></text>
+<rect x="988.0" y="591.1" width="150.0" height="112.0" rx="8" fill="#f6f8fb" stroke="#0055bc" stroke-width="1.5"/>
+<text x="1000.0" y="615.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="1000.0" y="615.1">RL</tspan></text>
+<text x="1000.0" y="633.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="1000.0" y="633.1">learns from the MDP</tspan></text>
+<rect x="1000.0" y="677.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="1016.8" y="689.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="1016.8" y="689.9">New</tspan></text>
+<line x1="214.0" y1="647.1" x2="281.0" y2="647.1" stroke="#0055bc" stroke-width="2" fill="none"/>
+<polygon points="280.0,642.1 280.0,652.1 288.0,647.1" fill="#0055bc"/>
+<text x="251.0" y="639.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="middle"><tspan x="251.0" y="639.1">records</tspan></text>
+<line x1="446.0" y1="647.1" x2="513.0" y2="647.1" stroke="#0055bc" stroke-width="2" fill="none"/>
+<polygon points="512.0,642.1 512.0,652.1 520.0,647.1" fill="#0055bc"/>
+<text x="483.0" y="625.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="middle"><tspan x="483.0" y="625.1">measured</tspan><tspan x="483.0" dy="14.0">into</tspan></text>
+<line x1="678.0" y1="647.1" x2="745.0" y2="647.1" stroke="#0055bc" stroke-width="2" fill="none"/>
+<polygon points="744.0,642.1 744.0,652.1 752.0,647.1" fill="#0055bc"/>
+<text x="715.0" y="625.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="middle"><tspan x="715.0" y="625.1">+ decisions</tspan><tspan x="715.0" dy="14.0">&amp; dollars</tspan></text>
+<line x1="910.0" y1="647.1" x2="977.0" y2="647.1" stroke="#0055bc" stroke-width="2" fill="none"/>
+<polygon points="976.0,642.1 976.0,652.1 984.0,647.1" fill="#0055bc"/>
+<text x="947.0" y="639.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="middle"><tspan x="947.0" y="639.1">learned by</tspan></text>
+<rect x="292.0" y="773.1" width="150.0" height="112.0" rx="8" fill="#f6f8fb" stroke="#0055bc" stroke-width="1.5"/>
+<text x="304.0" y="797.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="304.0" y="797.1">Signals</tspan></text>
+<text x="304.0" y="815.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="304.0" y="815.1">scrap, cycle time</tspan></text>
+<rect x="524.0" y="773.1" width="150.0" height="112.0" rx="8" fill="#f6f8fb" stroke="#0055bc" stroke-width="1.5"/>
+<text x="536.0" y="797.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14.5" fill="#0b1220" text-anchor="start" font-weight="600"><tspan x="536.0" y="797.1">Hidden Markov</tspan></text>
+<text x="536.0" y="815.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="start"><tspan x="536.0" y="815.1">estimates the true</tspan><tspan x="536.0" dy="15.0">state, for example</tspan><tspan x="536.0" dy="15.0">machine wear</tspan></text>
+<rect x="536.0" y="859.1" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
+<text x="552.8" y="871.9" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="552.8" y="871.9">New</tspan></text>
+<line x1="446.0" y1="829.1" x2="513.0" y2="829.1" stroke="#0055bc" stroke-width="2" fill="none"/>
+<polygon points="512.0,824.1 512.0,834.1 520.0,829.1" fill="#0055bc"/>
+<text x="483.0" y="821.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54585c" text-anchor="middle"><tspan x="483.0" y="821.1">signals in</tspan></text>
+<line x1="599.0" y1="769.1" x2="599.0" y2="700.1" stroke="#0055bc" stroke-width="2" fill="none" stroke-dasharray="5 3"/>
+<polygon points="594.0,699.1 604.0,699.1 599.0,707.1" fill="#0055bc"/>
+<text x="611.0" y="742.1" font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#54585c" text-anchor="start"><tspan x="611.0" y="742.1">guesses states you cannot see</tspan></text>
+<text x="60.0" y="919.1" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" fill="#0b1220" text-anchor="start"><tspan x="60.0" y="919.1">How the Markov models fit together: the step model runs the plant. The Markov chain is measured from the moves it records. Add decisions</tspan><tspan x="60.0" dy="20.0">and dollars and you get the MDP, which RL learns from. A hidden Markov model guesses states you cannot see.</tspan></text>
 </svg>
