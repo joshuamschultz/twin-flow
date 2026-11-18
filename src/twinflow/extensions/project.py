@@ -31,7 +31,12 @@ import numpy as np
 
 from twinflow.engines.step.engine import IDLE, DemandDraws, StepEngine
 from twinflow.engines.step.model import StepModel, parse_step_model
-from twinflow.extensions.checker import ExtensionFailed, call_checked, demand_validator
+from twinflow.extensions.checker import (
+    CheckLimits,
+    ExtensionFailed,
+    call_checked,
+    demand_validator,
+)
 from twinflow.extensions.loader import (
     Extension,
     ExtensionNotFound,
@@ -62,8 +67,11 @@ class Setting:
     check: Check
     choices: tuple[str, ...] = ()
     minimum: float = 0.0
+    maximum: float | None = None
 
 
+# Defaults follow D-143 (separate tuning seed), D-144 (promotion rule), D-147 (20 ms) and
+# D-148 (200 episodes, seed 0, 30 tuning episodes on seed 777).
 DEFAULTS: tuple[Setting, ...] = (
     Setting(
         "experiment.score",
@@ -85,7 +93,92 @@ DEFAULTS: tuple[Setting, ...] = (
         "recorded state keeps (extra).",
         "names",
     ),
+    Setting(
+        "experiment.race.episodes",
+        200,
+        "Runs per policy in the race. Every policy runs on the same demand draws.",
+        "whole",
+        minimum=1,
+    ),
+    Setting("experiment.race.seed", 0, "Seed of the race's demand draws.", "whole"),
+    Setting(
+        "experiment.race.tune_episodes",
+        30,
+        "Runs per trial setting when the race tunes a policy's SETTINGS.",
+        "whole",
+        minimum=1,
+    ),
+    Setting(
+        "experiment.race.tune_seed",
+        777,
+        "Seed of the tuning draws. It differs from the race seed, so settings are not "
+        "picked to fit the scoring dice.",
+        "whole",
+    ),
+    Setting(
+        "experiment.race.interval",
+        0.95,
+        "How sure the intervals in the race report are (0.95 means 95%).",
+        "share",
+    ),
+    Setting(
+        "experiment.race.promote_rule",
+        "interval_above_zero",
+        "When `twinflow improve` keeps a candidate: interval_above_zero (the paired interval "
+        "against the best is above zero) or mean_above_zero (it wins on average).",
+        "choice",
+        choices=("interval_above_zero", "mean_above_zero"),
+    ),
+    Setting(
+        "experiment.race.top_policies",
+        3,
+        "How many of the best policies get a Markov map and saved moves.",
+        "whole",
+        minimum=1,
+    ),
+    Setting(
+        "experiment.race.decision_timeout_s",
+        2.0,
+        "Seconds one decision may take in the race before the policy is stopped as slow.",
+        "number",
+        minimum=0.001,
+    ),
+    Setting(
+        "experiment.checker.time_limit_ms",
+        20.0,
+        "Average milliseconds a decision (or any extension call) may take in the check.",
+        "number",
+        minimum=0.001,
+    ),
+    Setting(
+        "experiment.checker.samples",
+        200,
+        "Most sample states the check tries each file on.",
+        "whole",
+        minimum=4,
+    ),
+    Setting(
+        "experiment.markov.view",
+        "family",
+        "The view the race's Markov maps and money leaks use.",
+        "name",
+    ),
+    Setting(
+        "experiment.markov.top_k",
+        15,
+        "How many of the most visited states a Markov map shows.",
+        "whole",
+        minimum=1,
+    ),
+    Setting(
+        "experiment.markov.min_prob",
+        0.05,
+        "Moves less likely than this are left off a Markov map.",
+        "number",
+        maximum=1.0,
+    ),
 )
+SECTIONS = ("race", "checker", "markov")  # experiment keys that hold named settings
 
 # Experiment keys read elsewhere (the capsule, the adapter, the DES capture).
 OTHER_EXPERIMENT_KEYS = ("id", "replications", "seed", "policy", "state_capture")
@@ -97,6 +190,34 @@ class ProjectError(ValueError):
     def __init__(self, problems: Sequence[Problem]) -> None:
         self.problems = tuple(problems)
         super().__init__("\n".join(str(p) for p in self.problems))
+
+
+@dataclass(frozen=True)
+class RaceSettings:
+    """`experiment.race` (REQ-206, D-143, D-144, D-148)."""
+
+    episodes: int = 200
+    seed: int = 0
+    tune_episodes: int = 30
+    tune_seed: int = 777
+    interval: float = 0.95
+    promote_rule: str = "interval_above_zero"
+    top_policies: int = 3
+    decision_timeout_s: float = 2.0
+
+
+@dataclass(frozen=True)
+class MarkovSettings:
+    """`experiment.markov` (REQ-199)."""
+
+    view: str = "family"
+    top_k: int = 15
+    min_prob: float = 0.05
+
+
+def _section(values: Mapping[str, Any], name: str) -> dict[str, Any]:
+    prefix = f"experiment.{name}."
+    return {k.removeprefix(prefix): v for k, v in values.items() if k.startswith(prefix)}
 
 
 @dataclass(frozen=True)
@@ -115,6 +236,18 @@ class ProjectConfig:
     @property
     def demand(self) -> str:
         return str(self.values["experiment.demand"])
+
+    @property
+    def race(self) -> RaceSettings:
+        return RaceSettings(**_section(self.values, "race"))
+
+    @property
+    def checker(self) -> CheckLimits:
+        return CheckLimits(**_section(self.values, "checker"))
+
+    @property
+    def markov(self) -> MarkovSettings:
+        return MarkovSettings(**_section(self.values, "markov"))
 
     @property
     def features(self) -> tuple[str, ...]:
@@ -163,13 +296,57 @@ def _checked(setting: Setting, value: Any, file: Path) -> tuple[Any, Problem | N
         return bad(f"{key} is {value}; it must be between 0 and 1.", "Write a share, like 0.95.")
     if value < setting.minimum:
         return bad(f"{key} is {value}; it must be at least {setting.minimum:g}.", "Raise it.")
+    if setting.maximum is not None and value > setting.maximum:
+        return bad(f"{key} is {value}; it must be at most {setting.maximum:g}.", "Lower it.")
     return (int(value) if whole else float(value)), None
 
 
+def _unknown(experiment: Mapping[str, Any], file: Path) -> list[Problem]:
+    """A did-you-mean problem for each key no setting reads (REQ-221)."""
+    known: dict[str, set[str]] = {"": set(OTHER_EXPERIMENT_KEYS)}
+    for setting in DEFAULTS:
+        parts = setting.key.split(".")[1:]
+        known[""].add(parts[0])
+        if len(parts) == 2:
+            known.setdefault(parts[0], set()).add(parts[1])
+    problems = []
+
+    def unknown(key: str, choices: set[str]) -> Problem:
+        return Problem(
+            "config",
+            "unknown_key",
+            f"{key} is not a setting twinflow knows.",
+            did_you_mean(key.rsplit(".", 1)[-1], choices),
+            file,
+            field=key,
+        )
+
+    for name, value in experiment.items():
+        if name not in known[""]:
+            problems.append(unknown(f"experiment.{name}", known[""]))
+        elif name in SECTIONS and not isinstance(value, Mapping):
+            problems.append(
+                _config_problem(
+                    file,
+                    f"experiment.{name}",
+                    f"experiment.{name} is {value!r}; it must be a set of named settings.",
+                    f"Write {name}: {{{sorted(known[name])[0]}: ...}}.",
+                )
+            )
+        elif name in SECTIONS:
+            problems += [
+                unknown(f"experiment.{name}.{sub}", known[name])
+                for sub in value
+                if sub not in known[name]
+            ]
+    return problems
+
+
 def read_config(experiment: Mapping[str, Any], file: Path) -> tuple[ProjectConfig, list[Problem]]:
-    """Every `DEFAULTS` key, from the capsule or its default; bad values are problems."""
+    """Every `DEFAULTS` key, from the capsule or its default; bad values and unknown keys are
+    problems, and a bad value falls back to its default."""
     values: dict[str, Any] = {}
-    problems: list[Problem] = []
+    problems = _unknown(experiment, file)
     for setting in DEFAULTS:
         present, raw = _lookup(experiment, setting.key)
         if not present:
@@ -284,6 +461,7 @@ class Project:
         config, problems = read_config(capsule.experiment, file)
         problems += _selection_problems(config, extensions, file)
         problems += _view_clashes(model, extensions)
+        problems += _markov_view_problems(config, model, extensions, file)
         return cls(
             folder=file.parent,
             capsule_file=file,
@@ -391,20 +569,21 @@ class Project:
     def markov(
         self,
         moves: Sequence[Move],
-        view: str = "family",
+        view: str | None = None,
         *,
-        top_k: int = 15,
-        min_prob: float = 0.05,
+        top_k: int | None = None,
+        min_prob: float | None = None,
     ) -> MarkovChain:
-        """The Markov chain of `moves` under a named view (COMP-148)."""
-        chosen = self.view(view)
+        """The Markov chain of `moves` under a named view (COMP-148); anything left out
+        comes from `experiment.markov`."""
+        settings = self.config.markov
         return estimate(
             moves,
-            chosen,
+            self.view(settings.view if view is None else view),
             demand_rate=self.facts.demand_rate,
             families=self.facts.family,
-            top_k=top_k,
-            min_prob=min_prob,
+            top_k=settings.top_k if top_k is None else top_k,
+            min_prob=settings.min_prob if min_prob is None else min_prob,
         )
 
 
@@ -421,6 +600,25 @@ class ExtensionView:
 
     def __call__(self, snapshot: Snapshot) -> str:
         return str(self.extension(self.project.policy_state(snapshot)))
+
+
+def _markov_view_problems(
+    config: ProjectConfig, model: StepModel, extensions: Extensions, file: Path
+) -> list[Problem]:
+    view = config.markov.view
+    known = {*model.views, *extensions.names("view")}
+    if view in known:
+        return []
+    return [
+        Problem(
+            "config",
+            "unknown_name",
+            f"experiment.markov.view names {view!r}, but there is no view with that name.",
+            did_you_mean(view, known),
+            file,
+            field="experiment.markov.view",
+        )
+    ]
 
 
 def _view_clashes(model: StepModel, extensions: Extensions) -> list[Problem]:
@@ -463,3 +661,45 @@ def _selection_problems(config: ProjectConfig, extensions: Extensions, file: Pat
                 )
             )
     return problems
+
+
+def _shown(value: Any) -> str:
+    if isinstance(value, tuple):
+        return "[" + ", ".join(str(v) for v in value) + "]"
+    return str(value)
+
+
+def render_defaults_markdown() -> str:
+    """The how-to page `docs/how-to/tune.md`, made from `DEFAULTS` (REQ-221). A test fails
+    when the page and the table differ."""
+    lines = [
+        "# Tune your twin",
+        "",
+        "<!-- Made from twinflow.extensions.project.DEFAULTS. Do not edit by hand: a test",
+        "     compares this page with the table. -->",
+        "",
+        "Every number and choice below is set in the capsule's `experiment:` section.",
+        "Leave a setting out and the default is used. A misspelled setting is reported",
+        "with the closest real name.",
+        "",
+        "```yaml",
+        "experiment:",
+        "  score: dollars",
+        "  race: {episodes: 200, seed: 0}",
+        "  checker: {time_limit_ms: 20}",
+        "```",
+        "",
+        "| Setting | Default | What it does |",
+        "|---|---|---|",
+    ]
+    for setting in DEFAULTS:
+        meaning = setting.meaning.replace("|", "\\|")
+        lines.append(f"| `{setting.key}` | `{_shown(setting.default)}` | {meaning} |")
+    lines += [
+        "",
+        "To change how a policy, reward, view, feature, demand or observation file works,",
+        "copy the built-in file into the matching folder of your project and edit it. A file",
+        "with the same `NAME` as a built-in replaces it.",
+        "",
+    ]
+    return "\n".join(lines)

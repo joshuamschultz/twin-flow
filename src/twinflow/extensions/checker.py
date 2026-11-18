@@ -25,7 +25,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from itertools import product
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -44,6 +44,9 @@ from twinflow.extensions.view import (
 )
 from twinflow.policy import DISPATCH_NAMES
 from twinflow.state.records import Move, Snapshot
+
+if TYPE_CHECKING:
+    from twinflow.extensions.project import Project
 
 GRID_STATES = 3  # states tried at each grid point of a policy's SETTINGS
 
@@ -343,3 +346,18 @@ def check_engine(
             )
         ]
     return []
+
+
+def check_project(project: Project) -> list[Problem]:
+    """Everything wrong with a project, in plain words (REQ-203, REQ-222): its setting
+    problems, then the extension files, each run on samples with the chosen features and the
+    capsule's `experiment.checker` limits."""
+    config = project.config
+    limits = config.checker
+    samples = step_samples(
+        project.model,
+        count=limits.samples,
+        seed=config.race.seed,
+        features=project.features if config.features else None,
+    )
+    return [*project.problems, *check_extensions(project.extensions, samples, limits)]
