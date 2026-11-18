@@ -1,0 +1,13 @@
+id,family,abc,demand,run_rate,price,unit_cost,max_storage
+GRY-S,grey,A,60.5,450,12.00,7.20,1500
+GRY-M,grey,A,39.7,360,18.00,10.80,1000
+GRY-L,grey,B,18.2,270,26.00,15.60,540
+GRY-XL,grey,C,5.6,180,38.00,22.80,240
+BLK-S,black,A,44.8,450,12.60,7.56,1125
+BLK-M,black,B,21.8,360,18.90,11.34,660
+BLK-L,black,C,8.5,270,27.30,16.38,360
+BLK-XL,black,C,5.5,180,39.90,23.94,200
+NAT-S,natural,B,19.9,450,13.20,7.92,600
+NAT-M,natural,B,15.7,360,19.80,11.88,480
+NAT-L,natural,C,8.0,270,28.60,17.16,320
+NAT-XL,natural,C,3.9,180,41.80,25.08,160

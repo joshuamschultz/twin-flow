@@ -1,0 +1,252 @@
+--- markdown
+# Lakeshore Molded Products: what should press 3 make next?
+
+This notebook is for the planner, the plant manager and the owner. You do not need to
+write code. Every gray box below is either a command you can run, or a file you can read.
+Run the boxes from top to bottom. The answers are already saved under each box.
+
+## (a) Your business
+
+Lakeshore Molded Products makes plastic storage bins near Muskegon, Michigan. Press 3
+makes 12 bins: four sizes (S, M, L, XL) in three colors (grey, black and natural).
+Stores order bins every day. If a bin is out of stock, the store buys from someone else.
+That sale is lost.
+
+Each morning the planner picks one bin to run that day, or rests the press.
+
+- A new mold in the same color costs about $200 and 10% of the day.
+- A new color costs about $1,200 (purge resin, scrap, cleanup) and half of the day.
+- Bins on the shelf cost money too: about 1% of their cost each night.
+- The biggest customer stocks three bins (GRY-S, GRY-M and BLK-S). Its contract fines
+  Lakeshore $3 for every unit it cannot ship of those three.
+
+Today the planner runs the bin that will run out first. That sounds safe. But it
+changes color almost every day. **The question: is there a better rule, and how much
+money is it worth?**
+
+--- markdown
+## (b) Your inputs
+
+The folder holds the files a planner already has. Nothing here is made up by the tool.
+
+| File | What it is | Where it comes from |
+|---|---|---|
+| `data/products.csv` | The item master: one row per bin | ERP item master export |
+| `data/sales-history.csv` | Units sold per bin per day, last 13 weeks | ERP sales export |
+| `lakeshore.twin.yaml` | The twin capsule: ties the files together, holds costs and run settings | You write it once |
+| `policies/`, `rewards/`, `demand/`, `candidates/` | Your rules, as short files | See part (d) |
+
+### The item master
+
+--- code
+!cat data/products.csv
+
+--- markdown
+What each column means:
+
+| Column | Meaning |
+|---|---|
+| `id` | The bin's part number. Grey is GRY, black is BLK, natural is NAT. |
+| `family` | The color. Changing color is the expensive change. |
+| `abc` | A for fast sellers, B for middle, C for slow. |
+| `demand` | Average units sold per day. It is the average of the sales history below. |
+| `run_rate` | Units the press makes in a full day of this bin. |
+| `price` | What a store pays for one bin, in dollars. |
+| `unit_cost` | What one bin costs to make, in dollars (resin, labor, power). |
+| `max_storage` | The most units of this bin the warehouse can hold. |
+
+### The sales history
+
+The file has one row per day and bin: 91 days times 12 bins. Here are the first rows.
+
+--- code
+!head -13 data/sales-history.csv
+
+--- code
+!wc -l data/sales-history.csv
+
+--- markdown
+| Column | Meaning |
+|---|---|
+| `date` | The day of the sale. |
+| `product` | The bin's part number. It must match an `id` in the item master. |
+| `units_sold` | Units shipped to stores that day. |
+
+### The twin capsule
+
+The capsule says which files to read, what a change costs, and how to run the tests.
+The line `products: data/products.csv` reads the item master from its own file.
+
+--- code
+!cat lakeshore.twin.yaml
+
+--- markdown
+## (c) Check and run
+
+First, check the files. A check finds a typo or a missing number before you run anything.
+No message from the first command means the capsule is good.
+
+--- code
+!twinflow scenario validate lakeshore.twin.yaml
+
+--- code
+!twinflow extensions check .
+
+--- markdown
+These are the rules the race will test. `project` rules are files in your `policies/`
+folder. `builtin` rules come with twinflow.
+
+--- code
+!twinflow policies list .
+
+--- markdown
+### A quick run of today's rule
+
+This runs the planner's rule (`lowest_cover`: run the bin that runs out first) for 20
+runs of 60 days. This quick run draws sales at random around each bin's average.
+
+--- code
+!twinflow scenario run lakeshore.twin.yaml --out runs/today --summary
+
+--- markdown
+Look at the changeovers: about 60 changes in 60 days, and most are color changes.
+Setups cost more than $50,000 per run.
+
+### The race
+
+The race tests every rule on the same days of real sales. Each run picks 60 random days
+from your sales history (`demand/sales_history.py`). Every rule gets the same picks, so a
+win is not luck. The score is dollars less the customer's fines
+(`rewards/protect_key_items.py`). It takes about 15 seconds.
+
+--- code
+!twinflow policies race . --out runs/race
+
+--- markdown
+How to read it:
+
+- **Score** is the number the race sorts by: dollars after the customer's fines.
+- **Dollars per run** is the profit of 60 days, with a 95% range. If two ranges do not
+  overlap, the gap is real.
+- **Fill rate** is the share of store orders you shipped.
+- **Changeovers** is how many times the press changed bins in 60 days.
+
+### The state map
+
+The race keeps the days of the best rules. Each day gets a short label: the stock level
+of each color (out, low, ok or high), then the color in the press. This shows how the
+winning rule moves the plant from day to day.
+
+--- code
+!twinflow states runs/race/policies/family_campaign --view simple --top 5
+
+--- code
+!twinflow markov runs/race/policies/family_campaign --view simple --top 6 --min-prob 0.1
+
+--- markdown
+"Sticky" means the plant tends to stay in that state. The winning rule stays in one
+color for several days. It does not bounce between colors.
+
+### Try a new rule
+
+The production manager has an idea: run in color campaigns, but never let a key bin of
+the big customer run out. That rule is the file `candidates/campaign_guard_key_items.py`.
+`improve` races it against your current rules. It joins `policies/` only if it wins and
+the win is proven (the 95% range of the gain is above zero).
+
+--- code
+!twinflow improve . --candidate candidates/campaign_guard_key_items.py --out runs/improve
+
+--- markdown
+## (d) Your rules
+
+Each rule is a short file in the folder. A file is shown below in a box that starts
+with `%%writefile`. That box saves the file, so you can change a line and run the box
+again. Lines marked `<- CHANGE` are the ones a planner changes most. Lines marked
+`KEY LINE` are where the rule makes its choice.
+
+### `policies/lowest_stock_first.py`: today's rule, written out
+
+This is the rule the planner uses now. It is the same as the built-in `lowest_cover`.
+It is here so you can read it and copy it.
+
+--- writefile policies/lowest_stock_first.py
+
+--- markdown
+### `policies/family_campaign.py`: stay in one color
+
+This rule stays in the color the press is set up for until every bin of that color has
+`target_days` of stock. Then it moves to the color that will run out first. The race
+tries each value in `SETTINGS` and keeps the best one.
+
+--- writefile policies/family_campaign.py
+
+--- markdown
+### `candidates/campaign_guard_key_items.py`: the new idea
+
+This is the family campaign with one guard: an A bin with less than `alarm_days` of stock
+goes first, even when that means a color change. It sits in `candidates/` until
+`improve` proves it wins.
+
+--- writefile candidates/campaign_guard_key_items.py
+
+--- markdown
+### `rewards/protect_key_items.py`: how a day is scored
+
+The race ranks rules by this score. It is the day's dollars, less the contract fine for
+each key bin you could not ship. The capsule picks it with `score: protect_key_items`.
+
+--- writefile rewards/protect_key_items.py
+
+--- markdown
+### `demand/sales_history.py`: where tomorrow's sales come from
+
+This file reads `data/sales-history.csv` and, for each simulated day, picks a real past
+day at random. The capsule picks it with `demand: sales_history`.
+
+--- writefile demand/sales_history.py
+
+--- markdown
+## (e) Results and the decision
+
+What the commands said, for 60 days of press 3:
+
+| Rule | Profit per 60 days | Fill rate | Changeovers |
+|---|---|---|---|
+| Today: run what runs out first (`lowest_cover`) | about $39,100 | 91% | 58 |
+| Stay in one color (`family_campaign`, 16-day goal) | about $63,900 | 97% | 45 |
+| Stay in one color, guard the key bins (new, from `improve`) | about $66,300 | | |
+
+**The recommendation:** switch press 3 to color campaigns with the key-bin guard.
+
+- It earns about $27,000 more per 60 days than today's rule. That is about $165,000 a year.
+- Most of the gain is fewer color changes. Fewer purges also means less scrap resin.
+- The guard adds about $2,400 per 60 days on top of the plain campaign, because the big
+  customer's bins do not run out. The 95% range of that gain is above zero, so it is real.
+- The press holds more stock under this rule. Check that the warehouse can hold it.
+  The `max_storage` column already limits each bin.
+
+Open the full race report in a web browser: [runs/race/race.html](runs/race/race.html).
+It shows the winner, the money by cause, and the state map. The proof of the new rule is
+in [runs/improve/improve.json](runs/improve/improve.json). Both are made when you run
+the notebook.
+
+## (f) Try it yourself
+
+1. **A bigger fine.** In `rewards/protect_key_items.py`, change `fine_per_unit` from
+   `3.0` to `10.0`. Run the race box again. Does the ranking change?
+2. **A new color cost.** In `lakeshore.twin.yaml`, change the `across_family` cost from
+   `1200` to `600` (a faster purge compound). Run the race again. How much does the
+   campaign rule still win by?
+3. **Newer sales.** Replace `data/sales-history.csv` with your newest export (same three
+   columns). Update the `demand` column of `data/products.csv` to the new averages. Run
+   the check, then the race.
+
+To start over, delete `policies/campaign_guard_key_items.py` (the `improve` box copies
+it there when it wins) and the `runs/` folder.
+
+## For analysts (optional)
+
+Two longer notebooks rebuild a research project's lessons with twinflow's Python API:
+[../../molding-press/notebooks/analyst/](../../molding-press/notebooks/analyst/). They are
+for analysts who want charts, tuning tables and Markov heat maps. A planner does not need them.

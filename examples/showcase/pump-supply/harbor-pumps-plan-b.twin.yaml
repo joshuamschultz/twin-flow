@@ -1,0 +1,54 @@
+# Harbor Pump Works, plan B: the same plant, with the buyer's changes to the open
+# purchase orders (air freight for both motor orders, and new orders for small housings
+# and impellers). Only the receipts line differs from harbor-pumps.twin.yaml.
+schema_version: '0.1'
+required_capabilities: []
+model:
+  domain: supply_chain
+  sites:
+    - id: plant
+  suppliers: data/suppliers.csv          # who ships to us, and how late they can be
+  items: data/items.csv                  # finished pumps and the parts we buy
+  bom_revisions:                         # the bill of materials: parts in one pump
+    - id: PMP-100-rev-C
+      assembly_item_id: PMP-100
+      revision: C
+      effective_from: '2026-01-01T00:00:00-06:00'
+      lines:
+        - {item_id: MTR-05, quantity: 1, uom: each}
+        - {item_id: HSG-100, quantity: 1, uom: each}
+        - {item_id: IMP-100, quantity: 1, uom: each}
+        - {item_id: SEAL-KIT, quantity: 1, uom: each}
+    - id: PMP-300-rev-B
+      assembly_item_id: PMP-300
+      revision: B
+      effective_from: '2026-01-01T00:00:00-06:00'
+      lines:
+        - {item_id: MTR-20, quantity: 1, uom: each}
+        - {item_id: HSG-300, quantity: 1, uom: each}
+        - {item_id: IMP-300, quantity: 1, uom: each}
+        - {item_id: SEAL-KIT, quantity: 2, uom: each}
+  processes:                             # days to assemble and test one order of pumps
+    - {id: assemble-PMP-100, item_id: PMP-100, lead_time_days: 2}
+    - {id: assemble-PMP-300, item_id: PMP-300, lead_time_days: 3}
+  qualifications:                        # the assembly line is approved to build both pumps
+    - {supplier_id: assembly-line, process_id: assemble-PMP-100, valid_from: '2025-01-01T00:00:00-06:00'}
+    - {supplier_id: assembly-line, process_id: assemble-PMP-300, valid_from: '2025-01-01T00:00:00-06:00'}
+  gates: []
+snapshot:
+  id: harbor-2026-11-18
+  as_of: '2026-11-18T07:00:00-06:00'
+  model_revision: '1'
+  inventory: data/on-hand.csv            # stock on the shelf this morning
+  receipts: data/open-purchase-orders-plan-b.csv  # the buyer's plan B purchase orders
+  allocations: []
+  documents: []
+  orders: data/customer-orders.csv       # what customers ordered, and when it is due
+experiment:
+  id: harbor-plan-b
+  replications: 50                       # 50 runs, each with new supplier delays
+  seed: 7
+assumptions:
+  - Dates cover parts on hand, parts on order and assembly time. Line capacity is not modeled.
+provenance:
+  source: Harbor Pump Works ERP export, 2026-11-18
