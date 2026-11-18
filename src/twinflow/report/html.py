@@ -1188,3 +1188,33 @@ def pl_max_wip() -> Any:
     import polars as pl
 
     return pl.col("wip").max().alias("wip")
+
+
+# --- public helpers for other self-contained pages (the TF-006 race report, COMP-158) ------
+
+REPORT_STYLE = _STYLE
+"""The report's brand stylesheet, for other pages that should look the same."""
+
+
+def plotly_script() -> str:
+    """The Plotly library inlined once, unmodified, in its delimited block (D-026)."""
+    return HtmlReport._plotly_library()
+
+
+def mermaid_script() -> str:
+    """The vendored Mermaid bundle and its theme, with startOnLoad off (D-026)."""
+    return HtmlReport._mermaid_library()
+
+
+def figure_html(fig: go.Figure, div_id: str | None = None) -> str:
+    """One Plotly figure as a responsive, library-free HTML fragment. A fixed `div_id`
+    makes the page the same every time it is written."""
+    if div_id is None:
+        return _fig_html(fig)
+    return fig.to_html(  # type: ignore[no-any-return]
+        full_html=False,
+        include_plotlyjs=False,
+        default_width="100%",
+        config={"responsive": True},
+        div_id=div_id,
+    )

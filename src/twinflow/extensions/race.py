@@ -512,6 +512,12 @@ class RaceResult:
     def first_day_passed(self, leader: str, challenger: str, measure: str = "score") -> int | None:
         return first_day_passed(self.cumulative(measure), leader, challenger)
 
+    @property
+    def early_leader(self) -> str | None:
+        """The policy ranked first after day 1 (the story of notebook 1: early leaders are
+        not always late leaders)."""
+        return _early_leader(self.rank_by_day())
+
     def profit_by_view(self, measure: str = "dollars") -> dict[str, dict[str, float]]:
         """Mean dollars (or score) per run of each policy under each observation, in race
         order (REQ-226: what information is worth in dollars; RL repo notebook 2)."""
