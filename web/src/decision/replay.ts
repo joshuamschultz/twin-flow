@@ -393,3 +393,48 @@ export function replayTakeaway(runs: ReplayRun[], products: Product[]): string {
     `today, ${outProductDays(pick.run, products)} with the pick.`
   );
 }
+
+// ---------- controls ----------
+
+/** The day a key moves to, or null when the key does nothing (DESIGN.md 8.4). */
+export function keyDay(key: string, day: number, max: number): number | null {
+  const clamp = (d: number) => Math.min(max, Math.max(1, d));
+  switch (key) {
+    case "ArrowRight":
+    case "ArrowUp":
+      return clamp(day + 1);
+    case "ArrowLeft":
+    case "ArrowDown":
+      return clamp(day - 1);
+    case "PageUp":
+      return clamp(day + 10);
+    case "PageDown":
+      return clamp(day - 10);
+    case "Home":
+      return 1;
+    case "End":
+      return max;
+    default:
+      return null;
+  }
+}
+
+/** Play moves one day at a time and stops at the last day. */
+export function nextPlayDay(day: number, max: number): number | null {
+  return day >= max ? null : day + 1;
+}
+
+/** About 3 days a second (DESIGN.md 8.3). */
+export const PLAY_MS = 333;
+
+export function readHashDay(hash: string, max: number): number | null {
+  const raw = new URLSearchParams(hash.replace(/^#/, "")).get("day");
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  return Math.min(max, Math.max(1, Number(raw)));
+}
+
+export function writeHashDay(hash: string, day: number): string {
+  const params = new URLSearchParams(hash.replace(/^#/, ""));
+  params.set("day", String(day));
+  return `#${params.toString()}`;
+}
