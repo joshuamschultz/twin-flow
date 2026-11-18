@@ -100,9 +100,10 @@ class FeatureObservation:
 def grouped_labels(
     view: GroupedView, products: Sequence[str], families: Mapping[str, str]
 ) -> tuple[str, ...]:
-    """Every label a grouped view can make for these products, in a fixed order (setup
-    slowest, then each stock key, first key slowest). The exact `full` view has too many to
-    list and raises `ValueError`."""
+    """Every label a grouped view can make for these products, in a fixed order: the setup
+    changes slowest and the first stock key fastest, which is the RL repo's state numbering
+    (`family_columns`, `bucket_columns`). The exact `full` view has too many to list and
+    raises `ValueError`."""
     if view.exact:
         raise ValueError(f"the {view.name} view labels exact stock; it has too many labels")
     stock_part: list[str] = [""]
@@ -114,7 +115,7 @@ def grouped_labels(
         )
         names = [level.name for level in groups.levels]
         stock_part = [
-            " ".join(f"{key}:{level}" for key, level in zip(keys, combo, strict=True))
+            " ".join(f"{key}:{level}" for key, level in zip(keys, combo[::-1], strict=True))
             for combo in itertools.product(names, repeat=len(keys))
         ]
     setups: list[str] = [""]
