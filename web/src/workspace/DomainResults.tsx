@@ -1,3 +1,4 @@
+import { Card, StatusPill } from "../decision/primitives";
 import type { Experiment } from "./api";
 
 type Row = Record<string, unknown>;
@@ -22,15 +23,16 @@ export function DomainResults({
     ),
   ];
   return (
-    <>
-      <h3>{supply ? "Delivery outlook" : "Case completion outcomes"}</h3>
-      <p>
-        {supply
+    <Card
+      question={supply ? "Delivery outlook" : "Case completion outcomes"}
+      sub={
+        supply
           ? "Material availability and configured gates. Dates exclude finite production capacity."
-          : "Elapsed simulation time across the modeled tasks and approvals."}
-      </p>
-      <div className="ws-table-wrap">
-        <table>
+          : "Elapsed simulation time across the modeled tasks and approvals."
+      }
+    >
+      <div className="ws-table-scroll">
+        <table className="tf-table ws-table-left">
           <thead>
             <tr>
               <th>{supply ? "Order" : "Case"}</th>
@@ -82,11 +84,14 @@ export function DomainResults({
                   <td>{quantile(0.5)}</td>
                   <td>{quantile(0.9)}</td>
                   <td>
-                    <span className={`ws-badge ${estimable ? "" : "amber"}`}>
-                      {estimable
-                        ? "Completed in all runs"
-                        : "Blocked / incomplete"}
-                    </span>
+                    <StatusPill
+                      kind={estimable ? "ok" : "risk"}
+                      label={
+                        estimable
+                          ? "Completed in all runs"
+                          : "Blocked / incomplete"
+                      }
+                    />
                   </td>
                 </tr>
               );
@@ -117,6 +122,6 @@ export function DomainResults({
           )}
         </pre>
       </details>
-    </>
+    </Card>
   );
 }

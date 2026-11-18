@@ -7,7 +7,15 @@ import { Icon } from "./Icons";
 import { ImportDialog } from "./ImportDialog";
 import { ScenarioView } from "./ScenarioView";
 import { ExperimentView } from "./ExperimentView";
+import "../decision/fonts/fonts.css";
+import "../decision/decision.css";
 import "./workspace.css";
+import {
+  DECISION_VIEWS,
+  DecisionList,
+  DecisionViewPage,
+  findDecision,
+} from "./DecisionPages";
 
 const navigation = [
   { id: "library", icon: "layers", label: "Scenario library" },
@@ -26,6 +34,9 @@ export default function WorkspaceApp() {
   );
   const [selectedId, setSelectedId] = useState(
     new URLSearchParams(location.search).get("scenario") || "",
+  );
+  const [decisionId, setDecisionId] = useState(
+    new URLSearchParams(location.search).get("id") || "",
   );
   const [dialog, setDialog] = useState<"import" | "branch" | null>(null);
   const [search, setSearch] = useState("");
@@ -49,12 +60,24 @@ export default function WorkspaceApp() {
     window.scrollTo({ top: 0 });
     setPage(next);
     setSelectedId(id);
+    setDecisionId("");
     history.replaceState(
       null,
       "",
       `?page=${next}${id ? `&scenario=${id}` : ""}`,
     );
   }
+  function openDecision(kind: string, id: string) {
+    window.scrollTo({ top: 0 });
+    setPage(kind);
+    setDecisionId(id);
+    history.replaceState(
+      null,
+      "",
+      `?page=${kind}&id=${encodeURIComponent(id)}`,
+    );
+  }
+  const decision = findDecision(page);
   function imported(scenario: Scenario) {
     void cache.invalidateQueries({ queryKey: ["scenarios"] });
     setDialog(null);
@@ -119,6 +142,19 @@ export default function WorkspaceApp() {
             </button>
           ))}
         </nav>
+        <div className="ws-nav-label">DECISIONS</div>
+        <nav aria-label="Decisions">
+          {DECISION_VIEWS.map((item) => (
+            <button
+              key={item.plural}
+              className={decision?.spec === item ? "active" : ""}
+              onClick={() => navigate(item.plural)}
+            >
+              <Icon name={item.icon} size={19} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
         <div className="ws-sidebar-bottom">
           <div className="ws-agent-callout">
             <Icon name="spark" />
@@ -150,7 +186,10 @@ export default function WorkspaceApp() {
           <div>
             <span className="ws-status-dot connected" />
             Operational intelligence<span className="ws-topbar-divider">/</span>
-            <span>{navigation.find((item) => item.id === page)?.label}</span>
+            <span>
+              {navigation.find((item) => item.id === page)?.label ??
+                decision?.spec.label}
+            </span>
           </div>
           <div className="ws-topbar-actions">
             <a href="/docs" target="_blank" rel="noreferrer">
@@ -377,6 +416,19 @@ export default function WorkspaceApp() {
               jobs={jobs.data ?? []}
               scenarios={scenarios.data ?? []}
               onCancel={(id) => cancel.mutate(id)}
+            />
+          )}
+          {decision?.isList && (
+            <DecisionList
+              spec={decision.spec}
+              onOpen={(id) => openDecision(decision.spec.kind, id)}
+            />
+          )}
+          {decision && !decision.isList && (
+            <DecisionViewPage
+              spec={decision.spec}
+              id={decisionId}
+              onBack={() => navigate(decision.spec.plural)}
             />
           )}
           {page === "build" && <BuildView />}

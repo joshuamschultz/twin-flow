@@ -86,15 +86,20 @@ export function setServiceToken(value: string) {
   serviceToken = value;
 }
 
+function authHeaders(): Record<string, string> {
+  return serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {};
+}
+
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/workspace${path}`, {
     method: body === undefined ? "GET" : "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {}),
-    },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+  return readJson<T>(response);
+}
+
+async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
     const detail = payload?.detail;
@@ -201,3 +206,37 @@ export function download(
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** One row of a decision list (DATA-CONTRACT.md 7). */
+export interface DecisionRow {
+  id: string;
+  project: string;
+  when: string;
+  sentence: string;
+  level: string;
+}
+
+const DECISION = "/api/v1/decision";
+
+/** The decision views API. `kind` is the view ("race"), `plural` its list ("races"). */
+export const decisionApi = {
+  list: async (plural: string) =>
+    readJson<DecisionRow[]>(
+      await fetch(`${DECISION}/${plural}`, { headers: authHeaders() }),
+    ),
+  view: async <T>(kind: string, id: string, params = "") =>
+    readJson<T>(
+      await fetch(`${DECISION}/${kind}/${encodeURIComponent(id)}${params}`, {
+        headers: authHeaders(),
+      }),
+    ),
+  /** The offline HTML file, as the CLI writes it. */
+  exportHtml: async (kind: string, id: string) => {
+    const response = await fetch(
+      `${DECISION}/${kind}/${encodeURIComponent(id)}/export`,
+      { headers: authHeaders() },
+    );
+    if (!response.ok) await readJson(response);
+    return response.text();
+  },
+};
