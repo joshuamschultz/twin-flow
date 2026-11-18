@@ -8,6 +8,7 @@ validation contract (`twinflow.policy.DISPATCH_NAMES`).
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import polars as pl
@@ -82,6 +83,30 @@ def test_csv_plan_source_maps_erp_columns(tmp_path: Path) -> None:
     orders = source.read_plan(registry)
     assert len(orders) == 1
     assert orders[0].part == "shaft" and orders[0].qty == 10
+
+
+def test_csv_plan_source_reads_calendar_dates_with_an_origin(tmp_path: Path) -> None:
+    registry = load_model("examples/cnc-shop/model.yaml").registry
+    csv_path = tmp_path / "erp_plan.csv"
+    csv_path.write_text(
+        "WO,Item,Quantity,Release,Due\nSO-1,shaft,10,2026-11-16 08:00,2026-11-17\n",
+        encoding="utf-8",
+    )
+    mapping = FieldMapping(
+        {
+            "work_order_id": "WO",
+            "part": "Item",
+            "qty": "Quantity",
+            "start_date": "Release",
+            "due_date": "Due",
+        }
+    )
+    origin = datetime.fromisoformat("2026-11-16T07:00:00-06:00")
+
+    (order,) = CsvPlanSource(str(csv_path), mapping).read_plan(registry, origin=origin)
+
+    assert float(order.start_date) == 3600.0
+    assert float(order.due_date) == (24 + 17) * 3600.0  # end of Tue, counted from Mon 07:00
 
 
 def test_json_result_sink_writes(tmp_path: Path) -> None:

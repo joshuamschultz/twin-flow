@@ -11,6 +11,7 @@ Components: COMP-009, COMP-016. Requirements: REQ-075.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Mapping, Sequence
 
 import numpy as np
@@ -608,3 +609,187 @@ def test_joining_over_capacity_by_place_is_an_error() -> None:
 
     with pytest.raises(ValueError, match="capacity"):
         oven.place(_batch_request("a2", 3, "F"), joined)
+
+
+# --- restart rule (T-116, D-074, REQ-107) -----------------------------------------------------
+# `MachineTimeline(..., restart=(idle_threshold_seconds, warmup_seconds), now=now)`: the first
+# occupation's idle is measured from max(now, available_from), every other one from the end
+# of the previous occupation; idle strictly longer than the threshold adds the warm-up to
+# the setup phase.
+
+THRESHOLD = 10.0
+WARMUP = 4.0
+
+
+def _restart_timeline(
+    *op_ids: str, available_from: float = 0.0, now: float = 0.0, table: SetupTable | None = None
+) -> MachineTimeline:
+    return MachineTimeline(
+        M,
+        table or _table(dict.fromkeys(op_ids), function=None),
+        available_from=available_from,
+        restart=(THRESHOLD, WARMUP),
+        now=now,
+    )
+
+
+@pytest.mark.parametrize(
+    ("earliest", "expected"),
+    [
+        (5.0, (5, 5, 10)),  # no idle
+        (15.0, (15, 15, 20)),  # idle 10 == threshold: no warm-up
+        (15.5, (15.5, 19.5, 24.5)),  # idle 10.5 > threshold
+        (40.0, (40, 44, 49)),
+    ],
+)
+def test_restart_find_slot_adds_the_warmup_only_after_an_idle_longer_than_threshold(
+    earliest: float, expected: tuple[float, float, float]
+) -> None:
+    timeline = _restart_timeline("a", "b")
+    _place(timeline, _request("a", 5))
+
+    assert _times(timeline.find_slot(_request("b", 5, earliest=earliest))) == expected
+
+
+@pytest.mark.parametrize(
+    ("now", "available_from", "earliest", "expected"),
+    [
+        (0.0, 20.0, 30.0, (30, 30, 35)),
+        (0.0, 20.0, 31.0, (31, 35, 40)),
+        (0.0, 20.0, 25.0, (25, 25, 30)),  # 25 s after now, 5 s after available_from
+        (50.0, 20.0, 60.0, (60, 60, 65)),
+        (50.0, 20.0, 61.0, (61, 65, 70)),
+        (50.0, 20.0, 55.0, (55, 55, 60)),  # 35 s after available_from, 5 s after now
+    ],
+)
+def test_restart_first_slot_idle_is_measured_from_max_now_available_from(
+    now: float, available_from: float, earliest: float, expected: tuple[float, float, float]
+) -> None:
+    timeline = _restart_timeline("a", available_from=available_from, now=now)
+
+    assert _times(timeline.find_slot(_request("a", 5, earliest=earliest))) == expected
+
+
+def test_restart_warmup_adds_to_the_sequence_dependent_setup() -> None:
+    table = _table({"a": "X", "b": "Y"})
+    timeline = _restart_timeline(table=table)
+    _place(timeline, _request("a", 5))
+
+    slot = timeline.find_slot(_request("b", 5, earliest=20))
+
+    assert _times(slot) == (20, 20 + CHANGEOVER + WARMUP, 20 + CHANGEOVER + WARMUP + 5)
+
+
+def test_restart_gap_insertion_keeps_a_follower_whose_warmup_survives() -> None:
+    timeline = _restart_timeline("a", "b", "c")
+    _place(timeline, _request("a", 5))
+    assert _times(_place(timeline, _request("c", 5, earliest=40))) == (40, 44, 49)
+
+    # b idles 15 s after a (warm-up); c then idles 11 s after b and keeps its warm-up.
+    slot = timeline.find_slot(_request("b", 5, earliest=20))
+
+    assert _times(slot) == (20, 24, 29)
+
+
+def test_restart_gap_insertion_refuses_a_slot_that_would_remove_a_followers_warmup() -> None:
+    timeline = _restart_timeline("a", "b", "c")
+    _place(timeline, _request("a", 5))
+    assert _times(_place(timeline, _request("c", 5, earliest=40))) == (40, 44, 49)
+
+    # In the gap b would end by 39, so c would idle at most 1 s and lose its recorded warm-up.
+    slot = timeline.find_slot(_request("b", 5, earliest=30))
+
+    assert _times(slot) == (49, 49, 54)
+
+
+def test_restart_gap_insertion_accepts_a_slot_where_setup_replaces_the_warmup_exactly() -> None:
+    # c was placed after a long idle: setup X -> X 0 + warm-up 4 = 4. Inserting b (family Y)
+    # right before c leaves c idle 0 s but gives it the Y -> X changeover of exactly 4 s, so
+    # c's recorded setup phase is unchanged and the gap is usable (SDD COMP-008).
+    function = SetupFunction(
+        id="warm",
+        terms=(),
+        family_matrix=(
+            FamilyMatrixEntry(from_family="X", to_family="X", seconds=0.0),
+            FamilyMatrixEntry(from_family="Y", to_family="X", seconds=WARMUP),
+            FamilyMatrixEntry(from_family="X", to_family="Y", seconds=0.0),
+        ),
+        default_seconds=0.0,
+    )
+    table = _table({"a": "X", "b": "Y", "c": "X"}, function=function, state_family="X")
+    timeline = _restart_timeline(table=table)
+    _place(timeline, _request("a", 5))
+    assert _times(_place(timeline, _request("c", 5, earliest=40))) == (40, 44, 49)
+
+    slot = timeline.find_slot(_request("b", 31, earliest=9))
+
+    assert _times(slot) == (9, 9, 40)
+
+
+def test_restart_batch_member_joins_with_the_batch_warmup_once() -> None:
+    table = _table({"a1": None, "a2": None, "a3": None}, function=None)
+    timeline = MachineTimeline(
+        M, table, available_from=0.0, batch_capacity=10.0, restart=(THRESHOLD, WARMUP), now=0.0
+    )
+    _place(timeline, _request("a1", 20, family="F"))
+    opened, batch_id = _place_batch(timeline, _request("a2", 20, earliest=40, family="F"))
+    assert _times(opened) == (40, 44, 64)
+
+    joined = timeline.find_slot(_request("a3", 20, earliest=40, family="F"))
+
+    assert joined is not None and batch_id is not None and joined.batch_id == batch_id
+    assert _times(joined) == (40, 44, 64)
+
+
+def test_timeline_without_restart_rule_never_adds_a_warmup() -> None:
+    timeline = MachineTimeline(M, _table({"a": None, "b": None}, function=None), available_from=0.0)
+    _place(timeline, _request("a", 5))
+
+    assert _times(timeline.find_slot(_request("b", 5, earliest=500))) == (500, 500, 505)
+
+
+# --- slot search speed (review item 9) -------------------------------------------------------
+
+PACKED = 5_000
+
+
+@pytest.fixture(scope="module")
+def packed_timeline() -> MachineTimeline:
+    """5,000 back-to-back 1 s occupations on [0, 5000): no gap holds a positive run."""
+    table = _table({f"o{k}": None for k in range(PACKED + 1)}, function=None)
+    timeline = MachineTimeline(M, table, available_from=0.0)
+    for k in range(PACKED):
+        _place(timeline, _request(f"o{k}", 1, earliest=float(k)))
+    return timeline
+
+
+def _timed_find_slots(timeline: MachineTimeline, request: SlotRequest, calls: int) -> float:
+    started = time.perf_counter()
+    for _ in range(calls):
+        slot = timeline.find_slot(request)
+    elapsed = time.perf_counter() - started
+    assert _times(slot) is not None
+    return elapsed
+
+
+def test_find_slot_after_every_occupation_does_not_scan_from_the_beginning(
+    packed_timeline: MachineTimeline,
+) -> None:
+    request = _request(f"o{PACKED}", 1, earliest=PACKED + 10.0)
+
+    elapsed = _timed_find_slots(packed_timeline, request, 2_000)
+
+    assert _times(packed_timeline.find_slot(request)) == (PACKED + 10, PACKED + 10, PACKED + 11)
+    assert elapsed < 0.25, f"2,000 find_slot calls took {elapsed:.3f} s"
+
+
+def test_find_slot_skips_a_packed_run_of_occupations_without_visiting_each_gap(
+    packed_timeline: MachineTimeline,
+) -> None:
+    # Before: about 3.4 ms per call (every one of the 5,000 zero-length gaps is tried).
+    request = _request(f"o{PACKED}", 1, earliest=0.0)
+
+    elapsed = _timed_find_slots(packed_timeline, request, 1_000)
+
+    assert _times(packed_timeline.find_slot(request)) == (PACKED, PACKED, PACKED + 1)
+    assert elapsed < 0.25, f"1,000 find_slot calls took {elapsed:.3f} s"

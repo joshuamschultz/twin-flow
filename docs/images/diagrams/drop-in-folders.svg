@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 492" width="800" height="492" role="img" aria-labelledby="title desc">
+  <title id="title">Drop-in folders and what each one controls</title>
+  <desc id="desc">Six cards. policies holds decide(state) and picks what to make next. rewards holds reward(move) and scores a day. views holds label(state) and labels a day. features holds features(state) and adds a number to every day. demand holds demand(period, rng, model) and sets how many units customers buy. observations holds observe(state) and sets what a policy can see.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #f68d2e; fill-opacity: 0.1; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="491" rx="4"/>
+
+  <text class="h" x="36" y="44">Drop-in folders and what each one controls</text>
+  <text class="sub" x="36" y="66">Put a file in the folder. Pick it by its NAME in the experiment: section of the plant file.</text>
+
+  <rect class="pick" x="36" y="88" width="232" height="164" rx="4"/>
+  <text class="t" x="52" y="118">Policy</text>
+  <rect class="tint" x="52" y="130" width="86" height="24" rx="2"/>
+  <text class="code" x="62" y="146">policies/</text>
+  <text class="b" x="52" y="178">Picks what to make next.</text>
+  <text class="m" x="52" y="204">Function</text>
+  <text class="code" x="52" y="220">decide(state)</text>
+  <text class="m" x="52" y="240">Every rule in the folder races.</text>
+  <rect class="card" x="284" y="88" width="232" height="164" rx="4"/>
+  <text class="t" x="300" y="118">Reward</text>
+  <rect class="tint" x="300" y="130" width="78" height="24" rx="2"/>
+  <text class="code" x="310" y="146">rewards/</text>
+  <text class="b" x="300" y="178">How a day is scored.</text>
+  <text class="m" x="300" y="204">Function</text>
+  <text class="code" x="300" y="220">reward(move)</text>
+  <text class="m" x="300" y="240">Set: experiment.score</text>
+  <rect class="card" x="532" y="88" width="232" height="164" rx="4"/>
+  <text class="t" x="548" y="118">View</text>
+  <rect class="tint" x="548" y="130" width="64" height="24" rx="2"/>
+  <text class="code" x="558" y="146">views/</text>
+  <text class="b" x="548" y="178">A short label for each day.</text>
+  <text class="m" x="548" y="204">Function</text>
+  <text class="code" x="548" y="220">label(state)</text>
+  <text class="m" x="548" y="240">Set: experiment.markov.view</text>
+  <rect class="card" x="36" y="268" width="232" height="164" rx="4"/>
+  <text class="t" x="52" y="298">Feature</text>
+  <rect class="tint" x="52" y="310" width="86" height="24" rx="2"/>
+  <text class="code" x="62" y="326">features/</text>
+  <text class="b" x="52" y="358">An extra number on every day.</text>
+  <text class="m" x="52" y="384">Function</text>
+  <text class="code" x="52" y="400">features(state)</text>
+  <text class="m" x="52" y="420">Set: experiment.features</text>
+  <rect class="card" x="284" y="268" width="232" height="164" rx="4"/>
+  <text class="t" x="300" y="298">Demand</text>
+  <rect class="tint" x="300" y="310" width="71" height="24" rx="2"/>
+  <text class="code" x="310" y="326">demand/</text>
+  <text class="b" x="300" y="358">How many units customers buy.</text>
+  <text class="m" x="300" y="384">Function</text>
+  <text class="code" x="300" y="400">demand(period, rng, model)</text>
+  <text class="m" x="300" y="420">Set: experiment.demand</text>
+  <rect class="card" x="532" y="268" width="232" height="164" rx="4"/>
+  <text class="t" x="548" y="298">Observation</text>
+  <rect class="tint" x="548" y="310" width="115" height="24" rx="2"/>
+  <text class="code" x="558" y="326">observations/</text>
+  <text class="b" x="548" y="358">What a policy is allowed to see.</text>
+  <text class="m" x="548" y="384">Function</text>
+  <text class="code" x="548" y="400">observe(state)</text>
+  <text class="m" x="548" y="420">Set: experiment.observation</text>
+  <text class="m" x="36" y="470">The setting uses the NAME written in the file, not the file name.</text>
+</svg>

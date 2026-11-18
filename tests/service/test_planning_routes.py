@@ -589,12 +589,14 @@ def test_sdk_methods_round_trip_the_planning_flow_through_the_app(rest: Rest) ->
     with pytest.raises(TwinflowError) as explained:
         sdk.explain_plan(plan_id)
     assert _sdk_error_code(explained.value) == "capability_unavailable"
+    # TF-003 is installed, so K-tables are a capability: none was put yet (not_found), and
+    # an empty table is not a valid TF-003 `KTable`.
     with pytest.raises(TwinflowError) as k_read:
         sdk.get_k_table()
-    assert _sdk_error_code(k_read.value) == "capability_unavailable"
+    assert _sdk_error_code(k_read.value) == "not_found"
     with pytest.raises(TwinflowError) as k_write:
         sdk.put_k_table({})
-    assert _sdk_error_code(k_write.value) == "capability_unavailable"
+    assert _sdk_error_code(k_write.value) == "invalid_input"
 
     assert all(urlsplit(url).netloc == "testserver" for _, url in seen.requests)
 

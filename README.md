@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/header.png" alt="twinflow" width="100%">
+<img src="docs/header.webp" alt="twinflow: a machining line beside its glowing digital twin and a supply network" width="100%">
 
 ### A working software copy of your operation that you can run experiments on.
 

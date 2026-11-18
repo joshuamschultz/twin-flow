@@ -1,5 +1,7 @@
 # How-to guides
 
+![A path of eleven small floor tiles, each carrying one factory object, joined by a line](../images/headers/how-to-index.webp)
+
 These guides show you one job at a time. Read them in order the first time. After that, go to the page you need.
 
 Each page has the same parts: what it does, what you need first, numbered steps, what you get, what to do when something goes wrong, and what comes next.
@@ -19,6 +21,8 @@ Commands in these guides start with `twinflow`. If you work from a source checko
 9. [Read the Markov map](read-the-markov-map.md): see how the plant moves from one state to the next.
 10. [Improve a policy](improve-a-policy.md): test a new rule against your best one.
 11. [Tune everything](tune-everything.md): learn where the default numbers are set.
+
+![A loop of five steps: write a rule, check it, race the rules, read the report, test a new rule, then start again](../images/diagrams/write-race-improve-loop.svg)
 
 For every command and flag, see the [CLI reference](../cli.md).
 

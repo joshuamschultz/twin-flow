@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 414" width="800" height="414" role="img" aria-labelledby="title desc">
+  <title id="title">The write, race, improve loop</title>
+  <desc id="desc">A loop of five steps. 1 Write a rule in the policies folder. 2 Check it with twinflow policies check. 3 Race the rules on the same demand with twinflow policies race. 4 Read the report race.html. 5 Test a new rule with twinflow improve, which keeps it only on a clear win. Then back to step 1.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #f68d2e; fill-opacity: 0.1; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="413" rx="4"/>
+
+  <text class="h" x="36" y="44">The write, race, improve loop</text>
+  <text class="sub" x="36" y="66">Each pass tests one new rule. A rule stays only when it wins with proof.</text>
+
+  <rect class="card" x="35" y="96" width="210" height="92" rx="4"/>
+  <circle cx="61" cy="122" r="11" fill="#0073fe"/>
+  <text x="61" y="126.5" text-anchor="middle" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#ffffff">1</text>
+  <text class="t" x="81" y="127">Write a rule</text>
+  <text class="m" x="51" y="152">A short file in policies/</text>
+  <text class="code" x="51" y="173" style="font-size: 11.5px">policies/my_rule.py</text>
+  <rect class="card" x="295" y="96" width="210" height="92" rx="4"/>
+  <circle cx="321" cy="122" r="11" fill="#0073fe"/>
+  <text x="321" y="126.5" text-anchor="middle" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#ffffff">2</text>
+  <text class="t" x="341" y="127">Check it</text>
+  <text class="m" x="311" y="152">Find mistakes first.</text>
+  <text class="code" x="311" y="173" style="font-size: 11.5px">twinflow policies check</text>
+  <rect class="card" x="555" y="96" width="210" height="92" rx="4"/>
+  <circle cx="581" cy="122" r="11" fill="#0073fe"/>
+  <text x="581" y="126.5" text-anchor="middle" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#ffffff">3</text>
+  <text class="t" x="601" y="127">Race the rules</text>
+  <text class="m" x="571" y="152">Same demand for every rule.</text>
+  <text class="code" x="571" y="173" style="font-size: 11.5px">twinflow policies race</text>
+  <rect class="card" x="425" y="262" width="210" height="92" rx="4"/>
+  <circle cx="451" cy="288" r="11" fill="#0073fe"/>
+  <text x="451" y="292.5" text-anchor="middle" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#ffffff">4</text>
+  <text class="t" x="471" y="293">Read the report</text>
+  <text class="m" x="441" y="318">Winner, leaks, Markov maps.</text>
+  <text class="code" x="441" y="339" style="font-size: 11.5px">race.html</text>
+  <rect class="pick" x="165" y="262" width="210" height="92" rx="4"/>
+  <circle cx="191" cy="288" r="11" fill="#0073fe"/>
+  <text x="191" y="292.5" text-anchor="middle" font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#ffffff">5</text>
+  <text class="t" x="211" y="293">Test a new rule</text>
+  <text class="m" x="181" y="318">Kept only on a clear win.</text>
+  <text class="code" x="181" y="339" style="font-size: 11.5px">twinflow improve</text>
+  <path class="line" d="M245 142 H293" marker-end="url(#arrow)"/>
+  <path class="line" d="M505 142 H553" marker-end="url(#arrow)"/>
+  <path class="line" d="M700 188 V308 H637" marker-end="url(#arrow)"/>
+  <path class="line" d="M425 308 H377" marker-end="url(#arrow)"/>
+  <path class="line" d="M165 308 H100 V190" marker-end="url(#arrow)"/>
+  <text class="m" x="36" y="392">Then write the next rule and go around again.</text>
+</svg>

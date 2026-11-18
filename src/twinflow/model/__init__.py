@@ -27,6 +27,7 @@ __all__ = [
     "ReleaseConfig",
     "StockConfig",
     "load_model",
+    "plan_origin",
     "validate_model",
 ]
 
@@ -160,6 +161,17 @@ def load_model(path: str) -> CompiledModel:
         registry=registry,
         release=release,
     )
+
+
+def plan_origin(model: CompiledModel) -> datetime | None:
+    """Time zero of the shop: the `origin` of its first work calendar, or None.
+
+    A plan's calendar dates are counted from this moment (`load_plan(..., origin=...)`).
+    """
+    for pool in model.labor_pools:
+        if pool.calendar is not None:
+            return pool.calendar.origin
+    return None
 
 
 def validate_model(path: str) -> list[ValidationError]:

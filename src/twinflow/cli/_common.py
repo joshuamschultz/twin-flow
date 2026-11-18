@@ -11,10 +11,12 @@ import dataclasses
 import shutil
 import sys
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
+from twinflow.extensions.loader import Problem
 from twinflow.extensions.project import Project, ProjectError, RaceSettings
 
 STAGING_SKIP = shutil.ignore_patterns("runs", "__pycache__", ".git", ".venv")
@@ -62,7 +64,23 @@ def staged_project(
         for name, file in (extra or {}).items():
             (stage / "policies").mkdir(exist_ok=True)
             shutil.copyfile(file, stage / "policies" / name)
-        yield Project.open(stage)
+        yield require_valid_settings(Project.open(stage), source)
+
+
+def problem_count(problems: Sequence[Problem], entry: Mapping[str, Any]) -> int:
+    """How many of the checker's `problems` belong to one `listing()` entry."""
+    file = Path(entry["file"])
+    name = entry["name"]
+    return sum(1 for p in problems if p.file == file or (p.file is None and p.name == name))
+
+
+def require_valid_settings(project: Project, home: Path) -> Project:
+    """The project, or a user error naming each capsule setting that cannot be used. A race
+    would stop on it later with no fix to show (a score or demand name no file has)."""
+    errors = [p for p in project.problems if p.severity == "error" and p.kind == "config"]
+    if errors:
+        raise UserError("\n".join(str(p).replace(str(project.folder), str(home)) for p in errors))
+    return project
 
 
 def whole_number(text: str, flag: str, *, minimum: int = 0) -> int:

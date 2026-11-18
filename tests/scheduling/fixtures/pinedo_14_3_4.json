@@ -1,0 +1,113 @@
+{
+  "schema_version": "2.0",
+  "problem": {
+    "id": "pinedo-14.3.4",
+    "jobs": [
+      {
+        "id": "1",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 14.3.4, p.383-384 (tabu search) and Example 15.1.1, p.397-398 (beam search), same instance of 1 || sum w_j T_j.",
+        "weight_override": 14.0,
+        "due": 4.0,
+        "operations": [
+          {
+            "id": "1-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 10.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 14.3.4, p.383-384 (tabu search) and Example 15.1.1, p.397-398 (beam search), same instance of 1 || sum w_j T_j.",
+        "weight_override": 12.0,
+        "due": 2.0,
+        "operations": [
+          {
+            "id": "2-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 10.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 14.3.4, p.383-384 (tabu search) and Example 15.1.1, p.397-398 (beam search), same instance of 1 || sum w_j T_j.",
+        "weight_override": 1.0,
+        "due": 1.0,
+        "operations": [
+          {
+            "id": "3-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 13.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "customer": "Pinedo, Scheduling: Theory, Algorithms, and Systems, 5th ed. Example 14.3.4, p.383-384 (tabu search) and Example 15.1.1, p.397-398 (beam search), same instance of 1 || sum w_j T_j.",
+        "weight_override": 12.0,
+        "due": 12.0,
+        "operations": [
+          {
+            "id": "4-1",
+            "work_center_id": "WC-M1",
+            "quantity": 1.0,
+            "options": [
+              {
+                "machine_id": "M1",
+                "fixed_seconds": 4.0,
+                "unit_seconds": 0.0,
+                "preference_cost": 0.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "machines": [
+      {
+        "id": "M1",
+        "work_center_id": "WC-M1"
+      }
+    ],
+    "work_centers": [
+      {
+        "id": "WC-M1"
+      }
+    ]
+  },
+  "profile": {
+    "objective": {
+      "mode": "lexicographic",
+      "levels": [
+        {
+          "kind": "weighted_tardiness"
+        }
+      ]
+    }
+  }
+}

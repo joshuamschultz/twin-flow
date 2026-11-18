@@ -1,5 +1,7 @@
 # Quick start
 
+![An empty floor plate, a start lever, a short conveyor and a running machine](images/headers/quickstart.webp)
+
 From nothing to a running twin in the browser.
 
 ## 1. Install

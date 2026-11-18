@@ -16,7 +16,6 @@ import pytest
 
 from twinflow.application.schedule_problem import build_request
 from twinflow.scenario import ScenarioCapsule
-from twinflow.scheduling.cpsat import ORToolsSolver
 from twinflow.scheduling.model import (
     Assignment,
     ObjectiveKind,
@@ -26,7 +25,9 @@ from twinflow.scheduling.model import (
     SolveRequest,
 )
 from twinflow.scheduling.overrides import apply_overrides
-from twinflow.scheduling.solver import Feature, solve
+from twinflow.scheduling.registry import get as get_solver
+from twinflow.scheduling.seam import Feature, SolveContext, Solver
+from twinflow.scheduling.solver import solve
 from twinflow.scheduling.validator import parse_request
 from twinflow.scheduling.verifier import verify
 
@@ -165,8 +166,8 @@ def test_pinned_later_slot_is_reserved_and_free_work_fills_before_it() -> None:
 # --- CP-SAT ----------------------------------------------------------------------------------
 
 
-def _cpsat() -> ORToolsSolver:
-    return ORToolsSolver(workers=1, seed=7)
+def _cpsat() -> Solver:
+    return get_solver("ortools", workers=1, seed=7)
 
 
 def test_cpsat_proves_the_hand_solved_optimum() -> None:
@@ -291,9 +292,14 @@ class _ForgedSolver:
     capabilities: frozenset[Feature] = frozenset(Feature)
 
     def solve(
-        self, problem: Problem, *, objective: ObjectiveSpec, budget_seconds: float
+        self,
+        problem: Problem,
+        *,
+        objective: ObjectiveSpec,
+        budget_seconds: float,
+        context: SolveContext,
     ) -> Schedule:
-        del problem, objective, budget_seconds
+        del problem, objective, budget_seconds, context
         wrong = Assignment(operation_id="cut", machine_id="b1", start=0.0, setup_end=0.0, end=2.0)
         return Schedule(
             status="FEASIBLE", assignments=(wrong,), solver=self.name, elapsed_seconds=0

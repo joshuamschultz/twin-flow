@@ -28,7 +28,7 @@ from twinflow.engines.contract import run_episode
 from twinflow.engines.step.engine import StepEngine, demand_draws
 from twinflow.engines.step.model import StepModel, parse_step_model
 from twinflow.engines.step.rules import RULE_NAMES, make_decider
-from twinflow.state.issues import Issue
+from twinflow.state.issues import Issue, did_you_mean
 from twinflow.state.recorder import StateRecorder
 from twinflow.state.records import Move, Snapshot, snapshot_from_dict
 
@@ -80,6 +80,24 @@ class MakeToStockAdapter:
         if parsed is not None:
             issues = issues + _start_state(parsed, snapshot)[1]
         return [_domain_issue(i) for i in issues if i.severity == "error"]
+
+    def validate_experiment(self, experiment: Mapping[str, Any]) -> list[DomainIssue]:
+        """A policy name no rule has is an error now, with a did-you-mean (REQ-213)."""
+        from twinflow.domain.registry import DomainIssue
+
+        policy = experiment.get("policy", DEFAULT_POLICY)
+        if isinstance(policy, str) and policy in RULE_NAMES:
+            return []
+        shown = policy if isinstance(policy, str) else repr(policy)
+        hint = did_you_mean(shown, RULE_NAMES)
+        return [
+            DomainIssue(
+                "$.experiment.policy",
+                f"experiment.policy is {shown!r}, and no built-in rule has that name.",
+                "error",
+                f"{hint} Valid rules: {', '.join(RULE_NAMES)}.",
+            )
+        ]
 
     def describe(self, model: Mapping[str, Any], snapshot: Mapping[str, Any]) -> dict[str, object]:
         parsed, issues = parse_step_model(model)

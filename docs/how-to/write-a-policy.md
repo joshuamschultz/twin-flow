@@ -1,5 +1,7 @@
 # Write a policy
 
+![Three conveyor lanes meeting at one switch lever in front of a molding press](../images/headers/how-to-write-a-policy.webp)
+
 This guide shows how to write a policy. A policy is a short file that picks what the press makes next.
 
 ## What this does

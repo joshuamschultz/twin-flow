@@ -186,3 +186,20 @@ def test_an_internal_failure_is_exit_2(
     monkeypatch.setattr(policies_cli, "race", boom)
     code, _, err = _run(capsys, "policies", "race", str(project), "--episodes", "3")
     assert code == 2 and "internal error" in err
+
+
+def test_race_moves_can_be_read_with_the_plants_own_views(
+    project: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "race"
+    code, _, _ = _run(
+        capsys, "policies", "race", str(project), "--episodes", "3", "--out", str(out)
+    )
+    assert code == 0
+    assert json.loads((out / "scenario.json").read_text())["model"]["domain"] == "make_to_stock"
+
+    kept = sorted(p for p in (out / "policies").iterdir() if p.is_dir())[0]
+    code, printed, _ = _run(capsys, "states", str(kept), "--view", "simple", "--top", "3")
+
+    assert code == 0
+    assert "Top states (view simple)" in printed

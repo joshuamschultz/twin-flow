@@ -153,3 +153,43 @@ def test_labor_calendar_intervals_cover_both_out_of_order_shifts() -> None:
     intervals = _working_intervals(_out_of_order_shift_calendar().config, 2 * day)
 
     assert intervals == ((6 * 3600.0, 22 * 3600.0), (day + 6 * 3600.0, day + 22 * 3600.0))
+
+
+# ---------------------------------------------------------------------------
+# on_shift_seconds: how much of a busy interval falls inside a shift (TF-006).
+# ---------------------------------------------------------------------------
+
+
+def _day_shift() -> WorkingCalendar:
+    """Every day 06:00-22:00 UTC; simulation second 0 is Monday 06:00."""
+    return WorkingCalendar(
+        CalendarConfig(
+            timezone="UTC",
+            origin=datetime.fromisoformat("2026-09-14T06:00:00+00:00"),
+            weekly=(
+                WorkingInterval(frozenset(range(7)), parse_clock("06:00"), parse_clock("22:00")),
+            ),
+        )
+    )
+
+
+def test_on_shift_seconds_drops_the_night_a_paused_job_spans() -> None:
+    # 20:00 Monday to 08:00 Tuesday: 2 h before the shift ends, 2 h after it starts.
+    calendar = _day_shift()
+    assert calendar.on_shift_seconds(14 * 3600.0, 26 * 3600.0) == pytest.approx(4 * 3600.0)
+
+
+def test_on_shift_seconds_of_an_interval_inside_a_shift_is_its_length() -> None:
+    assert _day_shift().on_shift_seconds(3600.0, 7200.0) == pytest.approx(3600.0)
+
+
+def test_on_shift_seconds_from_zero_equals_available_seconds() -> None:
+    calendar = _day_shift()
+    horizon = 3 * 86400.0 + 5 * 3600.0
+    assert calendar.on_shift_seconds(0.0, horizon) == pytest.approx(
+        calendar.available_seconds(horizon)
+    )
+
+
+def test_always_working_calendar_on_shift_seconds_is_the_interval() -> None:
+    assert AlwaysWorkingCalendar().on_shift_seconds(10.0, 70.0) == pytest.approx(60.0)
