@@ -48,7 +48,7 @@ twinflow = "twinflow.cli.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json", "scheduling/problem.schema.json", "erp/erp.schema.json", "extensions/builtin/*/*.py"]
+twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json", "scheduling/problem.schema.json", "erp/erp.schema.json", "extensions/builtin/*/*.py", "templates/*/*", "templates/*/*/*"]
 
 [tool.ruff]
 line-length = 100
@@ -77,7 +77,7 @@ mypy_path = "src"
 plugins = ["pydantic.mypy"]
 # Built-in extension files are written like user files, for planners to read and copy:
 # no type hints (D-142). The loader and checker test them instead.
-exclude = ["src/twinflow/extensions/builtin/"]
+exclude = ["src/twinflow/extensions/builtin/", "src/twinflow/templates/"]
 
 # simpleeval ships no py.typed marker; the sandbox wrapper (model/expressions.py) adds the
 # types at its own boundary. Silence only the missing-stub error for this one dependency.

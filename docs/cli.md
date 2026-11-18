@@ -135,6 +135,88 @@ twinflow extensions check examples/molding-press
 A folder that does not exist, or has no capsule, gives exit 1 with a message that names the
 path and the fix.
 
+## `twinflow policies list|check|race <project>`
+
+Work with the policy files of a make-to-stock project or a custom engine. A policy is a
+short Python file that picks what to make next.
+
+`list` shows every policy: its name, where it comes from (`builtin` or `project`), its
+decision type, the settings the race can tune, and how many problems it has.
+
+`check` runs the policy files on sample states and prints each problem in plain words.
+It leaves out other kinds of extension files, so use `extensions check` for those. It exits
+1 when a problem is an error, and 0 otherwise.
+
+`race` runs every policy on the same random demand and prints a ranking:
+
+```bash
+twinflow policies race examples/molding-press --episodes 20
+```
+
+The table shows rank, policy, score, dollars per run with a 95% range, fill rate and
+changeovers per run. Dollars are always shown, so you can see when a policy wins on your
+score but loses money. The command prints one progress line for each policy, lists any
+policy it had to skip and why, and prints the path of `race.html`.
+
+| Flag | What it does |
+|------|--------------|
+| `--policies DIR` | Race the files in `DIR` instead of the project's `policies/` folder. Built-in policies still run. |
+| `--episodes N` | How many runs each policy gets. The default is the capsule's `experiment.race.episodes` (200). |
+| `--seed S` | The seed for the demand draws. |
+| `--out DIR` | Where to write `race.json` and `race.html`. The default is `<project>/runs/race-<UTC time>/`. |
+| `--observation NAME` | What the policies may see, like `bucketed`. The default is the capsule's `experiment.observation`. |
+
+Exit codes for all three: 0 ok, 1 a problem you can fix (a missing folder, a capsule that
+is not make-to-stock or custom, a broken file, a bad flag), 2 an internal failure.
+
+## `twinflow improve <project> --candidate FILE [--replace] [--episodes N] [--seed S] [--out DIR]`
+
+Try a new policy file against the ones you have. The candidate and your current policies
+play the same random demand. The candidate is copied into `policies/` only when both are true:
+
+- it ranks first, and
+- its lead over the previous best is proven. The default rule is that the 95% range of the
+  paired difference in score is above zero. The capsule can set `experiment.race.promote_rule`
+  to `mean_above_zero` to ask only that the average is above zero.
+
+```bash
+twinflow improve examples/molding-press --candidate my_rule.py
+```
+
+The command prints the score and dollars of both policies and the difference between them.
+When the candidate wins, it prints where the file went. When it does not, it prints why and
+copies nothing. Either way the exit code is 0. A file that does not exist, a policy that
+fails to load or breaks, or a project with no policies gives exit 1.
+
+- If `policies/` already has a file with the same name, the command stops with exit 1.
+  Add `--replace` to overwrite it when the candidate wins. The old copy is not in the race.
+- If your project has no policy files, the candidate is raced against the built-in policies.
+- `improve.json` (in `--out`, default `<project>/runs/improve-<UTC time>/`) holds the proof:
+  both policies, their settings, both ranges, the seeds and the reason. `race.json` and
+  `race.html` are written next to it.
+
+## `twinflow new <folder> --template NAME` and `twinflow new --list`
+
+Start a new project from a template. `--list` shows the templates:
+
+| Template | What you get |
+|----------|--------------|
+| `make-to-stock` | The molding press from `examples/molding-press`, with two policy files. |
+| `job-shop` | The CNC shop with state capture and money turned on, and one dispatch rule file. |
+| `custom-engine` | A small Python world (a bakery) in `engines/`, a capsule, one policy and a README. |
+
+```bash
+twinflow new my-plant --template make-to-stock
+twinflow extensions check my-plant
+twinflow policies race my-plant --episodes 50
+```
+
+The capsule in the new folder is named after the folder (`my-plant.twin.yaml`). Every
+template has a README in plain words. The command stops with exit 1 when the folder is not
+empty, and changes nothing. The `job-shop` template is a discrete-event twin: run it with
+`twinflow scenario run`, then read it with `twinflow states`. `policies race` and
+`extensions check` are for make-to-stock and custom projects.
+
 ## `twinflow serve [--host --port --models-root]`
 
 Start the local REST API (needs the `api` extra). Defaults to `127.0.0.1:8000` and

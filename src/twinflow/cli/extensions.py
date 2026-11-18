@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
-from pathlib import Path
 from typing import Any, TypeVar
 
+from twinflow.cli._common import guarded, open_project
 from twinflow.extensions.checker import check_project
-from twinflow.extensions.project import Project, ProjectError
 
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
 
@@ -29,34 +27,11 @@ def add_extensions_subcommands(subparsers: argparse._SubParsersAction[ParserT]) 
     listing = nested.add_parser("list")
     listing.add_argument("project")
     listing.add_argument("--json", action="store_true", dest="as_json")
-    listing.set_defaults(handler=lambda args: _guarded(_handle_list, args))
+    listing.set_defaults(handler=lambda args: guarded(_handle_list, args))
 
     check = nested.add_parser("check")
     check.add_argument("project")
-    check.set_defaults(handler=lambda args: _guarded(_handle_check, args))
-
-
-class _UserError(Exception):
-    """A problem the user can fix. The message says where and how."""
-
-
-def _guarded(handler: Any, args: argparse.Namespace) -> int:
-    try:
-        return int(handler(args))
-    except (ProjectError, _UserError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    except Exception as exc:  # an internal failure: say so and use exit code 2
-        print(f"internal error: {type(exc).__name__}: {exc}", file=sys.stderr)
-        return 2
-
-
-def _open(path: str) -> Project:
-    if not Path(path).exists():
-        raise _UserError(
-            f"{path} does not exist. Fix: give the project folder (it holds one *.twin.yaml file)."
-        )
-    return Project.open(path)
+    check.set_defaults(handler=lambda args: guarded(_handle_check, args))
 
 
 def _row(entry: dict[str, Any]) -> dict[str, str]:
@@ -70,7 +45,7 @@ def _row(entry: dict[str, Any]) -> dict[str, str]:
 
 
 def _handle_list(args: argparse.Namespace) -> int:
-    project = _open(args.project)
+    project = open_project(args.project)
     entries = project.extensions.listing()
     if args.as_json:
         print(json.dumps(entries, indent=2))
@@ -84,7 +59,7 @@ def _handle_list(args: argparse.Namespace) -> int:
 
 
 def _handle_check(args: argparse.Namespace) -> int:
-    problems = check_project(_open(args.project))
+    problems = check_project(open_project(args.project))
     if not problems:
         print("No problems found.")
         return 0
