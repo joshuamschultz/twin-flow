@@ -1,6 +1,5 @@
-import { Component, Suspense, lazy, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-const LegacyApp = lazy(() => import("./LegacyApp"));
 import WorkspaceApp from "./workspace/WorkspaceApp";
 
 const queryClient = new QueryClient({
@@ -27,13 +26,19 @@ class WorkspaceBoundary extends Component<
     );
   }
 }
+/** B-37: the classic tools are retired. Their URL opens the run or sweep list instead. */
+function retireLegacyUrl(): void {
+  const query = new URLSearchParams(location.search);
+  if (query.get("view") !== "legacy") return;
+  const tab = query.get("tab");
+  query.delete("view");
+  query.delete("tab");
+  query.set("page", tab === "sweep" || tab === "optimize" ? "sweeps" : "runs");
+  history.replaceState(history.state, "", `${location.pathname}?${query}`);
+}
+
 export default function App() {
-  if (new URLSearchParams(location.search).get("view") === "legacy")
-    return (
-      <Suspense fallback={<div>Loading simulation tools…</div>}>
-        <LegacyApp />
-      </Suspense>
-    );
+  retireLegacyUrl();
   return (
     <QueryClientProvider client={queryClient}>
       <WorkspaceBoundary>

@@ -16,6 +16,7 @@ import {
   DecisionViewPage,
   findDecision,
 } from "./DecisionPages";
+import { Integrations } from "./Integrations";
 
 const navigation = [
   { id: "library", icon: "layers", label: "Scenario library" },
@@ -168,10 +169,6 @@ export default function WorkspaceApp() {
               <Icon name="arrow" size={15} />
             </button>
           </div>
-          <a href="?view=legacy" className="ws-legacy-link">
-            Classic simulation tools
-            <Icon name="arrow" size={14} />
-          </a>
           <div className="ws-user">
             <span>TF</span>
             <div>
@@ -725,6 +722,7 @@ function AgentView() {
           </section>
         </aside>
       </div>
+      <Integrations />
     </>
   );
 }

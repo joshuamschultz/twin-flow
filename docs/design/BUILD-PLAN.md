@@ -289,11 +289,14 @@ Accept: per page, a before and after screenshot pair and a short list of what mo
 existing `web/tests/browser/workspace.spec.ts` passes; duplicate CSS for cards, pills and tables
 in `workspace.css` is deleted in favour of the shared parts.
 
-**B-37 Retire legacy tabs (`web/src/LegacyApp.tsx`, `RunTab`, `SweepTab`, `OptimizeTab`,
+[x] **B-37 Retire legacy tabs (`web/src/LegacyApp.tsx`, `RunTab`, `SweepTab`, `OptimizeTab`,
 `FloorTab`, `ConfidenceBand`, `FulfillmentCards`, `UtilizationList`).** Sonnet.
 Route them to the run viewer and sweep view. Delete the old components once nothing imports
 them. `FloorMap` stays and takes the shared tokens.
 Accept: no import of the retired files remains; the legacy URL redirects to the new page.
+Done: `?view=legacy` opens Runs (or Sweeps for `tab=sweep|optimize`). The integrations list,
+used only by the old app, moved to Agent access (`web/src/workspace/Integrations.tsx`).
+`InventoryTable`, `Spinner` and `components/format.ts` had no other user and went too.
 
 **B-38 Notebook and Python chart theme.** Sonnet.
 `twinflow.report.theme` reads `tokens.json` and sets Matplotlib and Plotly defaults (colours,

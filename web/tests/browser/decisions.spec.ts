@@ -159,3 +159,26 @@ test("an unknown race says so in plain words", async ({ page }) => {
   await page.goto(`${WEB}/?page=race&id=does-not-exist`);
   await expect(page.getByText("Could not open this page.")).toBeVisible();
 });
+
+test("the old classic-tools URL goes to the new run and sweep pages", async ({
+  page,
+}) => {
+  await page.goto(`${WEB}/?view=legacy`);
+  await expect(page).toHaveURL(/[?&]page=runs/);
+  await expect(page).not.toHaveURL(/view=legacy/);
+  await expect(
+    page.getByRole("heading", { name: "Will my orders finish on time?" }),
+  ).toBeVisible();
+  await page.goto(`${WEB}/?view=legacy&tab=sweep`);
+  await expect(page).toHaveURL(/[?&]page=sweeps/);
+  await expect(page.getByText("Classic simulation tools")).toHaveCount(0);
+});
+
+test("agent access lists the integrations the old tools showed", async ({
+  page,
+}) => {
+  await page.goto(`${WEB}/?page=agents`);
+  await expect(
+    page.getByRole("heading", { name: "What can connect" }),
+  ).toBeVisible();
+});
