@@ -5,6 +5,7 @@ import {
   levelInfo,
   moveSelection,
   nodeWords,
+  normalDay,
   stateWords,
   type StateLayout,
 } from "../../src/decision/stateMap";
@@ -257,5 +258,12 @@ describe("moveSelection", () => {
     expect(moveSelection(grid, "a", "ArrowDown")).toBe("c");
     expect(moveSelection(grid, "d", "ArrowUp")).toBe("b");
     expect(moveSelection(grid, "d", "ArrowDown")).toBe("d");
+  });
+});
+
+describe("normalDay", () => {
+  it("spreads a run's profit over its days", () => {
+    expect(Math.round(normalDay(65410, 60))).toBe(1090);
+    expect(normalDay(100, 0)).toBe(0);
   });
 });

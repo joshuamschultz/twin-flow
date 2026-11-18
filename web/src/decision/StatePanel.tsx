@@ -1,6 +1,6 @@
 // The side panel for the selected state (DESIGN.md 3.8).
 import { forwardRef } from "react";
-import { pct, usd } from "./stateFormat";
+import { MINUS, pct, usd } from "./format";
 import { nodeWords, wordsSentence, type LevelDef } from "./stateMap";
 import type { StateEdge, StateNode } from "./types";
 
@@ -12,7 +12,6 @@ const PART_WORDS: [key: string, words: string, gain: boolean][] = [
   ["lost_sales", "Lost sales", false],
   ["late", "Late orders", false],
 ];
-const MINUS = "−";
 
 function partColor(key: string, gain: boolean): string {
   if (gain) return "var(--tf-gain-fill)";

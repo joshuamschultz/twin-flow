@@ -3,6 +3,9 @@
   display: grid;
   gap: 12px;
 }
+.tf-sm-wrap > .tf-seg {
+  justify-self: start;
+}
 .tf-sm-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
@@ -14,22 +17,16 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.tf-sm-card {
-  background: var(--ba-surface);
-  border: 1px solid var(--ba-border);
-  border-radius: var(--ba-radius-surface, 4px);
-  padding: 20px;
-  min-width: 0;
-}
 .tf-sm-scroll {
   overflow-x: auto;
   margin-top: 12px;
 }
-.tf-sm-svg {
+.tf-sm-scroll .tf-sm-svg {
   display: block;
+  max-width: none;
   font-family: var(--ba-font-body);
 }
-.tf-sm-lane-title {
+.tf-sm-svg .tf-sm-lane-title {
   font: 500 12.5px var(--ba-font-body);
   fill: var(--ba-headline);
 }
@@ -54,16 +51,16 @@
   stroke: var(--ba-focus);
   stroke-width: 3;
 }
-.tf-sm-name {
+.tf-sm-svg .tf-sm-name {
   font: 500 12.5px var(--ba-font-body);
   fill: var(--ba-headline);
 }
-.tf-sm-meta {
+.tf-sm-svg .tf-sm-meta {
   font: 400 11.5px var(--ba-font-mono);
   font-variant-numeric: tabular-nums;
   fill: var(--ba-body);
 }
-.tf-sm-meta.loss {
+.tf-sm-svg .tf-sm-meta.loss {
   fill: var(--tf-loss-text);
 }
 .tf-sm-edge {
@@ -83,7 +80,7 @@
   opacity: 0.75;
   stroke-dasharray: 3 3;
 }
-.tf-sm-edge-label {
+.tf-sm-svg .tf-sm-edge-label {
   font: 500 11.5px var(--ba-font-mono);
   fill: var(--ba-accent);
 }
@@ -115,29 +112,6 @@
 .tf-sm-muted {
   color: var(--tf-meta);
 }
-.tf-sm-seg {
-  display: inline-flex;
-  justify-self: start;
-  border: 1px solid var(--ba-rule);
-  border-radius: var(--ba-radius-control, 2px);
-  overflow: hidden;
-}
-.tf-sm-seg button {
-  border: 0;
-  background: var(--ba-surface);
-  padding: 9px 14px;
-  min-height: 40px;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--ba-body-2);
-}
-.tf-sm-seg button.on {
-  background: var(--ba-headline);
-  color: var(--ba-surface);
-  font-weight: 500;
-}
-.tf-sm-seg button:focus-visible,
 .tf-sm-link:focus-visible,
 .tf-sm-panel h3:focus-visible,
 .tf-leak:focus-visible {
@@ -235,13 +209,6 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: var(--ba-headline);
-}
-.tf-sm-empty {
-  border: 1px dashed var(--ba-rule);
-  border-radius: 4px;
-  padding: 20px;
-  color: var(--ba-body);
-  font-size: 14px;
 }
 
 /* money leaks */
@@ -351,9 +318,6 @@
   }
 }
 @media print {
-  .tf-sm-seg {
-    display: none;
-  }
   .tf-sm-scroll {
     overflow: visible;
   }

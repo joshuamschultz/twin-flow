@@ -1,11 +1,12 @@
 // State map with its panel, legend, coverage line and the Pick / Today switch.
 // Works controlled (chainId, selected) or on its own.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { familyColor } from "./StateGlyph";
+import { pct } from "./format";
+import { Card, EmptyState, Segmented } from "./primitives";
+import { familyFill } from "./StateGlyph";
 import { StateMap, type StateChain } from "./StateMapChart";
 import { StatePanel } from "./StatePanel";
-import { normalDay, pct } from "./stateFormat";
-import type { LanesBy, LevelDef } from "./stateMap";
+import { normalDay, type LanesBy, type LevelDef } from "./stateMap";
 import type { RaceViewModel } from "./types";
 
 export type ChainChoice = {
@@ -116,10 +117,12 @@ export function StateMapCard({
 
   if (!active || !active.chain.nodes.length) {
     return (
-      <div className="tf-sm-empty" data-state-empty="">
-        No moves were captured for this run. Add{" "}
-        <code>experiment.state_capture: {"{every_hours: 4}"}</code> and run
-        again.
+      <div data-state-empty="">
+        <EmptyState
+          title="No moves were captured for this run."
+          body={<p>Add this setting and run again.</p>}
+          fix="experiment.state_capture: {every_hours: 4}"
+        />
       </div>
     );
   }
@@ -128,29 +131,22 @@ export function StateMapCard({
   return (
     <div className="tf-sm-wrap">
       {chains.length > 1 && (
-        <div className="tf-sm-seg" role="group" aria-label="Which rule">
-          {chains.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              aria-pressed={c.id === active.id}
-              className={c.id === active.id ? "on" : ""}
-              onClick={() => switchTo(c.id)}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Which rule"
+          options={chains.map((c) => ({ value: c.id, label: c.label }))}
+          value={active.id}
+          onChange={switchTo}
+        />
       )}
       <div className="tf-sm-grid">
-        <div className="tf-sm-card">
+        <Card className="tf-sm-mapcard">
           <div className="tf-sm-legend">
             {families.length > 0 && setupLanes && (
               <span>
                 Bars in a box: stock of
                 {families.map((f) => (
                   <span key={f} className="tf-sm-key">
-                    <i style={{ background: familyColor(f, families) }} />
+                    <i style={{ background: familyFill(f, families) }} />
                     {f}
                   </span>
                 ))}
@@ -190,11 +186,11 @@ export function StateMapCard({
           </p>
           {!setupLanes && !active.chain.nodes.some((n) => n.parts_of_label) && (
             <p className="tf-sm-note">
-              Add `state_groups` to your model to get a clearer map.
+              Add <code>state_groups</code> to your model to get a clearer map.
             </p>
           )}
-        </div>
-        <div className="tf-sm-card">
+        </Card>
+        <Card className="tf-sm-panelcard">
           {node && (
             <StatePanel
               ref={heading}
@@ -210,7 +206,7 @@ export function StateMapCard({
               }}
             />
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -371,3 +371,8 @@ export function moveSelection(
   }
   return id;
 }
+
+/** Money made on a normal day: profit per run spread over the days of a run. */
+export function normalDay(dollarsPerRun: number, horizonDays: number): number {
+  return horizonDays > 0 ? dollarsPerRun / horizonDays : 0;
+}

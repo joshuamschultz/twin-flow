@@ -1,8 +1,9 @@
 // The state map: lanes of boxes, arrows for the moves (DESIGN.md 3.8).
 // Takes the chain as props so the race view and the states view can share it.
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { familyColor, StateGlyph } from "./StateGlyph";
-import { pct, usd } from "./stateFormat";
+import { useId, useMemo, useRef } from "react";
+import { ChartFrame } from "./ChartFrame";
+import { pct, usd } from "./format";
+import { familyFill, StateGlyph } from "./StateGlyph";
 import {
   layoutStates,
   moveSelection,
@@ -41,21 +42,6 @@ const KEYS = new Set([
 ]);
 const CHAR_W = 6.6;
 
-function useWidth<T extends HTMLElement>(): [React.RefObject<T>, number] {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setWidth(el.clientWidth);
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, width];
-}
-
 export function stripeColor(perDay: number, avgPerDay: number): string {
   if (perDay < 0) return "var(--tf-loss)";
   return perDay >= avgPerDay ? "var(--tf-gain-fill)" : "var(--tf-today)";
@@ -77,7 +63,64 @@ export function revealState(root: ParentNode | null, id: string): void {
   el.focus({ preventScroll: true });
 }
 
-export function StateMap({
+function mapLabel(mode: string): string {
+  const tail = "Select a box to see where the plant goes next.";
+  if (mode === "setup")
+    return `State map. Columns are what the press is set to. ${tail}`;
+  if (mode === "level")
+    return `State map. Columns are the stock level of the first family. ${tail}`;
+  return `State map. Boxes are sorted by share of days. ${tail}`;
+}
+
+function StateTable({
+  chain,
+  levels,
+}: Pick<StateMapProps, "chain" | "levels">) {
+  const rows = [...chain.nodes].sort((a, b) => b.share - a.share);
+  return (
+    <table className="tf-table">
+      <thead>
+        <tr>
+          <th scope="col">State</th>
+          <th scope="col">Share of days</th>
+          <th scope="col">Money per day</th>
+          <th scope="col">Stays here</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((n) => (
+          <tr key={n.id}>
+            <td>{wordsSentence(nodeWords(n, levels))}</td>
+            <td>{pct(n.share)}</td>
+            <td>{usd(n.per_day)}</td>
+            <td>{pct(n.stay, 0)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** The map in a chart frame: measured width, label and a "Show as table" toggle. */
+export function StateMap(props: StateMapProps) {
+  const { chain, lanesBy = "auto", families, levels } = props;
+  const mode = useMemo(
+    () =>
+      layoutStates(chain.nodes, [], lanesBy, { order: families, levels }).mode,
+    [chain, lanesBy, families, levels],
+  );
+  return (
+    <ChartFrame
+      label={mapLabel(mode)}
+      interactive
+      table={() => <StateTable chain={chain} levels={levels} />}
+    >
+      {(width) => <StateMapSvg {...props} width={width} />}
+    </ChartFrame>
+  );
+}
+
+function StateMapSvg({
   chain,
   selected,
   onSelect,
@@ -85,8 +128,9 @@ export function StateMap({
   levels,
   families,
   lanesBy = "auto",
-}: StateMapProps) {
-  const [wrap, width] = useWidth<HTMLDivElement>();
+  width,
+}: StateMapProps & { width: number }) {
+  const head = `tf-sm-head-${useId().replace(/:/g, "")}`;
   const layout = useMemo(
     () =>
       layoutStates(chain.nodes, chain.edges, lanesBy, {
@@ -115,13 +159,6 @@ export function StateMap({
     refs.current.get(next)?.focus();
   };
 
-  const label =
-    layout.mode === "setup"
-      ? "State map. Columns are what the press is set to. Select a box to see where the plant goes next."
-      : layout.mode === "level"
-        ? "State map. Columns are the stock level of the first family. Select a box to see where the plant goes next."
-        : "State map. Boxes are sorted by share of days. Select a box to see where the plant goes next.";
-
   const edges = layout.edges.map((e) => ({
     ...e,
     kind: e.from === selected ? "out" : e.to === selected ? "in" : "hide",
@@ -134,20 +171,18 @@ export function StateMap({
   );
 
   return (
-    <div className="tf-sm-scroll" ref={wrap}>
+    <div className="tf-sm-scroll">
       {width > 0 && (
         <svg
           className="tf-sm-svg"
           width={layout.width}
           height={layout.height}
-          role="group"
-          aria-label={label}
           data-state-map=""
           data-mode={layout.mode}
         >
           <defs>
             <marker
-              id="tf-sm-head"
+              id={head}
               viewBox="0 0 8 8"
               refX="7"
               refY="4"
@@ -175,7 +210,7 @@ export function StateMap({
                   width={10}
                   height={10}
                   rx={2}
-                  fill={familyColor(lane.key, families)}
+                  fill={familyFill(lane.key, families)}
                   stroke="var(--tf-axis)"
                   strokeWidth={0.5}
                 />
@@ -196,7 +231,7 @@ export function StateMap({
                 d={e.d}
                 className={`tf-sm-edge ${e.kind}`}
                 strokeWidth={1 + e.prob * 7}
-                markerEnd={e.kind === "out" ? "url(#tf-sm-head)" : undefined}
+                markerEnd={e.kind === "out" ? `url(#${head})` : undefined}
               />
             ))}
           </g>

@@ -1,12 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { ViteDevServer } from "vite";
-import {
-  axeViolations,
-  HAS_AXE,
-  openFixture,
-  startFixtures,
-  WEB,
-} from "./server";
+import { axeViolations, openFixture, startFixtures, WEB } from "./server";
 
 let server: ViteDevServer;
 let url: string;
@@ -137,7 +131,6 @@ for (const theme of ["light", "dark"] as const) {
   test(`axe finds no AA problems in the state map (${theme})`, async ({
     page,
   }) => {
-    test.skip(!HAS_AXE, "set AXE_CORE_PATH to a local axe.min.js");
     await openFixture(page, url, { theme });
     expect(await axeViolations(page, "[data-fixture='statemap']")).toEqual([]);
   });
@@ -152,3 +145,16 @@ for (const theme of ["light", "dark"] as const) {
     });
   }
 }
+
+test("show as table lists every state with share and money", async ({
+  page,
+}) => {
+  await openFixture(page, url);
+  const card = page.locator("[data-fixture='statemap']");
+  await card.getByRole("button", { name: "Show as table" }).first().click();
+  const rows = card.locator("table.tf-table tbody tr");
+  await expect(rows).toHaveCount(15);
+  await expect(rows.first()).toContainText("All stock OK. Press on grey.");
+  await expect(rows.first()).toContainText("8.5%");
+  await expect(rows.first()).toContainText("$1,383");
+});

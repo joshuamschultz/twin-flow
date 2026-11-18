@@ -7,6 +7,7 @@ import "../tokens.css";
 import "../fonts/fonts.css";
 import "../decision.css";
 import { LeakList } from "../LeakList";
+import { Card } from "../primitives";
 import { revealState } from "../StateMapChart";
 import { raceChains, StateMapCard } from "../StateMapCard";
 import type { RaceViewModel, StateNode } from "../types";
@@ -69,16 +70,14 @@ function RaceFixture({ m }: { m: RaceViewModel }) {
           onSelect={setSelected}
         />
       </section>
-      <section
-        data-fixture="leaks"
-        className="tf-sm-card"
-        style={{ marginBottom: 40 }}
-      >
-        <LeakList
-          leaks={(pick && m.leaks[pick]) || []}
-          levels={m.views.levels}
-          onSelectState={showState}
-        />
+      <section data-fixture="leaks" style={{ marginBottom: 40 }}>
+        <Card>
+          <LeakList
+            leaks={(pick && m.leaks[pick]) || []}
+            levels={m.views.levels}
+            onSelectState={showState}
+          />
+        </Card>
       </section>
     </>
   );

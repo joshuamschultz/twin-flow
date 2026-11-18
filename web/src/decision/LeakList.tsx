@@ -1,6 +1,7 @@
 // Money leaks: the states that cost the pick the most per run (DESIGN.md 3.9).
 // A click on a row selects that state in the map.
-import { pct, usd } from "./stateFormat";
+import { pct, usd } from "./format";
+import { EmptyState } from "./primitives";
 import {
   partsFromLabel,
   stateWords,
@@ -66,9 +67,13 @@ export function LeakList({
   const rows = leaks.slice(0, limit);
   if (!rows.length)
     return (
-      <div className="tf-sm-empty" data-leaks-empty="">
-        No money leaks to show. No day-by-day record was kept for this rule.
-        Rerun the race.
+      <div data-leaks-empty="">
+        <EmptyState
+          title="No money leaks to show."
+          body={
+            <p>No day-by-day record was kept for this rule. Rerun the race.</p>
+          }
+        />
       </div>
     );
   const max = Math.max(1, ...rows.map((l) => l.per_run));

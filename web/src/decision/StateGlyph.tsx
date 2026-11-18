@@ -1,17 +1,14 @@
 // One bar per family, taller for more stock, orange when low (DESIGN.md 3.8).
 // An SVG fragment: place it inside an <svg>. Decorative; the box label carries the words.
+import { familyColor } from "./race";
 import { levelInfo, type LevelDef } from "./stateMap";
 
-const NAMED = new Set(["grey", "black", "natural"]);
-
-/** The family colour token, in capsule order (DESIGN.md 8.1). */
-export function familyColor(
+/** Family colour by capsule order (DESIGN.md 8.1). */
+export function familyFill(
   family: string,
   order: readonly string[] = [],
 ): string {
-  if (NAMED.has(family)) return `var(--tf-fam-${family})`;
-  const i = Math.max(0, order.indexOf(family));
-  return `var(--tf-fam-${(i % 5) + 1})`;
+  return familyColor(family, Math.max(0, order.indexOf(family)));
 }
 
 export const GLYPH_HEIGHT = 24;
@@ -65,7 +62,7 @@ export function StateGlyph({
             width={BAR_W}
             height={h}
             rx={1}
-            fill={info.low ? "var(--tf-out)" : familyColor(fam, order)}
+            fill={info.low ? "var(--tf-out)" : familyFill(fam, order)}
           />
         );
       })}

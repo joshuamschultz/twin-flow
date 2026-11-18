@@ -1,12 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { ViteDevServer } from "vite";
-import {
-  axeViolations,
-  HAS_AXE,
-  openFixture,
-  startFixtures,
-  WEB,
-} from "./server";
+import { axeViolations, openFixture, startFixtures, WEB } from "./server";
 
 let server: ViteDevServer;
 let url: string;
@@ -31,7 +25,7 @@ test("five rows with words, cause, a try line and a stacked bar", async ({
   await expect(first.locator(".tf-leak-name")).toHaveText(
     "Black and natural high. Press on natural.",
   );
-  await expect(first).toContainText("6% of days. Biggest cost: changeovers.");
+  await expect(first).toContainText("6.0% of days. Biggest cost: changeovers.");
   await expect(first).toContainText("Try longer runs of one family");
   await expect(first.locator(".tf-leak-val")).toHaveText("$3,949");
   await expect(first.locator(".tf-leak-stack i")).toHaveCount(2);
@@ -74,7 +68,6 @@ for (const theme of ["light", "dark"] as const) {
   test(`axe finds no AA problems in the leak list (${theme})`, async ({
     page,
   }) => {
-    test.skip(!HAS_AXE, "set AXE_CORE_PATH to a local axe.min.js");
     await openFixture(page, url, { theme });
     expect(await axeViolations(page, leaks)).toEqual([]);
   });
