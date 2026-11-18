@@ -62,7 +62,7 @@
   font: 500 11px var(--ba-font-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--tf-meta);
+  color: var(--ba-body-2); /* --tf-meta is under 4.5:1 on surface-2 */
   background: var(--ba-surface-2);
   padding: 6px 10px;
 }
@@ -108,7 +108,7 @@
   font-weight: 500;
 }
 .tf-wi-slider label .tf-num {
-  color: var(--ba-accent);
+  color: var(--tf-gain); /* text token: AA on the card */
 }
 .tf-wi-slider input[type="range"] {
   display: block;
