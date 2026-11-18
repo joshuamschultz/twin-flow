@@ -125,7 +125,7 @@ Accept: zero line labelled "Today"; pick line bold; the two marks ("Day 42: $23,
 Accept: today is the zero row; whiskers from `vs_baseline.low/high`; axis cut and fold for weak
 rules; "same as today" for a zero gap; hover text has range and runs won.
 
-**B-14 Race page assembly and offline wiring for sections so far.** Sonnet.
+[x] **B-14 Race page assembly and offline wiring for sections so far.** Sonnet.
 `web/src/decision/views/RaceView.tsx`; `twinflow policies race --out` writes the new `race.html`
 through B-03 (old writer kept behind `--legacy-report` until B-33).
 Accept: running the CLI on `examples/molding-press` gives a file that opens offline and shows
