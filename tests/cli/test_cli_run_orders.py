@@ -64,3 +64,13 @@ def test_orders_table_with_a_calendar_prints_dates(
     # Order A is due 86400 s after Mon Mar 02 07:00, which is Tue Mar 03 07:00.
     assert row.split()[:7] == ["A", "finished", "1", "Tue", "Mar", "03", "07:00"]
     assert row.rstrip().endswith("0 of 1")
+
+
+def test_a_due_time_of_midnight_prints_as_the_end_of_the_day_before() -> None:
+    from datetime import datetime
+
+    from twinflow.cli.order_table import _when
+
+    origin = datetime.fromisoformat("2026-11-16T06:00:00-06:00")
+    assert _when(18 * 3600, origin, due=True) == "Mon Nov 16 24:00"
+    assert _when(18 * 3600, origin) == "Tue Nov 17 00:00"

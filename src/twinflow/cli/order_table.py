@@ -23,12 +23,16 @@ def _percentile(values: Sequence[float], share: float) -> float:
     return ordered[min(len(ordered) - 1, max(0, math.ceil(share * len(ordered)) - 1))]
 
 
-def _when(seconds: float | None, origin: datetime | None) -> str:
+def _when(seconds: float | None, origin: datetime | None, *, due: bool = False) -> str:
     if seconds is None or math.isinf(seconds):
-        return "not done"
+        return "none" if due else "not done"
     if origin is None:
         return f"{seconds / 3600:.1f}"
-    return (origin + timedelta(seconds=seconds)).strftime("%a %b %d %H:%M")
+    moment = origin + timedelta(seconds=seconds)
+    if due and (moment.hour, moment.minute) == (0, 0):
+        # Due at midnight means due by the end of the day before: print it that way.
+        return (moment - timedelta(days=1)).strftime("%a %b %d 24:00")
+    return moment.strftime("%a %b %d %H:%M")
 
 
 def _due(order: WorkOrder) -> float | None:
@@ -51,7 +55,7 @@ def order_lines(
             continue
         key = order.work_order_id
         done = [k.completion_by_order.get(key) for k in per_rep]
-        finished = [d for d in done if d is not None]
+        finished = [math.inf if d is None else d for d in done]  # not done sorts last
         lateness = [k.lateness_by_order.get(key) for k in per_rep]
         late = sum(1 for value in lateness if value is None or value > 0)
         rows.append(
@@ -59,9 +63,9 @@ def order_lines(
                 key,
                 order.part,
                 str(order.qty),
-                _when(_due(order), origin),
+                _when(_due(order), origin, due=True),
                 _when(_percentile(finished, 0.5), origin) if finished else "not done",
-                _when(_percentile(finished, 0.9), origin) if len(finished) == runs else "not done",
+                _when(_percentile(finished, 0.9), origin) if finished else "not done",
                 f"{late} of {runs}",
             )
         )
