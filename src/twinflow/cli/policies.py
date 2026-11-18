@@ -8,12 +8,11 @@ can fix, 2 an internal failure.
 from __future__ import annotations
 
 import argparse
-import dataclasses
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypeVar
 
-from twinflow.cli._common import UserError, guarded, open_project, staged_project, whole_number
+from twinflow.cli._common import UserError, guarded, open_project, race_settings, staged_project
 from twinflow.extensions.checker import check_project
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import PolicyResult, RaceResult, Stat, race
@@ -95,7 +94,8 @@ def _handle_check(args: argparse.Namespace) -> int:
 
 
 def _money(value: float) -> str:
-    return f"${value:,.0f}" if abs(value) >= 1000 else f"${value:,.2f}"
+    sign = "-" if value < 0 else ""
+    return f"{sign}${abs(value):,.0f}" if abs(value) >= 1000 else f"{sign}${abs(value):,.2f}"
 
 
 def _number(value: float) -> str:
@@ -140,13 +140,7 @@ def _handle_race(args: argparse.Namespace) -> int:
             f"{folder} is not a folder. Fix: give a folder that holds policy .py files."
         )
     with staged_project(args.project, policies=folder) as project:
-        settings = project.config.race
-        if args.episodes is not None:
-            settings = dataclasses.replace(
-                settings, episodes=whole_number(args.episodes, "--episodes", minimum=1)
-            )
-        if args.seed is not None:
-            settings = dataclasses.replace(settings, seed=whole_number(args.seed, "--seed"))
+        settings = race_settings(project, args)
         masks = _observation(project, args.observation)
         original = open_project(args.project).folder
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -171,8 +165,8 @@ def _print_result(result: RaceResult) -> None:
     ranking = result.ranking()
     print()
     print(
-        f"Score: {result.score_name}, dollars are always shown. "
-        f"Ranking under the {result.observation} view."
+        f"Policies ranked by {result.score_name} (dollars are always shown), "
+        f"under the {result.observation} view."
     )
     for line in _table(_RACE_COLUMNS, [_row(row, level) for row in ranking]):
         print(line)

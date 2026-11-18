@@ -7,6 +7,7 @@ Exit codes: 0 ok, 1 a problem the user can fix (the message names the path and a
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import shutil
 import sys
 import tempfile
@@ -14,7 +15,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from twinflow.extensions.project import Project, ProjectError
+from twinflow.extensions.project import Project, ProjectError, RaceSettings
 
 STAGING_SKIP = shutil.ignore_patterns("runs", "__pycache__", ".git", ".venv")
 
@@ -74,3 +75,15 @@ def whole_number(text: str, flag: str, *, minimum: int = 0) -> int:
     if value < minimum:
         raise UserError(f"{flag} must be at least {minimum}, not {value}. {fix}")
     return value
+
+
+def race_settings(project: Project, args: argparse.Namespace) -> RaceSettings:
+    """The project's `experiment.race` settings with `--episodes` and `--seed` applied."""
+    settings = project.config.race
+    if args.episodes is not None:
+        settings = dataclasses.replace(
+            settings, episodes=whole_number(args.episodes, "--episodes", minimum=1)
+        )
+    if args.seed is not None:
+        settings = dataclasses.replace(settings, seed=whole_number(args.seed, "--seed"))
+    return settings
