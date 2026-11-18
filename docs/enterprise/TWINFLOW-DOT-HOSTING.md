@@ -1,6 +1,6 @@
 # Twinflow Dot hosted pilot boundary
 
-This is the design gate for a hosted pilot, not a statement that the current local service is ready for customer data. The existing shared `TWINFLOW_API_TOKEN` authenticates a trusted service caller, not a person or organization.
+This is the design gate for a hosted pilot, not a statement that the current local service is ready for customer data. The existing named caller tokens (`TWINFLOW_TOKENS_FILE`, scopes `read` and `plan`) authenticate trusted service callers, not a person or organization.
 
 ## Identity and authorization
 

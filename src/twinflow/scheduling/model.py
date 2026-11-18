@@ -73,12 +73,19 @@ class ObjectiveKind(StrEnum):
 
 
 class ProcessingOption(_Contract):
-    """One eligible machine for an operation; run seconds = fixed + quantity * unit (D-061)."""
+    """One eligible machine for an operation; run seconds = fixed + quantity * unit (D-061).
+
+    `work_center_id` None means the operation's own center. A value names a substitute
+    center (a cross-center alternate): the machine must then belong to that center, while
+    `Operation.work_center_id` stays the primary center. Setups are always keyed by the
+    chosen machine's own center.
+    """
 
     machine_id: Id
     fixed_seconds: NonNegFloat
     unit_seconds: NonNegFloat
     preference_cost: NonNegFloat
+    work_center_id: Id | None = None
 
 
 class Precedence(_Contract):
@@ -130,7 +137,9 @@ class Operation(_Contract):
     Setup is the first phase of the operation, not a separate task (D-063): the machine is
     busy on `[start, end)` and `setup_detached` chooses whether material must be present
     from `start` (false) or only from `setup_end` (true). `shift_crossing` says whether
-    the operation must fit inside one working interval or may pause over breaks (D-065).
+    the operation must fit inside one working interval (`forbid`), may pause over breaks
+    (`pause`, D-065), or must only start inside working time and then runs on unattended,
+    ignoring the calendar end (`finish_unattended`, e.g. an oven load).
     """
 
     id: Id
@@ -144,7 +153,7 @@ class Operation(_Contract):
     batch_family: Id | None = None
     setup_detached: StrictBool = False
     operator_needs: tuple[OperatorNeed, ...] = ()
-    shift_crossing: Literal["forbid", "pause"] = "forbid"
+    shift_crossing: Literal["forbid", "pause", "finish_unattended"] = "forbid"
     pin: Pin | None = None
     status: OperationStatus = OperationStatus()
 
@@ -213,11 +222,43 @@ class WorkCenter(_Contract):
     setup_function_id: Id | None = None
 
 
+class OvertimeInterval(_Contract):
+    """A priced window `[start, end)` of working time; premium = `cost_multiplier - 1` (D-125)."""
+
+    start: float
+    end: float
+    cost_multiplier: float = Field(ge=1)
+
+    @model_validator(mode="after")
+    def _end_after_start(self) -> Self:
+        if self.end <= self.start:
+            raise ValueError("overtime end must be after start")
+        return self
+
+
+def _merged_working_spans(intervals: tuple[Interval, ...]) -> list[Interval]:
+    """Sorted, disjoint intervals with touching neighbours joined into one span."""
+    spans: list[Interval] = []
+    for start, end in intervals:
+        if spans and spans[-1][1] == start:
+            spans[-1] = (spans[-1][0], end)
+        else:
+            spans.append((start, end))
+    return spans
+
+
 class Calendar(_Contract):
-    """Explicit working intervals `[start, end)`, sorted and non-overlapping (D-065)."""
+    """Explicit working intervals `[start, end)`, sorted and non-overlapping (D-065).
+
+    `overtime` marks priced parts of that working time (D-125). It is a subset of
+    `intervals`, so the verifier and solvers keep one working-time rule; only the cost
+    objective reads it. Entries are sorted, disjoint (touching allowed) and each lies inside
+    one merged working span.
+    """
 
     id: Id
     intervals: tuple[Interval, ...] = Field(max_length=MAX_CALENDAR_INTERVALS)
+    overtime: tuple[OvertimeInterval, ...] = Field(default=(), max_length=MAX_CALENDAR_INTERVALS)
 
     @model_validator(mode="after")
     def _intervals_sorted_and_disjoint(self) -> Self:
@@ -226,6 +267,21 @@ class Calendar(_Contract):
             if start >= end or start < previous_end:
                 raise ValueError("calendar intervals must be sorted, disjoint and start < end")
             previous_end = end
+        return self
+
+    @model_validator(mode="after")
+    def _overtime_inside_working_time(self) -> Self:
+        spans = _merged_working_spans(self.intervals)
+        span_index = 0
+        previous_end = -math.inf
+        for window in self.overtime:
+            if window.start < previous_end:
+                raise ValueError("calendar overtime must be sorted and non-overlapping")
+            while span_index < len(spans) and spans[span_index][1] < window.end:
+                span_index += 1
+            if span_index == len(spans) or window.start < spans[span_index][0]:
+                raise ValueError("calendar overtime must lie inside one working interval")
+            previous_end = window.end
         return self
 
 
@@ -635,6 +691,8 @@ class Schedule(_Contract):
     """A solver's answer with its status, primary value and bound.
 
     `relaxations` lists the due dates a reactive repair postponed (empty otherwise).
+    `budget_enforced` is true when the solver ran and stops at its time budget; a refusal
+    before solving, a solver error or a solver that does not claim it leaves it false.
     """
 
     status: Literal["OPTIMAL", "FEASIBLE", "INFEASIBLE", "UNKNOWN"]
@@ -646,6 +704,7 @@ class Schedule(_Contract):
     issues: tuple[ScheduleIssue, ...] = ()
     atcs_runs: tuple[AtcsRun, ...] = ()
     relaxations: tuple[Relaxation, ...] = ()
+    budget_enforced: bool = False
 
 
 class CompiledProblem(_Contract):

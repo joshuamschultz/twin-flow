@@ -1,0 +1,278 @@
+"""Calendar expansion: ERP plant-local windows to TF-002 seconds-from-`as_of` (COMP-114).
+
+Working time is a set of plant-local WALL-CLOCK minutes, localized with `zoneinfo` at
+`fold=0` (REQ-158):
+
+* a local date uses its exception's windows when one exists (empty = closed), else its
+  weekday's windows (absent weekday = closed);
+* a window with `end_minute <= start_minute` runs on into the next local date, so the walk
+  starts one day before `as_of` to catch the overnight carry-in;
+* spring-forward gap minutes do not exist and are skipped (a window starting in the gap
+  starts at the gap end);
+* fall-back: the repeated hour counts once, as its first (`fold=0`) occurrence; its second
+  occurrence is not working time, so an overnight window spanning it has a one-hour hole.
+
+The cost is O(days x windows): each wall-clock range is cut only where its UTC offset or
+its existence changes, and each constant piece maps to one real-time interval.
+
+The day walk (`_dated_windows`) is generic over any window with `start_minute` and
+`end_minute`; `expand_overtime` (COMP-126) reuses it with the priced overtime window type.
+
+How far to expand (TF-005 review ruling A, DEV-12): the horizon is a planning window, so
+calendars run on to the expansion cap, `expansion_days(policy) = min(4 x horizon_days, 730)`
+real days after `as_of`; with `hard_horizon` they stop at the horizon end. `expansion_end`
+and `expansion_seconds` are that one end, shared by every calendar, overtime and the
+builder's hold rule.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import heapq
+from collections.abc import Callable, Iterator, Sequence
+from typing import Protocol, TypeVar
+from zoneinfo import ZoneInfo
+
+from twinflow.erp.profile import ErpPolicy
+from twinflow.erp.schema import MINUTES_PER_DAY, Calendar, Overtime, OvertimeWindow, TimeWindow
+from twinflow.scheduling.model import Interval
+
+__all__ = [
+    "OvertimePiece",
+    "expand",
+    "expand_overtime",
+    "expansion_days",
+    "expansion_end",
+    "expansion_seconds",
+    "horizon_end",
+    "horizon_seconds",
+]
+
+MAX_EXPANSION_DAYS = 730
+"""Two years: the longest any calendar is expanded, whatever the horizon (ruling A)."""
+
+_SECONDS_PER_MINUTE = 60.0
+_ONE_DAY = dt.timedelta(days=1)
+
+
+class _MinuteWindow(Protocol):
+    """Any plant-local window of minutes (regular time or overtime)."""
+
+    @property
+    def start_minute(self) -> int: ...
+
+    @property
+    def end_minute(self) -> int: ...
+
+
+W = TypeVar("W", bound=_MinuteWindow)
+
+# A wall-clock minute's localization: (UTC offset seconds at fold=0, the minute exists).
+_Key = tuple[float, bool]
+
+# One priced overtime interval in seconds from `as_of`: (start, end, cost_multiplier).
+OvertimePiece = tuple[float, float, float]
+
+
+def horizon_end(as_of: dt.datetime, days: int) -> dt.datetime:
+    """`days` real elapsed days after `as_of` (in UTC, so a DST change never stretches it)."""
+    return as_of.astimezone(dt.UTC) + dt.timedelta(seconds=horizon_seconds(days))
+
+
+def horizon_seconds(days: int) -> float:
+    """The horizon length in real elapsed seconds from `as_of` (`horizon_end - as_of`)."""
+    return dt.timedelta(days=days).total_seconds()
+
+
+def expansion_days(policy: ErpPolicy) -> int:
+    """Days the calendars cover past `as_of` without a hard horizon: 4 windows, at most 730."""
+    return min(4 * policy.horizon_days, MAX_EXPANSION_DAYS)
+
+
+def expansion_seconds(policy: ErpPolicy) -> float:
+    """Real seconds from `as_of` to the calendar end: the cap, or the horizon when hard."""
+    days = policy.horizon_days if policy.hard_horizon else expansion_days(policy)
+    return horizon_seconds(days)
+
+
+def expansion_end(as_of: dt.datetime, policy: ErpPolicy) -> dt.datetime:
+    """The instant every built calendar stops (UTC, so a DST change never stretches it)."""
+    return as_of.astimezone(dt.UTC) + dt.timedelta(seconds=expansion_seconds(policy))
+
+
+def expand(
+    calendar: Calendar, tz: ZoneInfo, as_of: dt.datetime, horizon_end: dt.datetime
+) -> tuple[Interval, ...]:
+    """Return the calendar's working time as sorted, merged seconds in `[0, horizon]`.
+
+    `as_of` and `horizon_end` are aware instants in any zone; the result is real elapsed
+    seconds from `as_of`, clipped at `horizon = horizon_end - as_of`, ready for a TF-002
+    `Calendar.intervals`.
+    """
+    week = {day.weekday: day.windows for day in calendar.week}
+    exceptions = {exc.date: exc.windows for exc in calendar.exceptions}
+
+    def windows_on(day: dt.date) -> Sequence[TimeWindow]:
+        return exceptions.get(day, week.get(day.weekday(), ()))
+
+    origin = as_of.timestamp()
+    pieces = [
+        (start - origin, end - origin)
+        for day, window in _dated_windows(as_of, horizon_end, tz, windows_on)
+        for start, end in _window_epochs(tz, day, window)
+    ]
+    return _clip_and_merge(pieces, horizon_end.timestamp() - origin)
+
+
+def expand_overtime(
+    overtime: Overtime, tz: ZoneInfo, as_of: dt.datetime, horizon_end: dt.datetime
+) -> tuple[OvertimePiece, ...]:
+    """Return overtime as sorted, disjoint `(start, end, cost_multiplier)` seconds (COMP-126).
+
+    The same day walk and DST rules as `expand`; an exception date replaces its weekday's
+    windows (empty = no overtime). Touching or overlapping pieces merge only when their
+    multipliers are equal, so a change of price stays a boundary (D-125).
+    """
+    week = {day.weekday: day.windows for day in overtime.week}
+    exceptions = {exc.date: exc.windows for exc in overtime.exceptions}
+
+    def windows_on(day: dt.date) -> Sequence[OvertimeWindow]:
+        return exceptions.get(day, week.get(day.weekday(), ()))
+
+    origin = as_of.timestamp()
+    pieces = [
+        (start - origin, end - origin, window.cost_multiplier)
+        for day, window in _dated_windows(as_of, horizon_end, tz, windows_on)
+        for start, end in _window_epochs(tz, day, window)
+    ]
+    return _clip_and_merge_priced(pieces, horizon_end.timestamp() - origin)
+
+
+def _dated_windows(
+    as_of: dt.datetime,
+    horizon_end: dt.datetime,
+    tz: ZoneInfo,
+    windows_on: Callable[[dt.date], Sequence[W]],
+) -> Iterator[tuple[dt.date, W]]:
+    """Yield `(local date, window)` from the day before `as_of` to `horizon_end`'s date."""
+    day = as_of.astimezone(tz).date() - _ONE_DAY
+    last = horizon_end.astimezone(tz).date()
+    while day <= last:
+        for window in windows_on(day):
+            yield day, window
+        day += _ONE_DAY
+
+
+def _window_epochs(tz: ZoneInfo, day: dt.date, window: _MinuteWindow) -> Iterator[Interval]:
+    """Yield the real epoch intervals of one window, splitting an overnight one at midnight."""
+    start, end = window.start_minute, window.end_minute
+    if end > start:
+        yield from _range_epochs(tz, day, start, end)
+        return
+    yield from _range_epochs(tz, day, start, MINUTES_PER_DAY)
+    yield from _range_epochs(tz, day + _ONE_DAY, 0, end)
+
+
+def _range_epochs(tz: ZoneInfo, day: dt.date, start: int, end: int) -> Iterator[Interval]:
+    """Yield epoch intervals for wall-clock minutes `[start, end)` of one local date."""
+    midnight = dt.datetime.combine(day, dt.time())
+    for lo, hi, (offset, exists) in _constant_pieces(tz, midnight, start, end):
+        if exists:
+            first = _naive_epoch(midnight, lo) - offset
+            last = _naive_epoch(midnight, hi - 1) - offset
+            yield first, last + _SECONDS_PER_MINUTE
+
+
+def _constant_pieces(
+    tz: ZoneInfo, midnight: dt.datetime, start: int, end: int
+) -> list[tuple[int, int, _Key]]:
+    """Cut minutes `[start, end)` into maximal runs with one localization key.
+
+    Bisects only where the first and last minute disagree, so a day without a DST
+    transition costs two localizations. Assumes no zone has two transitions inside one
+    range that cancel out (no real IANA zone does within 24 hours).
+    """
+    first_key = _localize(tz, midnight, start)
+    last_key = _localize(tz, midnight, end - 1)
+    if first_key == last_key:
+        return [(start, end, first_key)]
+    if end - start == 2:
+        return [(start, start + 1, first_key), (end - 1, end, last_key)]
+    mid = (start + end) // 2
+    left = _constant_pieces(tz, midnight, start, mid)
+    right = _constant_pieces(tz, midnight, mid, end)
+    if left[-1][2] == right[0][2]:
+        joined = (left[-1][0], right[0][1], left[-1][2])
+        return [*left[:-1], joined, *right[1:]]
+    return [*left, *right]
+
+
+def _localize(tz: ZoneInfo, midnight: dt.datetime, minute: int) -> _Key:
+    """Localize one wall-clock minute at `fold=0`: its UTC offset and whether it exists."""
+    naive = midnight + dt.timedelta(minutes=minute)
+    epoch = naive.replace(tzinfo=tz).timestamp()
+    exists = dt.datetime.fromtimestamp(epoch, tz).replace(tzinfo=None) == naive
+    return _naive_epoch(midnight, minute) - epoch, exists
+
+
+def _naive_epoch(midnight: dt.datetime, minute: int) -> float:
+    """Epoch seconds of the wall-clock minute read as if it were UTC."""
+    naive = midnight + dt.timedelta(minutes=minute)
+    return naive.replace(tzinfo=dt.UTC).timestamp()
+
+
+def _clip_and_merge(pieces: list[Interval], horizon: float) -> tuple[Interval, ...]:
+    """Clip pieces to `[0, horizon]`, drop empty ones, sort, merge overlapping or touching."""
+    merged: list[Interval] = []
+    for start, end in sorted(pieces):
+        lo, hi = max(start, 0.0), min(end, horizon)
+        if lo >= hi:
+            continue
+        if merged and lo <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    return tuple(merged)
+
+
+def _clip_and_merge_priced(
+    pieces: list[OvertimePiece], horizon: float
+) -> tuple[OvertimePiece, ...]:
+    """Clip to `[0, horizon]`, sort, make disjoint, merge touching pieces of equal price.
+
+    Where offered windows overlap, the overlap takes the highest multiplier on offer, so
+    the result stays disjoint (TF-002 `Calendar.overtime`) and is never underpriced.
+    """
+    merged: list[OvertimePiece] = []
+    for lo, hi, multiplier in _highest_priced_segments(pieces, horizon):
+        if merged and lo == merged[-1][1] and merged[-1][2] == multiplier:
+            merged[-1] = (merged[-1][0], hi, multiplier)
+        else:
+            merged.append((lo, hi, multiplier))
+    return tuple(merged)
+
+
+def _highest_priced_segments(
+    pieces: list[OvertimePiece], horizon: float
+) -> Iterator[OvertimePiece]:
+    """Elementary segments between piece boundaries, each at its highest covering price.
+
+    A sweep over the boundaries with a max-heap of the open pieces: O(n log n).
+    """
+    clipped = sorted(
+        (max(start, 0.0), min(end, horizon), multiplier)
+        for start, end, multiplier in pieces
+        if max(start, 0.0) < min(end, horizon)
+    )
+    bounds = sorted({point for start, end, _ in clipped for point in (start, end)})
+    open_pieces: list[tuple[float, float]] = []  # (-multiplier, end)
+    next_piece = 0
+    for lo, hi in zip(bounds, bounds[1:], strict=False):
+        while next_piece < len(clipped) and clipped[next_piece][0] <= lo:
+            _, end, multiplier = clipped[next_piece]
+            heapq.heappush(open_pieces, (-multiplier, end))
+            next_piece += 1
+        while open_pieces and open_pieces[0][1] <= lo:
+            heapq.heappop(open_pieces)
+        if open_pieces:
+            yield (lo, hi, -open_pieces[0][0])

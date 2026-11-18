@@ -627,10 +627,11 @@ def test_reschedule_keeps_pinned_windows_on_seed_16() -> None:
 
 
 def test_reschedule_falls_back_to_the_previous_sequences_when_dispatch_finds_no_plan() -> None:
-    # Seed 61: the atcs dispatch (warm start and improver) finds no plan; the previous
-    # sequences with the rush job inserted (rush_insert's construction) verify.
+    # Seed 361: the atcs dispatch (warm start and improver) finds no plan; the previous
+    # sequences with the rush job inserted (rush_insert's construction) verify. (Was seed 61
+    # until main's generator drew `finish_unattended`, which shifted every rich seed.)
     _leaf()
-    request = _sweep_variant(61)
+    request = _sweep_variant(361)
     assert not _run("atcs", request, budget=1.0).verified
     assert _run("rush_insert", request, budget=1.0).verified
     result = _run("reschedule", request, budget=1.0)

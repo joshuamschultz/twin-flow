@@ -1,10 +1,12 @@
 # RM-09 Dedicated Service Hardening Specification
 
+> Historical note: this document describes the RM-09 shared service token. TF-005 replaced it with named caller tokens (`TWINFLOW_TOKENS_FILE`, scopes `read` and `plan`); see the [agent guide](../AGENT-GUIDE.md#mcp).
+
 ## Deployment boundary
 
 This increment supports one dedicated workspace owned by one service process. Local mode binds
 to loopback and may run without authentication. A non-loopback bind is refused unless
-`TWINFLOW_API_TOKEN` is configured. Token mode protects API, data, schema, and interactive API
+a shared service token is configured. Token mode protects API, data, schema, and interactive API
 documentation routes with constant-time Bearer comparison. It is a shared service token, not
 federated identity or multitenancy.
 

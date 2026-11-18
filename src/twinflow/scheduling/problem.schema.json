@@ -54,7 +54,7 @@
     },
     "Calendar": {
       "additionalProperties": false,
-      "description": "Explicit working intervals `[start, end)`, sorted and non-overlapping (D-065).",
+      "description": "Explicit working intervals `[start, end)`, sorted and non-overlapping (D-065).\n\n`overtime` marks priced parts of that working time (D-125). It is a subset of\n`intervals`, so the verifier and solvers keep one working-time rule; only the cost\nobjective reads it. Entries are sorted, disjoint (touching allowed) and each lies inside\none merged working span.",
       "properties": {
         "id": {
           "maxLength": 200,
@@ -78,6 +78,15 @@
           },
           "maxItems": 1000000,
           "title": "Intervals",
+          "type": "array"
+        },
+        "overtime": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OvertimeInterval"
+          },
+          "maxItems": 1000000,
+          "title": "Overtime",
           "type": "array"
         }
       },
@@ -877,7 +886,7 @@
     },
     "Operation": {
       "additionalProperties": false,
-      "description": "One processing step of a whole lot of `quantity` units, never split into pieces (D-061).\n\nSetup is the first phase of the operation, not a separate task (D-063): the machine is\nbusy on `[start, end)` and `setup_detached` chooses whether material must be present\nfrom `start` (false) or only from `setup_end` (true). `shift_crossing` says whether\nthe operation must fit inside one working interval or may pause over breaks (D-065).",
+      "description": "One processing step of a whole lot of `quantity` units, never split into pieces (D-061).\n\nSetup is the first phase of the operation, not a separate task (D-063): the machine is\nbusy on `[start, end)` and `setup_detached` chooses whether material must be present\nfrom `start` (false) or only from `setup_end` (true). `shift_crossing` says whether\nthe operation must fit inside one working interval (`forbid`), may pause over breaks\n(`pause`, D-065), or must only start inside working time and then runs on unattended,\nignoring the calendar end (`finish_unattended`, e.g. an oven load).",
       "properties": {
         "batch_family": {
           "anyOf": [
@@ -986,7 +995,8 @@
           "default": "forbid",
           "enum": [
             "forbid",
-            "pause"
+            "pause",
+            "finish_unattended"
           ],
           "title": "Shift Crossing",
           "type": "string"
@@ -1127,6 +1137,32 @@
         "size"
       ],
       "title": "OperatorPool",
+      "type": "object"
+    },
+    "OvertimeInterval": {
+      "additionalProperties": false,
+      "description": "A priced window `[start, end)` of working time; premium = `cost_multiplier - 1` (D-125).",
+      "properties": {
+        "cost_multiplier": {
+          "minimum": 1,
+          "title": "Cost Multiplier",
+          "type": "number"
+        },
+        "end": {
+          "title": "End",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "cost_multiplier"
+      ],
+      "title": "OvertimeInterval",
       "type": "object"
     },
     "Pin": {
@@ -1548,7 +1584,7 @@
     },
     "ProcessingOption": {
       "additionalProperties": false,
-      "description": "One eligible machine for an operation; run seconds = fixed + quantity * unit (D-061).",
+      "description": "One eligible machine for an operation; run seconds = fixed + quantity * unit (D-061).\n\n`work_center_id` None means the operation's own center. A value names a substitute\ncenter (a cross-center alternate): the machine must then belong to that center, while\n`Operation.work_center_id` stays the primary center. Setups are always keyed by the\nchosen machine's own center.",
       "properties": {
         "fixed_seconds": {
           "minimum": 0,
@@ -1570,6 +1606,20 @@
           "minimum": 0,
           "title": "Unit Seconds",
           "type": "number"
+        },
+        "work_center_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Work Center Id"
         }
       },
       "required": [

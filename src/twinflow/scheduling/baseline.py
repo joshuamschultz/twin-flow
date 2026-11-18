@@ -449,12 +449,14 @@ class BaselineSolver:
                 solver=NAME,
                 elapsed_seconds=elapsed,
                 issues=(issue,),
+                budget_enforced=True,
             )
         schedule = Schedule(
             status="FEASIBLE",
             assignments=tuple(scheduler.assignments),
             solver=NAME,
             elapsed_seconds=0.0,
+            budget_enforced=True,
         )
         compiled = CompiledProblem(problem=problem, profile=SchedulingProfile(objective=objective))
         value = evaluate(compiled, schedule)[primary_kind(objective)]

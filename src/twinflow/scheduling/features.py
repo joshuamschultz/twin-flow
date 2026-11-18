@@ -34,6 +34,7 @@ def problem_features(problem: Problem) -> frozenset[Feature]:
     - pause: an operation with `shift_crossing` pause where a calendar can apply to it: an
       option machine has a calendar, or a pool it draws operators from has one. Without
       such a calendar the op never crosses a closed period, so pause changes nothing.
+    - unattended: an operation with `shift_crossing` finish_unattended.
     - operators / pins / in_progress: an operation with operator needs, a pin, or state
       `in_progress`.
     - batching: an operation with a `batch_family`. A batch machine alone is not batching:
@@ -65,6 +66,7 @@ def _operation_features(op: Operation, table: SetupTable) -> set[Feature]:
         Feature.ALTERNATIVES: len(op.options) > 1,
         Feature.SETUPS: has_setup,
         Feature.DETACHED_SETUP: op.setup_detached and has_setup,
+        Feature.UNATTENDED: op.shift_crossing == "finish_unattended",
         Feature.OPERATORS: bool(op.operator_needs),
         Feature.BATCHING: op.batch_family is not None,
         Feature.PINS: op.pin is not None,

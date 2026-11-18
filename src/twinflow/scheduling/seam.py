@@ -41,6 +41,7 @@ class Feature(StrEnum):
     PINS = "pins"
     IN_PROGRESS = "in_progress"
     MACHINE_STATE = "machine_state"
+    UNATTENDED = "unattended"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

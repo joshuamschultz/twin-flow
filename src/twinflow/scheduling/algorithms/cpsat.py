@@ -1839,6 +1839,7 @@ def _schedule(
         solver=SOLVER_NAME,
         elapsed_seconds=time.perf_counter() - started,
         issues=tuple(issues),
+        budget_enforced=True,
     )
 
 

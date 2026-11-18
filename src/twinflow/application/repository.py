@@ -5,10 +5,28 @@ from __future__ import annotations
 import builtins
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
+
+# Fixed literals only; never caller input (they are interpolated into ALTER TABLE).
+_TOOL_AUDIT_COLUMNS = (
+    ("caller_id", "TEXT"),
+    ("tool", "TEXT"),
+    ("request_key", "TEXT"),
+    ("input_digest", "TEXT"),
+    ("duration_ms", "REAL"),
+)
+_AUDIT_FIELDS = (
+    "occurred_at",
+    "operation",
+    "object_kind",
+    "object_id",
+    "outcome",
+    "correlation_id",
+    *(column for column, _ in _TOOL_AUDIT_COLUMNS),
+)
 
 
 class WorkspaceRepository:
@@ -40,6 +58,20 @@ class WorkspaceRepository:
                 "operation TEXT NOT NULL, object_kind TEXT NOT NULL, object_id TEXT NOT NULL, "
                 "outcome TEXT NOT NULL, correlation_id TEXT)"
             )
+        self._migrate_audit_events()
+
+    def _migrate_audit_events(self) -> None:
+        """Forward-only: add the tool-audit columns (COMP-122) to any audit table.
+
+        Fresh and existing workspaces take the same path. The write lock is held while
+        the columns are read, so two processes opening one workspace cannot both add one.
+        """
+        with self._connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            present = {row[1] for row in db.execute("PRAGMA table_info(audit_events)")}
+            for column, column_type in _TOOL_AUDIT_COLUMNS:
+                if column not in present:
+                    db.execute(f"ALTER TABLE audit_events ADD COLUMN {column} {column_type}")
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
@@ -132,6 +164,52 @@ class WorkspaceRepository:
             )
         return job_id, True
 
+    def find_request_claim(self, key: str) -> tuple[str, str] | None:
+        """The `(input digest, result id)` claimed under `key`, or None when unclaimed."""
+        with self._connection() as db:
+            row = db.execute("SELECT digest,job_id FROM requests WHERE key=?", (key,)).fetchone()
+        return (str(row[0]), str(row[1])) if row else None
+
+    def claim_request(
+        self,
+        key: str,
+        digest: str,
+        result_id: str,
+        records: Sequence[tuple[str, str, dict[str, Any]]],
+    ) -> tuple[str, str]:
+        """Atomically store `records` and claim `key` for `result_id`, or keep the first claim.
+
+        Returns the `(digest, result id)` that owns `key` after the call. When `key` was
+        already claimed nothing is written and the existing claim is returned, so a caller
+        that lost a race can compare digests and replay the winner's result. Unlike
+        `claim_job`, the claimed result may live in any record kind, and no job is created.
+        """
+        with self._connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT digest,job_id FROM requests WHERE key=?", (key,)).fetchone()
+            if row:
+                return str(row[0]), str(row[1])
+            for kind, record_id, payload in records:
+                self._insert_within_quota(db, kind, record_id, payload)
+            db.execute(
+                "INSERT INTO requests(key,digest,job_id) VALUES(?,?,?)", (key, digest, result_id)
+            )
+        return digest, result_id
+
+    def _insert_within_quota(
+        self, db: sqlite3.Connection, kind: str, record_id: str, payload: dict[str, Any]
+    ) -> None:
+        count = db.execute("SELECT COUNT(*) FROM records WHERE kind=?", (kind,)).fetchone()
+        if count is not None and count[0] >= self.max_records_per_kind:
+            raise ValueError("Workspace record quota reached")
+        try:
+            db.execute(
+                "INSERT INTO records(kind,id,body) VALUES(?,?,?)",
+                (kind, record_id, json.dumps(payload, allow_nan=False)),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("Record already exists") from exc
+
     def transition_job(
         self,
         job_id: str,
@@ -206,25 +284,52 @@ class WorkspaceRepository:
                 ),
             )
 
+    def append_tool_audit(
+        self,
+        *,
+        occurred_at: str,
+        caller_id: str,
+        tool: str,
+        request_key: str | None,
+        input_digest: str,
+        outcome: str,
+        duration_ms: float,
+        correlation_id: str | None,
+    ) -> None:
+        """Append one tool-call audit row (operation ``tool_call``, object = the tool)."""
+        with self._connection() as db:
+            db.execute(
+                "INSERT INTO audit_events"
+                "(occurred_at,operation,object_kind,object_id,outcome,correlation_id,"
+                "caller_id,tool,request_key,input_digest,duration_ms) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    occurred_at,
+                    "tool_call",
+                    "tool",
+                    tool[:256],
+                    outcome[:80],
+                    correlation_id,
+                    caller_id,
+                    tool,
+                    request_key,
+                    input_digest,
+                    duration_ms,
+                ),
+            )
+
     def audit_events(self, limit: int = 100) -> builtins.list[dict[str, object]]:
-        """Return recent audit metadata without exposing arbitrary SQL."""
+        """Return recent audit metadata without exposing arbitrary SQL.
+
+        Rows written before the tool-audit migration carry None in its columns.
+        """
         with self._connection() as db:
             rows = db.execute(
-                "SELECT occurred_at,operation,object_kind,object_id,outcome,correlation_id "
+                f"SELECT {','.join(_AUDIT_FIELDS)} "  # noqa: S608 - fixed column literals
                 "FROM audit_events ORDER BY sequence DESC LIMIT ?",
                 (max(1, min(limit, 1000)),),
             ).fetchall()
-        return [
-            {
-                "occurred_at": row[0],
-                "operation": row[1],
-                "object_kind": row[2],
-                "object_id": row[3],
-                "outcome": row[4],
-                "correlation_id": row[5],
-            }
-            for row in rows
-        ]
+        return [dict(zip(_AUDIT_FIELDS, row, strict=True)) for row in rows]
 
     def backup_to(self, destination: str | Path) -> None:
         """Create a transactionally consistent SQLite copy using the backup API."""

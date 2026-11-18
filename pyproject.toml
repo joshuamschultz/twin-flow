@@ -26,7 +26,7 @@ dependencies = [
 # The optional service surface (twinflow.service): a local REST API the React
 # front end drives. The core engine never imports it, so a plain install stays
 # dependency-light; `pip install -e ".[api]"` adds it.
-api = ["fastapi>=0.110", "uvicorn>=0.29"]
+api = ["fastapi>=0.110", "uvicorn>=0.29", "cryptography>=42"]
 agent = ["mcp>=2,<3"]
 scheduling = ["ortools>=9.10,<10"]
 dev = [
@@ -38,6 +38,7 @@ dev = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "httpx>=0.27",
+    "cryptography>=42",
 ]
 
 [project.scripts]
@@ -47,7 +48,7 @@ twinflow = "twinflow.cli.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json", "scheduling/problem.schema.json"]
+twinflow = ["report/_assets/*.js", "report/_assets/*.png", "scenario/schema.json", "scheduling/problem.schema.json", "erp/erp.schema.json"]
 
 [tool.ruff]
 line-length = 100

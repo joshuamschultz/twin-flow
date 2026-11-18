@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from twinflow.application.scenarios import evaluate_capsule, validate_content
 from twinflow.data import SnapshotBuilder, SQLiteEventStore, parse_event
 from twinflow.service.app import create_app
+from twinflow.service.auth import add_token
 from twinflow.service.settings import ServiceSettings
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -138,13 +139,15 @@ def test_revision_order_is_total_and_correction_cycles_block_readiness(tmp_path:
 
 
 def test_remote_deployment_refuses_legacy_unbounded_compute(tmp_path: Path) -> None:
-    settings = ServiceSettings(local_only=False, api_token="dedicated-test-token")  # noqa: S106 - fixture
+    tokens_file = tmp_path / "tokens.json"
+    token = add_token(tokens_file, caller_id="planner", scopes=["read", "plan"], days=None)
+    settings = ServiceSettings(local_only=False, tokens_file=tokens_file)
     with TestClient(
-        create_app(ROOT / "examples", workspace_root=tmp_path, settings=settings)
+        create_app(ROOT / "examples", workspace_root=tmp_path / "ws", settings=settings)
     ) as client:
         response = client.post(
             "/api/run",
-            headers={"Authorization": "Bearer dedicated-test-token"},
+            headers={"Authorization": f"Bearer {token}"},
             json={"model": "spring", "reps": 1},
         )
         assert response.status_code == 403
