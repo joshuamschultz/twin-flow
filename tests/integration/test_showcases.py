@@ -157,3 +157,12 @@ def test_every_twinflow_command_runs_from_the_folder(business: str, tmp_path: Pa
         assert done.returncode == 0, (
             f"{business}: `{command}` failed:\n{done.stdout}\n{done.stderr}"
         )
+
+
+def test_lakeshore_compares_every_rule_with_lowest_cover() -> None:
+    """The planner at Lakeshore runs lowest_cover today, so the race compares against it."""
+    from twinflow.extensions.project import Project
+
+    project = Project.open(SHOWCASE / "plastics-molding")
+    assert project.baseline == "lowest_cover"
+    assert project.baseline_source == "setting"

@@ -54,8 +54,8 @@ Blue means good. Orange means look here. The palette has no green and no red.
 | Meaning | Fill | Line | Text |
 |---|---|---|---|
 | Good, won, ahead, built today | `#eef4ff` or `#d6e6ff` | `#0073fe` | `#0055bc` or `#003b82` |
-| Warning, not proven, behind, needs more | `#fdf1e4` | `#f68d2e` | `#8a4c11` |
-| New, to build, live | `#d5f6fb` | `#22d3ee` | `#0b6b7a` |
+| Warning, not proven, behind, needs more | `#f68d2e` at 10% (`--ba-signal-wash`) | `#f68d2e` | `#8a4c11` |
+| New, to build, live | `#22d3ee` at 22% (`--ba-live-ring`) | `#22d3ee` | `#0e7c8f` (`--tf-fam-5`) |
 | Later, not there yet | `#ffffff` | `#8fa6c4`, dashed | `#54585c` |
 
 Do not put orange text `#f68d2e` on a light ground. It is too faint to read. Use
