@@ -1,5 +1,7 @@
 # Tune everything
 
+![A control console with rows of sliders and dials, wired to a small factory](../images/headers/how-to-tune-everything.webp)
+
 This guide explains that every number in twinflow has a default. It shows where to change the numbers, and where the full list lives.
 
 ## What this does

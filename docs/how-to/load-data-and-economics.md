@@ -1,5 +1,7 @@
 # Load your data and economics
 
+![Sheets and stacks of coins moving into a molding press, with pallets of finished parts beside it](../images/headers/how-to-load-data-and-economics.webp)
+
 This guide shows what goes in the plant file. It also explains each part.
 
 ## What this does
@@ -98,6 +100,8 @@ The plant file (named `something.twin.yaml`) holds your products, demand, run ra
    - `start_cover_days` is the days of stock each product starts with.
 
 ## What is in the file
+
+![Seven kinds of numbers flow into one plant file with three sections: model, snapshot and experiment. The check, run and race commands read that file](../images/diagrams/inputs-to-plant-file.svg)
 
 - `model:` holds the plant: products, switching costs, money rules and views.
 - `snapshot:` holds a name and the date the starting stock is known.

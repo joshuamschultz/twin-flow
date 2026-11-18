@@ -1,5 +1,7 @@
 # Improve a policy
 
+![A balance scale weighing two cubes, with one pan clearly lower](../images/headers/how-to-improve-a-policy.webp)
+
 This guide tests a new rule against your best rule. The new rule is copied into your plant only when it wins by a clear margin.
 
 ## What this does
@@ -42,6 +44,8 @@ It races a candidate rule against the rules already in your `policies/` folder, 
    ```
 
 ## What "wins by a clear margin" means
+
+![A number line of the candidate's lead. With 200 runs the 95% range is all above zero, so the rule is copied. With 40 runs the range starts below zero, so it is not copied](../images/diagrams/clear-margin-95-range.svg)
 
 A candidate is copied only when both of these are true:
 

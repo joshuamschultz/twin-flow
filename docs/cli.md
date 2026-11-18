@@ -1,5 +1,7 @@
 # CLI reference
 
+![A keyboard and a plain screen with a block cursor, linked to a small factory model](images/headers/cli.webp)
+
 Every command returns a process exit code (0 = success) and never raises past the
 boundary. Run inside your virtualenv (`. .venv/bin/activate`).
 
