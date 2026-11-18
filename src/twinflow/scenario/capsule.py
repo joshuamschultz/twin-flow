@@ -409,7 +409,10 @@ class ScenarioCapsule:
                 self.snapshot,
                 seed=seed,
                 artifact_dir=artifact_dir,
-                limits=limits,
+                limits={
+                    **domain_registry.experiment_limits(domain, self.experiment),
+                    **(limits or {}),
+                },
             )
         compiled = self.compile()
         configured = limits or {}

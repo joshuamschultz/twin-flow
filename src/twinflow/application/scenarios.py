@@ -240,6 +240,11 @@ def evaluate_domain(
             seed=seed + index,
             artifact_dir=str(out / f"rep-{index:04}"),
             limits={
+                **{
+                    k: v
+                    for k, v in registry.experiment_limits(domain, capsule.experiment).items()
+                    if k != "replications"  # each call here is one replication
+                },
                 "replications": 1,
                 "max_events": 1_000_000,
                 "max_sim_time": 31_536_000,

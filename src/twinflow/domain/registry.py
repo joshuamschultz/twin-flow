@@ -32,7 +32,7 @@ class DomainAdapter(Protocol):
         *,
         seed: int = 0,
         artifact_dir: str | None = None,
-        limits: Mapping[str, int | float] | None = None,
+        limits: Mapping[str, Any] | None = None,
     ) -> dict[str, object]: ...
 
 
@@ -67,6 +67,15 @@ class DomainRegistry:
         self, domain: str, model: Mapping[str, Any], snapshot: Mapping[str, Any], **kwargs: Any
     ) -> dict[str, object]:
         return self.get(domain).evaluate(model, snapshot, **kwargs)
+
+    def experiment_limits(self, domain: str, experiment: Mapping[str, Any]) -> dict[str, Any]:
+        """The experiment keys this domain's adapter asks for (`experiment_keys`), as limits.
+
+        An adapter opts in with an `experiment_keys` attribute (for example `policy`); the
+        others receive nothing extra, so their behavior does not change.
+        """
+        wanted: frozenset[str] = getattr(self.get(domain), "experiment_keys", frozenset())
+        return {key: experiment[key] for key in sorted(wanted) if key in experiment}
 
     def capabilities(self) -> dict[str, frozenset[str]]:
         return {name: adapter.capabilities for name, adapter in self._adapters.items()}
