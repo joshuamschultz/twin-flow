@@ -1,11 +1,18 @@
-// The race view (DESIGN.md section 3). This build has the decision, the cautions, why it
-// wins and all rules. The explore sections come in the next builds (BUILD-PLAN phase C).
+// The race view (DESIGN.md section 3): the decision, the cautions, why it wins, all rules,
+// compare two, what if, floor replay, the state map, money leaks, tuning and details.
+// View state (a, b, day, map, state, tab) is in the URL.
 import { CautionCards } from "../CautionCards";
+import { CompareTable } from "../CompareTable";
+import { Details } from "../Details";
 import { GapLine } from "../GapLine";
 import { DecisionHero } from "../hero";
 import { Leaderboard } from "../Leaderboard";
+import { TuningView } from "../TuningView";
 import { Page, type SectionRef } from "../Page";
-import { Card, EmptyState, Section, SectionLink } from "../primitives";
+import { STATE_SECTIONS, StateSections } from "../StateSections";
+import { Card, Section, SectionLink } from "../primitives";
+import { replayRuns } from "../replay";
+import { ReplayLanes } from "../ReplayLanes";
 import {
   beatToday,
   gapSeries,
@@ -15,27 +22,27 @@ import {
 } from "../race";
 import type { RaceViewModel } from "../types";
 import { Waterfall } from "../Waterfall";
+import { WhatIf } from "../WhatIfPanel";
 
+const EXPLORE: SectionRef[] = [
+  { id: "compare", label: "Compare two" },
+  { id: "whatif", label: "What if" },
+  { id: "replay", label: "Floor replay" },
+  ...STATE_SECTIONS,
+  { id: "tuning", label: "Tuning" },
+];
 const SECTIONS: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "why", label: "Why it wins" },
   { id: "rules", label: "All rules" },
+  ...EXPLORE,
   { id: "details", label: "Details" },
 ];
 const NO_COMPARE: SectionRef[] = [
   { id: "decision", label: "Decision" },
   { id: "rules", label: "All rules" },
+  ...EXPLORE,
   { id: "details", label: "Details" },
-];
-
-const COMING = [
-  "Compare two rules side by side",
-  "What if my costs are different",
-  "Floor replay, day by day",
-  "State map",
-  "Money leaks",
-  "Tuning",
-  "Full tables, method note and downloads",
 ];
 
 function ProblemsBar({ model }: { model: RaceViewModel }) {
@@ -63,13 +70,17 @@ export function RaceView({ model }: { model: RaceViewModel }) {
   const board = leaderboard(model);
   const a = model.about;
   const runs = model.confidence?.runs ?? a.episodes;
+  const replay = replayRuns(model);
+  const sections = (compared ? SECTIONS : NO_COMPARE).filter(
+    (sec) => sec.id !== "replay" || replay.length > 0,
+  );
   return (
     <Page
       view="race"
       title="Policy race"
       project={a.project}
       scope={`${a.episodes} runs of ${a.horizon_days} days · same customer orders for every rule`}
-      sections={compared ? SECTIONS : NO_COMPARE}
+      sections={sections}
       footer={
         <>
           twinflow policy race · {a.project} · {a.policies_raced} rules,{" "}
@@ -84,16 +95,22 @@ export function RaceView({ model }: { model: RaceViewModel }) {
         model={model}
         actions={
           <>
-            {compared && (
+            {compared ? (
               <SectionLink to="why" className="tf-btn tf-primary">
                 See why it wins
               </SectionLink>
+            ) : (
+              <SectionLink to="rules" className="tf-btn tf-primary">
+                See all rules
+              </SectionLink>
             )}
-            <SectionLink
-              to="rules"
-              className={"tf-btn" + (compared ? "" : " tf-primary")}
-            >
-              See all rules
+            {replay.length > 0 && (
+              <SectionLink to="replay" className="tf-btn">
+                Watch the floor
+              </SectionLink>
+            )}
+            <SectionLink to="whatif" className="tf-btn">
+              Test my cost numbers
             </SectionLink>
           </>
         }
@@ -155,28 +172,49 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             />
           </Card>
         </Section>
-        <Section id="details" eyebrow="Details" question="The full numbers">
-          <EmptyState
-            title="More of this report is on the way."
-            body={
-              <>
-                <p>
-                  This build shows the decision, the cautions, why it wins and
-                  all rules. The next builds add:
-                </p>
-                <ul>
-                  {COMING.map((c) => (
-                    <li key={c}>{c}</li>
-                  ))}
-                </ul>
-                <p style={{ marginTop: 8 }}>
-                  Until then, the full numbers are in race.json next to this
-                  file.
-                </p>
-              </>
-            }
+        <Section
+          id="compare"
+          eyebrow="Compare two"
+          question="How do two rules differ, side by side?"
+        >
+          <CompareTable
+            policies={model.policies}
+            runs={a.episodes}
+            horizonDays={a.horizon_days}
           />
         </Section>
+        <Section
+          id="whatif"
+          eyebrow="What if"
+          question="Does the winner change if my costs are different?"
+          hint="Move a slider. The ranking updates at once."
+        >
+          <WhatIf
+            policies={model.policies}
+            config={model.what_if}
+            runs={a.episodes}
+          />
+        </Section>
+        {replay.length > 0 && (
+          <Section
+            id="replay"
+            eyebrow="Floor replay"
+            question={`What does a normal ${a.horizon_days} days look like on the floor?`}
+            hint="One typical run, same customer orders for both rules. Drag the day, or click a chart."
+          >
+            <Card>
+              <ReplayLanes
+                runs={replay}
+                products={model.products}
+                families={model.families}
+                economics={model.economics}
+              />
+            </Card>
+          </Section>
+        )}
+        <StateSections model={model} />
+        <TuningView model={model} />
+        <Details model={model} />
       </div>
     </Page>
   );

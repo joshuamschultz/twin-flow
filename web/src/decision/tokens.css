@@ -13,6 +13,7 @@
 :root {
   /* What the colours mean */
   --tf-pick: #0073fe; /* the recommended rule, selected things */
+  --tf-pick-solid: #0055bc; /* pick as a fill under small white text (AA) */
   --tf-today: #7b8794; /* what we do today, context series */
   --tf-gain: #0055bc; /* money gained, as text */
   --tf-gain-fill: #0073fe; /* money gained, as a bar */
@@ -58,6 +59,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --tf-pick: #5a9cff;
+    --tf-pick-solid: #5a9cff;
     --tf-today: #8493a8;
     --tf-gain: #9cc2ff;
     --tf-gain-fill: #5a9cff;
@@ -92,6 +94,7 @@
 
 :root[data-theme="dark"] {
   --tf-pick: #5a9cff;
+  --tf-pick-solid: #5a9cff;
   --tf-today: #8493a8;
   --tf-gain: #9cc2ff;
   --tf-gain-fill: #5a9cff;

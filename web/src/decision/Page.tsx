@@ -1,6 +1,12 @@
 // The standard page: top bar, sticky section bar with scroll spy, content, footer
 // (DESIGN.md 0.1). Same in the workspace and the offline file.
-import { useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { scrollToSection, SectionLink } from "./primitives";
 import { TooltipHost } from "./Tooltip";
 import {
@@ -11,6 +17,9 @@ import {
 } from "./viewState";
 
 export type SectionRef = { id: string; label: string };
+
+/** Buttons a host shell adds to every page top bar (the workspace adds Export HTML). */
+export const PageActionsContext = createContext<ReactNode>(null);
 
 function useActiveSection(sections: SectionRef[]): string {
   const [active, setActive] = useState(sections[0]?.id ?? "");
@@ -85,6 +94,7 @@ export function Page(props: {
   children: ReactNode;
 }) {
   const shell = useContext(ShellContext);
+  const hostActions = useContext(PageActionsContext);
   const active = useActiveSection(props.sections);
   useEffect(() => {
     const tab = readParams(
@@ -108,6 +118,7 @@ export function Page(props: {
             </span>
             <span className="tf-spacer" />
             {props.actions}
+            {hostActions}
             <ThemeToggle shell={shell} />
             <button
               type="button"

@@ -524,6 +524,16 @@
       "items": {
         "type": "string"
       }
+    },
+    "early_leader": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EarlyLeader"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -1196,20 +1206,7 @@
           "additionalProperties": false
         },
         "words": {
-          "type": "object",
-          "properties": {
-            "title": {
-              "type": "string"
-            },
-            "setup": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "title",
-            "setup"
-          ],
-          "additionalProperties": false
+          "$ref": "#/$defs/StateWords"
         },
         "share": {
           "type": "number"
@@ -1330,6 +1327,9 @@
             "null"
           ]
         },
+        "words": {
+          "$ref": "#/$defs/StateWords"
+        },
         "share": {
           "type": "number"
         },
@@ -1437,6 +1437,9 @@
           "items": {
             "$ref": "#/$defs/Trial"
           }
+        },
+        "words": {
+          "type": "string"
         }
       },
       "required": [
@@ -1554,6 +1557,45 @@
         "output_lost"
       ],
       "additionalProperties": false
+    },
+    "EarlyLeader": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "words": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "label",
+        "words"
+      ],
+      "additionalProperties": false,
+      "title": "EarlyLeader"
+    },
+    "StateWords": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "setup": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "setup"
+      ],
+      "additionalProperties": false,
+      "title": "StateWords",
+      "description": "Plain words for a state, from Python. The front end prints them as they come."
     }
   }
 }

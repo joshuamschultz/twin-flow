@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnswerHero } from "../decision/AnswerHero";
+import { Card, Section, StatusPill } from "../decision/primitives";
 import { download, workspaceApi, type ActionProposal } from "./api";
+import { ResultPage } from "./ResultPage";
 
 export function ActionReview() {
   const cache = useQueryClient();
@@ -19,27 +22,42 @@ export function ActionReview() {
       void cache.invalidateQueries({ queryKey: ["proposals"] });
     },
   });
+  const waiting = proposals.data?.length ?? 0;
   return (
-    <>
-      <div className="ws-page-heading">
-        <div>
-          <span className="ws-eyebrow">
-            FROM EVIDENCE TO A REVIEWABLE CHANGE
-          </span>
-          <h1>Review the decision before acting.</h1>
-          <p>
-            Proposals retain their experiment and exact approved content. This
-            workspace delivers dry runs only.
-          </p>
-        </div>
-      </div>
-      <div className="ws-two-column">
-        <section className="ws-card">
-          <h2>Draft an action</h2>
-          <p>
-            Your agent can also submit proposals through the published tool
-            contract.
-          </p>
+    <ResultPage
+      view="actions"
+      title="Action review"
+      project="Your workspace"
+      scope="Dry runs only"
+      sections={[
+        { id: "decision", label: "Answer" },
+        { id: "draft", label: "Draft" },
+        { id: "proposals", label: "Proposals" },
+      ]}
+      hero={
+        <AnswerHero
+          eyebrow="FROM EVIDENCE TO A REVIEWABLE CHANGE"
+          headline="Review the decision before acting."
+          lede="Proposals retain their experiment and exact approved content. This workspace delivers dry runs only."
+          figures={[
+            {
+              value: String(waiting),
+              label:
+                waiting === 1 ? "proposal on record" : "proposals on record",
+            },
+          ]}
+        />
+      }
+    >
+      <Section
+        id="draft"
+        eyebrow="Draft"
+        question="What do you want to change?"
+      >
+        <Card
+          question="Draft an action"
+          sub="Your agent can also submit proposals through the published tool contract."
+        >
           <label className="ws-field">
             Evidence experiment
             <select
@@ -76,15 +94,27 @@ export function ActionReview() {
               {propose.error.message}
             </p>
           )}
-        </section>
-        <aside className="ws-stack">
+        </Card>
+      </Section>
+      <Section
+        id="proposals"
+        eyebrow="Proposals"
+        question="What is waiting for review?"
+      >
+        <div className="ws-stack">
           {proposals.error && <p role="alert">{proposals.error.message}</p>}
           {proposals.data?.map((proposal) => (
             <ProposalCard key={proposal.id} proposal={proposal} />
           ))}
-        </aside>
-      </div>
-    </>
+          {!waiting && !proposals.error && (
+            <Card
+              question="Nothing to review yet."
+              sub="Create a proposal above and it shows up here."
+            />
+          )}
+        </div>
+      </Section>
+    </ResultPage>
   );
 }
 
@@ -108,12 +138,11 @@ function ProposalCard({ proposal }: { proposal: ActionProposal }) {
       ),
   });
   return (
-    <section className="ws-card">
-      <div className="ws-card-heading">
-        <h2>Proposal {proposal.id.slice(0, 8)}</h2>
-        <span className="ws-badge amber">Dry run only</span>
-      </div>
-      <p>Evidence experiment {proposal.proposal.result_id.slice(0, 8)}</p>
+    <Card
+      question={`Proposal ${proposal.id.slice(0, 8)}`}
+      sub={`Evidence experiment ${proposal.proposal.result_id.slice(0, 8)}`}
+    >
+      <StatusPill kind="risk" label="Dry run only" />
       <pre className="ws-source">
         {JSON.stringify(JSON.parse(proposal.proposal.action_json), null, 2)}
       </pre>
@@ -186,6 +215,6 @@ function ProposalCard({ proposal }: { proposal: ActionProposal }) {
           </button>
         </>
       )}
-    </section>
+    </Card>
   );
 }

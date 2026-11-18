@@ -1,0 +1,268 @@
+{
+  "view": "project",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "Project: molding-press",
+    "project": "molding-press",
+    "folder": "molding-press",
+    "capsule": "molding-press.twin.yaml",
+    "domain": "make_to_stock",
+    "summary": "One press, 12 products in 3 families. Each run is 60 days."
+  },
+  "status": {
+    "level": "needs_fixes",
+    "headline": "1 problem to fix before you can race.",
+    "errors": 1,
+    "warnings": 0
+  },
+  "twin": {
+    "lines": [
+      {
+        "id": "press",
+        "label": "press"
+      }
+    ],
+    "products": 12,
+    "families": [
+      {
+        "name": "grey",
+        "products": 4
+      },
+      {
+        "name": "black",
+        "products": 4
+      },
+      {
+        "name": "natural",
+        "products": 4
+      }
+    ],
+    "horizon": {
+      "value": 60,
+      "unit": "days"
+    },
+    "costs": [
+      {
+        "label": "Same colour change",
+        "value": "$200 and 10% of a day"
+      },
+      {
+        "label": "Colour change",
+        "value": "$1,200 and half a day"
+      },
+      {
+        "label": "Keeping stock",
+        "value": "1% of unit cost a night"
+      },
+      {
+        "label": "A lost sale",
+        "value": "30% of the price"
+      }
+    ],
+    "assumptions": [
+      "demand is Poisson per product per day",
+      "one changeover per day at most, made before the day's output",
+      "unmet demand is lost, not back-ordered"
+    ],
+    "provenance": "rl-mfg-supplychain (factory_mdp, SKU_TABLE and FactoryProblemDefinition defaults)"
+  },
+  "rules": [
+    {
+      "policy": "family_campaign",
+      "label": "Family campaign",
+      "about": "Stay with one family until it is stocked up, then move on.",
+      "source": "project",
+      "file": "policies/family_campaign.py",
+      "is_baseline": false,
+      "settings_tried": 5,
+      "ok": true
+    },
+    {
+      "policy": "lowest_stock_first",
+      "label": "Lowest stock first",
+      "about": "Make the product that will run out first.",
+      "source": "project",
+      "file": "policies/lowest_stock_first.py",
+      "is_baseline": false,
+      "settings_tried": 4,
+      "ok": true
+    },
+    {
+      "policy": "my_rule",
+      "label": "My rule",
+      "about": "",
+      "source": "project",
+      "file": "policies/my_rule.py",
+      "is_baseline": false,
+      "settings_tried": 1,
+      "ok": false
+    },
+    {
+      "policy": "abc_wheel",
+      "label": "ABC wheel",
+      "about": "A product wheel where fast sellers come round often and slow sellers rarely.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 6,
+      "ok": true
+    },
+    {
+      "policy": "dollar_shortfall",
+      "label": "Biggest dollar shortfall",
+      "about": "Run the product whose missing stock is worth the most money.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "fixed_wheel",
+      "label": "Fixed wheel",
+      "about": "Run every product in the same order, a set number of days each.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 6,
+      "ok": true
+    },
+    {
+      "policy": "idle",
+      "label": "Do nothing",
+      "about": "Never run the press.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 1,
+      "ok": true
+    },
+    {
+      "policy": "kanban",
+      "label": "Kanban",
+      "about": "Kanban cards: refill a product when it drops under a share of its target.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "lowest_cover",
+      "label": "Lowest cover",
+      "about": "Make the product that will run out first.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": true,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "myopic",
+      "label": "Best for today only",
+      "about": "Pick the choice that makes the most money today, ignoring tomorrow.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 1,
+      "ok": true
+    },
+    {
+      "policy": "random",
+      "label": "Random",
+      "about": "Pick any product, or rest the press, at random.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 1,
+      "ok": true
+    },
+    {
+      "policy": "s_big_s",
+      "label": "Reorder point",
+      "about": "The (s, S) rule: refill a product when it drops to s, up to S.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "setup_aware_runout",
+      "label": "Setup-aware run-out",
+      "about": "Make what runs out first, but count a product switch as lost days.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    }
+  ],
+  "rules_note": null,
+  "score": {
+    "name": "dollars",
+    "is_dollars": true,
+    "file": null
+  },
+  "views": [
+    {
+      "name": "abc_cover",
+      "kind": "state_view",
+      "about": "How full each ABC class is, and which family the press is set up for."
+    },
+    {
+      "name": "family",
+      "kind": "state_view",
+      "about": "The lowest cover level in each family, and the family on the line."
+    },
+    {
+      "name": "family_cover",
+      "kind": "state_view",
+      "about": "How full each family is, and which family the press is set up for."
+    },
+    {
+      "name": "full",
+      "kind": "state_view",
+      "about": "Exact stock numbers for every product."
+    },
+    {
+      "name": "simple",
+      "kind": "state_view",
+      "about": "How full each family is, and which family the line is set for."
+    },
+    {
+      "name": "full",
+      "kind": "observation",
+      "about": "Show the policy everything (the default)."
+    }
+  ],
+  "extensions": [],
+  "problems": [
+    {
+      "severity": "error",
+      "where": "policies/my_rule.py",
+      "line": 4,
+      "message": "decide returned 'GRY-X', which is not one of: GRY-S, GRY-M, GRY-L, GRY-XL, BLK-S, BLK-M, BLK-L, BLK-XL, NAT-S, NAT-M, NAT-L, NAT-XL, idle.",
+      "fix": "Make decide return one of state.actions."
+    }
+  ],
+  "recent": [
+    {
+      "view": "improve",
+      "id": "improve-20261117T080000Z",
+      "when": "2026-11-17T08:00:00+00:00",
+      "sentence": "Improve: Family campaign won and was copied.",
+      "href": "runs/improve-20261117T080000Z/improve.html"
+    }
+  ],
+  "warnings": [],
+  "agent_summary": [
+    "1 problem to fix before you can race.",
+    "One press, 12 products in 3 families. Each run is 60 days.",
+    "3 rules of your own and 10 built in.",
+    "The score is dollars.",
+    "policies/my_rule.py: decide returned 'GRY-X', which is not one of: GRY-S, GRY-M, GRY-L, GRY-XL, BLK-S, BLK-M, BLK-L, BLK-XL, NAT-S, NAT-M, NAT-L, NAT-XL, idle. Fix: Make decide return one of state.actions."
+  ]
+}

@@ -26,6 +26,7 @@ import polars as pl
 
 from twinflow import __version__
 from twinflow.extensions.analysis import with_horizon
+from twinflow.extensions.markov_view import cap, leak_rows, markov_view, state_words
 from twinflow.extensions.project import Project
 from twinflow.extensions.race import (
     MoveTable,
@@ -36,7 +37,6 @@ from twinflow.extensions.race import (
     stat,
 )
 from twinflow.state.groups import GroupedView
-from twinflow.state.markov import MarkovChain
 from twinflow.state.records import LEDGER_PARTS, Move, unflatten
 
 SCHEMA_VERSION = 1
@@ -72,6 +72,7 @@ KEYS = (
     "cautions",
     "economics",
     "problems",
+    "early_leader",
     "agent_summary",
 )
 PART_WORDS = {
@@ -100,12 +101,6 @@ COLOURS = frozenset(
     "black white grey gray red blue green yellow orange purple pink brown natural clear "
     "beige silver gold tan navy".split()
 )  # families named like this are colours, so a change between them is a colour change
-LEAK_TRY = {  # one thing to try, keyed on a leak's biggest cause (R19)
-    "setup": "Try longer runs of one family so the {line} changes over less.",
-    "holding": "Try smaller lots or lower targets so less stock sits on the shelf.",
-    "lost_sales": "Try starting the short products sooner so they do not run out.",
-    "late": "Try putting the late orders first.",
-}
 TOUCHY_SPREAD = 0.25  # tuning is touchy when settings spread more than 25% of the best
 
 
@@ -658,7 +653,8 @@ def horizon_check(
         "low_per_year": None if paired.low is None else _dollars(paired.low * scale),
         "high_per_year": None if paired.high is None else _dollars(paired.high * scale),
         "pass_day": _pass_day(np.cumsum(mine - theirs, axis=1).mean(axis=0)),
-        "words": f"A {days}-day check gives about {_money(abs(per_year))} {more} a year.",
+        "words": f"A {days}-day check gives about {_money(round(abs(per_year), -2))} {more} "
+        "a year.",
     }
 
 
@@ -821,103 +817,30 @@ def _example_runs(project: Project, result: RaceResult, episode: int | None) -> 
     return runs
 
 
-def _label_parts(text: str) -> dict[str, Any] | None:
-    """`grey:ok black:high | natural` as levels and setup, when a label has that shape."""
-    stock, _, setup = text.partition(" | ")
-    pairs = [p.split(":", 1) for p in stock.split()]
-    if not pairs or any(len(p) != 2 for p in pairs):
-        return None
-    return {"levels": {k: v for k, v in pairs}, "setup": setup or None}
+def _setting_words(settings: Mapping[str, Any]) -> str:
+    """One setting for people: `{"target_days": 16.0}` is `target days 16`."""
+    parts = []
+    for key, value in settings.items():
+        shown = f"{value:g}" if isinstance(value, float) else str(value)
+        parts.append(f"{key.replace('_', ' ')} {shown}")
+    return ", ".join(parts)
 
 
-def _node_words(text: str, parts: Mapping[str, Any] | None, line: str) -> dict[str, str]:
-    """`grey:high black:ok natural:low | black` as "Grey high, natural low" and
-    "Press on black" (R18). Levels named "ok" are left out of the title."""
-    if parts is None:
-        return {"title": text, "setup": ""}
-    shown = [f"{k} {v}" for k, v in parts["levels"].items() if v != "ok"]
-    title = ", ".join(shown).capitalize() if shown else "All stock ok"
-    setup = parts["setup"]
-    if setup is None:
-        where = ""
-    elif setup == "idle":
-        where = f"{line.capitalize()} rests"
-    else:
-        where = f"{line.capitalize()} on {setup}"
-    return {"title": title, "setup": where}
-
-
-def _graph(
-    chain: MarkovChain, episodes: int, leak_states: set[str], line: str = "line"
-) -> dict[str, Any]:
-    ids = {state: f"s{i}" for i, state in enumerate(chain.states)}
-    sticky = set(chain.sticky)
-    nodes = []
-    for i, state in enumerate(chain.states):
-        money = chain.money.get(state)
-        per_day = money.total if money is not None else 0.0
-        visits = money.visits if money is not None else 0
-        parts = {p: _dollars(getattr(money, p)) for p in LEDGER_PARTS} if money else {}
-        leak = (
-            visits * sum(getattr(money, p) for p in ("setup", "holding", "lost_sales", "late"))
-            if money is not None
-            else 0.0
-        )
-        nodes.append(
-            {
-                "id": ids[state],
-                "label": state,
-                "parts_of_label": _label_parts(state),
-                "words": _node_words(state, _label_parts(state), line),
-                "share": _share(chain.share[state]),
-                "visits": visits,
-                "sticky": state in sticky,
-                "stay": _share(float(chain.matrix[i, i])),
-                "per_day": _dollars(per_day),
-                "per_run": _dollars(visits * per_day / max(1, episodes)),
-                "leak_per_run": _dollars(leak / max(1, episodes)),
-                "money_per_day": parts,
-                "losing": per_day < 0,
-                "top_leak": state in leak_states,
-            }
-        )
-    edges = [
-        {
-            "from": ids[e.source],
-            "to": ids[e.target],
-            "prob": _share(e.prob),
-            "self": e.source == e.target,
-        }
-        for e in chain.edges
-    ]
-    return {
-        "view": chain.view,
-        "moves": chain.moves,
-        "coverage": _share(chain.coverage),
-        "nodes": nodes,
-        "edges": edges,
-    }
-
-
-def _leak_rows(
-    row: PolicyResult, chain: MarkovChain | None, line: str = "line"
-) -> list[dict[str, Any]]:
-    ids = {state: f"s{i}" for i, state in enumerate(chain.states)} if chain is not None else {}
-    return [
-        {
-            "state": leak.state,
-            "state_id": ids.get(leak.state),
-            "share": _share(leak.share),
-            "visits": leak.visits,
-            "per_visit": _dollars(leak.per_visit),
-            "per_run": _dollars(leak.per_run),
-            "parts": {k: _dollars(v) for k, v in leak.parts.items()},
-            "cause": leak.cause,
-            "cause_words": leak.cause_words,
-            "try": LEAK_TRY.get(leak.cause, "Look at what the {line} does here.").format(line=line),
-        }
-        for leak in row.leaks
-    ]
+def _tuning_words(rows: Sequence[Mapping[str, Any]], touchy: bool) -> str:
+    """The one sentence under a rule's tuning line (DESIGN 3.10)."""
+    scored = [r for r in rows if r["dollars"] is not None]
+    if len(rows) < 2 or len(scored) < 2:
+        return "Only one setting could be tried, so there is nothing to compare."
+    best = max(scored, key=lambda r: r["dollars"])
+    worst = min(scored, key=lambda r: r["dollars"])
+    gap = best["dollars"] - worst["dollars"]
+    words = (
+        f"{cap(_setting_words(best['settings']))} gave the most profit. "
+        f"{cap(_setting_words(worst['settings']))} gave the least, {_money(gap)} less per run."
+    )
+    if touchy:
+        return words + " This rule is touchy. Check its setting again when demand changes."
+    return words + " The settings were close, so a wrong pick costs little."
 
 
 def _tuning(result: RaceResult) -> list[dict[str, Any]]:
@@ -950,6 +873,7 @@ def _tuning(result: RaceResult) -> list[dict[str, Any]]:
                 "trials": rows,
                 "spread": _dollars(spread),
                 "touchy": touchy,
+                "words": _tuning_words(rows, touchy),
             }
         )
     return out
@@ -1088,6 +1012,7 @@ def race_view_model(
     runs_per_year = DAYS_PER_YEAR / horizon
     base, source, warnings = _pick_baseline(project, ranked)
     line = _line_word(project)
+    level_names = [lv["name"] for lv in _levels(project)[1]] or None
     about = {
         "title": f"Policy race: {project.capsule_file.stem.removesuffix('.twin')}",
         "project": project.capsule_file.stem.removesuffix(".twin"),
@@ -1102,8 +1027,8 @@ def race_view_model(
         "view": project.config.markov.view,
         "policies_raced": len(ranked),
         "method": (
-            f"Every policy ran {settings.episodes} times on the same customer orders, each run "
-            f"{horizon} days long. Policies with settings to try were tuned first on "
+            f"Every rule ran {settings.episodes} times on the same customer orders, each run "
+            f"{horizon} days long. Rules with settings to try were tuned first on "
             f"{settings.tune_episodes} practice runs with other orders. Ranges are "
             f"{round(100 * settings.interval)}% ranges of the average, paired run by run."
         ),
@@ -1196,10 +1121,15 @@ def race_view_model(
         families=_families(project),
         example_runs=_example_runs(project, result, None if same else _typical(gaps)),
         markov={
-            name: _graph(chain, settings.episodes, leak_states.get(name, set()), line)
+            name: markov_view(
+                chain, settings.episodes, leak_states.get(name, set()), line, level_names
+            )
             for name, chain in result.chains.items()
         },
-        leaks={r.policy: _leak_rows(r, result.chains.get(r.policy), line) for r in ranked},
+        leaks={
+            r.policy: leak_rows(r.leaks, result.chains.get(r.policy), line, level_names)
+            for r in ranked
+        },
         tuning=tuning,
         views=_views(result, project),
         what_if=_what_if(),
@@ -1208,9 +1138,29 @@ def race_view_model(
         cautions=_cautions(best, base, project, timing, confidence, tuning, horizon, long_check),
         economics=_economics(project),
         problems=_problems(result),
+        early_leader=early_leader_block(result, best.policy),
     )
     model["agent_summary"] = _agent_summary(model)
     return model
+
+
+def early_leader_block(result: Any, pick: str | None) -> dict[str, Any] | None:
+    """Who led after day 1, and when the pick caught up (the old race report's rank note)."""
+    leader = result.early_leader
+    if leader is None:
+        return None
+    name = label(leader)
+    words = f"{name} led after day 1."
+    if pick is None:
+        words += " Leaders early are not always leaders late."
+    elif leader == pick:
+        words += " It kept the lead to the end."
+    else:
+        words += " Leaders early are not always leaders late."
+        day = result.first_day_passed(leader, pick)
+        if day is not None:
+            words += f" {label(pick)} passed it on day {day}."
+    return {"policy": leader, "label": name, "words": words}
 
 
 def _what_if() -> dict[str, Any]:
@@ -1226,4 +1176,41 @@ def _what_if() -> dict[str, Any]:
     }
 
 
-__all__ = ["KEYS", "SCHEMA_VERSION", "horizon_check", "label", "race_view_model"]
+def economics_of(project: Project) -> dict[str, Any]:
+    """Changeover costs and rates of the project (R14), for the project view."""
+    return _economics(project)
+
+
+def stat_json(item: Stat | None) -> dict[str, Any] | None:
+    """A `Stat` as the view-model shape (rounded for people)."""
+    return _stat(item)
+
+
+def confidence_between(best: PolicyResult, base: PolicyResult, level: float) -> dict[str, Any]:
+    """How sure we are that `best` beats `base`, with the run-by-run gaps (as in the race)."""
+    return {
+        **_confidence(best, base, level, False),
+        "gaps": [_dollars(x) for x in _gaps(best, base)],
+    }
+
+
+def floor_between(
+    best: PolicyResult, base: PolicyResult, project: Project, kept: Mapping[str, MoveTable]
+) -> list[dict[str, Any]]:
+    """What changes on the floor when `best` replaces `base`."""
+    return _floor(best, base, False, project, _horizon(project, [best]), kept)
+
+
+__all__ = [
+    "KEYS",
+    "SCHEMA_VERSION",
+    "confidence_between",
+    "early_leader_block",
+    "economics_of",
+    "floor_between",
+    "horizon_check",
+    "label",
+    "race_view_model",
+    "stat_json",
+    "state_words",
+]

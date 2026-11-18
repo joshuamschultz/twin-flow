@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+const WEB = process.env.TWINFLOW_WEB ?? "http://127.0.0.1:5173";
 const API = process.env.TWINFLOW_API_TARGET ?? "http://127.0.0.1:8000";
 const screenshots =
   process.env.TWINFLOW_SCREENSHOT_DIR ?? "test-results/screenshots";
@@ -8,7 +9,7 @@ test("operator imports, maps, runs and exports a scenario", async ({
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("http://127.0.0.1:5173");
+  await page.goto(WEB);
   await expect(
     page.getByRole("heading", { name: /Understand today/ }),
   ).toBeVisible();
@@ -59,7 +60,7 @@ test("invalid import is actionable and mobile layout remains accessible", async 
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("http://127.0.0.1:5173");
+  await page.goto(WEB);
   await page
     .getByRole("button", { name: "Import scenario", exact: true })
     .click();
@@ -94,7 +95,7 @@ for (const [example, outcome] of [
   test(`domain workflow: ${example}`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto("http://127.0.0.1:5173");
+    await page.goto(WEB);
     await page.getByRole("button", { name: example, exact: true }).click();
     await page.getByRole("tab", { name: "Process map" }).click();
     await expect(page.getByText("The shape of your operation")).toBeVisible();
@@ -117,7 +118,7 @@ for (const [example, outcome] of [
 test("operational data reconciliation and verified scheduling", async ({
   page,
 }) => {
-  await page.goto("http://127.0.0.1:5173");
+  await page.goto(WEB);
   await page
     .getByRole("button", { name: "Operational data", exact: true })
     .click();
@@ -140,7 +141,7 @@ test("operational data reconciliation and verified scheduling", async ({
     .click();
   await expect(
     page.getByText("OPTIMAL · Verified", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30000 }); // the first CP-SAT solve loads OR-Tools
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Export schedule CSV" }).click(),
@@ -177,7 +178,7 @@ test("review exact proposal and deliver a dry run", async ({
         ).status,
     )
     .toBe("completed");
-  await page.goto("http://127.0.0.1:5173");
+  await page.goto(WEB);
   await page
     .getByRole("button", { name: "Action review", exact: true })
     .click();

@@ -1,0 +1,231 @@
+{
+  "view": "project",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "Project: molding-press",
+    "project": "molding-press",
+    "folder": "molding-press",
+    "capsule": "molding-press.twin.yaml",
+    "domain": "make_to_stock",
+    "summary": "One press, 12 products in 3 families. Each run is 60 days."
+  },
+  "status": {
+    "level": "ready",
+    "headline": "Ready. 0 problems to fix.",
+    "errors": 0,
+    "warnings": 0
+  },
+  "twin": {
+    "lines": [
+      {
+        "id": "press",
+        "label": "press"
+      }
+    ],
+    "products": 12,
+    "families": [
+      {
+        "name": "grey",
+        "products": 4
+      },
+      {
+        "name": "black",
+        "products": 4
+      },
+      {
+        "name": "natural",
+        "products": 4
+      }
+    ],
+    "horizon": {
+      "value": 60,
+      "unit": "days"
+    },
+    "costs": [
+      {
+        "label": "Same colour change",
+        "value": "$200 and 10% of a day"
+      },
+      {
+        "label": "Colour change",
+        "value": "$1,200 and half a day"
+      },
+      {
+        "label": "Keeping stock",
+        "value": "1% of unit cost a night"
+      },
+      {
+        "label": "A lost sale",
+        "value": "30% of the price"
+      }
+    ],
+    "assumptions": [
+      "demand is Poisson per product per day",
+      "one changeover per day at most, made before the day's output",
+      "unmet demand is lost, not back-ordered"
+    ],
+    "provenance": "rl-mfg-supplychain (factory_mdp, SKU_TABLE and FactoryProblemDefinition defaults)"
+  },
+  "rules": [
+    {
+      "policy": "abc_wheel",
+      "label": "ABC wheel",
+      "about": "A product wheel where fast sellers come round often and slow sellers rarely.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 6,
+      "ok": true
+    },
+    {
+      "policy": "dollar_shortfall",
+      "label": "Biggest dollar shortfall",
+      "about": "Run the product whose missing stock is worth the most money.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "family_campaign",
+      "label": "Family campaign",
+      "about": "Stay with one family until it is stocked up, then move on.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "fixed_wheel",
+      "label": "Fixed wheel",
+      "about": "Run every product in the same order, a set number of days each.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 6,
+      "ok": true
+    },
+    {
+      "policy": "idle",
+      "label": "Do nothing",
+      "about": "Never run the press.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 1,
+      "ok": true
+    },
+    {
+      "policy": "kanban",
+      "label": "Kanban",
+      "about": "Kanban cards: refill a product when it drops under a share of its target.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "lowest_cover",
+      "label": "Lowest cover",
+      "about": "Make the product that will run out first.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": true,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "myopic",
+      "label": "Best for today only",
+      "about": "Pick the choice that makes the most money today, ignoring tomorrow.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 1,
+      "ok": true
+    },
+    {
+      "policy": "random",
+      "label": "Random",
+      "about": "Pick any product, or rest the press, at random.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 1,
+      "ok": true
+    },
+    {
+      "policy": "s_big_s",
+      "label": "Reorder point",
+      "about": "The (s, S) rule: refill a product when it drops to s, up to S.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    },
+    {
+      "policy": "setup_aware_runout",
+      "label": "Setup-aware run-out",
+      "about": "Make what runs out first, but count a product switch as lost days.",
+      "source": "builtin",
+      "file": null,
+      "is_baseline": false,
+      "settings_tried": 12,
+      "ok": true
+    }
+  ],
+  "rules_note": "No rules of your own yet. The 11 built-in rules will race. Add one with `twinflow new` or copy a built-in rule into `policies/`.",
+  "score": {
+    "name": "dollars",
+    "is_dollars": true,
+    "file": null
+  },
+  "views": [
+    {
+      "name": "abc_cover",
+      "kind": "state_view",
+      "about": "How full each ABC class is, and which family the press is set up for."
+    },
+    {
+      "name": "family",
+      "kind": "state_view",
+      "about": "The lowest cover level in each family, and the family on the line."
+    },
+    {
+      "name": "family_cover",
+      "kind": "state_view",
+      "about": "How full each family is, and which family the press is set up for."
+    },
+    {
+      "name": "full",
+      "kind": "state_view",
+      "about": "Exact stock numbers for every product."
+    },
+    {
+      "name": "simple",
+      "kind": "state_view",
+      "about": "How full each family is, and which family the line is set for."
+    },
+    {
+      "name": "full",
+      "kind": "observation",
+      "about": "Show the policy everything (the default)."
+    }
+  ],
+  "extensions": [],
+  "problems": [],
+  "recent": [],
+  "warnings": [],
+  "agent_summary": [
+    "Ready. 0 problems to fix.",
+    "One press, 12 products in 3 families. Each run is 60 days.",
+    "0 rules of your own and 11 built in.",
+    "The score is dollars."
+  ]
+}

@@ -214,8 +214,13 @@ Copy rules:
   `{label} may be better. Test more before you switch.`
 - Lede: `It makes {delta} more in each {horizon}-day run than what you do today ({baseline}).
   It won {wins} of {runs} test runs on the same customer orders.`
-- Per-year figure always carries its condition in the label: "more per year, if every 60 days
-  looks like these runs". Round it to the nearest $100.
+- Per-year figure. Owner decision (2026-11-18, B-25): when the race has the 180-day check
+  (`delta.long_check`), the hero leads with that yearly figure: "+$109,000, more profit per year,
+  from a 180-day check". The per-run figure comes second. The 60-day guess becomes secondary
+  text under the year: "Quick math from the 60-day runs says +$134,400 a year." Without a long
+  check, the per-run figure leads and the per-year figure carries its condition in the label:
+  "more per year, if every 60 days looks like these runs". Round every yearly figure, in figures
+  and in words, to the nearest $100.
 - Confidence badge shows `confidence.words` from the view model. The line beside it:
   `The gain is likely between {low} and {high} per run.` Round to $100.
 - `RunDots`: one dot per test run on a dollar axis that starts at "$0, same as today". A light

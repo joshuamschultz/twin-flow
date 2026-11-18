@@ -1,0 +1,214 @@
+{
+  "view": "improve",
+  "schema_version": 1,
+  "generated_at": "2026-11-18T09:00:00+00:00",
+  "twinflow_version": "0.4.0a1",
+  "about": {
+    "title": "Improve: Lowest stock first",
+    "project": "molding-press",
+    "episodes": 24,
+    "seed": 4,
+    "interval": 0.95,
+    "rule": "interval_above_zero",
+    "written_at": "2026-11-18T09:00:00+00:00",
+    "score": "dollars"
+  },
+  "outcome": {
+    "promoted": false,
+    "level": "lost",
+    "headline": "No. Family campaign is still your best rule.",
+    "reason": "Lowest stock first ranks 2 of 2. It makes $28,177 less per run than Family campaign.",
+    "copied_to": null
+  },
+  "candidate": {
+    "policy": "lowest_stock_first",
+    "label": "Lowest stock first",
+    "settings": {
+      "stop_days": 6
+    },
+    "rank": 2,
+    "dollars": {
+      "mean": 38641,
+      "low": 36362,
+      "high": 40919,
+      "std": 5396,
+      "n": 24
+    },
+    "score": {
+      "mean": 38640.74,
+      "low": 36362.04,
+      "high": 40919.44,
+      "std": 5396.4,
+      "n": 24
+    },
+    "file": "policies/lowest_stock_first.py",
+    "sha256": "4533bd4aa3af1f1e49d498a11ee50f93dc0834499c239877dc1abd90ae9ffc3b"
+  },
+  "previous_best": {
+    "policy": "family_campaign",
+    "label": "Family campaign",
+    "settings": {
+      "target_days": 16
+    },
+    "rank": 1,
+    "dollars": {
+      "mean": 66818,
+      "low": 65192,
+      "high": 68443,
+      "std": 3849,
+      "n": 24
+    },
+    "score": {
+      "mean": 66817.71,
+      "low": 65192.46,
+      "high": 68442.97,
+      "std": 3848.91,
+      "n": 24
+    }
+  },
+  "versus": {
+    "dollars": {
+      "mean": -28177,
+      "low": -30806,
+      "high": -25548,
+      "std": 6226,
+      "n": 24
+    },
+    "score": {
+      "mean": -28176.98,
+      "low": -30805.81,
+      "high": -25548.14,
+      "std": 6225.58,
+      "n": 24
+    },
+    "wins": 0,
+    "runs": 24,
+    "gaps": [
+      -33721, -21168, -38010, -19073, -28379, -33696, -36461, -26233, -32433,
+      -25005, -31961, -28102, -28882, -36127, -29291, -13881, -24044, -32162,
+      -32801, -21631, -31101, -28262, -25975, -17849
+    ]
+  },
+  "confidence": {
+    "interval": 0.95,
+    "mean": -28177,
+    "low": -30806,
+    "high": -25548,
+    "wins": 0,
+    "runs": 24,
+    "level": "very_likely_worse",
+    "words": "Very likely worse in dollars",
+    "detail": "We are 95% sure it earns between $25,548 and $30,806 less per run. It ranks first on the score, not on dollars. It came out ahead in 0 of 24 runs.",
+    "gaps": [
+      -33721, -21168, -38010, -19073, -28379, -33696, -36461, -26233, -32433,
+      -25005, -31961, -28102, -28882, -36127, -29291, -13881, -24044, -32162,
+      -32801, -21631, -31101, -28262, -25975, -17849
+    ]
+  },
+  "floor": [
+    {
+      "key": "changeovers",
+      "label": "Changeovers per run",
+      "unit": "count",
+      "recommended": 58.0,
+      "baseline": 44.8,
+      "change": 13.2,
+      "better": false,
+      "words": "13 more changeovers",
+      "short": "13 more",
+      "note": "Colour changes rise from 8 to 40. Those cost $1,200 each.",
+      "attention": false
+    },
+    {
+      "key": "fill_rate",
+      "label": "Orders filled from stock",
+      "unit": "share",
+      "recommended": 0.9067,
+      "baseline": 0.9696,
+      "change": -0.0629,
+      "better": false,
+      "words": "6.3 points fewer orders filled",
+      "short": "-6.3 points",
+      "note": "More customers find an empty shelf.",
+      "attention": false
+    },
+    {
+      "key": "avg_stock",
+      "label": "Stock on hand",
+      "unit": "units",
+      "recommended": 1107.9,
+      "baseline": 3341.2,
+      "change": -2233.3,
+      "better": true,
+      "words": "2,233 fewer units in stock",
+      "short": "67% less",
+      "note": "Less cash sits on the shelf.",
+      "attention": false
+    },
+    {
+      "key": "rest_days",
+      "label": "Days the press rests",
+      "unit": "days",
+      "recommended": 1.9,
+      "baseline": 12.1,
+      "change": -10.2,
+      "better": null,
+      "words": "10 fewer rest days",
+      "short": "10 fewer of 60",
+      "note": "The press runs more of the time.",
+      "attention": false
+    },
+    {
+      "key": "lost_units",
+      "label": "Sales lost per run",
+      "unit": "units",
+      "recommended": 1417.6,
+      "baseline": 461.4,
+      "change": 956.2,
+      "better": false,
+      "words": "956 more units of lost sales",
+      "short": "956 more",
+      "note": "That is $4,718 more in lost sales per run.",
+      "attention": false
+    }
+  ],
+  "checks": [
+    {
+      "key": "ranked_first",
+      "label": "Ranked first of 2",
+      "pass": false,
+      "detail": "It ranks 2. The old best is Family campaign."
+    },
+    {
+      "key": "proven",
+      "label": "Rule used: the likely range must be above zero",
+      "pass": false,
+      "detail": "Gain over the old best: range -$30,806 to -$25,548."
+    },
+    {
+      "key": "same_orders",
+      "label": "Same orders for both rules",
+      "pass": true,
+      "detail": "Both rules ran the same 24 demand draws (seed 4)."
+    },
+    {
+      "key": "no_problems",
+      "label": "No problems found",
+      "pass": true,
+      "detail": "No rule broke in the race."
+    }
+  ],
+  "race_ref": "race.html",
+  "warnings": [],
+  "problems": [],
+  "agent_summary": [
+    "No. Family campaign is still your best rule.",
+    "Lowest stock first ranks 2 of 2. It makes $28,177 less per run than Family campaign.",
+    "We are 95% sure it earns between $25,548 and $30,806 less per run. It ranks first on the score, not on dollars. It came out ahead in 0 of 24 runs.",
+    "It won 0 of 24 runs against Family campaign.",
+    "Ranked first of 2: no. It ranks 2. The old best is Family campaign.",
+    "Rule used: the likely range must be above zero: no. Gain over the old best: range -$30,806 to -$25,548.",
+    "Same orders for both rules: yes. Both rules ran the same 24 demand draws (seed 4).",
+    "No problems found: yes. No rule broke in the race."
+  ]
+}

@@ -16,7 +16,7 @@
   "observation": "full",
   "view": "family",
   "policies_raced": 12,
-  "method": "Every policy ran 40 times on the same customer orders, each run 60 days long. Policies with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
+  "method": "Every rule ran 40 times on the same customer orders, each run 60 days long. Rules with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
  },
  "recommendation": {
   "policy": "family_campaign",
@@ -56,7 +56,7 @@
    "low_per_year": 100942,
    "high_per_year": 117025,
    "pass_day": 149,
-   "words": "A 180-day check gives about $108,983 more a year."
+   "words": "A 180-day check gives about $109,000 more a year."
   }
  },
  "confidence": {
@@ -13676,7 +13676,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on grey"
      },
      "share": 0.0854,
@@ -13709,7 +13709,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey high, black high, natural high",
+      "title": "All stock high",
       "setup": "Press on grey"
      },
      "share": 0.0667,
@@ -13742,7 +13742,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey high, black low, natural low",
+      "title": "Grey high, black and natural low",
       "setup": "Press on grey"
      },
      "share": 0.065,
@@ -13775,7 +13775,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Black high, natural high",
+      "title": "Black and natural high",
       "setup": "Press on grey"
      },
      "share": 0.065,
@@ -13808,7 +13808,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey high, natural high",
+      "title": "Grey and natural high",
       "setup": "Press on grey"
      },
      "share": 0.0646,
@@ -13841,7 +13841,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Black high, natural high",
+      "title": "Black and natural high",
       "setup": "Press on natural"
      },
      "share": 0.0604,
@@ -13874,7 +13874,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey high, black low, natural low",
+      "title": "Grey high, black and natural low",
       "setup": "Press on black"
      },
      "share": 0.0575,
@@ -13907,7 +13907,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey high, black high, natural high",
+      "title": "All stock high",
       "setup": "Press on black"
      },
      "share": 0.0567,
@@ -13940,7 +13940,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey high, black high, natural high",
+      "title": "All stock high",
       "setup": "Press on natural"
      },
      "share": 0.0496,
@@ -14072,7 +14072,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey high, black high",
+      "title": "Grey and black high",
       "setup": "Press on black"
      },
      "share": 0.0317,
@@ -14138,7 +14138,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey high, black high, natural low",
+      "title": "Grey and black high, natural low",
       "setup": "Press on black"
      },
      "share": 0.0258,
@@ -14402,7 +14402,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on grey"
      },
      "share": 0.1138,
@@ -14435,7 +14435,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on grey"
      },
      "share": 0.0733,
@@ -14468,7 +14468,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Black low, natural low",
+      "title": "Black and natural low",
       "setup": "Press on black"
      },
      "share": 0.0617,
@@ -14534,7 +14534,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on black"
      },
      "share": 0.0563,
@@ -14567,7 +14567,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on natural"
      },
      "share": 0.0413,
@@ -14666,7 +14666,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey low, black high, natural low",
+      "title": "Black high, grey and natural low",
       "setup": "Press on natural"
      },
      "share": 0.0283,
@@ -14732,7 +14732,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on black"
      },
      "share": 0.0275,
@@ -14798,7 +14798,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Black high, natural high",
+      "title": "Black and natural high",
       "setup": "Press on grey"
      },
      "share": 0.0254,
@@ -14864,7 +14864,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on natural"
      },
      "share": 0.0238,
@@ -15182,7 +15182,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on grey"
      },
      "share": 0.1383,
@@ -15215,7 +15215,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, black low",
+      "title": "Grey and black low",
       "setup": "Press on grey"
      },
      "share": 0.0725,
@@ -15248,7 +15248,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on black"
      },
      "share": 0.0704,
@@ -15281,7 +15281,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on grey"
      },
      "share": 0.0583,
@@ -15380,7 +15380,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on black"
      },
      "share": 0.0492,
@@ -15413,7 +15413,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on natural"
      },
      "share": 0.0458,
@@ -15479,7 +15479,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, natural low",
+      "title": "Grey and natural low",
       "setup": "Press on black"
      },
      "share": 0.0387,
@@ -15512,7 +15512,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, black low",
+      "title": "Grey and black low",
       "setup": "Press on black"
      },
      "share": 0.0354,
@@ -15545,7 +15545,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on natural"
      },
      "share": 0.035,
@@ -15578,7 +15578,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey low, black low",
+      "title": "Grey and black low",
       "setup": "Press on natural"
      },
      "share": 0.0304,
@@ -15611,7 +15611,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, natural low",
+      "title": "Grey and natural low",
       "setup": "Press on grey"
      },
      "share": 0.0254,
@@ -15644,7 +15644,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Black low, natural low",
+      "title": "Black and natural low",
       "setup": "Press on grey"
      },
      "share": 0.0238,
@@ -16118,7 +16118,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on grey"
      },
      "share": 0.2292,
@@ -16151,7 +16151,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on black"
      },
      "share": 0.1383,
@@ -16184,7 +16184,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on natural"
      },
      "share": 0.0925,
@@ -16217,7 +16217,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, black low",
+      "title": "Grey and black low",
       "setup": "Press on grey"
      },
      "share": 0.075,
@@ -16250,7 +16250,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on grey"
      },
      "share": 0.0571,
@@ -16283,7 +16283,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, natural low",
+      "title": "Grey and natural low",
       "setup": "Press on black"
      },
      "share": 0.0546,
@@ -16316,7 +16316,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey low, black low",
+      "title": "Grey and black low",
       "setup": "Press on natural"
      },
      "share": 0.0446,
@@ -16349,7 +16349,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, black low",
+      "title": "Grey and black low",
       "setup": "Press on black"
      },
      "share": 0.0429,
@@ -16382,7 +16382,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Black low, natural low",
+      "title": "Black and natural low",
       "setup": "Press on grey"
      },
      "share": 0.0317,
@@ -16448,7 +16448,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on natural"
      },
      "share": 0.0271,
@@ -16481,7 +16481,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on black"
      },
      "share": 0.025,
@@ -16547,7 +16547,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, natural low",
+      "title": "Grey and natural low",
       "setup": "Press on grey"
      },
      "share": 0.0242,
@@ -16580,7 +16580,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Black low, natural low",
+      "title": "Black and natural low",
       "setup": "Press on black"
      },
      "share": 0.0192,
@@ -17055,6 +17055,10 @@
    {
     "state": "grey:ok black:high natural:high | natural",
     "state_id": "s5",
+    "words": {
+     "title": "Black and natural high",
+     "setup": "Press on natural"
+    },
     "share": 0.0604,
     "visits": 145,
     "per_visit": 1089,
@@ -17072,6 +17076,10 @@
    {
     "state": "grey:high black:low natural:low | grey",
     "state_id": "s2",
+    "words": {
+     "title": "Grey high, black and natural low",
+     "setup": "Press on grey"
+    },
     "share": 0.065,
     "visits": 156,
     "per_visit": 937,
@@ -17089,6 +17097,10 @@
    {
     "state": "grey:high black:ok natural:high | grey",
     "state_id": "s4",
+    "words": {
+     "title": "Grey and natural high",
+     "setup": "Press on grey"
+    },
     "share": 0.0646,
     "visits": 155,
     "per_visit": 840,
@@ -17106,6 +17118,10 @@
    {
     "state": "grey:high black:low natural:low | black",
     "state_id": "s6",
+    "words": {
+     "title": "Grey high, black and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0575,
     "visits": 138,
     "per_visit": 856,
@@ -17123,6 +17139,10 @@
    {
     "state": "grey:high black:high natural:high | grey",
     "state_id": "s1",
+    "words": {
+     "title": "All stock high",
+     "setup": "Press on grey"
+    },
     "share": 0.0667,
     "visits": 160,
     "per_visit": 730,
@@ -17142,6 +17162,10 @@
    {
     "state": "grey:ok black:ok natural:ok | grey",
     "state_id": "s0",
+    "words": {
+     "title": "All stock OK",
+     "setup": "Press on grey"
+    },
     "share": 0.1138,
     "visits": 273,
     "per_visit": 620,
@@ -17159,6 +17183,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": "s1",
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.0733,
     "visits": 176,
     "per_visit": 920,
@@ -17176,6 +17204,10 @@
    {
     "state": "grey:ok black:low natural:low | black",
     "state_id": "s2",
+    "words": {
+     "title": "Black and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0617,
     "visits": 148,
     "per_visit": 734,
@@ -17193,6 +17225,10 @@
    {
     "state": "grey:ok black:ok natural:high | grey",
     "state_id": "s3",
+    "words": {
+     "title": "Natural high",
+     "setup": "Press on grey"
+    },
     "share": 0.0575,
     "visits": 138,
     "per_visit": 662,
@@ -17210,6 +17246,10 @@
    {
     "state": "grey:ok black:ok natural:ok | black",
     "state_id": "s4",
+    "words": {
+     "title": "All stock OK",
+     "setup": "Press on black"
+    },
     "share": 0.0563,
     "visits": 135,
     "per_visit": 643,
@@ -17229,6 +17269,10 @@
    {
     "state": "grey:ok black:ok natural:ok | grey",
     "state_id": "s0",
+    "words": {
+     "title": "All stock OK",
+     "setup": "Press on grey"
+    },
     "share": 0.1383,
     "visits": 332,
     "per_visit": 807,
@@ -17246,6 +17290,10 @@
    {
     "state": "grey:low black:ok natural:ok | black",
     "state_id": "s5",
+    "words": {
+     "title": "Grey low",
+     "setup": "Press on black"
+    },
     "share": 0.0504,
     "visits": 121,
     "per_visit": 1382,
@@ -17263,6 +17311,10 @@
    {
     "state": "grey:ok black:ok natural:ok | black",
     "state_id": "s2",
+    "words": {
+     "title": "All stock OK",
+     "setup": "Press on black"
+    },
     "share": 0.0704,
     "visits": 169,
     "per_visit": 948,
@@ -17280,6 +17332,10 @@
    {
     "state": "grey:ok black:low natural:ok | grey",
     "state_id": "s8",
+    "words": {
+     "title": "Black low",
+     "setup": "Press on grey"
+    },
     "share": 0.0413,
     "visits": 99,
     "per_visit": 1381,
@@ -17297,6 +17353,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": "s3",
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.0583,
     "visits": 140,
     "per_visit": 962,
@@ -17316,6 +17376,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.23,
     "visits": 552,
     "per_visit": 1086,
@@ -17333,6 +17397,10 @@
    {
     "state": "grey:low black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on black"
+    },
     "share": 0.1379,
     "visits": 331,
     "per_visit": 1185,
@@ -17350,6 +17418,10 @@
    {
     "state": "grey:low black:low natural:low | natural",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on natural"
+    },
     "share": 0.0925,
     "visits": 222,
     "per_visit": 1199,
@@ -17367,6 +17439,10 @@
    {
     "state": "grey:low black:ok natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "Grey and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0546,
     "visits": 131,
     "per_visit": 1437,
@@ -17384,6 +17460,10 @@
    {
     "state": "grey:low black:low natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "Grey and black low",
+     "setup": "Press on grey"
+    },
     "share": 0.075,
     "visits": 180,
     "per_visit": 908,
@@ -17403,6 +17483,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": "s0",
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.2292,
     "visits": 550,
     "per_visit": 1088,
@@ -17420,6 +17504,10 @@
    {
     "state": "grey:low black:low natural:low | black",
     "state_id": "s1",
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on black"
+    },
     "share": 0.1383,
     "visits": 332,
     "per_visit": 1186,
@@ -17437,6 +17525,10 @@
    {
     "state": "grey:low black:low natural:low | natural",
     "state_id": "s2",
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on natural"
+    },
     "share": 0.0925,
     "visits": 222,
     "per_visit": 1199,
@@ -17454,6 +17546,10 @@
    {
     "state": "grey:low black:ok natural:low | black",
     "state_id": "s5",
+    "words": {
+     "title": "Grey and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0546,
     "visits": 131,
     "per_visit": 1437,
@@ -17471,6 +17567,10 @@
    {
     "state": "grey:low black:low natural:ok | grey",
     "state_id": "s3",
+    "words": {
+     "title": "Grey and black low",
+     "setup": "Press on grey"
+    },
     "share": 0.075,
     "visits": 180,
     "per_visit": 910,
@@ -17490,6 +17590,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.2292,
     "visits": 550,
     "per_visit": 1088,
@@ -17507,6 +17611,10 @@
    {
     "state": "grey:low black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on black"
+    },
     "share": 0.1383,
     "visits": 332,
     "per_visit": 1186,
@@ -17524,6 +17632,10 @@
    {
     "state": "grey:low black:low natural:low | natural",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on natural"
+    },
     "share": 0.0925,
     "visits": 222,
     "per_visit": 1199,
@@ -17541,6 +17653,10 @@
    {
     "state": "grey:low black:ok natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "Grey and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0546,
     "visits": 131,
     "per_visit": 1437,
@@ -17558,6 +17674,10 @@
    {
     "state": "grey:low black:low natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "Grey and black low",
+     "setup": "Press on grey"
+    },
     "share": 0.075,
     "visits": 180,
     "per_visit": 910,
@@ -17577,6 +17697,10 @@
    {
     "state": "grey:high black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "Grey high, black and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0842,
     "visits": 202,
     "per_visit": 812,
@@ -17594,6 +17718,10 @@
    {
     "state": "grey:high black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "Grey high, black and natural low",
+     "setup": "Press on grey"
+    },
     "share": 0.0533,
     "visits": 128,
     "per_visit": 1200,
@@ -17611,6 +17739,10 @@
    {
     "state": "grey:low black:ok natural:high | grey",
     "state_id": null,
+    "words": {
+     "title": "Natural high, grey low",
+     "setup": "Press on grey"
+    },
     "share": 0.085,
     "visits": 204,
     "per_visit": 673,
@@ -17628,6 +17760,10 @@
    {
     "state": "grey:low black:low natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "Grey and black low",
+     "setup": "Press on grey"
+    },
     "share": 0.0788,
     "visits": 189,
     "per_visit": 621,
@@ -17645,6 +17781,10 @@
    {
     "state": "grey:low black:low natural:high | natural",
     "state_id": null,
+    "words": {
+     "title": "Natural high, grey and black low",
+     "setup": "Press on natural"
+    },
     "share": 0.0333,
     "visits": 80,
     "per_visit": 1227,
@@ -17664,6 +17804,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.2146,
     "visits": 515,
     "per_visit": 1130,
@@ -17681,6 +17825,10 @@
    {
     "state": "grey:low black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on black"
+    },
     "share": 0.1638,
     "visits": 393,
     "per_visit": 1329,
@@ -17698,6 +17846,10 @@
    {
     "state": "grey:ok black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "Black and natural low",
+     "setup": "Press on grey"
+    },
     "share": 0.1425,
     "visits": 342,
     "per_visit": 1200,
@@ -17715,6 +17867,10 @@
    {
     "state": "grey:low black:low natural:low | natural",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on natural"
+    },
     "share": 0.1129,
     "visits": 271,
     "per_visit": 1345,
@@ -17732,6 +17888,10 @@
    {
     "state": "grey:ok black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "Black and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0912,
     "visits": 219,
     "per_visit": 1182,
@@ -17751,6 +17911,10 @@
    {
     "state": "grey:low black:ok natural:low | natural",
     "state_id": null,
+    "words": {
+     "title": "Grey and natural low",
+     "setup": "Press on natural"
+    },
     "share": 0.1058,
     "visits": 254,
     "per_visit": 817,
@@ -17768,6 +17932,10 @@
    {
     "state": "grey:low black:low natural:high | grey",
     "state_id": null,
+    "words": {
+     "title": "Natural high, grey and black low",
+     "setup": "Press on grey"
+    },
     "share": 0.1004,
     "visits": 241,
     "per_visit": 721,
@@ -17785,6 +17953,10 @@
    {
     "state": "grey:high black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "Grey high, black and natural low",
+     "setup": "Press on grey"
+    },
     "share": 0.05,
     "visits": 120,
     "per_visit": 1348,
@@ -17802,6 +17974,10 @@
    {
     "state": "grey:high black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "Grey high, black and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0746,
     "visits": 179,
     "per_visit": 847,
@@ -17819,6 +17995,10 @@
    {
     "state": "grey:ok black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "Black and natural low",
+     "setup": "Press on black"
+    },
     "share": 0.0754,
     "visits": 181,
     "per_visit": 775,
@@ -17838,6 +18018,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.9129,
     "visits": 2191,
     "per_visit": 877,
@@ -17855,6 +18039,10 @@
    {
     "state": "grey:ok black:ok natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock OK",
+     "setup": "Press on grey"
+    },
     "share": 0.0746,
     "visits": 179,
     "per_visit": 143,
@@ -17872,6 +18060,10 @@
    {
     "state": "grey:ok black:ok natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "Natural low",
+     "setup": "Press on grey"
+    },
     "share": 0.0042,
     "visits": 10,
     "per_visit": 81,
@@ -17889,6 +18081,10 @@
    {
     "state": "grey:ok black:low natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "Black low",
+     "setup": "Press on grey"
+    },
     "share": 0.0029,
     "visits": 7,
     "per_visit": 79,
@@ -17906,6 +18102,10 @@
    {
     "state": "grey:low black:low natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "Grey and black low",
+     "setup": "Press on grey"
+    },
     "share": 0.0025,
     "visits": 6,
     "per_visit": 64,
@@ -17925,6 +18125,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.1825,
     "visits": 438,
     "per_visit": 1506,
@@ -17942,6 +18146,10 @@
    {
     "state": "grey:low black:low natural:low | black",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on black"
+    },
     "share": 0.1688,
     "visits": 405,
     "per_visit": 1538,
@@ -17959,6 +18167,10 @@
    {
     "state": "grey:low black:low natural:low | natural",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on natural"
+    },
     "share": 0.165,
     "visits": 396,
     "per_visit": 1549,
@@ -17976,6 +18188,10 @@
    {
     "state": "grey:low black:low natural:high | natural",
     "state_id": null,
+    "words": {
+     "title": "Natural high, grey and black low",
+     "setup": "Press on natural"
+    },
     "share": 0.0638,
     "visits": 153,
     "per_visit": 1573,
@@ -17993,6 +18209,10 @@
    {
     "state": "grey:low black:low natural:ok | natural",
     "state_id": null,
+    "words": {
+     "title": "Grey and black low",
+     "setup": "Press on natural"
+    },
     "share": 0.05,
     "visits": 120,
     "per_visit": 1626,
@@ -18012,6 +18232,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.9129,
     "visits": 2191,
     "per_visit": 1295,
@@ -18029,6 +18253,10 @@
    {
     "state": "grey:ok black:ok natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "All stock OK",
+     "setup": "Press on grey"
+    },
     "share": 0.0746,
     "visits": 179,
     "per_visit": 143,
@@ -18046,6 +18274,10 @@
    {
     "state": "grey:ok black:ok natural:low | grey",
     "state_id": null,
+    "words": {
+     "title": "Natural low",
+     "setup": "Press on grey"
+    },
     "share": 0.0042,
     "visits": 10,
     "per_visit": 81,
@@ -18063,6 +18295,10 @@
    {
     "state": "grey:ok black:low natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "Black low",
+     "setup": "Press on grey"
+    },
     "share": 0.0029,
     "visits": 7,
     "per_visit": 79,
@@ -18080,6 +18316,10 @@
    {
     "state": "grey:low black:low natural:ok | grey",
     "state_id": null,
+    "words": {
+     "title": "Grey and black low",
+     "setup": "Press on grey"
+    },
     "share": 0.0025,
     "visits": 6,
     "per_visit": 64,
@@ -18160,7 +18400,8 @@
     }
    ],
    "spread": 30646,
-   "touchy": true
+   "touchy": true,
+   "words": "Days per slot 2 gave the most profit. Days per slot 6 gave the least, $30,646 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "dollar_shortfall",
@@ -18279,7 +18520,8 @@
     }
    ],
    "spread": 16215,
-   "touchy": true
+   "touchy": true,
+   "words": "Target days 8 gave the most profit. Target days 28 gave the least, $16,215 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "family_campaign",
@@ -18335,7 +18577,8 @@
     }
    ],
    "spread": 6480,
-   "touchy": false
+   "touchy": false,
+   "words": "Target days 16 gave the most profit. Target days 20 gave the least, $6,479 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "fixed_wheel",
@@ -18400,7 +18643,8 @@
     }
    ],
    "spread": 23891,
-   "touchy": true
+   "touchy": true,
+   "words": "Days per slot 3 gave the most profit. Days per slot 6 gave the least, $23,891 less per run. This rule is touchy. Check its setting again when demand changes."
   },
   {
    "policy": "kanban",
@@ -18532,7 +18776,8 @@
     }
    ],
    "spread": 5036,
-   "touchy": false
+   "touchy": false,
+   "words": "Target days 14, trigger share 0.7 gave the most profit. Target days 6, trigger share 0.5 gave the least, $5,036 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "lowest_cover",
@@ -18651,7 +18896,8 @@
     }
    ],
    "spread": 3220,
-   "touchy": false
+   "touchy": false,
+   "words": "Stop days 10 gave the most profit. Stop days 4 gave the least, $3,220 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "lowest_stock_first",
@@ -18698,7 +18944,8 @@
     }
    ],
    "spread": 2184,
-   "touchy": false
+   "touchy": false,
+   "words": "Stop days 10 gave the most profit. Stop days 6 gave the least, $2,184 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "s_big_s",
@@ -18830,7 +19077,8 @@
     }
    ],
    "spread": 5877,
-   "touchy": false
+   "touchy": false,
+   "words": "Safety days 10, eoq scale 0.5 gave the most profit. Safety days 10, eoq scale 1 gave the least, $5,877 less per run. The settings were close, so a wrong pick costs little."
   },
   {
    "policy": "setup_aware_runout",
@@ -18962,7 +19210,8 @@
     }
    ],
    "spread": 39127,
-   "touchy": true
+   "touchy": true,
+   "words": "Cross penalty days 0.5, within penalty days 0 gave the most profit. Cross penalty days 0.5, within penalty days 2 gave the least, $39,128 less per run. This rule is touchy. Check its setting again when demand changes."
   }
  ],
  "views": {
@@ -19241,7 +19490,7 @@
   {
    "key": "late_gain",
    "title": "The gain comes late",
-   "body": "It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $108,983 more a year.",
+   "body": "It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $109,000 more a year.",
    "severity": "warn"
   },
   {
@@ -19278,9 +19527,14 @@
   "The gain is likely between $19,733 and $24,444 per run.",
   "Main reason: it spends $35,355 less per run on changeovers, with 33 fewer changeovers to another family.",
   "It is behind today's rule until day 54 of 60. At its lowest, on day 42, it is $23,545 behind.",
-  "The gain comes late. It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $108,983 more a year.",
+  "The gain comes late. It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $109,000 more a year.",
   "You will hold 2.6 times more stock. About 3,400 units on the shelf, up from 1,300. Check the room and the cash first.",
   "Natural products still run short. Each natural product is out about 1 day in 6. With today's rule it is about 1 day in 7.",
   "The race ran 12 rules, 40 times each, 60 days per run."
- ]
+ ],
+ "early_leader": {
+  "policy": "dollar_shortfall",
+  "label": "Biggest dollar shortfall",
+  "words": "Biggest dollar shortfall led after day 1. Leaders early are not always leaders late. Family campaign passed it on day 51."
+ }
 }

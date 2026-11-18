@@ -8,6 +8,8 @@ function moduleList(): Plugin {
   return {
     name: "twinflow-module-list",
     generateBundle() {
+      // On a fresh checkout dist-report/ does not exist yet when this runs.
+      mkdirSync("dist-report", { recursive: true });
       const ids = [...this.getModuleIds()].filter((id) =>
         id.includes("node_modules"),
       );

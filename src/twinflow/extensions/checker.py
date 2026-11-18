@@ -48,6 +48,8 @@ from twinflow.state.records import Move, Snapshot
 if TYPE_CHECKING:
     from twinflow.extensions.project import Project
 
+# The clock the slow check reads. Tests swap it for a fake so they never depend on machine speed.
+CLOCK: Callable[[], float] = time.perf_counter
 GRID_STATES = 3  # states tried at each grid point of a policy's SETTINGS
 
 
@@ -204,9 +206,9 @@ def _run(
     try:
         spent = 0.0
         for args in inputs:
-            started = time.perf_counter()
+            started = CLOCK()
             value = _call(ext, args, {}, "raised")
-            spent += time.perf_counter() - started
+            spent += CLOCK() - started
             _validate(ext, value, args, validate)
         _grid(ext, inputs[:GRID_STATES], validate)
     except ExtensionFailed as stop:

@@ -1,0 +1,200 @@
+/* Compare two (3.5) and What if (3.6). Values from the mockup. */
+.tf-cmp-pickers {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.tf-cmp-pickers label {
+  font-size: 12px;
+  color: var(--tf-meta);
+  display: grid;
+  gap: 4px;
+}
+.tf-cmp-pickers select {
+  background: var(--ba-surface);
+  border: 1px solid var(--ba-rule);
+  border-radius: 2px;
+  padding: 8px 10px;
+  min-width: 220px;
+  min-height: 40px;
+  color: var(--ba-headline);
+  font: 500 14px var(--ba-font-body);
+}
+.tf-cmp-vs {
+  font: 500 12px var(--ba-font-mono);
+  color: var(--tf-meta);
+  padding-top: 18px;
+}
+.tf-cmp .tf-takeaway {
+  margin: 0 0 14px;
+}
+.tf-cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.tf-cmp-table th,
+.tf-cmp-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--tf-border);
+  vertical-align: middle;
+  text-align: left;
+}
+.tf-cmp-table thead th {
+  font: 500 11px var(--ba-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tf-meta);
+  padding: 8px 10px;
+}
+.tf-cmp-table tbody th[scope="row"] {
+  font-weight: 400;
+  color: var(--ba-body);
+}
+.tf-cmp-table .tf-n {
+  text-align: right;
+  font-family: var(--ba-font-mono);
+  white-space: nowrap;
+}
+.tf-cmp-table tr.tf-cmp-grp th {
+  font: 500 11px var(--ba-font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ba-body-2); /* --tf-meta is under 4.5:1 on surface-2 */
+  background: var(--ba-surface-2);
+  padding: 6px 10px;
+}
+.tf-cmp-barcol {
+  width: 22%;
+}
+.tf-cmp-pair {
+  display: grid;
+  gap: 3px;
+  min-width: 120px;
+}
+.tf-cmp-pair i {
+  display: block;
+  height: 7px;
+  border-radius: 2px;
+}
+.tf-cmp-a {
+  background: var(--tf-pick);
+}
+.tf-cmp-b {
+  background: var(--tf-today);
+}
+
+/* What if */
+.tf-wi-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.tf-wi-sliders {
+  display: grid;
+  gap: 18px;
+}
+.tf-wi-slider label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--ba-headline);
+  font-weight: 500;
+}
+.tf-wi-slider label .tf-num {
+  color: var(--tf-gain); /* text token: AA on the card */
+}
+.tf-wi-slider input[type="range"] {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  accent-color: var(--ba-accent);
+}
+.tf-wi-slider small {
+  display: block;
+  color: var(--tf-meta);
+  font-size: 12.5px;
+}
+.tf-wi-honest {
+  border: 1px dashed var(--ba-rule);
+  border-radius: 2px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--ba-body-2);
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+}
+.tf-wi-honest b {
+  color: var(--ba-headline);
+}
+.tf-wi-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tf-wi-list li {
+  display: grid;
+  grid-template-columns: 22px 30px minmax(90px, 180px) minmax(0, 1fr) 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 13.5px;
+  border-radius: 2px;
+  position: relative;
+  background: var(--ba-surface);
+}
+.tf-wi-list li.tf-wi-pick {
+  background: var(--ba-tint);
+}
+.tf-wi-rk {
+  color: var(--tf-meta);
+  font-size: 12px;
+}
+.tf-wi-nm {
+  color: var(--ba-headline);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tf-wi-other {
+  background: var(--tf-today);
+}
+.tf-wi-move {
+  font: 500 11px var(--ba-font-mono);
+}
+.tf-wi-move.tf-up {
+  color: var(--tf-gain);
+}
+.tf-wi-move.tf-dn {
+  color: var(--tf-loss-text);
+}
+.tf-wi-move.tf-eq {
+  color: var(--tf-meta);
+}
+@media (max-width: 600px) {
+  .tf-wi-list li {
+    grid-template-columns: 18px 28px minmax(0, 1fr) 72px;
+  }
+  .tf-wi-list .tf-track {
+    display: none;
+  }
+}
+@media print {
+  .tf-wi-sliders input,
+  .tf-wi-head button {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tf-wi-list li {
+    transition: none !important;
+  }
+}

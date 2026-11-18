@@ -12,7 +12,10 @@ Build the notebooks and run them top to bottom, saving every output:
 
 Each notebook runs in a fresh copy of its folder, so the folder you commit is not changed
 (the race and improve commands write `runs/` and copy files). Absolute paths of the copy
-are replaced with `.` in the saved outputs. `--no-run` builds the notebooks without outputs.
+are replaced with `.` in the saved outputs, and run ids (which hold the clock and a random
+part) with `<run-id-1>`, `<run-id-2>`, ... in the order they first show, so a rebuild
+changes nothing. `--no-run` builds the notebooks without outputs. `--check` runs them and
+fails if a saved notebook would change, without writing.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -29,6 +33,8 @@ HERE = Path(__file__).resolve().parent
 SOURCES = HERE / "_sources"
 BUSINESSES = ("plastics-molding", "cnc-job-shop", "pump-supply")
 MARK = "--- "
+# A run or sweep id (2026-11-18T06-59-49Z-48200b4c) or a race folder stamp (20261118T140619Z).
+CLOCK_ID = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[0-9a-f]{8}|\d{8}T\d{6}Z")
 
 
 def cells(business: str) -> list[dict[str, object]]:
@@ -98,6 +104,22 @@ def _scrub(value: object, folder: Path) -> object:
     return value
 
 
+def stable_ids(value: object, names: dict[str, str] | None = None) -> object:
+    """Replace each run id with `<run-id-N>`, numbered by first appearance, everywhere."""
+    names = {} if names is None else names
+
+    def name(match: re.Match[str]) -> str:
+        return names.setdefault(match.group(0), f"<run-id-{len(names) + 1}>")
+
+    if isinstance(value, str):
+        return CLOCK_ID.sub(name, value)
+    if isinstance(value, list):
+        return [stable_ids(item, names) for item in value]
+    if isinstance(value, dict):
+        return {key: stable_ids(item, names) for key, item in value.items()}
+    return value
+
+
 def run(business: str) -> dict[str, object]:
     """Run the notebook in a fresh copy of its folder and return it with outputs."""
     import nbformat
@@ -119,10 +141,11 @@ def run(business: str) -> dict[str, object]:
         )
         client.execute()
         data = json.loads(nbformat.writes(book))
+        ids: dict[str, str] = {}
         for cell in data["cells"]:
             cell.get("metadata", {}).pop("execution", None)
             if "outputs" in cell:
-                cell["outputs"] = _tidy(_scrub(cell["outputs"], folder))
+                cell["outputs"] = stable_ids(_tidy(_scrub(cell["outputs"], folder)), ids)
     return data
 
 
@@ -157,9 +180,13 @@ def _tidy(outputs: object) -> list[object]:
     return tidy
 
 
+def text(data: dict[str, object]) -> str:
+    return json.dumps(data, indent=1, ensure_ascii=False) + "\n"
+
+
 def write(business: str, data: dict[str, object]) -> Path:
     path = target(business)
-    path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(text(data), encoding="utf-8")
     return path
 
 
@@ -167,10 +194,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("businesses", nargs="*", default=list(BUSINESSES))
     parser.add_argument("--no-run", action="store_true", help="build without running")
+    parser.add_argument(
+        "--check", action="store_true", help="fail if a rebuild would change a notebook"
+    )
     args = parser.parse_args(argv)
+    changed = []
     for business in args.businesses:
         data = notebook(business) if args.no_run else run(business)
+        if args.check:
+            if target(business).read_text(encoding="utf-8") != text(data):
+                changed.append(business)
+            continue
         print(f"wrote {write(business, data).relative_to(HERE.parent.parent)}")
+    if changed:
+        print(f"a rebuild changes: {', '.join(changed)}")
+        return 1
     return 0
 
 

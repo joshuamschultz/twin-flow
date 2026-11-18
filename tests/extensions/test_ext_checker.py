@@ -3,11 +3,14 @@ REQ-213, D-147)."""
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from twinflow.engines.step.model import StepModel
+from twinflow.extensions import checker
 from twinflow.extensions.checker import (
     CheckLimits,
     Samples,
@@ -63,10 +66,21 @@ POLICY_CASES = {
     ),
     "bad_action": ("def decide(state):\n    return 'press-it'\n", 1),  # the decide line
     "slow": (
-        "import time\n\n\ndef decide(state):\n    time.sleep(0.004)\n    return 'idle'\n",
-        4,
+        "import twinflow_test_clock\n\n\n"
+        "def decide(state):\n    twinflow_test_clock.now += 0.004\n    return 'idle'\n",
+        4,  # the decide line
     ),
 }
+
+
+@pytest.fixture(autouse=True)
+def fake_clock(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    """The slow check reads a clock only test policies move: 4 ms per call for the slow
+    ones, 0 ms for the rest. No test here depends on machine speed."""
+    fake = SimpleNamespace(now=0.0)
+    monkeypatch.setitem(sys.modules, "twinflow_test_clock", fake)
+    monkeypatch.setattr(checker, "CLOCK", lambda: fake.now)
+    return fake
 
 
 @pytest.mark.parametrize("code", sorted(POLICY_CASES))
@@ -110,9 +124,15 @@ def test_a_setting_from_the_grid_that_breaks_is_reported(tmp_path: Path, samples
 
 
 def test_slow_uses_the_limit(tmp_path: Path, samples: Samples) -> None:
-    text = "import time\n\n\ndef decide(state):\n    time.sleep(0.004)\n    return 'idle'\n"
+    text = (
+        "import twinflow_test_clock\n\n\n"
+        "def decide(state):\n    twinflow_test_clock.now += 0.004\n    return 'idle'\n"
+    )
     ext = _load(tmp_path, "policy", text)
-    assert check_extension(ext, samples, CheckLimits(time_limit_ms=50.0)) == []
+    assert check_extension(ext, samples, CheckLimits(time_limit_ms=5.0)) == []
+    assert [p.code for p in check_extension(ext, samples, CheckLimits(time_limit_ms=3.0))] == [
+        "slow"
+    ]
 
 
 def test_dispatch_policies_run_on_dispatch_states(tmp_path: Path, samples: Samples) -> None:
