@@ -55,6 +55,15 @@ def _r(value: float | None, digits: int = 3) -> float | None:
     return None if value is None else round(float(value), digits)
 
 
+def _copy(text: str) -> str:
+    """An engine default in the words the page uses (DESIGN.md 8.5: changeover, not setup)."""
+    return re.sub(r"\bsetup\b", "changeover", text, flags=re.IGNORECASE)
+
+
+def _sentence_start(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
 def _count_words(n: int) -> str:
     return "one" if n == 1 else str(n)
 
@@ -587,12 +596,12 @@ class _Builder:
             )
         out = []
         for (used, pattern), items in sorted(groups.items()):
-            head = used[:1].upper() + used[1:]
+            head = _sentence_start(_copy(used))
             if len(items) == 1:
-                out.append(f"{head}: {items[0][0]}.")
+                out.append(f"{head}: {_copy(items[0][0])}.")
             else:
                 names = ", ".join(sorted(n for _w, n in items))
-                out.append(f"{head}: {pattern} ({len(items)} locations: {names}).")
+                out.append(f"{head}: {_copy(pattern)} ({len(items)} locations: {names}).")
         return out
 
     # -- the model -------------------------------------------------------------

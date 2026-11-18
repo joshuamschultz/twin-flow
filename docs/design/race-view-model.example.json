@@ -5,7 +5,7 @@
  "generated_at": "2026-11-18T06:26:14+00:00",
  "twinflow_version": "0.4.0a1",
  "about": {
-  "title": "Policy race: molding-press",
+  "title": "Rule race: molding-press",
   "project": "molding-press",
   "episodes": 40,
   "seed": 0,
@@ -28,7 +28,7 @@
   "dollars_per_run": 65410,
   "same_as_baseline": false,
   "sentence": "Run Family campaign instead of Lowest cover. It makes $22,088 more per run, about $134,370 more a year.",
-  "why": "Main reason: it spends $35,355 less per run on changeovers, with 33 fewer changeovers to another family."
+  "why": "Main reason: it spends $35,355 less per run on changeovers. It has 33 fewer changeovers to another family."
  },
  "baseline": {
   "policy": "lowest_cover",
@@ -102,7 +102,7 @@
    "better": true,
    "words": "2.7 points more orders filled",
    "short": "+2.7 points",
-   "note": "Fewer customers find an empty shelf.",
+   "note": "Fewer shoppers find empty shelves.",
    "attention": false
   },
   {
@@ -1444,8 +1444,8 @@
   "min": 0.0,
   "max": 3.0,
   "step": 0.1,
-  "note": "Policies act the same here. Rerun the race to retune them.",
-  "formula": "profit = revenue - production - setup x m1 - holding x m2 - lost_sales x m3 - late"
+  "note": "Rules act the same here. Run the race again to tune them.",
+  "formula": "profit = revenue - production - changeover x m1 - holding x m2 - lost_sales x m3 - late"
  },
  "warnings": [],
  "timing": {
@@ -1512,7 +1512,7 @@
   "Run Family campaign instead of Lowest cover. It makes $22,088 more per run, about $134,370 more a year.",
   "Very likely better. It won 40 of 40 test runs on the same customer orders.",
   "The gain is likely between $19,733 and $24,444 per run.",
-  "Main reason: it spends $35,355 less per run on changeovers, with 33 fewer changeovers to another family.",
+  "Main reason: it spends $35,355 less per run on changeovers. It has 33 fewer changeovers to another family.",
   "It is behind today's rule until day 54 of 60. At its lowest, on day 42, it is $23,545 behind.",
   "The gain comes late. It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $109,000 more a year.",
   "You will hold 2.6 times more stock. About 3,400 units on the shelf, up from 1,300. Check the room and the cash first.",

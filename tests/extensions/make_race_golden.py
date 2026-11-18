@@ -75,7 +75,7 @@ NAMES = {
     "(s,S) with EOQ lot": "s_big_s",
     "Kanban": "kanban",
     "Biggest $ shortfall": "dollar_shortfall",
-    "Setup-aware run-out": "setup_aware_runout",
+    "Changeover-aware run-out": "setup_aware_runout",
 }
 LEVEL_MASKS = {
     "Full state": "full",

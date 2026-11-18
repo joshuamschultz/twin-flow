@@ -36,7 +36,7 @@ test("open a race from the list, change the view, reload, state is restored", as
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(WEB);
   await expect(page.getByText("DECISIONS", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Policy races", exact: true }).click();
+  await page.getByRole("button", { name: "Rule races", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Which rule should we run?" }),
   ).toBeVisible();
@@ -143,7 +143,7 @@ test("a run in the workspace is listed and opens the run viewer", async ({
 test("every decision view has a list in the nav", async ({ page }) => {
   await page.goto(WEB);
   for (const label of [
-    "Policy races",
+    "Rule races",
     "Runs",
     "Sweeps",
     "States",

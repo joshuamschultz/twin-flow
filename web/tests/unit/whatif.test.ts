@@ -36,7 +36,7 @@ describe("rerank", () => {
     expect(rows.every((r) => r.move === 0)).toBe(true);
   });
 
-  it("holding at 3 times puts Setup-aware run-out first by $1,046", () => {
+  it("holding at 3 times puts Changeover-aware run-out first by $1,046", () => {
     const rows = rerank(policies, { ...ONE, holding: 3 });
     expect(rows[0].policy).toBe("setup_aware_runout");
     expect(rows[0].score - rows[1].score).toBe(1046);

@@ -4,10 +4,10 @@ A machine shop floor expressed purely as config (no Python): two part
 families run raw stock through saw -> CNC mill -> deburr -> inspect (scrap
 rate) -> finished.
 
-- **`shaft`** — `round_bar` (ft, continuous stock) -> `saw_shaft` (4 blanks
+- **`shaft`**, `round_bar` (ft, continuous stock) -> `saw_shaft` (4 blanks
   per foot) -> `mill_shaft` -> `deburr_shaft` -> `inspect_shaft` (3% scrap)
   -> `shaft`.
-- **`bracket`** — `square_billet` (already-discrete pieces) -> `saw_bracket`
+- **`bracket`**, `square_billet` (already-discrete pieces) -> `saw_bracket`
   -> `mill_bracket` -> `deburr_bracket` -> `inspect_bracket` (5% scrap) ->
   `bracket`.
 
@@ -21,6 +21,15 @@ runs deburr + inspect, one shared `floor_pool`.
 ```bash
 twinflow validate examples/cnc-shop/model.yaml
 twinflow run examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv --reps 1
+```
+
+The `run` line prints the run id, for example `run-0-0-ba05aace`. The run writes
+`runs/<run-id>/report.html`. Open it in a browser. It answers three questions: will the orders
+finish on time, where is the choke point, and which one change helps most.
+
+To write the page again, use the id your run printed:
+
+```bash
 twinflow report <run-id> --out html
 ```
 
@@ -31,15 +40,15 @@ through their own chains concurrently.
 ## What this shows
 
 The CNC mill (`mill_shaft` / `mill_bracket`) is tuned far slower than every
-other step on the floor — `rate: 0.03` piece/s versus `0.5-2.0` piece/s for
+other step on the floor, `rate: 0.03` piece/s versus `0.5-2.0` piece/s for
 saw, deburr, and inspect. Orders release close together (every 100-300
 simulated seconds), faster than the mill can clear its queue, so work piles
 up in front of the mill while the rest of the floor sits mostly idle.
 
 No location declares `batch_size`, so every work center pulls the default
-way: one job at a time, in arrival order (`PullRule`'s default — batching
+way: one job at a time, in arrival order (`PullRule`'s default, batching
 is opt-in, never automatic). That means a real queue forms in front of the
-mill instead of being silently absorbed into bigger batches — the report's
+mill instead of being silently absorbed into bigger batches, the report's
 wait-time breakdown, not its firing counts, is where that backlog shows up
 (see below).
 
@@ -47,51 +56,51 @@ wait-time breakdown, not its firing counts, is where that backlog shows up
 
 Run the example and open `kpis.json` / `report.html` (and recompute
 `utilization_by_cell` / the wait-time breakdown via `KpiEngine`, since
-today's `kpis.json` sidecar doesn't carry those two fields yet — see
+today's `kpis.json` sidecar doesn't carry those two fields yet, see
 `tests/integration/test_cnc_shop_example.py`):
 
-- **`utilization_by_cell`** — `mill_shaft` runs at ~99% busy and
+- **`utilization_by_cell`**, `mill_shaft` runs at ~99% busy and
   `mill_bracket` at ~85%, both far above every other station on the floor
   (all under 2%). The mill is the visibly busiest resource on the floor,
   full stop, and `mill_shaft`'s ~99% is close to a hard ceiling: a
   work center that pulls one job at a time is never more than ~100% busy
   (`utilization_by_cell` for a serialized center is always <= 100%).
-- **The wait-time breakdown (`starved` / `blocked`)** — this is a
+- **The wait-time breakdown (`starved` / `blocked`)**, this is a
   per-work-CENTER view, not a per-job queue view: `starved` is time a
   center spent idle waiting for its next job, `blocked` is time it sat
-  finished but held. The mill shows almost no `starved` time (it's busy) —
-  `mill_shaft` starves for well under 1% of the run — while `deburr_shaft`,
+  finished but held. The mill shows almost no `starved` time (it's busy),
+  `mill_shaft` starves for well under 1% of the run, while `deburr_shaft`,
   immediately downstream and fed only by the mill, starves for the vast
   majority of the run (it has nothing to do until the mill's backlog
-  reaches it). That contrast — a busy bottleneck feeding starving
-  downstream stations — is the report's bottleneck fingerprint. Firing
+  reaches it). That contrast, a busy bottleneck feeding starving
+  downstream stations, is the report's bottleneck fingerprint. Firing
   counts do **not** show this: every location, including the mill, fires
   exactly once per order (10 releases each), because the default pull rule
   never batches. The backlog lives entirely in queue wait time, not in
   fewer/bigger firings.
-- **`on_time_pct` / `lateness_by_order`** — one run lands at 90% on time:
+- **`on_time_pct` / `lateness_by_order`**, one run lands at 90% on time:
   nine of the ten work orders finish on time and one (`wo-9`, by about 20
   seconds) finishes late (`lateness_by_order` > 0). Over 30 replications
   (`--reps 30`) the on-time figure averages about 87%, with a 95% range of
   83% to 91%, so a single run can read a little better or worse than that.
   Every order in a family completes when the LAST unit of that family
   clears the floor (a documented v1 simplification: completion is tracked
-  per terminal lot, not per individual work order — see `orders_frame` in
+  per terminal lot, not per individual work order, see `orders_frame` in
   `instrumentation/sweep.py`).
 
 ## The decision this points to
 
-This is not a scheduling problem — every other station has slack. It is a
+This is not a scheduling problem, every other station has slack. It is a
 **capacity** problem: the CNC mill is the floor's constraint. A planner
 looking at this report has one clear lever: add mill capacity (a second
 machine, or a shift) rather than push harder on saw, deburr, or inspect,
 which are already nowhere near their limit. Today's schema has no
-`capacity: N` field to express "a second mill" directly — see "Roadmap
+`capacity: N` field to express "a second mill" directly, see "Roadmap
 note" below.
 
 ## Roadmap note: parallel mill capacity
 
-Today's schema is one work center (one machine) per `locations[*]` entry —
+Today's schema is one work center (one machine) per `locations[*]` entry,
 there is no `capacity: N` field to model "two mills running in parallel."
 Splitting demand across two hand-written mill locations would silently
 change each family's setup/fixture identity (`setup_key`) and isn't a
@@ -105,12 +114,12 @@ fakes today.
 `LocationCompiler` (`model/compile.py`) assigns exactly one `setup_key`
 string to a *location*, applied uniformly to every `thing` it consumes. A
 single location also owns exactly one recipe (`consumes[0]` is the fixed
-ratio basis) — so one YAML location cannot represent "the CNC mill, which
+ratio basis), so one YAML location cannot represent "the CNC mill, which
 sometimes runs shafts and sometimes brackets" while keeping each family's
 part identity distinct through to its own finished part (`routing[*].part`'s
 last step must emit that specific finished thing). The schema-correct
 expression of "two families sharing a work-center shape but never a setup
-group" is two locations, one per family, each singly-capacitied — which is
+group" is two locations, one per family, each singly-capacitied, which is
 also what the task brief asked for ("keep each step a single work center;
 parallel/shared machines are a separate future capability").
 
@@ -124,7 +133,7 @@ setup_policy = SetupPolicy(setup_key_of=setup_key_of, changeover_matrix={}, defa
 
 There is no `model.yaml` field today that sets a nonzero `default_seconds`
 or a `changeover_matrix` entry. `setup_key` is real and load-bearing for
-`PullRule` eligibility (which bundles a location may batch together — see
+`PullRule` eligibility (which bundles a location may batch together, see
 `primitives/location.py::PullRule.select`), but it currently contributes
 **zero** simulated changeover time regardless of value. This example uses
 `setup_key` exactly as the schema defines it today (grouping/eligibility),
@@ -145,6 +154,8 @@ The "what to look for" section above shows the mill (`mill_shaft` /
 twinflow balance examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv \
   --sweep examples/cnc-shop/sweep.json --reps 10
 ```
+
+The command prints the path of `sweep.html`. Open it to compare the three points side by side.
 
 This runs the shop at 1, 2, and 3 shaft mills, 10 replications each, so you
 can see how much of the on-time gain [`cnc-shop-3mill`](../cnc-shop-3mill/)

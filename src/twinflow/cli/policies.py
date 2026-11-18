@@ -185,7 +185,7 @@ def _handle_race(args: argparse.Namespace) -> int:
     _print_result(result)
     print(f"Report: {report}")
     if published:
-        print(f"Workspace: {published} (open DECISIONS > Races in twinflow serve)")
+        print(f"Workspace: {published} (open DECISIONS > Rule races in twinflow serve)")
     return 0
 
 

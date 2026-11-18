@@ -28,8 +28,8 @@ OWN_RULES_NOTE = (
     "Add one with `twinflow new` or copy a built-in rule into `policies/`."
 )
 VIEW_WORDS = {
-    "full": "Exact stock numbers for every product.",
-    "family": "The lowest cover level in each family, and the family on the line.",
+    "full": "Exact stock for each product.",
+    "family": "Lowest stock in each family. Also the family on the line.",
     "simple": "How full each family is, and which family the line is set for.",
 }
 
@@ -215,7 +215,7 @@ def _recent_one(folder: Path, run: Path) -> dict[str, Any] | None:
             data = json.loads(improve.read_text(encoding="utf-8"))
             name, old = label(data["candidate"]["name"]), label(data["previous_best"]["name"])
             sentence = (
-                f"Improve: {name} won and was copied."
+                f"Improve: {name} won. It was copied."
                 if data["promoted"]
                 else f"Improve: {name} did not beat {old}."
             )

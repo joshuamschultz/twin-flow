@@ -77,7 +77,7 @@ export function RaceView({ model }: { model: RaceViewModel }) {
   return (
     <Page
       view="race"
-      title="Policy race"
+      title="Rule race"
       project={a.project}
       scope={`${a.episodes} runs of ${a.horizon_days} days · same customer orders for every rule`}
       sections={sections}
@@ -186,7 +186,7 @@ export function RaceView({ model }: { model: RaceViewModel }) {
         <Section
           id="whatif"
           eyebrow="What if"
-          question="Does the winner change if my costs are different?"
+          question="Does the pick change if my costs are different?"
           hint="Move a slider. The ranking updates at once."
         >
           <WhatIf

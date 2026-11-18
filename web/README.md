@@ -39,6 +39,13 @@ python -m twinflow.service.serve --host 127.0.0.1 --port 8010 \
 TWINFLOW_API_TARGET=http://127.0.0.1:8010 npm run dev
 ```
 
+## Report pages
+
+The HTML pages that `twinflow` writes (race, run, sweep, states, improve and project) are
+built from `web/src/decision/`. After you change those files, run `npm run build:report`
+so the template every page uses is current. [`docs/frontend.md`](../docs/frontend.md) lists
+each page, its sections and the question each one answers.
+
 ## Development
 
 ```bash

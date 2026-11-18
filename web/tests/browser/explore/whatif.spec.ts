@@ -15,7 +15,7 @@ const open = (page: Page) => page.goto(`${base}/fixtures/index.html?c=whatif`);
 const HONEST =
   "This is a quick estimate. It re-prices the same 40 runs. The rules act the same as before. To let each rule adjust to new costs, change the costs in your project and rerun the race.";
 
-test("keeping stock at 3 names Setup-aware run-out in amber, Reset restores", async ({
+test("keeping stock at 3 names Changeover-aware run-out in amber, Reset restores", async ({
   page,
 }) => {
   await open(page);
@@ -27,7 +27,7 @@ test("keeping stock at 3 names Setup-aware run-out in amber, Reset restores", as
 
   await page.getByLabel("Keeping stock costs").fill("3");
   await expect(say).toContainText(
-    "Setup-aware run-out would win by $1,046 per run at these costs.",
+    "Changeover-aware run-out would win by $1,046 per run at these costs.",
   );
   await expect(say.locator(".tf-takeaway")).toHaveClass(/tf-warn/);
   const amber = await say
@@ -51,10 +51,10 @@ test("keeping stock at 3 names Setup-aware run-out in amber, Reset restores", as
 test("each slider says where the winner flips", async ({ page }) => {
   await open(page);
   await expect(page.locator("#wi-hint-setup")).toHaveText(
-    "Below 0.45x Setup-aware run-out wins.",
+    "Below 0.45x Changeover-aware run-out wins.",
   );
   await expect(page.locator("#wi-hint-holding")).toHaveText(
-    "Above 2.45x Setup-aware run-out wins.",
+    "Above 2.45x Changeover-aware run-out wins.",
   );
   await expect(page.locator("#wi-hint-lost_sales")).toHaveText(
     "Family campaign wins anywhere on this slider.",
@@ -69,7 +69,7 @@ test("sliders work by keyboard", async ({ page }) => {
   await expect(s).toHaveValue("1.1");
   await page.keyboard.press("End");
   await expect(s).toHaveValue("3");
-  await expect(page.getByRole("status")).toContainText("Setup-aware run-out");
+  await expect(page.getByRole("status")).toContainText("Changeover-aware run-out");
   await page.keyboard.press("Home");
   await expect(s).toHaveValue("0");
 });

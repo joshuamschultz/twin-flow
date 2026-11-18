@@ -134,7 +134,7 @@ def test_report_inlines_the_view_model_not_plotly(shop: Path) -> None:
 # Details (DESIGN.md 4.5, the B-34 inventory). New: they are in the data the page reads.
 def test_assumptions_travel_in_the_view_model(shop: Path) -> None:
     about = _payload((shop / "report.html").read_text(encoding="utf-8"))["about"]
-    assert any("Setup time zero" in line for line in about["assumptions"])
+    assert any("Changeover time zero" in line for line in about["assumptions"])
 
 
 # old: test_html_report_names_every_substituted_default
@@ -153,7 +153,8 @@ def test_report_names_every_substituted_default(shop: Path) -> None:
     ]
     html = _with_assumptions(shop, assumptions).read_text(encoding="utf-8")
     for a in assumptions:
-        assert a["default_used"][1:] in html
+        plain_used = a["default_used"].replace("setup", "changeover")  # the page's words
+        assert plain_used[1:] in html
         assert a["why_absent"] in html
 
 
