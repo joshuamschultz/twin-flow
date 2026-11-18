@@ -1518,3 +1518,18 @@
   background: var(--ba-accent);
   border-radius: var(--ba-radius-control);
 }
+
+/* DECISIONS nav group and list pages (B-32) */
+.ws-sidebar nav + .ws-nav-label {
+  margin-top: 22px;
+}
+.ws-decision-list th,
+.ws-decision-list td {
+  text-align: left;
+  white-space: normal;
+  vertical-align: top;
+  padding: 12px 10px;
+}
+.ws-decision-list td {
+  font-family: var(--ba-font-body);
+}
