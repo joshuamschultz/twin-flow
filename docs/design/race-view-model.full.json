@@ -16,7 +16,7 @@
   "observation": "full",
   "view": "family",
   "policies_raced": 12,
-  "method": "Every policy ran 40 times on the same customer orders, each run 60 days long. Policies with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
+  "method": "Every rule ran 40 times on the same customer orders, each run 60 days long. Rules with settings to try were tuned first on 30 practice runs with other orders. Ranges are 95% ranges of the average, paired run by run."
  },
  "recommendation": {
   "policy": "family_campaign",

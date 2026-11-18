@@ -104,3 +104,9 @@ def test_early_leader_is_null_when_nothing_finished() -> None:
         early_leader = None
 
     assert early_leader_block(Empty(), None) is None  # type: ignore[arg-type]
+
+
+def test_method_note_uses_the_word_rule(model: dict[str, Any]) -> None:
+    method = model["about"]["method"]
+    assert "policy" not in method.lower() and "policies" not in method.lower()
+    assert method.startswith(f"Every rule ran {model['about']['episodes']} times")

@@ -1,6 +1,11 @@
 // Pure helpers behind TuningCurve and TuningTable (DESIGN.md 3.10).
 // The model decides "touchy" and writes the sentence. Nothing is recomputed here.
-import { settingName, settingText, settingValue } from "./detailsFormat";
+import {
+  ruleLabel,
+  settingName,
+  settingText,
+  settingValue,
+} from "./detailsFormat";
 import type { RaceViewModel, Settings, Trial, Tuning } from "./types";
 
 export type CurvePoint = {
@@ -138,13 +143,6 @@ export function curveSpec(tuning: Tuning): CurveSpec {
 
 type RowSource = Pick<RaceViewModel, "tuning" | "policies" | "recommendation">;
 
-function labelFor(policy: string, source: RowSource): string {
-  const found = source.policies.find((p) => p.policy === policy);
-  if (found) return found.label;
-  const text = policy.replace(/_/g, " ");
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 /** One table row per tuned rule: the pick first, then by rank. */
 export function tuningRows(source: RowSource): TuningRow[] {
   const pick = source.recommendation.policy;
@@ -152,7 +150,7 @@ export function tuningRows(source: RowSource): TuningRow[] {
     source.policies.find((p) => p.policy === policy)?.rank ?? 1e9;
   const rows = source.tuning.map((t) => ({
     policy: t.policy,
-    label: labelFor(t.policy, source),
+    label: ruleLabel(t.policy, source.policies),
     isPick: t.policy === pick,
     tried: t.tried,
     best: settingText(t.chosen),

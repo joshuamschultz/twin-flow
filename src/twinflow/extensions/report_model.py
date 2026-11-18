@@ -1134,8 +1134,8 @@ def race_view_model(
         "view": project.config.markov.view,
         "policies_raced": len(ranked),
         "method": (
-            f"Every policy ran {settings.episodes} times on the same customer orders, each run "
-            f"{horizon} days long. Policies with settings to try were tuned first on "
+            f"Every rule ran {settings.episodes} times on the same customer orders, each run "
+            f"{horizon} days long. Rules with settings to try were tuned first on "
             f"{settings.tune_episodes} practice runs with other orders. Ranges are "
             f"{round(100 * settings.interval)}% ranges of the average, paired run by run."
         ),

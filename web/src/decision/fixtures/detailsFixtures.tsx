@@ -8,6 +8,10 @@ import "../tokens.css";
 import "../fonts/fonts.css";
 import "../decision.css";
 import "../details.css";
+import { Details } from "../Details";
+import { DownloadJson } from "../DownloadJson";
+import { FullTable } from "../FullTable";
+import { ProblemList } from "../ProblemList";
 import { TuningCurve } from "../TuningCurve";
 import { TuningTable } from "../TuningTable";
 import { TuningView } from "../TuningView";
@@ -35,6 +39,20 @@ function Fixture({ model }: { model: RaceViewModel }) {
       return <TuningTable rows={tuningRows(model)} />;
     case "tuning":
       return <TuningView model={model} />;
+    case "details":
+      return <Details model={model} />;
+    case "full-table":
+      return <FullTable model={model} />;
+    case "problems":
+      return (
+        <ProblemList
+          problems={model.problems}
+          warnings={model.warnings}
+          policies={model.policies}
+        />
+      );
+    case "download":
+      return <DownloadJson model={model} />;
     default:
       return <p>Unknown fixture.</p>;
   }

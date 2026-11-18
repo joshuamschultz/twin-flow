@@ -63,3 +63,18 @@ export function shortValue(label: string): string {
     return label;
   return new Intl.NumberFormat("en-US", { notation: "compact" }).format(n);
 }
+
+/** A rule's name for people. Uses the model's label when the rule is in `policies`. */
+export function ruleLabel(
+  policy: string,
+  policies: ReadonlyArray<{ policy: string; label: string }> = [],
+): string {
+  const found = policies.find((p) => p.policy === policy);
+  if (found) return found.label;
+  const text = policy.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+export function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
+}

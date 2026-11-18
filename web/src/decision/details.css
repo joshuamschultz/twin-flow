@@ -335,8 +335,15 @@
   display: grid;
   gap: 16px;
 }
-.tf-det-table td {
+.tf-det-table td,
+.tf-det-table th[scope="row"] {
   white-space: nowrap;
+}
+.tf-det-narrow {
+  max-width: 520px;
+}
+.tf-det-sub {
+  margin-top: 18px !important;
 }
 .tf-det-table td.n {
   font-family: var(--ba-font-mono);
