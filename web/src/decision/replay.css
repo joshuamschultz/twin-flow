@@ -1,0 +1,181 @@
+/* Floor replay (DESIGN.md 3.7). Classes start with tf-rp- so they do not clash. */
+.tf-rp-stack {
+  position: relative;
+}
+.tf-rp-chart {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.tf-rp-svg {
+  display: block;
+  overflow: visible;
+}
+.tf-rp-click {
+  cursor: pointer;
+}
+.tf-rp-lab {
+  font: 500 10.5px var(--ba-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--ba-meta);
+}
+.tf-rp-sku {
+  font-size: 9.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tf-rp-group {
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.tf-rp-tick {
+  font: 500 10px var(--ba-font-mono);
+  fill: var(--ba-meta);
+}
+.tf-rp-rest {
+  fill: none;
+  stroke: var(--tf-axis);
+  stroke-dasharray: 2 2;
+  pointer-events: all;
+}
+.tf-rp-colour {
+  fill: var(--tf-loss);
+}
+.tf-rp-size {
+  fill: var(--tf-axis);
+}
+.tf-rp-base {
+  stroke: var(--tf-grid);
+}
+.tf-rp-frame {
+  fill: none;
+  stroke: var(--ba-headline);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.tf-rp-range:focus-visible {
+  outline: 2px solid var(--ba-focus);
+  outline-offset: 2px;
+}
+.tf-rp-families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-rp-stack *,
+  .tf-rp-lanes * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* lanes, scrubber, day facts (B-19) */
+.tf-rp-lanes {
+  color: var(--ba-body);
+}
+.tf-rp-scrub {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.tf-rp-play {
+  min-width: 96px;
+  transition: border-color var(--ba-motion-micro, 170ms ease);
+}
+.tf-rp-day {
+  font: 500 22px var(--ba-font-mono);
+  color: var(--ba-headline);
+  min-width: 92px;
+  white-space: nowrap;
+}
+.tf-rp-range {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  accent-color: var(--tf-pick);
+}
+.tf-rp-key-rest {
+  border: 1px dashed var(--tf-axis);
+}
+.tf-rp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+.tf-rp-grid > :only-child {
+  grid-column: 1 / -1;
+}
+.tf-rp-lane {
+  min-width: 0;
+}
+.tf-rp-h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font: 600 17px var(--ba-font-display);
+  color: var(--ba-headline);
+}
+.tf-rp-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+.tf-rp-facts > div {
+  background: var(--ba-surface-2);
+  border-radius: 2px;
+  padding: 8px 10px;
+  min-width: 0;
+}
+.tf-rp-k {
+  font-size: 11.5px;
+  color: var(--ba-meta);
+}
+.tf-rp-v {
+  font: 500 15px var(--ba-font-mono);
+  color: var(--ba-headline);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tf-rp-bad {
+  color: var(--tf-loss-text);
+}
+.tf-rp-dayline {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ba-body);
+}
+
+@media (max-width: 900px) {
+  .tf-rp-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tf-rp-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-rp-play {
+    transition: none;
+  }
+}
+
+.tf-rp-tablewrap {
+  max-height: 420px;
+  overflow: auto;
+}
+.tf-rp-gap {
+  margin-left: 10px;
+}
