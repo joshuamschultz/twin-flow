@@ -23,6 +23,7 @@ from __future__ import annotations
 import importlib
 import itertools
 import statistics
+from collections.abc import Iterable
 from types import ModuleType
 from typing import Any, Literal
 
@@ -134,7 +135,8 @@ def test_perturbation_runs_on_14_2_1_returns_base_and_eight_neighbors() -> None:
     assert (base.K1, base.K2) == pytest.approx(_kt().lookup(table, base))
     expected = _expected_neighbors(base.K1, base.K2, 0.25)
     actual = sorted((r.K1, r.K2) for r in neighbors)
-    assert actual == pytest.approx(expected)
+    # pytest >= 9 approx() refuses nested sequences: compare the flattened pairs.
+    assert _flat(actual) == pytest.approx(_flat(expected))
 
 
 def test_perturbation_runs_carry_the_center_statistics() -> None:
@@ -167,7 +169,11 @@ def test_perturbation_runs_delta_scales_the_neighbors() -> None:
     runs = _pt().perturbation_runs(load_request("pinedo_14_2_1"), CENTER_1421, table, delta=0.1)
     base = runs[0]
     actual = sorted((r.K1, r.K2) for r in runs[1:])
-    assert actual == pytest.approx(_expected_neighbors(base.K1, base.K2, 0.1))
+    assert _flat(actual) == pytest.approx(_flat(_expected_neighbors(base.K1, base.K2, 0.1)))
+
+
+def _flat(pairs: Iterable[tuple[float, float]]) -> list[float]:
+    return [value for pair in pairs for value in pair]
 
 
 # --- update_k_table (pure) --------------------------------------------------------------------
