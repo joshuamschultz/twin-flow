@@ -11,7 +11,8 @@ import {
 } from "../primitives";
 import { RunDots } from "../RunDots";
 import type { ImproveViewModel } from "../types";
-import { AnswerHero, Problems, share } from "../answer";
+import { Problems, share } from "../answer";
+import { AnswerHero } from "../AnswerHero";
 import { checkSummary, rangeWords } from "./derive";
 
 const SECTIONS: SectionRef[] = [
@@ -45,6 +46,7 @@ export function ImproveView({ model }: { model: ImproveViewModel }) {
       }
     >
       <AnswerHero
+        id="answer"
         eyebrow="Did the new rule win?"
         headline={outcome.headline}
         lede={outcome.reason}
@@ -57,7 +59,8 @@ export function ImproveView({ model }: { model: ImproveViewModel }) {
               }
             : undefined
         }
-        aside={<FloorChanges rows={model.floor} />}
+        sideKind="aside"
+        side={<FloorChanges rows={model.floor} />}
       >
         {gaps.length > 1 && confidence && (
           <div style={{ marginTop: 14 }}>

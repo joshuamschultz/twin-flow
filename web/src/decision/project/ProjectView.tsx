@@ -3,7 +3,8 @@
 import { Page, type SectionRef } from "../Page";
 import { Card, EmptyState, Section, Tag } from "../primitives";
 import type { ProjectViewModel } from "../types";
-import { AnswerHero, Problems, count } from "../answer";
+import { Problems, count } from "../answer";
+import { AnswerHero } from "../AnswerHero";
 import { ruleCounts, viewsByKind } from "./derive";
 
 export function ProjectView({ model }: { model: ProjectViewModel }) {
@@ -30,6 +31,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
       footer={<>twinflow project · {about.project}</>}
     >
       <AnswerHero
+        id="answer"
         eyebrow={`Project · ${about.project}`}
         headline={status.headline}
         lede={about.summary}

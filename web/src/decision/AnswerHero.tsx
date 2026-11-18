@@ -1,8 +1,8 @@
-// The answer hero for pages that are not a race: an eyebrow with the question, a headline
-// that is the answer, a lede, up to three figures, and an optional card on the right
-// (DESIGN.md 0.1, item 3). Same markup and classes as DecisionHero.
+// The one answer hero for every view that is not a race (DESIGN.md 0.1, item 3): an eyebrow
+// with the question, a headline that is the answer, a lede, up to three figures, how sure we
+// are, actions, and an optional card on the right. Same markup and classes as DecisionHero.
 import type { ReactNode } from "react";
-import { MoneyFigure } from "./hero";
+import { ConfidenceBadge, MoneyFigure } from "./hero";
 
 export type HeroFigure = { value: string; label: string };
 
@@ -11,18 +11,25 @@ export function AnswerHero(props: {
   headline: ReactNode;
   lede?: ReactNode;
   figures?: HeroFigure[];
-  /** How sure we are, in words. */
+  /** How sure we are, as a badge from the view model. */
+  badge?: { words: string; level: string; detail?: string | null };
+  /** How sure we are, in free words, when there is no badge. */
   sure?: ReactNode;
   actions?: ReactNode;
   /** The card on the right: what changes, or the one thing to do. */
   side?: ReactNode;
+  /** "floor" for a what-changes card, "aside" for a plain note card. */
+  sideKind?: "floor" | "aside";
+  /** The section id the section bar links to. */
+  id?: string;
   /** "h1" when the page has no other title, "h2" when it has. */
   level?: "h1" | "h2";
+  children?: ReactNode;
 }) {
-  const { level = "h1" } = props;
+  const { level = "h1", id = "decision", sideKind = "floor" } = props;
   const Title = level;
   return (
-    <div className="tf-hero" id="decision" data-section="decision">
+    <div className="tf-hero" id={id} data-section={id}>
       <div className={"tf-wrap" + (props.side ? " tf-hero-grid" : "")}>
         <div>
           <div className="tf-eyebrow">{props.eyebrow}</div>
@@ -35,12 +42,23 @@ export function AnswerHero(props: {
               ))}
             </div>
           )}
-          {props.sure && <div className="tf-sure">{props.sure}</div>}
+          {(props.badge || props.sure) && (
+            <div className="tf-sure">
+              {props.badge && <ConfidenceBadge {...props.badge} />}
+              {props.sure}
+            </div>
+          )}
+          {props.children}
           {props.actions && (
             <div className="tf-hero-actions">{props.actions}</div>
           )}
         </div>
-        {props.side && <div className="tf-floor">{props.side}</div>}
+        {props.side &&
+          (sideKind === "aside" ? (
+            <aside className="tf-aside">{props.side}</aside>
+          ) : (
+            <div className="tf-floor">{props.side}</div>
+          ))}
       </div>
     </div>
   );

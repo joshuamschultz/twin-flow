@@ -1,42 +1,6 @@
-// Parts the states, improve and project views share that the standard layout has no component for: a plain
-// answer hero, problem cards and a number stepper. Everything else is from ../primitives.
-import type { ReactNode } from "react";
+// Parts the states, improve and project views share: problem cards and a number stepper.
+// The answer hero is AnswerHero.tsx; everything else is from ./primitives.
 import { pct } from "./format";
-import { ConfidenceBadge } from "./hero";
-
-/** The navy answer band (DESIGN.md 0.1 item 3) for views that have no money figure. */
-export function AnswerHero(props: {
-  id?: string;
-  eyebrow: string;
-  headline: string;
-  lede?: ReactNode;
-  badge?: { words: string; level: string; detail?: string | null };
-  aside?: ReactNode;
-  children?: ReactNode;
-}) {
-  return (
-    <div
-      className="tf-hero"
-      id={props.id ?? "answer"}
-      data-section={props.id ?? "answer"}
-    >
-      <div className="tf-wrap tf-hero-grid">
-        <div>
-          <div className="tf-eyebrow">{props.eyebrow}</div>
-          <h1>{props.headline}</h1>
-          {props.lede && <p className="tf-lede">{props.lede}</p>}
-          {props.badge && (
-            <div className="tf-sure">
-              <ConfidenceBadge {...props.badge} />
-            </div>
-          )}
-          {props.children}
-        </div>
-        {props.aside && <aside className="tf-aside">{props.aside}</aside>}
-      </div>
-    </div>
-  );
-}
 
 export type ProblemRow = {
   where?: string | null;

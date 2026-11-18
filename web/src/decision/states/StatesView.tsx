@@ -7,7 +7,8 @@ import { Card, EmptyState, Section } from "../primitives";
 import { StateMapCard } from "../StateMapCard";
 import type { StatesViewModel } from "../types";
 import { useViewState } from "../viewState";
-import { AnswerHero, Problems, Stepper, count, share } from "../answer";
+import { Problems, Stepper, count, share } from "../answer";
+import { AnswerHero } from "../AnswerHero";
 import { moneyRows, nodeTitle, visibleEdges, visibleNodes } from "./derive";
 
 export type StatesViewProps = {
@@ -88,6 +89,7 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
       }
     >
       <AnswerHero
+        id="answer"
         eyebrow={`What situations does the plant live in? · ${about.view_name} view`}
         headline={model.headline}
         lede={
@@ -95,7 +97,8 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
             ? model.problems[0]?.fix
             : `The map shows the ${count(nodes.length, "most common situation")}. They cover ${share(shown)} of all days.`
         }
-        aside={
+        sideKind="aside"
+        side={
           !empty && lead ? (
             <>
               <h3>Where it loses the most</h3>
