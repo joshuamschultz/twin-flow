@@ -21,6 +21,22 @@ For the implemented enterprise branch, start with the [operator workspace guide]
 5. [running.md](running.md) — run it and read the results.
 6. [optimizing.md](optimizing.md) — stop reporting, start deciding.
 
+## How-to guides
+
+Step-by-step guides in plain words, for planners who are not programmers. Start with the [how-to guides index](how-to/README.md).
+
+1. [Build a twin](how-to/build-a-twin.md): start a new folder from a starter template.
+2. [Load your data and economics](how-to/load-data-and-economics.md): enter products, demand, prices and costs.
+3. [Check your twin](how-to/check-your-twin.md): find mistakes before you run.
+4. [Run your twin](how-to/run-your-twin.md): run a plant and turn on state capture for a job shop.
+5. [Test orders](how-to/test-orders.md): run a shop's orders and read the due-date results.
+6. [Write a policy](how-to/write-a-policy.md): write your own rule for what to make next.
+7. [Write a reward, view, feature or demand](how-to/write-a-reward-view-feature-or-demand.md): change how days are scored, labeled, or drawn.
+8. [Race your policies](how-to/race-your-policies.md): test many rules on the same random demand.
+9. [Read the Markov map](how-to/read-the-markov-map.md): see how the plant moves between states.
+10. [Improve a policy](how-to/improve-a-policy.md): test a new rule against your best one.
+11. [Tune everything](how-to/tune-everything.md): learn where the default numbers are set.
+
 ## Full reference (look anything up)
 
 **Model & data**
