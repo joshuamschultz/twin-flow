@@ -7,7 +7,7 @@
     .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
     .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
     .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
-    .warn { fill: #fdf1e4; stroke: #f68d2e; stroke-width: 1.5; }
+    .warn { fill: #f68d2e; fill-opacity: 0.1; stroke: #f68d2e; stroke-width: 1.5; }
     .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
     .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
     .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }

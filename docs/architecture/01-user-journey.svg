@@ -7,11 +7,11 @@
 <rect x="36.0" y="164.0" width="40.0" height="18.0" rx="4" fill="#d6e6ff"/>
 <text x="56.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#003b82" text-anchor="middle" font-weight="600"><tspan x="56.0" y="176.8">Have</tspan></text>
 <text x="84.0" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="84.0" y="177.0">built today</tspan></text>
-<rect x="188.1" y="164.0" width="53.1" height="18.0" rx="4" fill="#fdf1e4"/>
+<rect x="188.1" y="164.0" width="53.1" height="18.0" rx="4" fill="#f68d2e" fill-opacity="0.1"/>
 <text x="214.7" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#8a4c11" text-anchor="middle" font-weight="600"><tspan x="214.7" y="176.8">Extend</tspan></text>
 <text x="249.2" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="249.2" y="177.0">exists, needs more</tspan></text>
-<rect x="404.2" y="164.0" width="33.5" height="18.0" rx="4" fill="#d5f6fb"/>
-<text x="421.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0b6b7a" text-anchor="middle" font-weight="600"><tspan x="421.0" y="176.8">New</tspan></text>
+<rect x="404.2" y="164.0" width="33.5" height="18.0" rx="4" fill="#22d3ee" fill-opacity="0.22"/>
+<text x="421.0" y="176.8" font-family="IBM Plex Mono, Menlo, monospace" font-size="10.5" fill="#0e7c8f" text-anchor="middle" font-weight="600"><tspan x="421.0" y="176.8">New</tspan></text>
 <text x="445.8" y="177.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#54585c" text-anchor="start"><tspan x="445.8" y="177.0">to build</tspan></text>
 <rect x="36.0" y="208.0" width="362.7" height="150.0" rx="8" fill="#ffffff" stroke="#dfe3e8" stroke-width="1"/>
 <text x="54.0" y="244.0" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="24" fill="#0055bc" text-anchor="start" font-weight="600"><tspan x="54.0" y="244.0">1</tspan></text>
