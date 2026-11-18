@@ -541,3 +541,89 @@ def _io_offenders_outside_root(path: pathlib.Path) -> list[str]:
     """The I/O calls `_io_offenders` flags, for a probe file outside the repo."""
     tree = ast.parse(path.read_text(), filename=str(path))
     return [call for node in ast.walk(tree) if (call := _io_call(node)) is not None]
+
+
+# --- TF-006: state, engines and policy files sit above the core (T-227, D-131, D-139) -----
+
+STATE = SRC / "state"
+ENGINES = SRC / "engines"
+POLICY_FILES = SRC / "policy_files"
+_TF006_PACKAGES = ("twinflow.state", "twinflow.engines", "twinflow.policy_files")
+# Lower layers never import the new packages; the DES seam takes a Protocol defined in
+# `plan/observers.py` instead (D-131).
+_TF006_FREE_PACKAGES = ("plan", "model", "primitives", "engine", "scheduling", "execution")
+# Loading a policy file runs local code: only the CLI and in-process Python may (D-139).
+_POLICY_FILE_FREE_PACKAGES = ("service", "mcp", "application", "domain", "engines", "state")
+# `twinflow.state` is pure: stdlib, numpy and polars only (D-131, D-140).
+_STATE_ALLOWED_PREFIXES = ("numpy", "polars", "twinflow.state")
+# No pandas, networkx or pyarrow anywhere in the TF-006 packages (D-140).
+_TF006_BANNED_PREFIXES = ("pandas", "networkx", "pyarrow")
+
+
+def _offending_imports(files: list[pathlib.Path], prefixes: tuple[str, ...]) -> list[str]:
+    return [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in files
+        for line, name in _all_imports(p)
+        if _under(name, prefixes)
+    ]
+
+
+def _state_allows(name: str) -> bool:
+    top = name.split(".", 1)[0]
+    return top in sys.stdlib_module_names or _under(name, _STATE_ALLOWED_PREFIXES)
+
+
+@pytest.mark.parametrize("package", _TF006_FREE_PACKAGES)
+def test_lower_packages_never_import_state_engines_or_policy_files(package: str) -> None:
+    files = _existing_py(SRC / package)
+    assert files, f"src/twinflow/{package}/ has no modules to scan"
+    assert _offending_imports(files, _TF006_PACKAGES) == []
+
+
+@pytest.mark.parametrize("package", _POLICY_FILE_FREE_PACKAGES)
+def test_only_cli_and_python_reach_policy_files(package: str) -> None:
+    files = _existing_py(SRC / package)
+    assert _offending_imports(files, ("twinflow.policy_files",)) == []
+
+
+def test_state_imports_no_other_twinflow_package() -> None:
+    offenders = [
+        f"{p.relative_to(ROOT)}:{line} -> {name}"
+        for p in _existing_py(STATE)
+        for line, name in _all_imports(p)
+        if not _state_allows(name)
+    ]
+    assert offenders == [], offenders
+
+
+def test_tf006_packages_use_no_pandas_networkx_or_pyarrow() -> None:
+    files = _existing_py(STATE, ENGINES, POLICY_FILES)
+    assert _offending_imports(files, _TF006_BANNED_PREFIXES) == []
+
+
+def test_tf006_boundary_scanners_see_forbidden_forms(tmp_path: pathlib.Path) -> None:
+    """Guard the guard: the TF-006 scanners must flag every forbidden form."""
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        "import twinflow.state.records\n"
+        "from twinflow.engines import contract\n"
+        "from twinflow import policy_files\n"
+        "from importlib import import_module\n"
+        "import_module('twinflow.policy_files.loader')\n"
+        "import networkx as nx\n"
+        "from pandas import DataFrame\n"
+    )
+    names = [name for _, name in _all_imports(probe)]
+    assert {"twinflow.state.records", "twinflow.engines", "twinflow.policy_files"} <= {
+        name for name in names if _under(name, _TF006_PACKAGES)
+    }
+    assert "twinflow.policy_files.loader" in names
+    assert {"networkx", "pandas"} <= {n for n in names if _under(n, _TF006_BANNED_PREFIXES)}
+    assert not _state_allows("twinflow.model.validate")
+    assert not _state_allows("twinflow.engines.contract")
+    assert not _state_allows("pandas")
+    assert _state_allows("twinflow.state.records")
+    assert _state_allows("polars")
+    assert _state_allows("hashlib")
+    assert not _under("twinflow.statehood", _TF006_PACKAGES)
