@@ -1,0 +1,55 @@
+# One molding press, 12 products in 3 families (grey, black, natural).
+# Each day the planner picks one product to run, or rests the press.
+# Numbers come from the rl-mfg-supplychain research repo (SKU_TABLE).
+schema_version: '0.1'
+required_capabilities:
+  - make_to_stock.step
+model:
+  domain: make_to_stock
+  revision: '1'
+  period: day
+  horizon: 60            # days in one run
+  start_cover_days: 8    # each product starts with 8 days of stock (up to its storage limit)
+  line:
+    id: press
+    changeover:          # what a product switch costs
+      within_family: {cost: 200, output_lost: 0.10}    # same colour: $200, 10% of the day lost
+      across_family: {cost: 1200, output_lost: 0.50}   # new colour: $1200, half the day lost
+  products:              # demand = average units sold per day, run_rate = units made in a full day
+    - {id: GRY-S, family: grey, abc: A, demand: 60, run_rate: 450, price: 12.0, unit_cost: 7.2, max_storage: 1500}
+    - {id: GRY-M, family: grey, abc: A, demand: 40, run_rate: 360, price: 18.0, unit_cost: 10.8, max_storage: 1000}
+    - {id: GRY-L, family: grey, abc: B, demand: 18, run_rate: 270, price: 26.0, unit_cost: 15.6, max_storage: 540}
+    - {id: GRY-XL, family: grey, abc: C, demand: 6, run_rate: 180, price: 38.0, unit_cost: 22.8, max_storage: 240}
+    - {id: BLK-S, family: black, abc: A, demand: 45, run_rate: 450, price: 12.6, unit_cost: 7.56, max_storage: 1125}
+    - {id: BLK-M, family: black, abc: B, demand: 22, run_rate: 360, price: 18.9, unit_cost: 11.34, max_storage: 660}
+    - {id: BLK-L, family: black, abc: C, demand: 9, run_rate: 270, price: 27.3, unit_cost: 16.38, max_storage: 360}
+    - {id: BLK-XL, family: black, abc: C, demand: 5, run_rate: 180, price: 39.9, unit_cost: 23.94, max_storage: 200}
+    - {id: NAT-S, family: natural, abc: B, demand: 20, run_rate: 450, price: 13.2, unit_cost: 7.92, max_storage: 600}
+    - {id: NAT-M, family: natural, abc: B, demand: 16, run_rate: 360, price: 19.8, unit_cost: 11.88, max_storage: 480}
+    - {id: NAT-L, family: natural, abc: C, demand: 8, run_rate: 270, price: 28.6, unit_cost: 17.16, max_storage: 320}
+    - {id: NAT-XL, family: natural, abc: C, demand: 4, run_rate: 180, price: 41.8, unit_cost: 25.08, max_storage: 160}
+  economics:
+    defaults: {holding_rate: 0.01, lost_sale_rate: 0.30}   # holding = 1% of unit cost per night; a lost sale costs 30% of price
+  state_groups:
+    views:
+      simple:            # a short label per day: how full each family is, and which family the press is set for
+        stock:
+          by: days_of_cover
+          aggregate: family
+          levels: [{name: out, below: 1}, {name: low, below: 4}, {name: ok, below: 10}, {name: high}]
+        setup: family
+snapshot:
+  id: molding-press-start
+  as_of: '2026-11-17T08:00:00-06:00'
+  model_revision: '1'
+experiment:
+  id: molding-press-baseline
+  replications: 50
+  seed: 2024
+  policy: lowest_cover   # a built-in rule; policies/ holds two you can read and copy
+assumptions:
+  - demand is Poisson per product per day
+  - one changeover per day at most, made before the day's output
+  - unmet demand is lost, not back-ordered
+provenance:
+  source: rl-mfg-supplychain (factory_mdp, SKU_TABLE and FactoryProblemDefinition defaults)

@@ -1,0 +1,21 @@
+# Custom engine starter. The world is the Python file engines/bakery.py.
+schema_version: '0.1'
+required_capabilities: []
+model:
+  domain: custom
+  engine: bakery         # the NAME in engines/bakery.py
+  horizon: 14            # days in one run
+  products: [rye, white]
+  price: 4.0
+  unit_cost: 1.5
+snapshot:
+  id: bakery-start
+  as_of: '2026-11-17T08:00:00-06:00'
+  model_revision: '1'
+experiment:
+  id: bakery-baseline
+  seed: 0
+assumptions:
+  - demand is Poisson, 3 loaves a day per bread
+provenance:
+  source: twinflow custom-engine starter
