@@ -176,3 +176,32 @@ def test_states_hints_when_a_run_has_very_few_moves(
     code, out, _ = _run(capsys, "states", str(des_run))
     assert code == 0
     assert "Only 2 moves. Lower experiment.state_capture.every_hours to record more." in out
+
+
+MY_VIEW = (
+    "NAME = 'my_view'\n\n\ndef label(state):\n"
+    "    return 'stocked' if min(state.days_of_cover.values()) > 3 else 'low'\n"
+)
+
+
+@pytest.fixture
+def press_run(project: Path, tmp_path: Path) -> Path:
+    (project / "views").mkdir(exist_ok=True)
+    (project / "views" / "my_view.py").write_text(MY_VIEW, encoding="utf-8")
+    out = tmp_path / "run"
+    code = main(["scenario", "run", str(project), "--reps", "1", "--seed", "1", "--out", str(out)])
+    assert code == 0
+    return out
+
+
+@pytest.mark.parametrize("command", ["states", "markov"])
+def test_project_view_files_work_with_the_project_flag(
+    command: str, project: Path, press_run: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, _, err = _run(capsys, command, str(press_run), "--view", "my_view")
+    assert code == 1 and "my_view" in err and "--project" in err
+    code, out, err = _run(
+        capsys, command, str(press_run), "--view", "my_view", "--project", str(project)
+    )
+    assert code == 0, err
+    assert "stocked" in out or "low" in out
