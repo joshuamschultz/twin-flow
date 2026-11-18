@@ -141,7 +141,7 @@ test("operational data reconciliation and verified scheduling", async ({
     .click();
   await expect(
     page.getByText("OPTIMAL · Verified", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30000 }); // the first CP-SAT solve loads OR-Tools
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Export schedule CSV" }).click(),
