@@ -1,4 +1,4 @@
-"""Layer 3 — work orders, release timing, initial WIP; the in-process run entry point."""
+"""Layer 3, work orders, release timing, initial WIP; the in-process run entry point."""
 
 from __future__ import annotations
 

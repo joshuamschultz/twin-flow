@@ -1,11 +1,11 @@
-"""A small in-memory job store — run / sweep / optimize are long, so the API launches
+"""A small in-memory job store, run / sweep / optimize are long, so the API launches
 them and the front end polls.
 
 A job is submitted with a callable returning a JSON-friendly dict; it runs on a
 background thread (the engine's own parallelism is process-based, so a worker thread
 only waits on it). The store is deliberately in-memory and single-process: this is a
 local alpha driver for one operator's twin, not a multi-tenant service. Restarting the
-API forgets finished jobs — the run artifacts on disk are the durable record.
+API forgets finished jobs, the run artifacts on disk are the durable record.
 """
 
 from __future__ import annotations

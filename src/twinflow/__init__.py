@@ -1,4 +1,4 @@
-"""twinflow — config-driven discrete-event digital twin for discrete manufacturing.
+"""twinflow, config-driven discrete-event digital twin for discrete manufacturing.
 
 Public engine version stamped into run artifacts (COMP-028).
 """

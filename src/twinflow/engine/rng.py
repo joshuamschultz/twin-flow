@@ -33,7 +33,7 @@ SOURCE_KEYS: tuple[str, ...] = (
 )
 
 # Fixed per-source index used to key each source's independent SeedSequence entropy.
-# Never derived from a model/config count — the position in SOURCE_KEYS is stable
+# Never derived from a model/config count, the position in SOURCE_KEYS is stable
 # code, not data (D-033).
 _SOURCE_INDEX: dict[str, int] = {source: index for index, source in enumerate(SOURCE_KEYS)}
 
@@ -83,7 +83,7 @@ class RngRegistry:
 
     Each source's stream is derived from SeedSequence entropy keyed on
     (base_seed, replication_index, source_index), so a source's sequence
-    depends only on its own draws — never on how many draws another source
+    depends only on its own draws, never on how many draws another source
     made first (CRN survival, D-033).
     """
 

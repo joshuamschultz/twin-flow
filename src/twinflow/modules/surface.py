@@ -1,9 +1,9 @@
-"""ScoringSurface — the one seam every module attaches to.
+"""ScoringSurface, the one seam every module attaches to.
 
 A `Scenario` is a set of lever overrides (a point in `LeverSpace`). `evaluate` turns
 it into an `Evaluation` by running the twin: it writes a variant `model.yaml`, runs
 `reps` replications at a fixed `base_seed` (so replication i of every scenario shares
-the same random draws — common random numbers, D-033), and reports the KPIs of the
+the same random draws, common random numbers, D-033), and reports the KPIs of the
 representative replication plus the confidence intervals across all of them.
 
 Objectives, cost functions, optimizers, and surrogate models never run the simulator
@@ -67,7 +67,7 @@ class Evaluation:
     intervals: AggregatedKpis
     compiled: CompiledModel = field(repr=False)
     horizon: float = 0.0
-    """The representative replication's simulated horizon (seconds) — the paid
+    """The representative replication's simulated horizon (seconds), the paid
     time base for inventory holding and other rate costs."""
 
     inventory: InventoryKpis = field(default_factory=lambda: InventoryKpis({}, {}, {}, {}, {}))
@@ -164,7 +164,7 @@ class ScoringSurface:
     def _write_variant(self, scenario: Scenario, tmp_dir: Path) -> Path:
         """Deep-copy the base model, apply the scenario's lever overrides, and
         materialise it as JSON (a YAML subset, so `model/loader.py` stays the
-        only PyYAML entry point — same trick `SweepHarness` uses)."""
+        only PyYAML entry point, same trick `SweepHarness` uses)."""
         variant_data = copy.deepcopy(self._base_data)
         for lever_path, value in scenario.levers.items():
             _apply_override(variant_data, lever_path, value)

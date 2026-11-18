@@ -1,7 +1,7 @@
-"""COMP-028 RunStamp — everything needed to reproduce a run exactly.
+"""COMP-028 RunStamp, everything needed to reproduce a run exactly.
 
 Engine version, resolved commit SHA, model file hash, plan file hash, base seed, Python
-interpreter version, resolved dependency hash. Contains no secrets and no client data —
+interpreter version, resolved dependency hash. Contains no secrets and no client data,
 only sha256 hex digests of file content, never a copy of the content itself.
 
 Lives at the package root (not report/) so plan/driver can stamp a run at start without
@@ -28,7 +28,7 @@ def _hash_file(path: str) -> str:
 def dependency_hash() -> str:
     """sha256 hex digest of the sorted `name==version` list of installed distributions.
 
-    Deterministic within one environment — same installed set always hashes the same,
+    Deterministic within one environment, same installed set always hashes the same,
     regardless of which model/plan files or seed a given run used.
     """
     installed = sorted(

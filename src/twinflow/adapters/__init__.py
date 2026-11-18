@@ -1,14 +1,14 @@
-"""twinflow.adapters — the unified surfaces external systems plug into.
+"""twinflow.adapters, the unified surfaces external systems plug into.
 
 Each is a stable seam (a protocol + a registry + reference implementations), so a real
 integration is a single class and one `register(...)` call, never a core change:
 
-- **connectors** — data in/out of a system of record (ERP/MES): `PlanSource`,
+- **connectors**: data in/out of a system of record (ERP/MES): `PlanSource`,
   `ResultSink`, `ActualSource`, with a `FieldMapping` onto the canonical plan contract.
-- **demand** — generate a plan from a product mix + arrival process (`DemandGenerator`).
-- **forecast** — feed a demand/lead-time forecast in (`Forecaster`).
-- **reconcile** — plan-vs-actual variance from a real event log.
-- **fulfillment** — orders & deliveries KPIs (fill rate, on-time delivery, backorders).
+- **demand**: generate a plan from a product mix + arrival process (`DemandGenerator`).
+- **forecast**: feed a demand/lead-time forecast in (`Forecaster`).
+- **reconcile**: plan-vs-actual variance from a real event log.
+- **fulfillment**: orders & deliveries KPIs (fill rate, on-time delivery, backorders).
 
 The concrete SAP/OPC-UA/Prophet integrations are deliberately out of
 scope here; this package is what they attach to so they work the moment they land.

@@ -1,10 +1,10 @@
-"""Plan-vs-actual reconciliation — the seam that turns the twin from "simulate only"
+"""Plan-vs-actual reconciliation, the seam that turns the twin from "simulate only"
 into "simulate and reconcile."
 
 An `ActualSource` (see `connectors.py`) reads a real production event log; because it
 shares the twin's event schema, the shipped `KpiEngine` computes the *actual* KPIs the
 same way it computes planned ones. `reconcile` then diffs planned against actual into a
-`Variance`: schedule adherence, throughput drift, and per-center utilization gaps — the
+`Variance`: schedule adherence, throughput drift, and per-center utilization gaps, the
 numbers a planner uses to trust (or correct) the model.
 """
 

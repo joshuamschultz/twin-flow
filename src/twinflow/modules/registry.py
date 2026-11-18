@@ -1,4 +1,4 @@
-"""A tiny, typed plugin registry — the shared discovery surface for every module kind.
+"""A tiny, typed plugin registry, the shared discovery surface for every module kind.
 
 Objectives, cost functions, optimizers, and surrogate models all register the same
 way: a name maps to a zero-or-more-argument factory. The registry never imports the
@@ -45,7 +45,7 @@ class Registry(Generic[T]):
         return self._factories[name](**kwargs)
 
     def names(self) -> list[str]:
-        """Every registered name, sorted — the discovery list an API/CLI/UI shows."""
+        """Every registered name, sorted, the discovery list an API/CLI/UI shows."""
         return sorted(self._factories)
 
     def __contains__(self, name: object) -> bool:

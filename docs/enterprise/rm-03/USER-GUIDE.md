@@ -24,7 +24,7 @@ labor:
 names are `mon` through `sun`. An end time at or before the start denotes an overnight
 interval. Closed exceptions remove all work on a date; a start/end exception replaces
 that date's recurring intervals. DST conversion uses elapsed UTC time, so a local
-00:00–04:00 shift on a spring-forward Sunday contains three elapsed hours.
+00:00-04:00 shift on a spring-forward Sunday contains three elapsed hours.
 
 ## Shift crossing
 

@@ -1,4 +1,4 @@
-"""Forecasting — the seam a demand/lead-time forecaster plugs into.
+"""Forecasting, the seam a demand/lead-time forecaster plugs into.
 
 Prophet, ARIMA, or a learned model is a separate, later job; this is the interface it
 implements (`fit` on a history, `predict` a horizon) so the twin can be *fed* a forecast

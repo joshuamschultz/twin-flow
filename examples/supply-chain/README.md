@@ -1,7 +1,7 @@
 # Supply-chain example
 
 A floor whose feedstock is **finite and self-refilling**, fed by a **two-echelon**
-inventory chain with real supplier **lead times** — all declared purely in config
+inventory chain with real supplier **lead times**, all declared purely in config
 (D-044).
 
 ```
@@ -49,7 +49,7 @@ placed**, and **total ordered**.
 
 - Inventory is a first-class, config-declared part of the twin, not a bolt-on.
 - The two echelons and the supplier lead times are ordinary config the Layer-2 compiler
-  turns into pure primitives — the same rule as every other capability.
+  turns into pure primitives, the same rule as every other capability.
 - Because the reorder points and refill levels are ordinary config levers
   (`stocks[resin].reorder_point`, `refill_to`), the [module surface](../../docs/modules.md)
   can **optimize inventory policy**: search reorder points against a total-cost objective
@@ -71,7 +71,7 @@ twinflow balance examples/supply-chain/model.yaml --plan examples/supply-chain/p
 
 This runs the floor at 1, 2, and 3 molds, 10 replications each. A second
 mold pulls `resin` twice as fast, which drains the two-echelon stock chain
-faster too — so this is also a check on whether the reorder points and lead
+faster too, so this is also a check on whether the reorder points and lead
 times declared on `resin` / `bulk_resin` can keep up with faster demand
 before you add a real machine.
 

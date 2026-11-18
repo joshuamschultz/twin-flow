@@ -1,10 +1,10 @@
-"""LeverSpace — the search domain every optimizer and objective ranges over.
+"""LeverSpace, the search domain every optimizer and objective ranges over.
 
 A lever is one dot-path into `model.yaml` (the same scheme `SweepHarness` uses, e.g.
 `labor.pools[0].headcount` or `locations[mill_shaft].capacity`). A domain gives that
 lever its candidate values: a bounded integer range (staffing, capacity, buffer size)
 or an explicit choice set (a categorical knob). The space knows how to enumerate its
-grid, draw a random point, and list a point's near neighbours — the three primitives
+grid, draw a random point, and list a point's near neighbours, the three primitives
 grid search, random search, and hill climbing are built from.
 """
 
@@ -22,7 +22,7 @@ import numpy as np
 class IntRange:
     """An inclusive integer lever domain `[low, high]` stepped by `step`.
 
-    The natural domain for staffing, machine capacity, and buffer/batch sizes —
+    The natural domain for staffing, machine capacity, and buffer/batch sizes,
     the levers a planner actually turns. `values()` materialises the grid,
     `sample()` draws one uniformly, `clamp()` snaps an out-of-range value back
     onto the nearest valid step (used by mutation/crossover in the optimizers).

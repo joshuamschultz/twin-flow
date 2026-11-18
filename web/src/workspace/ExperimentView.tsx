@@ -154,12 +154,12 @@ export function ExperimentView({
                             <td>
                               {band.quantiles
                                 ? band.quantiles.p10.toFixed(1)
-                                : "—"}
+                                : "-"}
                             </td>
                             <td>
                               {band.quantiles
                                 ? band.quantiles.p90.toFixed(1)
-                                : "—"}
+                                : "-"}
                             </td>
                             <td>
                               {band.observed_count} / {job.reps}

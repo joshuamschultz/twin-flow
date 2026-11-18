@@ -1,8 +1,8 @@
-"""Cost functions — turn a scenario's outcome into money.
+"""Cost functions, turn a scenario's outcome into money.
 
 A cost function reads two things off an `Evaluation`: the *configuration* it ran
-(headcount, machine capacity — from `compiled`) and the *result* it produced
-(lateness — from `kpis`). It never runs the simulator. Costs compose: `TotalCost`
+(headcount, machine capacity, from `compiled`) and the *result* it produced
+(lateness, from `kpis`). It never runs the simulator. Costs compose: `TotalCost`
 sums any set of them, so "labour + capacity + a penalty for being late" is one object
 an optimizer can minimise. New cost functions register in `COSTS`.
 
@@ -58,7 +58,7 @@ class LaborCost:
 class CapacityCost:
     """Fixed spend on installed machines = sum(location.capacity) * cost_per_machine.
 
-    A capital/leasing style cost that does not depend on the run's length — it
+    A capital/leasing style cost that does not depend on the run's length, it
     prices *owning* the parallel machines a `capacity: N` center declares.
     """
 
@@ -116,7 +116,7 @@ class StockoutPenalty:
 
 @dataclass(frozen=True)
 class TotalCost:
-    """The sum of several cost functions — one number to minimise."""
+    """The sum of several cost functions, one number to minimise."""
 
     terms: tuple[CostFunction, ...] = field(default_factory=tuple)
     name: str = "total_cost"

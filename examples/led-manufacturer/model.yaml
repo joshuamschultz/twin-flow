@@ -1,4 +1,4 @@
-# LED MANUFACTURER worked example — a made-to-order LED light maker as PURE
+# LED MANUFACTURER worked example, a made-to-order LED light maker as PURE
 # CONFIG (no Python).
 #
 # Chain (per size variant): diffuser sheet -> CUT (continuous-to-discrete,
@@ -117,7 +117,7 @@ labor:
 
 locations:
   # -------------------------------------------------------------------
-  # CUT — continuous-to-discrete: 1 ft of diffuser sheet (the basis) yields
+  # CUT: continuous-to-discrete: 1 ft of diffuser sheet (the basis) yields
   # a size-specific panel COUNT plus a leftover-sheet REMAINDER, both plain
   # `emits` ratios against the same `consumes[0]` basis (D-043/D-044): no
   # scrap block, no hand-written emit expression. Mirrors examples/spring/'s
@@ -181,7 +181,7 @@ locations:
     labor_skill: cut_op
 
   # -------------------------------------------------------------------
-  # ASSEMBLE — the ASSEMBLY signature step: several component bundles
+  # ASSEMBLE: the ASSEMBLY signature step: several component bundles
   # (panel + led_strip + driver + housing) feed ONE emit, mirroring
   # test_compile.py's `assembler` case (multiple consumes -> one emit).
   # `consumes[0]` (panel, the size-setting component) is the ratio basis:
@@ -266,7 +266,7 @@ locations:
     labor_skill: asm_op
 
   # -------------------------------------------------------------------
-  # BURN-IN — test/burn-in step; larger lights burn in slower.
+  # BURN-IN: test/burn-in step; larger lights burn in slower.
   # -------------------------------------------------------------------
   - name: burnin_small
     consumes:
@@ -317,7 +317,7 @@ locations:
     labor_skill: qa_op
 
   # -------------------------------------------------------------------
-  # PACK — final packaging step.
+  # PACK: final packaging step.
   # -------------------------------------------------------------------
   - name: pack_small
     consumes:

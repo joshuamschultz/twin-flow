@@ -1,7 +1,7 @@
 """Pydantic request bodies for the service API.
 
 Response bodies are plain dicts built by `service.serialize` / `service.floor`, so only
-the inbound side is modelled here — the boundary that must validate untrusted input.
+the inbound side is modelled here, the boundary that must validate untrusted input.
 `model` always names a discovered example (never an arbitrary path), so the API cannot
 be steered into reading a file outside the models root.
 """

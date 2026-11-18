@@ -1,4 +1,4 @@
-"""COMP-020 ReplicationRunner — N replications in parallel, one per process.
+"""COMP-020 ReplicationRunner, N replications in parallel, one per process.
 
 Confidence intervals across replications use a SciPy t-quantile. A paired analysis is a
 CI on the difference, never two overlapping CIs.
@@ -37,7 +37,7 @@ def _run_one_replication(
 ) -> RunResult:
     """Per-process worker (D-028). MODULE-LEVEL so macOS `spawn` can pickle it
     by qualified name, and takes only picklable arguments: a model PATH, never
-    a `CompiledModel` — its `LocationSpec.OutputSpec` carries `simpleeval`
+    a `CompiledModel`, its `LocationSpec.OutputSpec` carries `simpleeval`
     closures that never survive a `spawn` pickle. Loads the model fresh inside
     THIS process, then runs exactly one replication so `replication_index`
     threads through to `RngRegistry`'s per-source streams (CRN, D-033).
@@ -79,7 +79,7 @@ class ReplicationRunner:
     ) -> list[RunResult]:
         """Dispatch `reps` replications, each to its own process, and return
         their `RunResult`s. `base_seed` and the replication index are threaded
-        through explicitly to every worker — never a per-worker default."""
+        through explicitly to every worker, never a per-worker default."""
         if reps < 1:
             raise ValueError("reps must be positive")
         if max_workers < 1:
@@ -109,7 +109,7 @@ class ReplicationRunner:
 def confidence_interval(values: Sequence[float], confidence: float = 0.95) -> tuple[float, float]:
     """A plain-float (low, high) CI on the mean of `values`: mean +/- t_crit *
     (sample_stdev / sqrt(n)), with the t-quantile from `scipy.stats.t`, cast
-    to a plain Python float (Polars has no t-distribution quantile — tech.md).
+    to a plain Python float (Polars has no t-distribution quantile, tech.md).
     """
     n = len(values)
     if n < 2:
@@ -142,7 +142,7 @@ def compare(
 ) -> DifferenceCI:
     """Run `reps` replications of BOTH configs at the same `base_seed`, so
     replication i of A pairs with replication i of B (CRN, D-033), then return
-    ONE interval on `mean(metric(B_i) - metric(A_i))` — never two overlapping
+    ONE interval on `mean(metric(B_i) - metric(A_i))`, never two overlapping
     per-config CIs."""
     results_a = {
         cast(int, result.run_meta["replication_index"]): result

@@ -60,7 +60,7 @@ instant. Overnight intervals use an end time earlier than their start time.
 
 ## Acceptance
 
-- Friday 15:00 plus two attended hours on a 07:00–16:00 weekday calendar completes
+- Friday 15:00 plus two attended hours on a 07:00-16:00 weekday calendar completes
   Monday 08:00; a closed Monday moves completion to Tuesday 08:00.
 - A spring-forward Sunday interval has the correct elapsed UTC duration.
 - `finish_unattended` starts only while labor is present and then crosses shift end;

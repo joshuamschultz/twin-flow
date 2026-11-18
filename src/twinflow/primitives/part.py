@@ -1,4 +1,4 @@
-"""COMP-005 PartTypeRegistry — declared part types, their typed attributes and single uom."""
+"""COMP-005 PartTypeRegistry, declared part types, their typed attributes and single uom."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ class PartTypeRegistry:
         """Return the declared type of attr_name on part_id.
 
         Raises KeyError if part_id is not declared or attr_name is not declared
-        on it — never returns None, since a validator relies on this to prove an
+        on it, never returns None, since a validator relies on this to prove an
         expression references a real attribute.
         """
         return self.attributes(part_id)[attr_name]

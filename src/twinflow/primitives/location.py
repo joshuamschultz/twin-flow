@@ -78,7 +78,7 @@ class PullRule:
 
     With no ``spec`` declared, arrival order applies (D-037/D-040: a
     dispatch-rule engine chosen on the client's behalf moves their promised
-    dates on the strength of your pick — arrival order, always). The fact
+    dates on the strength of your pick, arrival order, always). The fact
     that the default applied is recorded on ``default_applied`` so the
     report's Assumptions block can name it (D-027).
 
@@ -101,8 +101,8 @@ class PullRule:
         Eligibility (D-047/D-012): a bundle is eligible only if
         ``setup_key_of[bundle.thing]`` matches ``current_setup``. When
         ``current_setup`` is ``None``, nothing is eligible. An ineligible
-        bundle is skipped entirely — never selected, never counted toward a
-        batch total — and arrival order among the remaining bundles holds.
+        bundle is skipped entirely, never selected, never counted toward a
+        batch total, and arrival order among the remaining bundles holds.
         Never mutates ``queue``.
         """
         if current_setup is None:
@@ -155,7 +155,7 @@ class RoutingPolicy:
 class MaterialRequirementLike(Protocol):
     """Structural shape `spec.material_requirement` must have (COMP-007 contract).
 
-    An additional Stock pulled from at step 3, distinct from the step-1 queue —
+    An additional Stock pulled from at step 3, distinct from the step-1 queue,
     e.g. glue, fasteners, feedstock. `LocationCompiler` (COMP-016) does not exist
     yet, so this is a duck-typed contract, not a class Location constructs itself.
     """
@@ -294,7 +294,7 @@ class Location:
         A warm machine (`current_setup` already set) interleaves within its own
         group. A cold machine (D-047: "each machine tracks its own last-processed
         part" starts at `None`) has no established group yet, so the group is read
-        off the head of the DISPATCH-ORDERED queue — the job the active-control rule
+        off the head of the DISPATCH-ORDERED queue, the job the active-control rule
         would run first sets the machine's initial setup.
 
         The current group is a preference, never a lock (D-047: a job outside the
@@ -388,7 +388,7 @@ class Location:
         """Execute steps 2-8 of the fixed order for one selected job."""
         queue_arrival_time = min(self._arrival_times.pop(id(b)) for b in selected)
 
-        # Step 2: acquire machine, THEN operator — fixed global order (D-045).
+        # Step 2: acquire machine, THEN operator, fixed global order (D-045).
         # D-053: Location is the sole dual-acquire site and owns this order:
         # machine first, then operator via LaborPool's shift-gated
         # request(skill, priority); release runs in reverse (operator, then
@@ -462,11 +462,11 @@ class Location:
             actual_end = self.env.now
 
             # Steps 6-7: scrap is an ordinary output bundle, never a special case
-            # (D-043) — apply the transform, then emit every output to its
+            # (D-043), apply the transform, then emit every output to its
             # declared destination (a Stock is put() into; a list sink appended).
             outputs = self.spec.transform.apply(selected, self.spec.registry)
             if getattr(self.spec, "split_output", False):
-                # Explode each produced lot into individual unit bundles — the
+                # Explode each produced lot into individual unit bundles, the
                 # inverse of a `batch_size` accumulation. A step that turns a lot
                 # of 6 into 6 units (divide dough into loaves, cut a coil into
                 # blanks, singulate a tray) so each unit then flows, queues, holds
@@ -529,7 +529,7 @@ class Location:
                     )
                 )
         finally:
-            # Step 8: release operator, THEN machine — the reverse of the
+            # Step 8: release operator, THEN machine, the reverse of the
             # acquisition order, and symmetric on any mid-firing failure
             # (D-053): release only whatever leg was actually acquired.
             if operator_handle is not None:

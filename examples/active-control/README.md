@@ -50,7 +50,7 @@ twinflow balance examples/active-control/model.yaml --plan examples/active-contr
 
 This runs all four combinations (2 capacity values x 2 headcount values), each
 at 10 replications, so you can see whether a second press or more hands on
-the floor moves `on_time_pct` more — before buying either.
+the floor moves `on_time_pct` more, before buying either.
 
 ## Import into the workspace UI
 

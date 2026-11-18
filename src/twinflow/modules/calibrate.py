@@ -1,13 +1,13 @@
-"""Calibration — tune a model until its simulated KPIs match a real run.
+"""Calibration, tune a model until its simulated KPIs match a real run.
 
 This is the trust loop the buyer signs on: "the twin reproduced my last 8 weeks within
-X%." It is *just optimization* over the module surface — the parameters to tune (a
+X%." It is *just optimization* over the module surface, the parameters to tune (a
 cycle-time spread, a rate, a scrap fraction, a reorder point) are ordinary config
 levers, and the objective is the distance between the twin's KPIs and the observed ones.
 So calibration reuses the shipped `ScoringSurface` + optimizers with no new machinery.
 
 The observed `KpiSet` comes from a real production event log the same way a simulated
-one does — `compute_kpis` over the log (read via an `ActualSource`), since real and
+one does, `compute_kpis` over the log (read via an `ActualSource`), since real and
 simulated logs share one schema. Calibration proposes parameter values; a human still
 decides whether the fit is good enough to trust.
 """

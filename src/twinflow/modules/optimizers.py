@@ -1,15 +1,15 @@
-"""Optimizers — search the lever space for a scenario an objective likes.
+"""Optimizers, search the lever space for a scenario an objective likes.
 
 Every optimizer takes the same four things (a `ScoringSurface`, a `LeverSpace`, an
 `Objective`, an evaluation `budget`) and returns the same `OptimizationResult`, so they
 are interchangeable behind one registry. They *propose*; they never commit a change to
-a real floor — the README's stance ("agents propose, the twin scores, humans decide").
+a real floor, the README's stance ("agents propose, the twin scores, humans decide").
 
 Four are built in, from simplest to smartest:
-- **grid** — enumerate the whole space (bounded by budget);
-- **random** — sample the space uniformly;
-- **hill_climb** — local search with random restarts;
-- **genetic** — a small mutation/crossover GA.
+- **grid**: enumerate the whole space (bounded by budget);
+- **random**: sample the space uniformly;
+- **hill_climb**: local search with random restarts;
+- **genetic**: a small mutation/crossover GA.
 
 All four share one `_Evaluator` that caches by lever-point and enforces the budget, so
 the same scenario is never simulated twice and every optimizer counts evaluations the
@@ -33,11 +33,11 @@ from twinflow.modules.surface import Evaluation, Scenario, ScoringSurface
 class OptimizationResult:
     """The search outcome: the winning evaluation, its score, and the full trail.
 
-    `history` is every (scenario, score) in evaluation order — the convergence
+    `history` is every (scenario, score) in evaluation order, the convergence
     trace a UI plots. `evaluations` holds the corresponding `Evaluation`s so a
     caller can inspect any scored scenario's KPIs and confidence band, not just
     the winner. The surface picks no winner on its own; the objective ranks, and
-    this records — the decision still belongs to the human reading it.
+    this records, the decision still belongs to the human reading it.
     """
 
     best: Evaluation
@@ -78,13 +78,13 @@ class _Evaluator:
     @property
     def exhausted(self) -> bool:
         """True once `budget` fresh evaluations are spent OR the attempt ceiling is
-        hit (the space is too small to reach budget) — either way, stop."""
+        hit (the space is too small to reach budget), either way, stop."""
         return len(self.history) >= self._budget or self._attempts >= self._attempt_cap
 
     def score(self, levers: dict[str, Any]) -> tuple[Evaluation, float]:
         """Evaluate `levers` (or return the cached result). A cache hit does not
         spend budget; a fresh evaluation does and is appended to the trail. Every
-        call — hit or miss — counts against the attempt ceiling."""
+        call: hit or miss, counts against the attempt ceiling."""
         self._attempts += 1
         key = tuple(sorted(levers.items()))
         if key in self._cache:

@@ -72,7 +72,7 @@ def distribution_to_dict(distribution: OutcomeDistribution) -> dict[str, Any]:
 
 
 def intervals_to_dict(aggregated: AggregatedKpis) -> dict[str, Any]:
-    """The confidence bands across replications — the honest range, not a point."""
+    """The confidence bands across replications, the honest range, not a point."""
     return {
         "reps": aggregated.reps,
         "level": aggregated.level,

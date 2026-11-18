@@ -12,7 +12,7 @@ Two files make a complete client: a **model** ([modeling.md](modeling.md)) and a
 
 ### The production plan
 
-A table — the first worksheet of an `.xlsx`, or a `.csv` with the same columns. It drives
+A table, the first worksheet of an `.xlsx`, or a `.csv` with the same columns. It drives
 which work orders are released, when, and any work already on the floor at the start.
 
 **Required columns**
@@ -53,7 +53,7 @@ or a formula cell (a cell starting with `=` is never evaluated).
 Every run writes a folder `runs/<run-id>/` with JSON artifacts and Parquet event/resource
 tables. Multi-replication runs also include aggregate intervals.
 
-### `events.parquet` — the event log
+### `events.parquet`: the event log
 
 One row per firing (one operation at one work center). Event-based KPIs use this table;
 resource occupancy is recorded separately in `resource_usage.parquet`.
@@ -76,7 +76,7 @@ resource occupancy is recorded separately in `resource_usage.parquet`.
 The wait breakdown reads straight off these: `busy = actual_end - actual_start`,
 `blocked = release_time - actual_end`, and the idle remainder is `starved`.
 
-### `resource_usage.parquet` — physical resource occupancy
+### `resource_usage.parquet`: physical resource occupancy
 
 One row per firing's machine/labor time attribution, with columns `location_id`,
 `machine_id`, `labor_pool`, `labor_skill`, `setup_start`, `run_start`, `run_end`,
@@ -84,7 +84,7 @@ One row per firing's machine/labor time attribution, with columns `location_id`,
 shared-machine identity and makes resource hours auditable independently from firing
 events.
 
-### `inventory.parquet` — inventory over time
+### `inventory.parquet`: inventory over time
 
 One row per stock-level change (written next to `events.parquet`). Present even when a
 floor has no stocks (then it is empty).
@@ -100,7 +100,7 @@ floor has no stocks (then it is empty).
 `twinflow.instrumentation.inventory.compute_inventory_kpis` turns this into average level,
 stockout seconds, orders placed, and total ordered per stock. See [supply-chain.md](supply-chain.md).
 
-### `kpis.json` — machine-readable KPIs
+### `kpis.json`: machine-readable KPIs
 
 A versioned sidecar of objective-agnostic KPIs: signed lateness per order, labor hours
 by pool and skill, machine hours by physical machine, run hours, setup hours (separate),
@@ -109,16 +109,16 @@ hours; those report values and calendar availability are not fields in `kpis.jso
 [running.md](running.md) for definitions. `intervals.json` contains aggregate intervals
 for supported metrics across replications, not every KPI field.
 
-### `intervals.json` — the confidence bands
+### `intervals.json`: the confidence bands
 
 Each headline KPI as a `{mean, lo, hi, p50, n}` interval across replications, plus the
-`reps` count and confidence `level`. This is the honest range — read this, not a single
+`reps` count and confidence `level`. This is the honest range, read this, not a single
 number. See [running.md](running.md).
 
-### `run_meta.json` — the reproducibility stamp
+### `run_meta.json`: the reproducibility stamp
 
 Hashes of the model and plan, the seed, the engine and Python versions, and the exact
-dependency set — enough to re-create the run to the number. The in-process `RunResult`
+dependency set, enough to re-create the run to the number. The in-process `RunResult`
 also carries a live `run_meta` dict with `run_id`, `seed`, `replication_index`,
 `stock_levels` (ending inventory), and `downtime_seconds_by_machine` (machine downtime
 from any [breakdowns](active-control.md)).
@@ -126,6 +126,6 @@ from any [breakdowns](active-control.md)).
 ## Wiring to another system
 
 You do not have to hand-write any of these. Point a connector at your ERP/MES export and
-map its columns onto the plan contract above — see [adapters.md](adapters.md). The event
+map its columns onto the plan contract above, see [adapters.md](adapters.md). The event
 log's schema is shared by real and simulated runs, which is what makes
 [plan-vs-actual reconciliation](adapters.md) possible.

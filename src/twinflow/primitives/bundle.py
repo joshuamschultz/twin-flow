@@ -1,4 +1,4 @@
-"""COMP-004 Bundle — the immutable unit of flow: qty, thing, uom, attributes."""
+"""COMP-004 Bundle, the immutable unit of flow: qty, thing, uom, attributes."""
 
 from __future__ import annotations
 

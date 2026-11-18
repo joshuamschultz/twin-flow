@@ -21,7 +21,7 @@ one lucky (or unlucky) day**, not the truth. twinflow runs your scenario many ti
 (replications) and reports a **confidence range** (a low-to-high band) for every number.
 A single run is a lie; a band is honest. Always run more than one replication.
 
-## Step 1 — validate the model
+## Step 1: validate the model
 
 Check the floor before you simulate it.
 
@@ -32,7 +32,7 @@ twinflow validate model.yaml
 - Prints nothing and exits 0 if the model is runnable.
 - Prints one line per problem (`path: message`) and exits 1 if not. Fix those first.
 
-## Step 2 — run it
+## Step 2: run it
 
 ```bash
 twinflow run model.yaml --plan plan.csv --reps 30
@@ -53,7 +53,7 @@ run 2026-08-29T17-03-11Z-9f3a2b1c
   view:   twinflow report 2026-08-29T17-03-11Z-9f3a2b1c --out html
 ```
 
-## Step 3 — what a run folder contains
+## Step 3: what a run folder contains
 
 Everything about the run lives in `runs/<run-id>/`:
 
@@ -70,7 +70,7 @@ Everything about the run lives in `runs/<run-id>/`:
 
 `twinflow report <run-id> --out html` re-confirms and locates the report for a finished run.
 
-## Step 4 — read the report
+## Step 4: read the report
 
 The Overview tab shows **on-time %** as a mean with its confidence interval and shared
 resource tables. The due-date to completion timeline appears on the Charts tab. Open the
@@ -96,7 +96,7 @@ replications, the report and `intervals.json` provide its band.
 | **Lateness by order** | Finish minus due date, per order. Negative = early, positive = late. |
 | **Utilization by cell / machine** | Work-center and machine occupancy use wall-clock run time. Shared labor tables show utilization against on-shift hours and 24/7 wall time; high utilization can indicate a constraint. |
 | **Wait breakdown** (per center) | Why a center was idle: **starved** (nothing to work on), **blocked** (finished a job but can't hand it off), **material-starved** (waiting on a finite stock). This is how you find the *real* choke point: the bottleneck runs busy while the centers it feeds show high **starved**. |
-| **WIP over time** | Work-in-progress at each center across the run — where jobs pile up. |
+| **WIP over time** | Work-in-progress at each center across the run, where jobs pile up. |
 | **Machine hours / labor hours** | Total busy hours by machine and by pool/skill. |
 | **Setup hours** | Changeover time, reported separately from run time. |
 
@@ -108,11 +108,11 @@ replications, the report and `intervals.json` provide its band.
 "on_time_pct": { "mean": 82.4, "lo": 74.0, "hi": 90.0, "p50": 83.0, "n": 30 }
 ```
 
-- **mean** — the average across replications. The single number, if you must pick one.
-- **lo / hi** — the confidence interval limits for the estimated mean. This describes
+- **mean**: the average across replications. The single number, if you must pick one.
+- **lo / hi**: the confidence interval limits for the estimated mean. This describes
   uncertainty in the mean, not the percentile spread of individual simulated outcomes.
-- **p50** — the median.
-- **n** — how many replications fed the band.
+- **p50**: the median.
+- **n**: how many replications fed the band.
 
 Read it as: *"estimated mean on-time is about 82%, with the interval for that mean from
 74% to 90%."* A wide interval means the mean is estimated imprecisely; use outcome
@@ -133,7 +133,7 @@ print(kpis["machine_hours_by_machine"])
 
 ## Driving it from Python (the in-process API)
 
-The same operations are callable in your own code — no subprocess, no re-parsing.
+The same operations are callable in your own code, no subprocess, no re-parsing.
 
 ```python
 from twinflow.model import load_model
@@ -179,7 +179,7 @@ print(diff.mean_difference, diff.low, diff.high)  # if the band excludes 0, the 
 
 Every run carries a stamp (`run_meta.json`): the same model, plan, and seed always produce
 the same answer, forever. That is what makes a comparison fair and last quarter's number
-trustworthy. Never change the seed to "get a better result" — change the floor.
+trustworthy. Never change the seed to "get a better result", change the floor.
 
 ## What to do next
 

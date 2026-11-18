@@ -1,4 +1,4 @@
-"""twinflow.modules — the unified module surface.
+"""twinflow.modules, the unified module surface.
 
 Four kinds of pluggable module attach to one scoring seam:
 
@@ -9,7 +9,7 @@ Four kinds of pluggable module attach to one scoring seam:
     SurrogateModel (learns the surface to screen scenarios cheaply)
 
 Each kind lives in its own registry (`OBJECTIVES`, `COSTS`, `OPTIMIZERS`, `MODELS`);
-adding one is a `register(name, factory)` call, never a core edit — the module-system
+adding one is a `register(name, factory)` call, never a core edit, the module-system
 analogue of the compiler's single growth point. The `optimize` facade wires a chosen
 optimizer + objective over a space and returns an `OptimizationResult`; the twin
 scores, the module proposes, the human decides.

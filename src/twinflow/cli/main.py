@@ -1,9 +1,9 @@
-"""COMP-029 Cli — thin argument parsing over validate/run/balance/report.
+"""COMP-029 Cli, thin argument parsing over validate/run/balance/report.
 
 Holds no logic; every command delegates to a Layer 2/3/4 entry point
 (`twinflow.model`, `twinflow.plan`, `twinflow.instrumentation`,
 `twinflow.report`, `twinflow.run_stamp`). `main` never raises
-`SystemExit` — every parse failure and every delegated failure is converted
+`SystemExit`: every parse failure and every delegated failure is converted
 to a non-zero return value instead (D-041's "callable in-process" convention,
 applied to the CLI boundary itself).
 """
@@ -286,12 +286,12 @@ def _handle_scenario_schema(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Subcommand handlers — parse-then-delegate only.
+# Subcommand handlers, parse-then-delegate only.
 # ---------------------------------------------------------------------------
 
 
 def _handle_validate(args: argparse.Namespace) -> int:
-    """`twinflow validate <model>` — no plan argument exists (COMP-017)."""
+    """`twinflow validate <model>`, no plan argument exists (COMP-017)."""
     if not Path(args.model).is_file():
         print(
             f"error: {args.model} was not found. Fix: give the path of a model.yaml file.",
@@ -312,7 +312,7 @@ def _handle_validate(args: argparse.Namespace) -> int:
 
 
 def _handle_run(args: argparse.Namespace) -> int:
-    """`twinflow run <model> --plan <plan> --reps N` — writes all four run
+    """`twinflow run <model> --plan <plan> --reps N`, writes all four run
     artifacts under a fresh `runs/<run-id>/`."""
     if args.reps < 1:
         print("error: --reps must be a positive integer", file=sys.stderr)
@@ -338,7 +338,7 @@ def _handle_run(args: argparse.Namespace) -> int:
     else:
         # `ReplicationRunner` dispatches one worker process per replication,
         # each of which independently writes its own `runs/<run-id>/` via
-        # `RunDriver` — real droppings the CLI does not own. Isolating the
+        # `RunDriver`: real droppings the CLI does not own. Isolating the
         # dispatch inside a scratch cwd keeps those out of the real `runs/`
         # tree; the CLI's own `run_dir` is an absolute path built up front,
         # so it lands in the right place regardless of the scratch chdir.
@@ -432,7 +432,7 @@ def _run_summary_lines(kpis: KpiSet, reps: int) -> list[str]:
 
 
 def _handle_balance(args: argparse.Namespace) -> int:
-    """`twinflow balance <model> --plan <plan> --sweep <sweep> --reps N` — the
+    """`twinflow balance <model> --plan <plan> --sweep <sweep> --reps N`, the
     sweep spec is plain JSON (never YAML; `model/loader.py` stays the only
     PyYAML importer, D-001), passed straight through to `SweepHarness.run()`.
     """
@@ -484,7 +484,7 @@ def _sweep_summary(result: SweepResult) -> list[dict[str, object]]:
     """One row per sweep point: the lever values that define it and the mean
     on-time % / makespan across its replications. Reduces `SweepResult`'s
     per-replication `kpi_table` to the side-by-side comparison a decision
-    needs (SweepHarness reports KPIs, it picks no winner — D-035)."""
+    needs (SweepHarness reports KPIs, it picks no winner, D-035)."""
     kpi = result.kpi_table
     rows: list[dict[str, object]] = []
     for point, point_id in zip(result.points, result.point_ids, strict=True):
@@ -559,7 +559,7 @@ def _sweep_summary_lines(summary: list[dict[str, object]]) -> list[str]:
 
 
 def _handle_report(args: argparse.Namespace) -> int:
-    """`twinflow report <run-id> --out html` — (re)writes `report.html`, the run viewer,
+    """`twinflow report <run-id> --out html`, (re)writes `report.html`, the run viewer,
     from the run folder alone; `kpis.json` is the "run completed" marker (COMP-027).
     A sweep linked to the run since it was made shows up as its levers."""
     run_dir = Path("runs") / args.run_id
@@ -575,7 +575,7 @@ def _handle_optimize(args: argparse.Namespace) -> int:
 
     Searches the declared integer lever space for the scenario a named objective
     prefers, via a named optimizer, and prints the winner with its confidence
-    band. The twin scores; it proposes no commit — the decision stays with you.
+    band. The twin scores; it proposes no commit, the decision stays with you.
     """
     from twinflow.modules import LeverSpace
     from twinflow.modules import optimize as run_optimize
@@ -687,7 +687,7 @@ def _parse_lever(spec: str) -> tuple[str, IntRange]:
 
 
 def _handle_serve(args: argparse.Namespace) -> int:
-    """`twinflow serve` — start the local REST API (needs the `api` extra)."""
+    """`twinflow serve`, start the local REST API (needs the `api` extra)."""
     from twinflow.service.serve import main as serve_main
 
     return serve_main(

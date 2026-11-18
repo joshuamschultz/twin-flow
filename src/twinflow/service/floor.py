@@ -1,9 +1,9 @@
-"""Floor graph + lever suggestions — the visual model the front end draws and tunes.
+"""Floor graph + lever suggestions, the visual model the front end draws and tunes.
 
 `build_floor` turns a `CompiledModel` into a node/edge graph a React canvas can lay out:
 one node per work center and per stock, edges along each part's routing plus the stock
 feeds a center draws from. `suggest_levers` reads the same compiled model for the knobs
-a planner actually turns — pool headcounts and per-center machine capacity — each with
+a planner actually turns, pool headcounts and per-center machine capacity, each with
 its current value and a sensible search range, so the UI can offer them without the
 user hand-typing dot-paths.
 

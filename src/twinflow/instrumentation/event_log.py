@@ -1,4 +1,4 @@
-"""COMP-021 EventLog — owns EVENT_LOG_SCHEMA and writes it.
+"""COMP-021 EventLog, owns EVENT_LOG_SCHEMA and writes it.
 
 One ProcessExecution record per firing carrying queue_arrival_time, material_ready_time,
 actual_start, actual_end, release_time. Buffers plain tuples, converts once at run end,
@@ -13,12 +13,12 @@ from pathlib import Path
 
 import polars as pl
 
-# Engine-level process/operation kinds — a small fixed vocabulary, never a client's
+# Engine-level process/operation kinds, a small fixed vocabulary, never a client's
 # work-center name (D-004: no client logic in engine). "transform" is the single
 # bundles-in/bundles-out contract (D-043); "rework" and "scrap" are the two operation
 # outcomes structure.md names by name (D-045's rework re-entry, the Scrap bundle case).
 # A later phase may compute the category list per-run from the model and apply it
-# identically across worker processes instead — the shared-list-applied-identically
+# identically across worker processes instead, the shared-list-applied-identically
 # guarantee is what matters (D-017), not literal-constness of this vocabulary.
 PROCESS_NAMES = pl.Enum(["transform", "rework", "scrap"])
 

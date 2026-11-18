@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------
-   twinflow — BlackArc theme (BA/BS-001 v1.1)
+   twinflow: BlackArc theme (BA/BS-001 v1.1)
 
    Engineered, forward, grounded, exact. Navy is the ground, azure is
    the pointer. Tight tracking, sharp corners (2px controls / 4px
@@ -13,7 +13,7 @@
 --------------------------------------------------------------------- */
 
 :root {
-  /* ── Palette — fixed, never themed ─────────────────────────────── */
+  /* ── Palette, fixed, never themed ─────────────────────────────── */
   --ba-navy-900: #001a38;
   --ba-navy: #002550;
   --ba-yale: #003b82;
@@ -52,7 +52,7 @@
   --ba-track-eyebrow: 0.2em;
   --ba-track-tag: 0.16em;
 
-  /* ── Geometry — 8pt grid, sharp corners ────────────────────────── */
+  /* ── Geometry, 8pt grid, sharp corners ────────────────────────── */
   --ba-radius-control: 2px;
   --ba-radius-surface: 4px;
   --ba-radius-pill: 999px;
@@ -61,7 +61,7 @@
   --ba-motion-micro: 170ms ease;
   --ba-motion-reveal: 480ms cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* ── Data visualisation — stable across themes ─────────────────── */
+  /* ── Data visualisation, stable across themes ─────────────────── */
   --ba-series-a: var(--ba-azure);
   --ba-series-b: var(--ba-navy);
   --ba-series-c: var(--ba-cyan);
@@ -106,7 +106,7 @@
   --ba-live-ring: rgba(34, 211, 238, 0.22);
   --ba-done-ring: rgba(0, 85, 188, 0.14);
 
-  /* ── Sidebar — navy ground in both themes ──────────────────────── */
+  /* ── Sidebar, navy ground in both themes ──────────────────────── */
   --ba-sidebar-bg: var(--ba-navy);
   --ba-sidebar-text: var(--ba-pale-blue);
   --ba-sidebar-strong: var(--ba-white);
@@ -516,7 +516,7 @@ code,
 }
 
 /* ---------------------------------------------------------------------
-   KPI stat + confidence band — a first-class visual, not an afterthought
+   KPI stat + confidence band, a first-class visual, not an afterthought
 --------------------------------------------------------------------- */
 
 .stat-value {

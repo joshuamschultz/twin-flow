@@ -1,8 +1,8 @@
-"""COMP-018 PlanLoader — client production plans from .xlsx/.csv into WorkOrders.
+"""COMP-018 PlanLoader, client production plans from .xlsx/.csv into WorkOrders.
 
 Column contract only; no transformation logic (D-054). Reads ONE table from ONE
 file: the first/only worksheet of an `.xlsx`, or a `.csv` with identical columns.
-No formula/macro/embedded object is ever evaluated — a formula cell is rejected
+No formula/macro/embedded object is ever evaluated, a formula cell is rejected
 outright rather than passed through (D-007). Raises `ValueError` on unknown part,
 missing required column, non-numeric quantity, a partially populated initial-WIP
 row, or a formula cell, naming the 1-indexed row (header = row 1).

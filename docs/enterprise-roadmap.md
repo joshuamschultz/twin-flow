@@ -85,25 +85,25 @@ flowchart LR
 
 ## Sequence and investment
 
-The following effort ranges are planning estimates, not delivery promises. Assume a growing team of roughly 6–8 people: simulation/operations research, backend/data, platform/security, frontend/product, plus domain implementation support. Early stages can start with a smaller team. Access to usable customer history and expert review is a critical dependency.
+The following effort ranges are planning estimates, not delivery promises. Assume a growing team of roughly 6-8 people: simulation/operations research, backend/data, platform/security, frontend/product, plus domain implementation support. Early stages can start with a smaller team. Access to usable customer history and expert review is a critical dependency.
 
 | Step | Outcome | Indicative effort | Dependencies | Primary owner |
 |---|---|---|---|---|
-| [RM-01](#rm-01) | Correct answers and repeatable experiments | 3–5 weeks | None | Simulation lead |
-| [RM-02](#rm-02) | One-file scenario and stable contracts | 4–6 weeks | RM-01 semantics | Backend + product |
-| [RM-03](#rm-03) | HMLV dates and resource fidelity | 6–10 weeks | RM-01, RM-02 | Simulation + domain expert |
-| [RM-04](#rm-04) | Agents can safely build and evaluate scenarios | 4–6 weeks | RM-01, RM-02; RM-03 for credible shop dates | Backend + agent integrations |
-| [RM-05](#rm-05) | Snapshot synchronization and validated predictions | 8–12 weeks | RM-02, RM-03; basic platform controls | Data + simulation |
-| [RM-06](#rm-06) | Feasible schedules and robust recommendations | 6–10 weeks | RM-03–RM-05 | Operations research |
-| [RM-07](#rm-07) | Front-office and information-flow twin | 6–10 weeks | RM-02, RM-04, RM-05 | Domain modeling + product |
-| [RM-08](#rm-08) | Complex supply-network decisions | 10–16 weeks | RM-03, RM-05, RM-06; RM-07 for office handoffs | Supply-chain + data |
-| [RM-09](#rm-09) | Enterprise deployment and procurement readiness | 8–12 weeks of hardening, ongoing controls | Begins at RM-04; paid remote pilots need its minimum controls | Platform/security + product |
-| [RM-10](#rm-10) | Proven scale and bounded operational action | 12–20 weeks plus outcome observation | RM-05, RM-06, RM-09; domain gates where used | Platform + operations research + customer success |
+| [RM-01](#rm-01) | Correct answers and repeatable experiments | 3-5 weeks | None | Simulation lead |
+| [RM-02](#rm-02) | One-file scenario and stable contracts | 4-6 weeks | RM-01 semantics | Backend + product |
+| [RM-03](#rm-03) | HMLV dates and resource fidelity | 6-10 weeks | RM-01, RM-02 | Simulation + domain expert |
+| [RM-04](#rm-04) | Agents can safely build and evaluate scenarios | 4-6 weeks | RM-01, RM-02; RM-03 for credible shop dates | Backend + agent integrations |
+| [RM-05](#rm-05) | Snapshot synchronization and validated predictions | 8-12 weeks | RM-02, RM-03; basic platform controls | Data + simulation |
+| [RM-06](#rm-06) | Feasible schedules and robust recommendations | 6-10 weeks | RM-03, RM-05 | Operations research |
+| [RM-07](#rm-07) | Front-office and information-flow twin | 6-10 weeks | RM-02, RM-04, RM-05 | Domain modeling + product |
+| [RM-08](#rm-08) | Complex supply-network decisions | 10-16 weeks | RM-03, RM-05, RM-06; RM-07 for office handoffs | Supply-chain + data |
+| [RM-09](#rm-09) | Enterprise deployment and procurement readiness | 8-12 weeks of hardening, ongoing controls | Begins at RM-04; paid remote pilots need its minimum controls | Platform/security + product |
+| [RM-10](#rm-10) | Proven scale and bounded operational action | 12-20 weeks plus outcome observation | RM-05, RM-06, RM-09; domain gates where used | Platform + operations research + customer success |
 
-These tracks can overlap once contracts stabilize. Budget approximately **12–18 months for a focused enterprise product and 18–24+ months for validated breadth across all three domains** under these staffing assumptions. A small founder team should narrow scope and extend the schedule. A single successful shop deployment is a more valuable milestone than nominal support for every industry.
+These tracks can overlap once contracts stabilize. Budget approximately **12-18 months for a focused enterprise product and 18-24+ months for validated breadth across all three domains** under these staffing assumptions. A small founder team should narrow scope and extend the schedule. A single successful shop deployment is a more valuable milestone than nominal support for every industry.
 
 <a id="rm-01"></a>
-## RM-01 — Establish trustworthy results
+## RM-01: Establish trustworthy results
 
 **Deliver:** a corrected decision-result contract, complete order accounting, bounded simulation execution, truthful statistics, and concurrency-safe artifacts. Preserve the current passing tests and add independent analytical and failure cases. Align README/UI claims with behavior.
 
@@ -114,18 +114,18 @@ Highest priority: verified terminal quantity; incomplete orders and horizon cens
 **Business proof:** planners can explain every headline metric from its evidence. [Build RM-01](enterprise-build-playbook.md#rm-01).
 
 <a id="rm-02"></a>
-## RM-02 — Deliver the single-file promise
+## RM-02: Deliver the single-file promise
 
 **Deliver:** versioned `.twin.yaml` containing model, snapshot, demand, calendars, experiment, assumptions, provenance, and declared capabilities. Existing model-plus-plan inputs remain importable. Provide validation, deterministic migrations, export, diff, and a short human review.
 
 Ship a complete small HMLV example first. Reserve and validate extension points for office and network profiles; advertise those as runnable only when their domain gates pass. For larger datasets, later support a `.twin` archive containing the same manifest plus embedded columnar tables. Distinguish a self-contained portable export from a manifest that needs external data.
 
-**Exit gate:** a new user loads a provided capsule and gets a baseline result within five minutes on documented reference hardware; local execution needs no credentials; round-trip export preserves semantics and provenance; unknown required capabilities fail clearly. A customer export still requires mapping and validation—five minutes is not a claim about modeling a new plant from raw records.
+**Exit gate:** a new user loads a provided capsule and gets a baseline result within five minutes on documented reference hardware; local execution needs no credentials; round-trip export preserves semantics and provenance; unknown required capabilities fail clearly. A customer export still requires mapping and validation, five minutes is not a claim about modeling a new plant from raw records.
 
 **Business proof:** time to first experiment falls without hiding uncertainty. [Build RM-02](enterprise-build-playbook.md#rm-02).
 
 <a id="rm-03"></a>
-## RM-03 — Make HMLV decisions operationally credible
+## RM-03: Make HMLV decisions operationally credible
 
 **Deliver:** working calendars and timezones, real machine identities, operator skills/qualification, independent setups, alternate resources/routes, multiple material reservations, fixtures/tools, WIP remaining work, split/merge genealogy, bounded rework, and outside processing. Implement in that priority order against a reference shop.
 
@@ -136,7 +136,7 @@ Date outputs must include earliest feasible estimates, P50/P80/P90 completion wh
 **Business proof:** answer the rush-order question while respecting existing customer commitments. [Build RM-03](enterprise-build-playbook.md#rm-03).
 
 <a id="rm-04"></a>
-## RM-04 — Make agents first-class users
+## RM-04: Make agents first-class users
 
 **Deliver:** typed Python SDK, versioned REST contract, MCP adapter, immutable scenario branching, semantic edits, capability discovery, asynchronous evaluation/compare/optimize jobs, cancellation, budgets, and machine-readable evidence. These transports call the same application functions.
 
@@ -147,18 +147,18 @@ An agent should discover allowed levers and units, branch a snapshot, validate a
 **Business proof:** other teams can build useful decision agents without learning Twinflow internals. [Build RM-04](enterprise-build-playbook.md#rm-04).
 
 <a id="rm-05"></a>
-## RM-05 — Connect reality and validate prediction quality
+## RM-05: Connect reality and validate prediction quality
 
 **Deliver:** one production-quality read-only ERP/MES integration for a design partner, normalized event ingestion, immutable as-of snapshots, reconciliation, freshness rules, and model validation reports. Add parameter provenance, hierarchical estimates for sparse HMLV families, holdout backtests, and drift monitoring.
 
 Evaluate against historical snapshots using only information available at each decision time. Compare with the current planner method, ERP dates, and simple dispatch baselines. Fit processing and waiting mechanisms separately; a low aggregate calibration error can hide the wrong bottleneck.
 
-**Exit gate:** on a preregistered holdout, improve the selected date-error metric over the incumbent, publish interval coverage and sample counts by relevant segment, and meet customer-agreed tolerances. Example pilot targets: 15% lower median absolute date error and 80–95% empirical coverage for a nominal P90 upper date on a sufficiently sized cohort; tune targets before examining the holdout. Sparse segments remain provisional. Stale or incomplete data blocks unsupported recommendations.
+**Exit gate:** on a preregistered holdout, improve the selected date-error metric over the incumbent, publish interval coverage and sample counts by relevant segment, and meet customer-agreed tolerances. Example pilot targets: 15% lower median absolute date error and 80-95% empirical coverage for a nominal P90 upper date on a sufficiently sized cohort; tune targets before examining the holdout. Sparse segments remain provisional. Stale or incomplete data blocks unsupported recommendations.
 
 **Business proof:** users can see whether the twin deserves trust for a particular decision. [Build RM-05](enterprise-build-playbook.md#rm-05).
 
 <a id="rm-06"></a>
-## RM-06 — Optimize feasible decisions
+## RM-06: Optimize feasible decisions
 
 **Deliver:** a scheduling solver for hard feasibility and candidate generation, followed by stochastic simulation for risk evaluation. Add capacity-to-promise, frozen windows, weighted business objectives, Pareto alternatives, sensitivity analysis, and intervention-based bottleneck explanations.
 
@@ -169,7 +169,7 @@ Start with overtime, sequencing, release rules, alternate qualified machines, an
 **Business proof:** a planner can justify the incremental benefit and cost of a recommendation. [Build RM-06](enterprise-build-playbook.md#rm-06).
 
 <a id="rm-07"></a>
-## RM-07 — Add front-office information flow
+## RM-07: Add front-office information flow
 
 **Deliver:** a domain pack for cases, tasks, document revisions, approvals, roles, service calendars, queue aging, parallel joins, rework, escalations, and external response delays. Make quote-to-release the first end-to-end office process.
 
@@ -182,7 +182,7 @@ Information can be shared without being consumed. An approved drawing revision, 
 **Business proof:** the product can find delays before work reaches the floor. [Build RM-07](enterprise-build-playbook.md#rm-07).
 
 <a id="rm-08"></a>
-## RM-08 — Model complex supply networks across industries
+## RM-08: Model complex supply networks across industries
 
 **Deliver:** explicit supplier/site/process nodes, purchase-order lines, shipments, allocation and pegging, parts/components/assemblies, multi-level BOM revisions/effectivity, lot/serial genealogy, approved sources and processes, inspection holds, expiry, substitutions, transport calendars, and capacity-dependent lead times. Quality, required paperwork, regulatory obligations, and customer-specific compliance are configurable rules with evidence and validity periods.
 
@@ -193,7 +193,7 @@ Model shared sub-tier exposure and correlated disruptions. Represent uncertain s
 **Business proof:** recommendations respect material, process, quality, documentation, and compliance constraints instead of suggesting an unusable alternate supplier. [Build RM-08](enterprise-build-playbook.md#rm-08).
 
 <a id="rm-09"></a>
-## RM-09 — Become deployable and purchasable by enterprises
+## RM-09: Become deployable and purchasable by enterprises
 
 **Deliver:** durable jobs and metadata, federated identity, tenant/project authorization, audit history, quotas, isolated workers, encryption/key integration, retention/deletion controls, backup/restore, observability, signed releases, supported upgrades, and deployment documentation.
 
@@ -206,7 +206,7 @@ For customers with regulated, sensitive, or contractually restricted data, estab
 **Business proof:** enterprise IT can operate, govern, and support the product. [Build RM-09](enterprise-build-playbook.md#rm-09).
 
 <a id="rm-10"></a>
-## RM-10 — Prove scale and introduce bounded operational action
+## RM-10: Prove scale and introduce bounded operational action
 
 **Deliver:** measured workload tiers, cached/reused compilation, worker scheduling, incremental scenario evaluation where valid, decision-boundary observation/action, shadow deployments, approved writeback, and outcome tracking.
 
@@ -222,12 +222,12 @@ Progression: read-only recommendation → human-approved schedule export → nar
 
 | Window | Concrete work | Evidence at the end |
 |---|---|---|
-| Days 1–15 | Start RM-01; select 2–3 HMLV design partners; choose one promise-date decision; agree event and constraint definitions | Failing regression fixtures for identified gaps; signed-off decision definition and data inventory |
-| Days 16–30 | Finish high-priority RM-01; implement capsule v0.1 and migrate existing examples; start real calendars | Corrected metrics; reproducible offline scenario import/export; baseline runtime measurements |
-| Days 31–60 | RM-03 calendars/resource identity/WIP; RM-04 read-only agent workflow; first historical export mapping | One agent completes validate → branch → evaluate → compare with explicit assumptions |
-| Days 61–90 | First read-only partner snapshot; initial RM-05 backtest; minimal RM-09 pilot controls; solve one useful scheduling case | Planner-reviewed forecast report and benefit baseline; a bounded paid-pilot scope |
+| Days 1-15 | Start RM-01; select 2-3 HMLV design partners; choose one promise-date decision; agree event and constraint definitions | Failing regression fixtures for identified gaps; signed-off decision definition and data inventory |
+| Days 16-30 | Finish high-priority RM-01; implement capsule v0.1 and migrate existing examples; start real calendars | Corrected metrics; reproducible offline scenario import/export; baseline runtime measurements |
+| Days 31-60 | RM-03 calendars/resource identity/WIP; RM-04 read-only agent workflow; first historical export mapping | One agent completes validate → branch → evaluate → compare with explicit assumptions |
+| Days 61-90 | First read-only partner snapshot; initial RM-05 backtest; minimal RM-09 pilot controls; solve one useful scheduling case | Planner-reviewed forecast report and benefit baseline; a bounded paid-pilot scope |
 
-This window targets a credible pilot, not all of RM-03–RM-06. If data access slips, continue engine fixtures and agent contracts but do not replace customer validation with synthetic success.
+This window targets a credible pilot, not all of RM-03, RM-06. If data access slips, continue engine fixtures and agent contracts but do not replace customer validation with synthetic success.
 
 ## How to judge “world class”
 

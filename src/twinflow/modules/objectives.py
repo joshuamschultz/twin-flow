@@ -1,4 +1,4 @@
-"""Objectives — turn an `Evaluation` into one scalar an optimizer can rank.
+"""Objectives, turn an `Evaluation` into one scalar an optimizer can rank.
 
 An objective declares a `direction` ("max" or "min") and a `score(evaluation)`; the
 optimizer never needs to know which metric it is, only how to compare two scores. Two
@@ -9,7 +9,7 @@ stances are first class:
   so a scenario only wins by being reliably good, not luckily good in one draw.
 
 Cost enters as an objective too, via `CostObjective`, and several metrics combine via
-`WeightedObjective`. New objectives register in `OBJECTIVES` — no core edit.
+`WeightedObjective`. New objectives register in `OBJECTIVES`, no core edit.
 """
 
 from __future__ import annotations
@@ -109,7 +109,7 @@ def _mean_on_time(evaluation: Evaluation) -> float:
 
 
 def _robust_on_time(evaluation: Evaluation) -> float:
-    """The lower edge of the on-time confidence band — reward reliable, not lucky."""
+    """The lower edge of the on-time confidence band, reward reliable, not lucky."""
     return evaluation.intervals.on_time_pct.lo
 
 

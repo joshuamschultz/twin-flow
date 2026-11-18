@@ -105,7 +105,7 @@ class LocationSpec:
     reads it via `getattr` so compile-time and test-double specs need not set it."""
 
     dispatch: str = "fifo"
-    """Active-control dispatch rule (A1): which queued job this center runs next —
+    """Active-control dispatch rule (A1): which queued job this center runs next,
     one of `fifo` (arrival order, the default), `edd`, `spt`, `critical_ratio`. A
     dot-path lever (`locations[<name>].dispatch`) so a sweep/optimize can compare
     policies. The Location reads it via `getattr`, so test-double specs need not set it."""

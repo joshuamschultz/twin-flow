@@ -1,4 +1,4 @@
-"""COMP-001 RunContext — owns the SimPy environment and one replication's lifetime."""
+"""COMP-001 RunContext, owns the SimPy environment and one replication's lifetime."""
 
 from __future__ import annotations
 

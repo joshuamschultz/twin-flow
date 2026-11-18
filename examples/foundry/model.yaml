@@ -1,4 +1,4 @@
-# FOUNDRY worked example — a sand-casting floor as pure config, no Python.
+# FOUNDRY worked example, a sand-casting floor as pure config, no Python.
 #
 # Two parallel casting lines share one raw metal feedstock and one recycle
 # loop, each line otherwise a single-station-per-step chain:

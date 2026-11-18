@@ -28,7 +28,7 @@ output_stocks:
 ```
 
 This is the general "route an output back to a Stock" recycle capability
-(`stock_destinations`), not a foundry-only special case — it works
+(`stock_destinations`), not a foundry-only special case. It works
 identically for any declared `emits`/`scrap` output, per
 `tests/unit/test_stock_destination.py`. Per the stock-identity rule
 (`Stock.put()` checks the bundle's `thing` against the stock's own `name`),
@@ -40,7 +40,7 @@ scrap recycled across both lines.
 
 - **Two lines, not one shared chain.** `RunDriver._wire_routing` rewrites a
   location's `destinations[<thing>]` per routing entry, keyed only by
-  `thing` — so a single shared location cannot fan its output to two
+  `thing`: so a single shared location cannot fan its output to two
   different next-locations depending on which finished part's routing is
   being walked (last-registered routing wins, silently). Two independent
   lines (only the raw `metal_ingot` stock and the `remelt` recycle stock are
@@ -52,13 +52,13 @@ scrap recycled across both lines.
   (`src/twinflow/primitives/time_model.py`), and `LocationCompiler` passes a
   location's `time_model` block straight through from YAML with no sugar
   that turns a declarative distribution (e.g. `dist: normal, mean: ..., std:
-  ...`) into that callable — so `distribution` cannot round-trip through
+  ...`) into that callable, so `distribution` cannot round-trip through
   pure YAML config today (same gap applies to `attribute_scaled`'s `scale`
   callable). This is a documented compiler gap, not something this example
   works around with Python; `rate_based` is used throughout, matching
   `examples/spring/model.yaml`'s own precedent.
 - Kept intentionally boring per scope: one station per step, no parallel
-  stations, no quality gates, no batch cooling — later phases of the
+  stations, no quality gates, no batch cooling, later phases of the
   multi-station-foundry feature, not needed here.
 
 ## Running it
