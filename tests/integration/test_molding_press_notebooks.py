@@ -1,6 +1,6 @@
 """T-268: the two sample notebooks of the molding-press example (REQ-227).
 
-`examples/molding-press/notebooks/src/*.py` are the sources; `build_notebooks.py` turns each
+`examples/molding-press/notebooks/analyst/src/*.py` are the sources; `build_notebooks.py` turns each
 into an `.ipynb` file with no outputs. This test checks that:
 
 - every `.ipynb` file is exactly what its source makes (they cannot drift apart),
@@ -24,7 +24,7 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-FOLDER = ROOT / "examples" / "molding-press" / "notebooks"
+FOLDER = ROOT / "examples" / "molding-press" / "notebooks" / "analyst"
 NAMES = ("01_long_term_policy", "02_state_information")
 
 
@@ -76,7 +76,7 @@ def test_notebook_matches_its_source(name: str) -> None:
     saved = (FOLDER / f"{name}.ipynb").read_text(encoding="utf-8")
     assert saved == builder.notebook_text(source), (
         f"{name}.ipynb is not what src/{name}.py makes. "
-        "Run: uv run python examples/molding-press/notebooks/build_notebooks.py"
+        "Run: uv run python examples/molding-press/notebooks/analyst/build_notebooks.py"
     )
 
 
