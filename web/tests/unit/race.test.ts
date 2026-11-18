@@ -43,6 +43,28 @@ describe("hero words", () => {
         "It won 40 of 40 test runs on the same customer orders.",
     );
   });
+  it("leads with the yearly figure from the 180-day check (owner decision)", () => {
+    const h = hero(golden);
+    expect(h.year).toEqual({
+      value: "+$109,000",
+      label: "more profit per year, from a 180-day check",
+      checked: true,
+    });
+    expect(h.quickYear).toBe(
+      "Quick math from the 60-day runs says +$134,400 a year.",
+    );
+  });
+  it("falls back to the 60-day yearly guess, with its condition, when there is no long check", () => {
+    const m = clone();
+    m.delta!.long_check = null;
+    const h = hero(m);
+    expect(h.year).toEqual({
+      value: "+$134,400",
+      label: "more per year, if every 60 days looks like these runs",
+      checked: false,
+    });
+    expect(h.quickYear).toBeNull();
+  });
   it("keeps today's rule when it is the pick", () => {
     const m = clone();
     m.recommendation.same_as_baseline = true;

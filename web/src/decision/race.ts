@@ -48,7 +48,12 @@ export type Hero = {
   after: string;
   lede: LedePart[];
   perRun: string | null;
+  /** The 60-day yearly guess: per run times runs per year. */
   perYear: string | null;
+  /** The yearly figure the hero leads with: the long check when there is one. */
+  year: { value: string; label: string; checked: boolean } | null;
+  /** The 60-day guess as secondary text, when the long check leads. */
+  quickYear: string | null;
   horizon: number;
   badge: string | null;
   level: string;
@@ -90,6 +95,8 @@ export function hero(m: RaceViewModel): Hero {
       ],
       perRun: null,
       perYear: null,
+      year: null,
+      quickYear: null,
       horizon,
       badge: null,
       level,
@@ -138,12 +145,32 @@ export function hero(m: RaceViewModel): Hero {
     !same && c.low !== null && c.high !== null
       ? `The gain is likely between ${usd(round100(c.low))} and ${usd(round100(c.high))} per run.`
       : null;
+  const perYear = same ? null : signedUsd(round100(d.per_year));
+  const long = same ? null : d.long_check;
+  const year = long
+    ? {
+        value: signedUsd(round100(long.per_year)),
+        label: `more profit per year, from a ${long.days}-day check`,
+        checked: true,
+      }
+    : perYear
+      ? {
+          value: perYear,
+          label: `more per year, if every ${horizon} days looks like these runs`,
+          checked: false,
+        }
+      : null;
   return {
     ...words,
     name,
     lede,
     perRun: same ? null : signedUsd(d.per_run),
-    perYear: same ? null : signedUsd(round100(d.per_year)),
+    perYear,
+    year,
+    quickYear:
+      long && perYear
+        ? `Quick math from the ${horizon}-day runs says ${perYear} a year.`
+        : null,
     horizon,
     badge: c.words,
     level,

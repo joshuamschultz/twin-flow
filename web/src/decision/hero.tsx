@@ -96,7 +96,6 @@ export function DecisionHero({
   const h = heroWords(model);
   const c = model.confidence;
   const gaps = c?.gaps ?? [];
-  const check = model.delta?.long_check?.words;
   return (
     <div className="tf-hero" id="decision" data-section="decision">
       <div className="tf-wrap tf-hero-grid">
@@ -118,18 +117,18 @@ export function DecisionHero({
           </p>
           {h.perRun && (
             <div className="tf-money-row">
+              {h.year && (
+                <MoneyFigure
+                  value={h.year.value}
+                  label={h.year.label}
+                  check={h.quickYear ?? undefined}
+                />
+              )}
               <MoneyFigure
+                small={Boolean(h.year)}
                 value={h.perRun}
                 label={`more profit per ${h.horizon}-day run`}
               />
-              {h.perYear && (
-                <MoneyFigure
-                  small
-                  value={h.perYear}
-                  label={`more per year, if every ${h.horizon} days looks like these runs`}
-                  check={check}
-                />
-              )}
             </div>
           )}
           {h.note && <p className="tf-hero-note">{h.note}</p>}

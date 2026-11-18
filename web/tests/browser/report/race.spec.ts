@@ -30,13 +30,21 @@ test("the first screen says the decision", async ({ page }) => {
   const errors = await open(page, golden(), "race.html");
   const hero = page.locator(".tf-hero");
   await expect(hero.locator("h1")).toHaveText("Switch to Family campaign.");
-  await expect(hero.getByText("+$22,088", { exact: true })).toBeVisible();
-  await expect(hero.getByText("+$134,400", { exact: true })).toBeVisible();
+  // Owner decision: the yearly figure from the 180-day check leads; the 60-day guess is
+  // secondary text.
+  const figures = hero.locator(".tf-money .tf-v");
+  await expect(figures.first()).toHaveText("+$109,000");
+  await expect(hero.locator(".tf-money .tf-k").first()).toHaveText(
+    "more profit per year, from a 180-day check",
+  );
+  await expect(figures.nth(1)).toHaveText("+$22,088");
+  await expect(
+    hero.getByText("Quick math from the 60-day runs says +$134,400 a year."),
+  ).toBeVisible();
   await expect(hero.locator(".tf-badge")).toContainText("Very likely better");
   await expect(hero.locator(".tf-caution")).toContainText(
     "One caution. The gain comes late. It is behind today's rule until day 54 of 60.",
   );
-  await expect(hero.getByText("A 180-day check gives about")).toBeVisible();
   await expect(page.locator(".tf-floor-row")).toHaveCount(5);
   await expect(page.locator(".tf-watch .tf-card")).toHaveCount(3);
   for (const id of ["why", "rules", "details"])
