@@ -56,7 +56,7 @@
    "low_per_year": 100942,
    "high_per_year": 117025,
    "pass_day": 149,
-   "words": "A 180-day check gives about $108,983 more a year."
+   "words": "A 180-day check gives about $109,000 more a year."
   }
  },
  "confidence": {
@@ -19481,7 +19481,7 @@
   {
    "key": "late_gain",
    "title": "The gain comes late",
-   "body": "It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $108,983 more a year.",
+   "body": "It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $109,000 more a year.",
    "severity": "warn"
   },
   {
@@ -19518,7 +19518,7 @@
   "The gain is likely between $19,733 and $24,444 per run.",
   "Main reason: it spends $35,355 less per run on changeovers, with 33 fewer changeovers to another family.",
   "It is behind today's rule until day 54 of 60. At its lowest, on day 42, it is $23,545 behind.",
-  "The gain comes late. It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $108,983 more a year.",
+  "The gain comes late. It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $109,000 more a year.",
   "You will hold 2.6 times more stock. About 3,400 units on the shelf, up from 1,300. Check the room and the cash first.",
   "Natural products still run short. Each natural product is out about 1 day in 6. With today's rule it is about 1 day in 7.",
   "The race ran 12 rules, 40 times each, 60 days per run."

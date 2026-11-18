@@ -327,6 +327,9 @@ def test_long_check_shape(
     assert long_check["per_year"] == pytest.approx(long_check["per_run"] * 365 / 180, abs=2)
     assert long_check["low_per_year"] <= long_check["per_year"] <= long_check["high_per_year"]
     assert long_check["words"].startswith("A 180-day check gives about $")
+    # Yearly figures are rounded to $100 everywhere, like the hero (DESIGN.md 3.1).
+    rounded = round(long_check["per_year"] / 100) * 100
+    assert f"${abs(rounded):,}" in long_check["words"]
     project, result = cli_race
     assert horizon_check(project, result, days=60) is None  # the race is already that long
 
