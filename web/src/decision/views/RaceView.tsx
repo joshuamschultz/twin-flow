@@ -6,6 +6,7 @@ import { GapLine } from "../GapLine";
 import { DecisionHero } from "../hero";
 import { Leaderboard } from "../Leaderboard";
 import { Page, type SectionRef } from "../Page";
+import { STATE_SECTIONS, StateSections } from "../StateSections";
 import { Card, EmptyState, Section, SectionLink } from "../primitives";
 import {
   beatToday,
@@ -24,6 +25,7 @@ const SECTIONS: SectionRef[] = [
   { id: "rules", label: "All rules" },
   { id: "compare", label: "Compare two" },
   { id: "whatif", label: "What if" },
+  ...STATE_SECTIONS,
   { id: "details", label: "Details" },
 ];
 const NO_COMPARE: SectionRef[] = [
@@ -31,13 +33,12 @@ const NO_COMPARE: SectionRef[] = [
   { id: "rules", label: "All rules" },
   { id: "compare", label: "Compare two" },
   { id: "whatif", label: "What if" },
+  ...STATE_SECTIONS,
   { id: "details", label: "Details" },
 ];
 
 const COMING = [
   "Floor replay, day by day",
-  "State map",
-  "Money leaks",
   "Tuning",
   "Full tables, method note and downloads",
 ];
@@ -182,6 +183,7 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             runs={a.episodes}
           />
         </Section>
+        <StateSections model={model} />
         <Section id="details" eyebrow="Details" question="The full numbers">
           <EmptyState
             title="More of this report is on the way."
@@ -189,7 +191,7 @@ export function RaceView({ model }: { model: RaceViewModel }) {
               <>
                 <p>
                   This build shows the decision, the cautions, why it wins, all
-                  rules, compare two and what if. The next builds add:
+                  rules, compare two, what if, the state map and money leaks. The next builds add:
                 </p>
                 <ul>
                   {COMING.map((c) => (
