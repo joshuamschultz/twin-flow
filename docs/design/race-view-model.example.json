@@ -1,5 +1,9 @@
 {
- "_about": "Abbreviated real output of twinflow.extensions.report_model.race_view_model for examples/molding-press, 40 runs, seed 0. Lists are cut; the full document is race-view-model.full.json.",
+ "_about": "Abbreviated real output of twinflow.extensions.report_model.race_view_model for examples/molding-press, 40 runs, seed 0, with the 180-day check. Lists are cut; the full document is race-view-model.full.json.",
+ "view": "race",
+ "schema_version": 1,
+ "generated_at": "2026-11-18T06:26:14+00:00",
+ "twinflow_version": "0.4.0a1",
  "about": {
   "title": "Policy race: molding-press",
   "project": "molding-press",
@@ -23,7 +27,7 @@
   },
   "dollars_per_run": 65410,
   "same_as_baseline": false,
-  "sentence": "Run family_campaign instead of lowest_cover. It makes $22,088 more per run, about $134,370 more a year.",
+  "sentence": "Run Family campaign instead of Lowest cover. It makes $22,088 more per run, about $134,370 more a year.",
   "why": "Main reason: it spends $35,355 less per run on changeovers, with 33 fewer changeovers to another family."
  },
  "baseline": {
@@ -44,7 +48,17 @@
   "high_per_run": 24444,
   "low_per_year": 120042,
   "high_per_year": 148699,
-  "assumption": "A year is 365 days, so about 6.1 runs of 60 days. Each run starts fresh, so this is a rough guide."
+  "assumption": "A year is 365 days, so about 6.1 runs of 60 days. Each run starts fresh, so this is a rough guide.",
+  "long_check": {
+   "days": 180,
+   "runs": 40,
+   "per_run": 53745,
+   "per_year": 108983,
+   "low_per_year": 100942,
+   "high_per_year": 117025,
+   "pass_day": 149,
+   "words": "A 180-day check gives about $108,983 more a year."
+  }
  },
  "confidence": {
   "interval": 0.95,
@@ -55,7 +69,14 @@
   "runs": 40,
   "level": "very_likely_better",
   "words": "Very likely better",
-  "detail": "We are 95% sure it earns between $19,733 and $24,444 more per run on average. It came out ahead in 40 of 40 runs."
+  "detail": "We are 95% sure it earns between $19,733 and $24,444 more per run on average. It came out ahead in 40 of 40 runs.",
+  "gaps": [
+   11871,
+   25505,
+   22133,
+   16721,
+   30457
+  ]
  },
  "floor": [
   {
@@ -66,37 +87,49 @@
    "baseline": 59.0,
    "change": -13.7,
    "better": true,
-   "words": "14 fewer changeovers"
-  },
-  {
-   "key": "cross_family",
-   "label": "Changeovers to another family per run",
-   "unit": "count",
-   "recommended": 8.4,
-   "baseline": 41.1,
-   "change": -32.6,
-   "better": true,
-   "words": "33 fewer changeovers to another family"
+   "words": "14 fewer changeovers",
+   "short": "14 fewer",
+   "note": "Colour changes drop from 41 to 8. Those cost $1,200 each.",
+   "attention": false
   },
   {
    "key": "fill_rate",
-   "label": "Orders filled",
+   "label": "Orders filled from stock",
    "unit": "share",
    "recommended": 0.9673,
    "baseline": 0.9402,
    "change": 0.0271,
    "better": true,
-   "words": "2.7 points more orders filled"
+   "words": "2.7 points more orders filled",
+   "short": "+2.7 points",
+   "note": "Fewer customers find an empty shelf.",
+   "attention": false
   },
   {
    "key": "avg_stock",
-   "label": "Average stock on hand",
+   "label": "Stock on hand",
    "unit": "units",
    "recommended": 3378.0,
    "baseline": 1312.7,
    "change": 2065.3,
    "better": false,
-   "words": "2,065 more units in stock"
+   "words": "2,065 more units in stock",
+   "short": "2.6 times more",
+   "note": "You need the room and the cash for it.",
+   "attention": true
+  },
+  {
+   "key": "rest_days",
+   "label": "Days the press rests",
+   "unit": "days",
+   "recommended": 12.1,
+   "baseline": 0.0,
+   "change": 12.1,
+   "better": null,
+   "words": "12 more rest days",
+   "short": "12 more of 60",
+   "note": "Free time for upkeep. Part of it is the test ending at day 60.",
+   "attention": true
   },
   {
    "key": "lost_units",
@@ -106,7 +139,10 @@
    "baseline": 907.8,
    "change": -411.9,
    "better": true,
-   "words": "412 fewer units of lost sales"
+   "words": "412 fewer units of lost sales",
+   "short": "412 fewer",
+   "note": "That is $1,622 less in lost sales per run.",
+   "attention": false
   }
  ],
  "drivers": [
@@ -196,27 +232,156 @@
    "avg_stock": 3378.0,
    "lost_units": 495.9,
    "dollar_warning": null,
+   "dollars_by_run": [
+    65379,
+    61828,
+    64088,
+    64477,
+    68437
+   ],
+   "wins_vs_baseline": 40,
+   "stock_by_day": {
+    "mean": [
+     2221.3,
+     2198.7,
+     2210.6
+    ]
+   },
+   "stock_start": 2024.0,
+   "stock_end": 1410.8,
+   "stock_peak": 4566.6,
+   "out_share_by_product": {
+    "GRY-S": 0.0008,
+    "GRY-M": 0.0013,
+    "GRY-L": 0.0013,
+    "GRY-XL": 0.0013,
+    "BLK-S": 0.0437,
+    "BLK-M": 0.0504,
+    "BLK-L": 0.0592,
+    "BLK-XL": 0.0737,
+    "NAT-S": 0.1437,
+    "NAT-M": 0.1604,
+    "NAT-L": 0.1742,
+    "NAT-XL": 0.1875
+   },
    "profit_by_day": {
     "mean": [
      1067,
      1501,
-     2034,
-     2450,
-     "... 56 more days (one per day of the run)"
+     2034
     ],
     "low": [
      717,
      919,
-     1414,
-     1766,
-     "... 56 more days (one per day of the run)"
+     1414
     ],
     "high": [
      1417,
      2084,
-     2654,
-     3134,
-     "... 56 more days (one per day of the run)"
+     2654
+    ]
+   }
+  },
+  {
+   "policy": "s_big_s",
+   "label": "Reorder point",
+   "about": "The (s, S) rule: refill a product when it drops to s, up to S.",
+   "rank": 2,
+   "source": "builtin",
+   "settings": {
+    "safety_days": 10.0,
+    "eoq_scale": 0.5
+   },
+   "is_baseline": false,
+   "is_recommended": false,
+   "score": {
+    "mean": 57013.4,
+    "low": 55699.68229290395,
+    "high": 58327.12232709605
+   },
+   "dollars": {
+    "mean": 57013,
+    "low": 55700,
+    "high": 58327,
+    "std": 4108,
+    "n": 40
+   },
+   "vs_best": {
+    "mean": -8397,
+    "low": -10038,
+    "high": -6756,
+    "std": 5132,
+    "n": 40
+   },
+   "vs_baseline": {
+    "mean": 13691,
+    "low": 11521,
+    "high": 15861,
+    "std": 6785,
+    "n": 40
+   },
+   "parts": {
+    "revenue": 255841,
+    "production": 149225,
+    "setup": 23195,
+    "holding": 21384,
+    "lost_sales": 5024,
+    "late": 0
+   },
+   "fill_rate": 0.9437,
+   "changeovers": 27.9,
+   "cross_family": 17.6,
+   "idle_share": 0.1579,
+   "avg_stock": 3139.3,
+   "lost_units": 855.1,
+   "dollar_warning": null,
+   "dollars_by_run": [
+    59889,
+    57685,
+    57091,
+    63804,
+    50467
+   ],
+   "wins_vs_baseline": 36,
+   "stock_by_day": {
+    "mean": [
+     2221.3,
+     2419.9,
+     2298.4
+    ]
+   },
+   "stock_start": 2024.0,
+   "stock_end": 1395.6,
+   "stock_peak": 4019.3,
+   "out_share_by_product": {
+    "GRY-S": 0.0238,
+    "GRY-M": 0.0371,
+    "GRY-L": 0.0525,
+    "GRY-XL": 0.0596,
+    "BLK-S": 0.0933,
+    "BLK-M": 0.1204,
+    "BLK-L": 0.0963,
+    "BLK-XL": 0.0842,
+    "NAT-S": 0.1517,
+    "NAT-M": 0.1537,
+    "NAT-L": 0.145,
+    "NAT-XL": 0.1317
+   },
+   "profit_by_day": {
+    "mean": [
+     1067,
+     2132,
+     3016
+    ],
+    "low": [
+     717,
+     1560,
+     2382
+    ],
+    "high": [
+     1417,
+     2704,
+     3650
     ]
    }
   },
@@ -266,31 +431,56 @@
    "avg_stock": 1312.7,
    "lost_units": 907.8,
    "dollar_warning": null,
+   "dollars_by_run": [
+    53508,
+    36323,
+    41955,
+    47756,
+    37980
+   ],
+   "wins_vs_baseline": 0,
+   "stock_by_day": {
+    "mean": [
+     2221.3,
+     2113.7,
+     2028.8
+    ]
+   },
+   "stock_start": 2024.0,
+   "stock_end": 1032.8,
+   "stock_peak": 2221.3,
+   "out_share_by_product": {
+    "GRY-S": 0.2158,
+    "GRY-M": 0.2008,
+    "GRY-L": 0.1121,
+    "GRY-XL": 0.0587,
+    "BLK-S": 0.2412,
+    "BLK-M": 0.1492,
+    "BLK-L": 0.0842,
+    "BLK-XL": 0.0808,
+    "NAT-S": 0.1558,
+    "NAT-M": 0.1617,
+    "NAT-L": 0.1542,
+    "NAT-XL": 0.1113
+   },
    "profit_by_day": {
     "mean": [
      1067,
      1860,
-     2784,
-     3650,
-     "... 56 more days (one per day of the run)"
+     2784
     ],
     "low": [
      717,
      1205,
-     2029,
-     2735,
-     "... 56 more days (one per day of the run)"
+     2029
     ],
     "high": [
      1417,
      2514,
-     3538,
-     4565,
-     "... 56 more days (one per day of the run)"
+     3538
     ]
    }
-  },
-  "... 10 more policies, same shape"
+  }
  ],
  "products": [
   {
@@ -309,7 +499,86 @@
    "max_storage": 1000,
    "low_stock": 120.0
   },
-  "... 10 more products"
+  {
+   "id": "GRY-L",
+   "family": "grey",
+   "abc": "B",
+   "demand_rate": 18.0,
+   "max_storage": 540,
+   "low_stock": 54.0
+  },
+  {
+   "id": "GRY-XL",
+   "family": "grey",
+   "abc": "C",
+   "demand_rate": 6.0,
+   "max_storage": 240,
+   "low_stock": 18.0
+  },
+  {
+   "id": "BLK-S",
+   "family": "black",
+   "abc": "A",
+   "demand_rate": 45.0,
+   "max_storage": 1125,
+   "low_stock": 135.0
+  },
+  {
+   "id": "BLK-M",
+   "family": "black",
+   "abc": "B",
+   "demand_rate": 22.0,
+   "max_storage": 660,
+   "low_stock": 66.0
+  },
+  {
+   "id": "BLK-L",
+   "family": "black",
+   "abc": "C",
+   "demand_rate": 9.0,
+   "max_storage": 360,
+   "low_stock": 27.0
+  },
+  {
+   "id": "BLK-XL",
+   "family": "black",
+   "abc": "C",
+   "demand_rate": 5.0,
+   "max_storage": 200,
+   "low_stock": 15.0
+  },
+  {
+   "id": "NAT-S",
+   "family": "natural",
+   "abc": "B",
+   "demand_rate": 20.0,
+   "max_storage": 600,
+   "low_stock": 60.0
+  },
+  {
+   "id": "NAT-M",
+   "family": "natural",
+   "abc": "B",
+   "demand_rate": 16.0,
+   "max_storage": 480,
+   "low_stock": 48.0
+  },
+  {
+   "id": "NAT-L",
+   "family": "natural",
+   "abc": "C",
+   "demand_rate": 8.0,
+   "max_storage": 320,
+   "low_stock": 24.0
+  },
+  {
+   "id": "NAT-XL",
+   "family": "natural",
+   "abc": "C",
+   "demand_rate": 4.0,
+   "max_storage": 160,
+   "low_stock": 12.0
+  }
  ],
  "families": [
   "grey",
@@ -318,7 +587,8 @@
  ],
  "example_runs": {
   "family_campaign": {
-   "episode": 0,
+   "episode": 2,
+   "why": "typical",
    "start_stock": {
     "GRY-S": 480,
     "GRY-M": 320,
@@ -342,57 +612,111 @@
      "changeover": false,
      "cross_family": false,
      "stock": {
-      "GRY-S": 867,
-      "GRY-M": 296,
-      "GRY-L": 125,
+      "GRY-S": 872,
+      "GRY-M": 273,
+      "GRY-L": 129,
       "GRY-XL": 45,
-      "BLK-S": 307,
-      "BLK-M": 151,
+      "BLK-S": 312,
+      "BLK-M": 153,
       "BLK-L": 65,
-      "BLK-XL": 32,
-      "NAT-S": 137,
-      "NAT-M": 114,
-      "NAT-L": 53,
+      "BLK-XL": 38,
+      "NAT-S": 140,
+      "NAT-M": 111,
+      "NAT-L": 56,
       "NAT-XL": 28
      },
-     "demand": 254.0,
-     "sold": 254.0,
+     "demand": 252.0,
+     "sold": 252.0,
      "lost": 0.0,
-     "profit": 1046,
-     "cumulative": 1046
+     "lost_by_product": {},
+     "parts": {
+      "revenue": 4353,
+      "production": 3240,
+      "setup": 0,
+      "holding": 224,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "profit": 889,
+     "cumulative": 889
     },
     {
      "day": 2,
-     "action": "GRY-L",
-     "setup": "GRY-L",
+     "action": "GRY-M",
+     "setup": "GRY-M",
      "family": "grey",
      "changeover": true,
      "cross_family": false,
      "stock": {
-      "GRY-S": 811,
-      "GRY-M": 257,
-      "GRY-L": 354,
-      "GRY-XL": 41,
-      "BLK-S": 259,
-      "BLK-M": 119,
-      "BLK-L": 50,
-      "BLK-XL": 25,
-      "NAT-S": 106,
-      "NAT-M": 94,
-      "NAT-L": 45,
+      "GRY-S": 817,
+      "GRY-M": 568,
+      "GRY-L": 110,
+      "GRY-XL": 35,
+      "BLK-S": 275,
+      "BLK-M": 138,
+      "BLK-L": 58,
+      "BLK-XL": 36,
+      "NAT-S": 119,
+      "NAT-M": 96,
+      "NAT-L": 48,
       "NAT-XL": 27
      },
-     "demand": 275.0,
-     "sold": 275.0,
+     "demand": 219.0,
+     "sold": 219.0,
      "lost": 0.0,
-     "profit": 641,
-     "cumulative": 1687
+     "lost_by_product": {},
+     "parts": {
+      "revenue": 3921,
+      "production": 3499,
+      "setup": 200,
+      "holding": 236,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "profit": -14,
+     "cumulative": 875
     },
-    "... 58 more days"
+    {
+     "day": 3,
+     "action": "GRY-XL",
+     "setup": "GRY-XL",
+     "family": "grey",
+     "changeover": true,
+     "cross_family": false,
+     "stock": {
+      "GRY-S": 749,
+      "GRY-M": 531,
+      "GRY-L": 89,
+      "GRY-XL": 195,
+      "BLK-S": 226,
+      "BLK-M": 112,
+      "BLK-L": 49,
+      "BLK-XL": 31,
+      "NAT-S": 100,
+      "NAT-M": 78,
+      "NAT-L": 43,
+      "NAT-XL": 23
+     },
+     "demand": 263.0,
+     "sold": 263.0,
+     "lost": 0.0,
+     "lost_by_product": {},
+     "parts": {
+      "revenue": 4575,
+      "production": 3694,
+      "setup": 200,
+      "holding": 245,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "profit": 437,
+     "cumulative": 1312
+    }
    ]
   },
   "lowest_cover": {
-   "episode": 0,
+   "episode": 2,
+   "why": "typical",
    "start_stock": {
     "GRY-S": 480,
     "GRY-M": 320,
@@ -416,53 +740,106 @@
      "changeover": false,
      "cross_family": false,
      "stock": {
-      "GRY-S": 867,
-      "GRY-M": 296,
-      "GRY-L": 125,
+      "GRY-S": 872,
+      "GRY-M": 273,
+      "GRY-L": 129,
       "GRY-XL": 45,
-      "BLK-S": 307,
-      "BLK-M": 151,
+      "BLK-S": 312,
+      "BLK-M": 153,
       "BLK-L": 65,
-      "BLK-XL": 32,
-      "NAT-S": 137,
-      "NAT-M": 114,
-      "NAT-L": 53,
+      "BLK-XL": 38,
+      "NAT-S": 140,
+      "NAT-M": 111,
+      "NAT-L": 56,
       "NAT-XL": 28
      },
-     "demand": 254.0,
-     "sold": 254.0,
+     "demand": 252.0,
+     "sold": 252.0,
      "lost": 0.0,
-     "profit": 1046,
-     "cumulative": 1046
+     "lost_by_product": {},
+     "parts": {
+      "revenue": 4353,
+      "production": 3240,
+      "setup": 0,
+      "holding": 224,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "profit": 889,
+     "cumulative": 889
     },
     {
      "day": 2,
-     "action": "BLK-XL",
-     "setup": "BLK-XL",
-     "family": "black",
+     "action": "GRY-M",
+     "setup": "GRY-M",
+     "family": "grey",
      "changeover": true,
-     "cross_family": true,
+     "cross_family": false,
      "stock": {
-      "GRY-S": 811,
-      "GRY-M": 257,
-      "GRY-L": 111,
-      "GRY-XL": 41,
-      "BLK-S": 259,
-      "BLK-M": 119,
-      "BLK-L": 50,
-      "BLK-XL": 115,
-      "NAT-S": 106,
-      "NAT-M": 94,
-      "NAT-L": 45,
+      "GRY-S": 817,
+      "GRY-M": 568,
+      "GRY-L": 110,
+      "GRY-XL": 35,
+      "BLK-S": 275,
+      "BLK-M": 138,
+      "BLK-L": 58,
+      "BLK-XL": 36,
+      "NAT-S": 119,
+      "NAT-M": 96,
+      "NAT-L": 48,
       "NAT-XL": 27
      },
-     "demand": 275.0,
-     "sold": 275.0,
+     "demand": 219.0,
+     "sold": 219.0,
      "lost": 0.0,
-     "profit": 1294,
-     "cumulative": 2340
+     "lost_by_product": {},
+     "parts": {
+      "revenue": 3921,
+      "production": 3499,
+      "setup": 200,
+      "holding": 236,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "profit": -14,
+     "cumulative": 875
     },
-    "... 58 more days"
+    {
+     "day": 3,
+     "action": "GRY-XL",
+     "setup": "GRY-XL",
+     "family": "grey",
+     "changeover": true,
+     "cross_family": false,
+     "stock": {
+      "GRY-S": 749,
+      "GRY-M": 531,
+      "GRY-L": 89,
+      "GRY-XL": 195,
+      "BLK-S": 226,
+      "BLK-M": 112,
+      "BLK-L": 49,
+      "BLK-XL": 31,
+      "NAT-S": 100,
+      "NAT-M": 78,
+      "NAT-L": 43,
+      "NAT-XL": 23
+     },
+     "demand": 263.0,
+     "sold": 263.0,
+     "lost": 0.0,
+     "lost_by_product": {},
+     "parts": {
+      "revenue": 4575,
+      "production": 3694,
+      "setup": 200,
+      "holding": 245,
+      "lost_sales": 0,
+      "late": 0
+     },
+     "profit": 437,
+     "cumulative": 1312
+    }
    ]
   }
  },
@@ -482,6 +859,10 @@
        "natural": "ok"
       },
       "setup": "grey"
+     },
+     "words": {
+      "title": "All stock ok",
+      "setup": "Press on grey"
      },
      "share": 0.0854,
      "visits": 205,
@@ -512,6 +893,10 @@
       },
       "setup": "grey"
      },
+     "words": {
+      "title": "Grey high, black high, natural high",
+      "setup": "Press on grey"
+     },
      "share": 0.0667,
      "visits": 160,
      "sticky": true,
@@ -530,7 +915,39 @@
      "losing": false,
      "top_leak": true
     },
-    "... 13 more states"
+    {
+     "id": "s2",
+     "label": "grey:high black:low natural:low | grey",
+     "parts_of_label": {
+      "levels": {
+       "grey": "high",
+       "black": "low",
+       "natural": "low"
+      },
+      "setup": "grey"
+     },
+     "words": {
+      "title": "Grey high, black low, natural low",
+      "setup": "Press on grey"
+     },
+     "share": 0.065,
+     "visits": 156,
+     "sticky": true,
+     "stay": 0.7436,
+     "per_day": -51,
+     "per_run": -200,
+     "leak_per_run": 3653,
+     "money_per_day": {
+      "revenue": 3891,
+      "production": 3006,
+      "setup": 456,
+      "holding": 274,
+      "lost_sales": 206,
+      "late": 0
+     },
+     "losing": true,
+     "top_leak": true
+    }
    ],
    "edges": [
     {
@@ -540,18 +957,17 @@
      "self": true
     },
     {
-     "from": "s0",
-     "to": "s9",
-     "prob": 0.1024,
-     "self": false
-    },
-    {
      "from": "s1",
      "to": "s1",
      "prob": 0.6,
      "self": true
     },
-    "... 34 more edges"
+    {
+     "from": "s2",
+     "to": "s2",
+     "prob": 0.7436,
+     "self": true
+    }
    ]
   },
   "lowest_cover": {
@@ -569,6 +985,10 @@
        "natural": "low"
       },
       "setup": "grey"
+     },
+     "words": {
+      "title": "Grey low, black low, natural low",
+      "setup": "Press on grey"
      },
      "share": 0.2292,
      "visits": 550,
@@ -599,6 +1019,10 @@
       },
       "setup": "black"
      },
+     "words": {
+      "title": "Grey low, black low, natural low",
+      "setup": "Press on black"
+     },
      "share": 0.1383,
      "visits": 332,
      "sticky": false,
@@ -617,7 +1041,39 @@
      "losing": false,
      "top_leak": true
     },
-    "... 13 more states"
+    {
+     "id": "s2",
+     "label": "grey:low black:low natural:low | natural",
+     "parts_of_label": {
+      "levels": {
+       "grey": "low",
+       "black": "low",
+       "natural": "low"
+      },
+      "setup": "natural"
+     },
+     "words": {
+      "title": "Grey low, black low, natural low",
+      "setup": "Press on natural"
+     },
+     "share": 0.0925,
+     "visits": 222,
+     "sticky": false,
+     "stay": 0.1396,
+     "per_day": 569,
+     "per_run": 3159,
+     "leak_per_run": 6653,
+     "money_per_day": {
+      "revenue": 4157,
+      "production": 2389,
+      "setup": 934,
+      "holding": 148,
+      "lost_sales": 116,
+      "late": 0
+     },
+     "losing": false,
+     "top_leak": true
+    }
    ],
    "edges": [
     {
@@ -638,7 +1094,42 @@
      "prob": 0.1309,
      "self": false
     },
-    "... 71 more edges"
+    {
+     "from": "s1",
+     "to": "s0",
+     "prob": 0.4127,
+     "self": false
+    },
+    {
+     "from": "s1",
+     "to": "s1",
+     "prob": 0.1687,
+     "self": true
+    },
+    {
+     "from": "s1",
+     "to": "s2",
+     "prob": 0.1657,
+     "self": false
+    },
+    {
+     "from": "s2",
+     "to": "s0",
+     "prob": 0.491,
+     "self": false
+    },
+    {
+     "from": "s2",
+     "to": "s1",
+     "prob": 0.1577,
+     "self": false
+    },
+    {
+     "from": "s2",
+     "to": "s2",
+     "prob": 0.1396,
+     "self": true
+    }
    ]
   }
  },
@@ -646,6 +1137,7 @@
   "family_campaign": [
    {
     "state": "grey:ok black:high natural:high | natural",
+    "state_id": "s5",
     "share": 0.0604,
     "visits": 145,
     "per_visit": 1089,
@@ -657,10 +1149,12 @@
      "late": 0
     },
     "cause": "setup",
-    "cause_words": "changeovers"
+    "cause_words": "changeovers",
+    "try": "Try longer runs of one family so the press changes over less."
    },
    {
     "state": "grey:high black:low natural:low | grey",
+    "state_id": "s2",
     "share": 0.065,
     "visits": 156,
     "per_visit": 937,
@@ -672,13 +1166,14 @@
      "late": 0
     },
     "cause": "setup",
-    "cause_words": "changeovers"
-   },
-   "... 3 more leaks"
+    "cause_words": "changeovers",
+    "try": "Try longer runs of one family so the press changes over less."
+   }
   ],
   "lowest_cover": [
    {
     "state": "grey:low black:low natural:low | grey",
+    "state_id": "s0",
     "share": 0.2292,
     "visits": 550,
     "per_visit": 1088,
@@ -690,10 +1185,12 @@
      "late": 0
     },
     "cause": "setup",
-    "cause_words": "changeovers"
+    "cause_words": "changeovers",
+    "try": "Try longer runs of one family so the press changes over less."
    },
    {
     "state": "grey:low black:low natural:low | black",
+    "state_id": "s1",
     "share": 0.1383,
     "visits": 332,
     "per_visit": 1186,
@@ -705,71 +1202,204 @@
      "late": 0
     },
     "cause": "setup",
-    "cause_words": "changeovers"
-   },
-   "... 3 more leaks"
+    "cause_words": "changeovers",
+    "try": "Try longer runs of one family so the press changes over less."
+   }
   ]
  },
  "tuning": [
   {
-   "policy": "abc_wheel",
+   "policy": "family_campaign",
    "chosen": {
-    "days_per_slot": 2
+    "target_days": 16
    },
-   "tried": 6,
+   "tried": 5,
    "trials": [
     {
      "settings": {
-      "days_per_slot": 1
+      "target_days": 6
      },
-     "score": 25949.8,
-     "dollars": 25950,
+     "score": 63232.48,
+     "dollars": 63232,
      "problem": null,
      "chosen": false
     },
     {
      "settings": {
-      "days_per_slot": 2
+      "target_days": 8
      },
-     "score": 37085.8,
-     "dollars": 37086,
+     "score": 65505.42,
+     "dollars": 65505,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "target_days": 12
+     },
+     "score": 66526.88,
+     "dollars": 66527,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "target_days": 16
+     },
+     "score": 67186.19,
+     "dollars": 67186,
      "problem": null,
      "chosen": true
     },
-    "... 4 more trials"
-   ]
+    {
+     "settings": {
+      "target_days": 20
+     },
+     "score": 60706.6,
+     "dollars": 60707,
+     "problem": null,
+     "chosen": false
+    }
+   ],
+   "spread": 6480,
+   "touchy": false
   },
   {
-   "policy": "dollar_shortfall",
+   "policy": "lowest_cover",
    "chosen": {
-    "target_days": 8.0
+    "stop_days": 10.0
    },
    "tried": 12,
    "trials": [
     {
      "settings": {
-      "target_days": 3.0
+      "stop_days": 4.0
      },
-     "score": 32388.17,
-     "dollars": 32388,
+     "score": 38600.84,
+     "dollars": 38601,
      "problem": null,
      "chosen": false
     },
     {
      "settings": {
-      "target_days": 4.0
+      "stop_days": 6.0
      },
-     "score": 31853.34,
-     "dollars": 31853,
+     "score": 39637.22,
+     "dollars": 39637,
      "problem": null,
      "chosen": false
     },
-    "... 10 more trials"
-   ]
-  },
-  "... 7 more policies"
+    {
+     "settings": {
+      "stop_days": 8.0
+     },
+     "score": 40619.95,
+     "dollars": 40620,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 10.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": true
+    },
+    {
+     "settings": {
+      "stop_days": 12.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 15.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 20.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 25.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 30.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 40.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 60.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    },
+    {
+     "settings": {
+      "stop_days": 1000000000.0
+     },
+     "score": 41820.96,
+     "dollars": 41821,
+     "problem": null,
+     "chosen": false
+    }
+   ],
+   "spread": 3220,
+   "touchy": false
+  }
  ],
  "views": {
+  "by": "days_of_cover",
+  "levels": [
+   {
+    "name": "low",
+    "below": 3.0
+   },
+   {
+    "name": "ok",
+    "below": 10.0
+   },
+   {
+    "name": "high",
+    "below": null
+   }
+  ],
   "observations": [
    "full"
   ],
@@ -799,5 +1429,76 @@
   "note": "Policies act the same here. Rerun the race to retune them.",
   "formula": "profit = revenue - production - setup x m1 - holding x m2 - lost_sales x m3 - late"
  },
- "warnings": []
+ "warnings": [],
+ "timing": {
+  "gap_by_day": {
+   "mean": [
+    0,
+    -358,
+    -750
+   ],
+   "low": [
+    0,
+    -604,
+    -1162
+   ],
+   "high": [
+    0,
+    -113,
+    -337
+   ]
+  },
+  "pass_day": 54,
+  "lowest": {
+   "day": 42,
+   "dollars": -23545
+  },
+  "words": "It is behind today's rule until day 54 of 60. At its lowest, on day 42, it is $23,545 behind."
+ },
+ "cautions": [
+  {
+   "key": "late_gain",
+   "title": "The gain comes late",
+   "body": "It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $108,983 more a year.",
+   "severity": "warn"
+  },
+  {
+   "key": "more_stock",
+   "title": "You will hold 2.6 times more stock",
+   "body": "About 3,400 units on the shelf, up from 1,300. Check the room and the cash first.",
+   "severity": "warn"
+  },
+  {
+   "key": "runs_short",
+   "title": "Natural products still run short",
+   "body": "Each natural product is out about 1 day in 6. With today's rule it is about 1 day in 7.",
+   "severity": "warn"
+  }
+ ],
+ "economics": {
+  "changeover": {
+   "within_family": {
+    "cost": 200,
+    "output_lost": 0.1
+   },
+   "across_family": {
+    "cost": 1200,
+    "output_lost": 0.5
+   }
+  },
+  "holding_rate": 0.01,
+  "lost_sale_rate": 0.3
+ },
+ "problems": [],
+ "agent_summary": [
+  "Run Family campaign instead of Lowest cover. It makes $22,088 more per run, about $134,370 more a year.",
+  "Very likely better. It won 40 of 40 test runs on the same customer orders.",
+  "The gain is likely between $19,733 and $24,444 per run.",
+  "Main reason: it spends $35,355 less per run on changeovers, with 33 fewer changeovers to another family.",
+  "It is behind today's rule until day 54 of 60. At its lowest, on day 42, it is $23,545 behind.",
+  "The gain comes late. It is behind today's rule until day 54 of 60. Test a longer run before you commit. A 180-day check gives about $108,983 more a year.",
+  "You will hold 2.6 times more stock. About 3,400 units on the shelf, up from 1,300. Check the room and the cash first.",
+  "Natural products still run short. Each natural product is out about 1 day in 6. With today's rule it is about 1 day in 7.",
+  "The race ran 12 rules, 40 times each, 60 days per run."
+ ]
 }

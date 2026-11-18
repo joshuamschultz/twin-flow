@@ -15,7 +15,8 @@
     "build:report": "vite build --config vite.report.config.ts && node scripts/inline-report.mjs",
     "check:report": "vite build --config vite.report.config.ts && node scripts/inline-report.mjs --check",
     "test:report": "playwright test tests/browser/report",
-    "format": "prettier --write src/decision src/report tests/browser/report scripts vite.report.config.ts vitest.config.ts"
+    "format": "prettier --write src/decision src/report tests/browser/report scripts vite.report.config.ts vitest.config.ts",
+    "gen:types": "node scripts/gen-types.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.102.8",
@@ -29,6 +30,7 @@
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "6.1.1",
+    "json-schema-to-typescript": "16.0.0",
     "prettier": "3.9.6",
     "typescript": "5.9.3",
     "vite": "8.3.0",

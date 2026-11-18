@@ -64,7 +64,7 @@ template differs from a fresh build.
 Accept: pytest: output parses as HTML; the JSON round-trips; a rule name with `</script>` and
 quotes does not break out; no network URL in the output.
 
-**B-04 Schemas and types.** Sonnet. [P]
+[x] **B-04 Schemas and types.** Sonnet. [P]
 JSON Schema per view model in `src/twinflow/report/schemas/`. Generate
 `web/src/decision/types.ts` from them (`npm run gen:types`).
 Accept: `race-view-model.example.json` validates; a missing required field fails; generated

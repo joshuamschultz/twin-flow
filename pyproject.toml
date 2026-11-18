@@ -34,6 +34,7 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.8",
     "pip-audit>=2.7",
+    "jsonschema>=4.20",
     "types-PyYAML>=6",
     "fastapi>=0.110",
     "uvicorn>=0.29",
