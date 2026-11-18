@@ -205,3 +205,36 @@ def test_project_view_files_work_with_the_project_flag(
     )
     assert code == 0, err
     assert "stocked" in out or "low" in out
+
+
+def test_extensions_list_counts_the_same_problems_as_check(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (project / "policies" / "bad_action.py").write_text(
+        "NAME = 'wild'\n\n\ndef decide(state):\n    return 'no-such-product'\n", encoding="utf-8"
+    )
+    code, _, _ = _run(capsys, "extensions", "check", str(project))
+    assert code == 1
+    _, out, _ = _run(capsys, "extensions", "list", str(project))
+    row = next(line for line in out.splitlines() if "wild" in line)
+    assert row.split()[-1] == "1"
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "field"),
+    [
+        ("rate: 0.5", "rate: slow", "rate"),
+        ("rate: 0.5", "rate: -1", "rate"),
+        ("kind: rate_based", "kind: rate_based\n      load: soon", "load"),
+    ],
+)
+def test_validate_rejects_non_numeric_time_model_values(
+    old: str, new: str, field: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    text = (ROOT / "examples" / "cnc-shop" / "model.yaml").read_text(encoding="utf-8")
+    assert old in text
+    model = tmp_path / "model.yaml"
+    model.write_text(text.replace(old, new, 1), encoding="utf-8")
+    code, out, err = _run(capsys, "validate", str(model))
+    assert code == 1
+    assert f"time_model.{field}" in out + err and "number" in out + err
