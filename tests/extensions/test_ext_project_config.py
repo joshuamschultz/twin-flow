@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -137,13 +138,28 @@ def test_the_example_project_checks_clean() -> None:
     assert check_project(Project.open(EXAMPLE)) == []
 
 
-def test_check_project_uses_the_capsule_limits(make_project: MakeProject) -> None:
-    slow = "import time\n\n\ndef decide(state):\n    time.sleep(0.003)\n    return 'idle'\n"
+def test_check_project_uses_the_capsule_limits(
+    make_project: MakeProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A fake clock that only the slow policy moves, so the test never depends on machine
+    # speed: each call of slow.py takes 3 ms, every other rule takes 0 ms.
+    from types import SimpleNamespace
+
+    from twinflow.extensions import checker
+
+    fake = SimpleNamespace(now=0.0)
+    monkeypatch.setitem(sys.modules, "twinflow_test_clock", fake)
+    monkeypatch.setattr(checker, "CLOCK", lambda: fake.now)
+    slow = (
+        "import twinflow_test_clock\n\n\n"
+        "def decide(state):\n    twinflow_test_clock.now += 0.003\n    return 'idle'\n"
+    )
     folder = make_project(
         {"checker": {"time_limit_ms": 1, "samples": 10}}, {"policies/slow.py": slow}
     )
     problems = check_project(Project.open(folder))
     assert [p.code for p in problems] == ["slow"]
+    assert "took 3.0 ms" in problems[0].message
     assert "limit is 1 ms" in problems[0].message
 
 
