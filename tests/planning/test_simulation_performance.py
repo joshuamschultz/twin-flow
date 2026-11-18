@@ -31,7 +31,9 @@ tests/planning/test_simulation_performance.py`):
 
 from __future__ import annotations
 
+import os
 import resource
+import subprocess
 import sys
 import time
 from collections.abc import Iterator
@@ -107,6 +109,9 @@ def _profile(snapshot: ErpSnapshot, workers: int) -> PlanningProfile:
     return load_planning_profile(CLASS_WEIGHTS + "\n" + _simulation_toml(snapshot, workers))
 
 
+_CHILD_FLAG = "TWINFLOW_PERF_CHILD"
+
+
 def _peak_rss_bytes(who: int) -> int:
     """`ru_maxrss` in bytes (macOS reports bytes, Linux kilobytes)."""
     peak = resource.getrusage(who).ru_maxrss
@@ -152,8 +157,37 @@ def _solved(
     ("workers", "limit_seconds"), [(1, ONE_WORKER_SECONDS), (4, FOUR_WORKER_SECONDS)]
 )
 def test_simulate_plan_on_the_scaled_shop_meets_the_runtime_and_memory_budget(
-    workspace: Workspace, snapshot: ErpSnapshot, workers: int, limit_seconds: float
+    request: pytest.FixtureRequest,
+    workspace: Workspace,
+    snapshot: ErpSnapshot,
+    workers: int,
+    limit_seconds: float,
 ) -> None:
+    # `ru_maxrss` is the lifetime peak of the whole process. In a full pytest run, earlier
+    # tests leave that peak behind, so the budget is measured in a fresh child process
+    # that runs only this test (TF-006: the full suite grew past the 1 GiB line).
+    if os.environ.get(_CHILD_FLAG) != "1":
+        child = subprocess.run(  # noqa: S603 - fixed interpreter and this test's own node id
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-s",
+                "-p",
+                "no:cacheprovider",
+                request.node.nodeid,
+            ],
+            cwd=request.config.rootpath,
+            env={**os.environ, _CHILD_FLAG: "1"},
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=600,
+        )
+        print(child.stdout[-2000:])
+        assert child.returncode == 0, child.stdout[-4000:] + child.stderr[-2000:]
+        return
     service = _service(workspace, FakePortfolioApi())
     try:
         _, plan_id = _solved(service, snapshot, workers, f"solve-{workers}")
