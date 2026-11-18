@@ -16,7 +16,7 @@ import math
 import platform
 import time
 import uuid
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import cast
@@ -33,7 +33,8 @@ from twinflow.instrumentation.resource_log import ResourceUsageLog
 from twinflow.model import CompiledModel, StockConfig
 from twinflow.model.schema import BreakdownSpec, LocationSpec
 from twinflow.plan.loader import WorkOrder
-from twinflow.policy import PolicyRuntime
+from twinflow.plan.observers import RunObserver, RunView, order_plans
+from twinflow.policy import DecisionRecord, PolicyRuntime
 from twinflow.primitives.bundle import Bundle
 from twinflow.primitives.calendar import AlwaysWorkingCalendar, WorkingCalendar
 from twinflow.primitives.cell import Machine
@@ -197,6 +198,14 @@ class _WorkTracker:
     def slot_free(self) -> simpy.Event:
         return self._slot_free
 
+    def delivered(self, order_id: str) -> float:
+        """Good finished units counted for `order_id` so far (read-only, for observers)."""
+        return self._delivered.get(order_id, 0.0)
+
+    def completion_time(self, order_id: str) -> float | None:
+        """When `order_id` completed, or None while open (read-only, for observers)."""
+        return self._completion_time.get(order_id)
+
     def outcomes(
         self, plan: list[WorkOrder], termination_reason: str
     ) -> dict[str, dict[str, object]]:
@@ -270,6 +279,7 @@ class RunDriver:
         max_wall_seconds: float | None = None,
         decision_runtime: PolicyRuntime | None = None,
         piece_release: bool = False,
+        observers: Sequence[RunObserver] = (),
     ) -> RunResult:
         """Run one terminating replication: seed WIP, release orders, simulate.
 
@@ -277,6 +287,10 @@ class RunDriver:
         Locations for this call only — nothing built here is reused by a later
         `run()` call, which is what keeps replications independent (CRN-correct)
         even though they share the same `CompiledModel`.
+
+        `observers` (D-136) watch the run through a read-only `RunView`: `start` before the
+        clock moves, `on_advance` before each SimPy step, `finalize` after the logs are
+        written. They add no SimPy events, so the logs equal a run without them.
         """
         run_id = f"run-{seed}-{replication_index}-{uuid.uuid4().hex[:8]}"
         ctx = RunContext(run_id=run_id, seed=seed, horizon=0.0)
@@ -327,13 +341,47 @@ class RunDriver:
         else:
             until = None
 
-        event_count, termination_reason = self._advance(
-            env,
-            until=until,
-            max_sim_time=max_sim_time,
-            max_events=max_events,
-            max_wall_seconds=max_wall_seconds,
-        )
+        on_advance: Callable[[float], None] | None = None
+        if observers:
+            view = RunView(
+                env,
+                stocks,
+                locations,
+                labor_pools,
+                order_plans(
+                    [(o.work_order_id, o.part, float(o.qty), o.due_date) for o in plan if o.qty > 0]
+                ),
+                tracker,
+            )
+            for observer in observers:
+                observer.start(view)
+
+            def on_advance(next_time: float) -> None:
+                for observer in observers:
+                    observer.on_advance(next_time)
+
+        listener = decision_runtime.listener if decision_runtime is not None else None
+        if observers and decision_runtime is not None:
+
+            def on_decision(record: DecisionRecord) -> None:
+                for observer in observers:
+                    observer.on_decision(
+                        record.location_id, record.simulation_time, record.action.policy
+                    )
+
+            decision_runtime.listener = on_decision
+        try:
+            event_count, termination_reason = self._advance(
+                env,
+                until=until,
+                max_sim_time=max_sim_time,
+                max_events=max_events,
+                max_wall_seconds=max_wall_seconds,
+                on_advance=on_advance,
+            )
+        finally:
+            if decision_runtime is not None:
+                decision_runtime.listener = listener
 
         root = Path(artifact_dir) if artifact_dir is not None else Path("runs")
         run_dir = root / run_id
@@ -389,6 +437,8 @@ class RunDriver:
                 ),
                 encoding="utf-8",
             )
+        for observer in observers:
+            observer.finalize(run_dir, termination_reason)
         return RunResult(
             event_log_path=event_log_path,
             horizon=env.now,
@@ -409,8 +459,13 @@ class RunDriver:
         max_sim_time: float | None,
         max_events: int | None,
         max_wall_seconds: float | None,
+        on_advance: Callable[[float], None] | None = None,
     ) -> tuple[int, str]:
-        """Advance deterministically while enforcing optional simulation budgets."""
+        """Advance deterministically while enforcing optional simulation budgets.
+
+        `on_advance(next_time)` (observers only) runs just before each `env.step()`; it
+        schedules nothing, so the event sequence is the same with or without it (D-136).
+        """
         if max_sim_time is not None and max_sim_time < 0:
             raise ValueError("max_sim_time must be non-negative")
         if max_events is not None and max_events < 1:
@@ -433,6 +488,8 @@ class RunDriver:
                 return count, "event_limit"
             if max_wall_seconds is not None and time.monotonic() - started >= max_wall_seconds:
                 return count, "wall_time_limit"
+            if on_advance is not None:
+                on_advance(next_time)
             env.step()
             count += 1
 

@@ -235,6 +235,9 @@ class Location:
                 for index in range(self._capacity)
             ]
         )
+        # Every machine this location owns, busy or idle: `_fire` pops a busy machine
+        # off `_available_machines`, so setup reads go through this list (D-137).
+        self._machines: tuple[Machine, ...] = tuple(self._available_machines)
         self._in_flight = 0
         self._free_event: simpy.Event | None = None
         # Active-control dispatch rule (A1): which queued job this center runs next.
@@ -245,6 +248,14 @@ class Location:
         self._dispatch: str = getattr(spec, "dispatch", "fifo")
         self._queue_revision = 0
         self._decision_revision = -1
+
+    def current_setups(self) -> dict[str, str | None]:
+        """The current setup group of every machine, busy or idle, by machine id (D-137).
+
+        Read-only: a fresh dict each call, so a caller (a state observer) cannot change
+        the floor. A machine that has run nothing yet reads `None`.
+        """
+        return {machine.machine_id: machine.current_setup for machine in self._machines}
 
     def enqueue(self, bundle: Bundle) -> None:
         """Append `bundle` to the queue, stamping its queue_arrival_time. Non-blocking."""

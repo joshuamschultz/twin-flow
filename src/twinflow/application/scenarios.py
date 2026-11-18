@@ -6,7 +6,7 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from twinflow.domain import registry
 from twinflow.instrumentation import compute_kpis
@@ -15,6 +15,11 @@ from twinflow.instrumentation.sweep import orders_frame
 from twinflow.plan.driver import RunDriver
 from twinflow.scenario import CapsuleValidationError, ScenarioCapsule, import_legacy, schema
 from twinflow.service.serialize import intervals_to_dict, manufacturing_result_details
+
+if TYPE_CHECKING:
+    from twinflow.engines.des import StateCapture
+    from twinflow.state.economics import Economics
+    from twinflow.state.issues import Issue
 
 
 def capsule_schema() -> dict[str, Any]:
@@ -93,6 +98,7 @@ def evaluate_capsule(
     if domain != "manufacturing":
         return evaluate_domain(capsule, domain, out, reps, seed, canceled)
     compiled = capsule.compile()
+    capture, economics, capture_issues = _state_capture(capsule)
     per_rep = []
     outcomes = []
     policy_traces = []
@@ -123,6 +129,7 @@ def evaluate_capsule(
             max_sim_time=31_536_000,
             max_events=1_000_000,
             max_wall_seconds=min(remaining, 30),
+            observers=() if capture is None else (capture.observer(economics),),
         )
         if runtime is not None:
             policy_traces.append(
@@ -173,10 +180,35 @@ def evaluate_capsule(
             "Simulation outcomes conditional on model assumptions; not customer commitments."
         ),
     }
+    if capture is not None:
+        result["state_capture"] = {
+            "every_hours": capture.every_hours,
+            "decisions": capture.decisions,
+            "files": ["moves.parquet", "states.parquet"],
+            "issues": [asdict(issue) for issue in capture_issues],
+        }
     (out / "result.json").write_text(
         json.dumps(result, indent=2, allow_nan=False), encoding="utf-8"
     )
     return result
+
+
+def _state_capture(
+    capsule: ScenarioCapsule,
+) -> tuple[StateCapture | None, Economics | None, list[Issue]]:
+    """The `experiment.state_capture` block and the model economics (T-248, REQ-197).
+
+    Returns `(None, ...)` when the block is absent, so the run is unchanged. The capsule
+    was validated by `compile()`, so the block parses here.
+    """
+    from twinflow.engines.des import parse_state_capture
+    from twinflow.engines.des_ledger import des_economics
+
+    if "state_capture" not in capsule.experiment:
+        return None, None, []
+    capture, _ = parse_state_capture(capsule.experiment["state_capture"])
+    economics, issues = des_economics(capsule.model)
+    return capture, economics, issues
 
 
 def describe_domain(capsule: ScenarioCapsule, domain: str) -> dict[str, Any]:

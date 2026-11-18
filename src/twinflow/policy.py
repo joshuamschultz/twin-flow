@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from typing import Literal, Protocol
 
@@ -103,6 +104,9 @@ class PolicyRuntime:
         self._observation: PolicyObservation | None = None
         self._allowed: tuple[DispatchAction, ...] = ()
         self._trace: list[DecisionRecord] = []
+        # Called with each new record after `choose` (set by `RunDriver.run` for run
+        # observers only, D-136). It must only read; `reset()` leaves it in place.
+        self.listener: Callable[[DecisionRecord], None] | None = None
 
     def reset(self) -> None:
         self._version = 0
@@ -158,17 +162,18 @@ class PolicyRuntime:
                 raise
             action = DispatchAction(location_id, self.fallback)
             fallback_reason = str(exc)
-        self._trace.append(
-            DecisionRecord(
-                observation.state_version,
-                observation.digest,
-                location_id,
-                simulation_time,
-                action,
-                fallback_reason,
-                self.policy_artifact,
-            )
+        record = DecisionRecord(
+            observation.state_version,
+            observation.digest,
+            location_id,
+            simulation_time,
+            action,
+            fallback_reason,
+            self.policy_artifact,
         )
+        self._trace.append(record)
+        if self.listener is not None:
+            self.listener(record)
         return action.policy
 
 
