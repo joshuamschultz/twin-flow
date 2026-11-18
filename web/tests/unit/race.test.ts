@@ -18,7 +18,10 @@ import {
 import type { RaceViewModel } from "../../src/decision/types";
 
 const golden = JSON.parse(
-  readFileSync(new URL("../../../docs/design/race-view-model.full.json", import.meta.url), "utf8"),
+  readFileSync(
+    new URL("../../../docs/design/race-view-model.full.json", import.meta.url),
+    "utf8",
+  ),
 ) as RaceViewModel;
 const clone = () => JSON.parse(JSON.stringify(golden)) as RaceViewModel;
 
@@ -26,10 +29,14 @@ describe("hero words", () => {
   it("says switch, with the gain and the runs won", () => {
     const h = hero(golden);
     expect(h.kind).toBe("switch");
-    expect([h.before, h.name, h.after].join("")).toBe("Switch to Family campaign.");
+    expect([h.before, h.name, h.after].join("")).toBe(
+      "Switch to Family campaign.",
+    );
     expect(h.perRun).toBe("+$22,088");
     expect(h.perYear).toBe("+$134,400");
-    expect(h.range).toBe("The gain is likely between $19,700 and $24,400 per run.");
+    expect(h.range).toBe(
+      "The gain is likely between $19,700 and $24,400 per run.",
+    );
     expect(h.badge).toBe("Very likely better");
     expect(h.lede.map((p) => p.text).join("")).toBe(
       "It makes $22,088 more in each 60-day run than what you do today (Lowest cover). " +
@@ -41,7 +48,9 @@ describe("hero words", () => {
     m.recommendation.same_as_baseline = true;
     m.confidence!.level = "same_policy";
     const h = hero(m);
-    expect([h.before, h.name, h.after].join("")).toBe("Keep Family campaign. Nothing tested beats it.");
+    expect([h.before, h.name, h.after].join("")).toBe(
+      "Keep Family campaign. Nothing tested beats it.",
+    );
     expect(h.kind).toBe("keep");
   });
   it("says test more when the lead is not proven", () => {
@@ -56,14 +65,18 @@ describe("hero words", () => {
     m.baseline = null;
     m.delta = null;
     const h = hero(m);
-    expect([h.before, h.name, h.after].join("")).toBe("Family campaign made the most money.");
+    expect([h.before, h.name, h.after].join("")).toBe(
+      "Family campaign made the most money.",
+    );
     expect(h.perRun).toBeNull();
     expect(h.note).toContain("experiment.race.baseline");
   });
   it("says so when only one rule ran", () => {
     const m = clone();
     m.policies = m.policies.slice(0, 1);
-    expect(hero(m).note).toBe("Only one rule ran. Add a second rule to compare.");
+    expect(hero(m).note).toBe(
+      "Only one rule ran. Add a second rule to compare.",
+    );
   });
   it("notes a score that is not dollars", () => {
     const m = clone();
@@ -116,7 +129,9 @@ describe("waterfall", () => {
       "Making more product",
       "Keeping more stock",
     ]);
-    expect(w.items.map((i) => i.value)).toEqual([35355, 5405, 1622, -7195, -13098]);
+    expect(w.items.map((i) => i.value)).toEqual([
+      35355, 5405, 1622, -7195, -13098,
+    ]);
     expect(w.total).toBe(22088);
     // each bar starts where the last one ended
     let run = 0;
@@ -130,7 +145,11 @@ describe("waterfall", () => {
 describe("gap line", () => {
   it("draws the pick and the next two rules against today", () => {
     const s = gapSeries(golden);
-    expect(s.map((x) => x.label)).toEqual(["Family campaign", "Reorder point", "Setup-aware run-out"]);
+    expect(s.map((x) => x.label)).toEqual([
+      "Family campaign",
+      "Reorder point",
+      "Setup-aware run-out",
+    ]);
     expect(s[0].emphasis).toBe(true);
     expect(s[0].values).toHaveLength(60);
     expect(s[0].values[41]).toBe(-23545);
@@ -138,7 +157,8 @@ describe("gap line", () => {
   it("keeps end labels apart", () => {
     const ys = labelEnds([100, 104, 98, 300], 14);
     const sorted = [...ys].sort((a, b) => a - b);
-    for (let i = 1; i < sorted.length; i++) expect(sorted[i] - sorted[i - 1]).toBeGreaterThanOrEqual(14);
+    for (let i = 1; i < sorted.length; i++)
+      expect(sorted[i] - sorted[i - 1]).toBeGreaterThanOrEqual(14);
   });
 });
 
@@ -146,10 +166,17 @@ describe("leaderboard", () => {
   it("puts today on the zero line and folds weak rules", () => {
     const lb = leaderboard(golden);
     expect(lb.main).toHaveLength(8);
-    expect(lb.rest.map((r) => r.label)).toEqual(["Fixed wheel", "Best for today only", "Random", "Do nothing"]);
+    expect(lb.rest.map((r) => r.label)).toEqual([
+      "Fixed wheel",
+      "Best for today only",
+      "Random",
+      "Do nothing",
+    ]);
     const today = lb.main.find((r) => r.today)!;
     expect(today.value).toBe("$43,322 now");
-    expect(lb.main.find((r) => r.id === "lowest_stock_first")!.value).toBe("same as today");
+    expect(lb.main.find((r) => r.id === "lowest_stock_first")!.value).toBe(
+      "same as today",
+    );
     expect(lb.main[0].tip).toBe(
       "Family campaign: +$22,088 per run vs today. Likely range +$19,700 to +$24,400. Won 40 of 40 runs.",
     );

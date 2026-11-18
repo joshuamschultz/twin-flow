@@ -191,7 +191,8 @@ export function RaceView({ model }: { model: RaceViewModel }) {
               <>
                 <p>
                   This build shows the decision, the cautions, why it wins, all
-                  rules, compare two, what if, the state map and money leaks. The next builds add:
+                  rules, compare two, what if, the state map and money leaks.
+                  The next builds add:
                 </p>
                 <ul>
                   {COMING.map((c) => (

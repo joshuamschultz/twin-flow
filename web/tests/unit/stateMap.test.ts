@@ -114,6 +114,11 @@ describe("nodeWords", () => {
     });
   });
 
+  it("prints the words Python sent before building any", () => {
+    const words = { title: "Grey runs out", setup: "Press rests" };
+    expect(nodeWords({ ...PICK.nodes[0], words }, LEVELS)).toEqual(words);
+  });
+
   it("falls back to the given words, then to the raw label", () => {
     const n = node("x", 0.1, "station:busy", false);
     expect(nodeWords(n)).toEqual({ title: "station:busy", setup: "" });
@@ -162,6 +167,16 @@ describe("layoutStates", () => {
       const shares = lane.ids.map((id) => share[id]);
       expect(shares).toEqual([...shares].sort((a, b) => b - a));
     }
+  });
+
+  it("titles a setup lane with the setup words Python sent", () => {
+    const n = node("a", 1, "grey:ok | idle");
+    const layout = layoutStates(
+      [{ ...n, words: { title: "All stock OK", setup: "Line rests" } }],
+      [],
+      "setup",
+    );
+    expect(layout.lanes[0].title).toBe("Line rests");
   });
 
   it("never lets two boxes overlap, at wide and narrow widths", () => {

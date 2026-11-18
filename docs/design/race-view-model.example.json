@@ -861,7 +861,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "All stock ok",
+      "title": "All stock OK",
       "setup": "Press on grey"
      },
      "share": 0.0854,
@@ -894,7 +894,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey high, black high, natural high",
+      "title": "All stock high",
       "setup": "Press on grey"
      },
      "share": 0.0667,
@@ -927,7 +927,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey high, black low, natural low",
+      "title": "Grey high, black and natural low",
       "setup": "Press on grey"
      },
      "share": 0.065,
@@ -987,7 +987,7 @@
       "setup": "grey"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on grey"
      },
      "share": 0.2292,
@@ -1020,7 +1020,7 @@
       "setup": "black"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on black"
      },
      "share": 0.1383,
@@ -1053,7 +1053,7 @@
       "setup": "natural"
      },
      "words": {
-      "title": "Grey low, black low, natural low",
+      "title": "All stock low",
       "setup": "Press on natural"
      },
      "share": 0.0925,
@@ -1138,6 +1138,10 @@
    {
     "state": "grey:ok black:high natural:high | natural",
     "state_id": "s5",
+    "words": {
+     "title": "Black and natural high",
+     "setup": "Press on natural"
+    },
     "share": 0.0604,
     "visits": 145,
     "per_visit": 1089,
@@ -1155,6 +1159,10 @@
    {
     "state": "grey:high black:low natural:low | grey",
     "state_id": "s2",
+    "words": {
+     "title": "Grey high, black and natural low",
+     "setup": "Press on grey"
+    },
     "share": 0.065,
     "visits": 156,
     "per_visit": 937,
@@ -1174,6 +1182,10 @@
    {
     "state": "grey:low black:low natural:low | grey",
     "state_id": "s0",
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on grey"
+    },
     "share": 0.2292,
     "visits": 550,
     "per_visit": 1088,
@@ -1191,6 +1203,10 @@
    {
     "state": "grey:low black:low natural:low | black",
     "state_id": "s1",
+    "words": {
+     "title": "All stock low",
+     "setup": "Press on black"
+    },
     "share": 0.1383,
     "visits": 332,
     "per_visit": 1186,

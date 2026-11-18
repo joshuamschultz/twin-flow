@@ -88,16 +88,17 @@ export function partsFromLabel(label: string): PartsOfLabel {
   };
 }
 
-/** Words for a node: from its parts, else the words Python sent, else the raw label. */
+/** Words for a node. Python is the source (report_model.state_words); a model without
+ *  words falls back to words built from the parts, then to the raw label. */
 export function nodeWords(
-  node: StateNode,
+  node: Pick<StateNode, "label" | "parts_of_label" | "words">,
   levels?: readonly (LevelDef | string)[] | null,
 ): StateWords {
+  if (node.words?.title) return node.words;
   if (node.parts_of_label) {
     const w = stateWords(node.parts_of_label, levels);
     if (w.title) return w;
   }
-  if (node.words) return node.words;
   return { title: node.label, setup: "" };
 }
 
@@ -311,8 +312,11 @@ export function layoutStates(
       };
     });
     const [fam, lv] = key.split(":");
+    const sent = groups.get(key)!.find((n) => n.words?.setup)?.words?.setup;
     const title =
-      mode === "setup" ? `Press on ${key}` : `${cap(fam)} ${levelWord(lv)}`;
+      mode === "setup"
+        ? (sent ?? `Press on ${key}`)
+        : `${cap(fam)} ${levelWord(lv)}`;
     return { key, title, x: r1(li * laneW), w: r1(laneW), ids };
   });
   const rows = Math.max(0, ...lanes.map((l) => l.ids.length));

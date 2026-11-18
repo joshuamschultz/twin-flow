@@ -3,7 +3,10 @@ import { readParams, writeParam } from "../../src/decision/viewState";
 
 describe("view state in the URL", () => {
   it("reads hash and query strings the same way", () => {
-    expect(readParams("#tab=replay&day=9")).toEqual({ tab: "replay", day: "9" });
+    expect(readParams("#tab=replay&day=9")).toEqual({
+      tab: "replay",
+      day: "9",
+    });
     expect(readParams("?page=race&a=x")).toEqual({ page: "race", a: "x" });
     expect(readParams("")).toEqual({});
   });

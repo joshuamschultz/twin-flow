@@ -40,6 +40,13 @@ describe("leak words", () => {
     });
   });
 
+  it("prints the words Python sent when it sent some", () => {
+    const words = { title: "Grey runs out", setup: "Press on black" };
+    expect(leakWords({ ...leak, words }).name).toBe(
+      "Grey runs out. Press on black.",
+    );
+  });
+
   it("uses the try line from the data, else a template keyed on cause", () => {
     expect(leakTry({ ...leak, try: "Try this." })).toBe("Try this.");
     expect(leakTry(leak)).toBe(

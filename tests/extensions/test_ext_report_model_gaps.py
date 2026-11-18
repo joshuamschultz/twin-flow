@@ -264,7 +264,7 @@ def test_map_nodes_and_leaks_have_words(model: dict[str, Any]) -> None:
         if n["label"] == "grey:high black:low natural:low | black"
     )  # fmt: skip
     assert node["words"] == {
-        "title": "Grey high, black low, natural low",
+        "title": "Grey high, black and natural low",
         "setup": "Press on black",
     }
 

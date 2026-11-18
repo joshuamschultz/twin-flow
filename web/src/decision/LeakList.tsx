@@ -4,7 +4,7 @@ import { pct, usd } from "./format";
 import { EmptyState } from "./primitives";
 import {
   partsFromLabel,
-  stateWords,
+  nodeWords,
   wordsSentence,
   type LevelDef,
 } from "./stateMap";
@@ -33,6 +33,7 @@ export type LeakRow = Pick<
   | "cause"
   | "cause_words"
   | "try"
+  | "words"
 >;
 
 /** "Try ..." line: from the data when it has one, else a template keyed on cause. */
@@ -44,9 +45,16 @@ export function leakWords(
   leak: LeakRow,
   levels?: readonly (LevelDef | string)[] | null,
 ): { name: string; detail: string } {
-  const w = stateWords(partsFromLabel(leak.state), levels);
+  const w = nodeWords(
+    {
+      label: leak.state,
+      parts_of_label: partsFromLabel(leak.state),
+      words: leak.words,
+    },
+    levels,
+  );
   return {
-    name: w.title ? wordsSentence(w) : leak.state,
+    name: wordsSentence(w),
     detail: `${pct(leak.share)} of days. Biggest cost: ${leak.cause_words}.`,
   };
 }

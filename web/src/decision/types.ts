@@ -297,10 +297,7 @@ export interface StateNode {
     };
     setup: string | null;
   } | null;
-  words?: {
-    title: string;
-    setup: string;
-  };
+  words?: StateWords;
   share: number;
   visits: number;
   sticky?: boolean;
@@ -313,6 +310,16 @@ export interface StateNode {
   };
   losing?: boolean;
   top_leak?: boolean;
+}
+/**
+ * Plain words for a state, from Python. The front end prints them as they come.
+ *
+ * This interface was referenced by `RaceViewModel`'s JSON-Schema
+ * via the `definition` "StateWords".
+ */
+export interface StateWords {
+  title: string;
+  setup: string;
 }
 /**
  * This interface was referenced by `RaceViewModel`'s JSON-Schema
@@ -331,6 +338,7 @@ export interface StateEdge {
 export interface Leak {
   state: string;
   state_id?: string | null;
+  words?: StateWords;
   share: number;
   visits?: number;
   per_visit?: number;

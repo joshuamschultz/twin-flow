@@ -830,25 +830,67 @@ def _label_parts(text: str) -> dict[str, Any] | None:
     return {"levels": {k: v for k, v in pairs}, "setup": setup or None}
 
 
-def _node_words(text: str, parts: Mapping[str, Any] | None, line: str) -> dict[str, str]:
-    """`grey:high black:ok natural:low | black` as "Grey high, natural low" and
-    "Press on black" (R18). Levels named "ok" are left out of the title."""
+DEFAULT_LEVELS = ("out", "low", "ok", "high")
+NORMAL_LEVELS = frozenset({"ok", "normal"})
+
+
+def _cap(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _level_word(name: str) -> str:
+    return "OK" if name == "ok" else name
+
+
+def _join_and(items: list[str]) -> str:
+    return items[0] if len(items) < 2 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+def _is_normal(level: str, names: Sequence[str]) -> bool:
+    """The level a reader expects most days. It is left out of a state's title."""
+    if any(n in NORMAL_LEVELS for n in names):
+        return level in NORMAL_LEVELS
+    odd = len(names) >= 3 and len(names) % 2 == 1
+    return odd and level in names and names.index(level) == (len(names) - 1) // 2
+
+
+def state_words(text: str, levels: Sequence[str] | None, line: str) -> dict[str, str]:
+    """Plain words for a state label (DESIGN.md 3.8, R18). The one source of state words.
+
+    `grey:high black:ok natural:low | black` reads "Grey high, natural low" and
+    "Press on black". Families at one level are joined ("black and natural low"), the
+    highest level comes first, the normal level is left out, and a state where every
+    family sits at one level reads "All stock OK". A label of another shape is kept."""
+    parts = _label_parts(text)
     if parts is None:
         return {"title": text, "setup": ""}
-    shown = [f"{k} {v}" for k, v in parts["levels"].items() if v != "ok"]
-    title = ", ".join(shown).capitalize() if shown else "All stock ok"
+    names = list(levels) if levels else list(DEFAULT_LEVELS)
     setup = parts["setup"]
     if setup is None:
         where = ""
     elif setup == "idle":
-        where = f"{line.capitalize()} rests"
+        where = f"{_cap(line)} rests"
     else:
-        where = f"{line.capitalize()} on {setup}"
-    return {"title": title, "setup": where}
+        where = f"{_cap(line)} on {setup}"
+    by_level: dict[str, list[str]] = {}
+    for family, level in parts["levels"].items():
+        by_level.setdefault(level, []).append(family)
+    if len(by_level) == 1:
+        return {"title": f"All stock {_level_word(next(iter(by_level)))}", "setup": where}
+    rank = {name: i for i, name in enumerate(names)}
+    shown = sorted(
+        (lv for lv in by_level if not _is_normal(lv, names)), key=lambda lv: -rank.get(lv, -1)
+    )
+    title = ", ".join(f"{_join_and(by_level[lv])} {_level_word(lv)}" for lv in shown)
+    return {"title": _cap(title), "setup": where}
 
 
 def _graph(
-    chain: MarkovChain, episodes: int, leak_states: set[str], line: str = "line"
+    chain: MarkovChain,
+    episodes: int,
+    leak_states: set[str],
+    line: str = "line",
+    levels: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     ids = {state: f"s{i}" for i, state in enumerate(chain.states)}
     sticky = set(chain.sticky)
@@ -868,7 +910,7 @@ def _graph(
                 "id": ids[state],
                 "label": state,
                 "parts_of_label": _label_parts(state),
-                "words": _node_words(state, _label_parts(state), line),
+                "words": state_words(state, levels, line),
                 "share": _share(chain.share[state]),
                 "visits": visits,
                 "sticky": state in sticky,
@@ -900,13 +942,17 @@ def _graph(
 
 
 def _leak_rows(
-    row: PolicyResult, chain: MarkovChain | None, line: str = "line"
+    row: PolicyResult,
+    chain: MarkovChain | None,
+    line: str = "line",
+    levels: Sequence[str] | None = None,
 ) -> list[dict[str, Any]]:
     ids = {state: f"s{i}" for i, state in enumerate(chain.states)} if chain is not None else {}
     return [
         {
             "state": leak.state,
             "state_id": ids.get(leak.state),
+            "words": state_words(leak.state, levels, line),
             "share": _share(leak.share),
             "visits": leak.visits,
             "per_visit": _dollars(leak.per_visit),
@@ -1088,6 +1134,7 @@ def race_view_model(
     runs_per_year = DAYS_PER_YEAR / horizon
     base, source, warnings = _pick_baseline(project, ranked)
     line = _line_word(project)
+    level_names = [lv["name"] for lv in _levels(project)[1]] or None
     about = {
         "title": f"Policy race: {project.capsule_file.stem.removesuffix('.twin')}",
         "project": project.capsule_file.stem.removesuffix(".twin"),
@@ -1196,10 +1243,12 @@ def race_view_model(
         families=_families(project),
         example_runs=_example_runs(project, result, None if same else _typical(gaps)),
         markov={
-            name: _graph(chain, settings.episodes, leak_states.get(name, set()), line)
+            name: _graph(chain, settings.episodes, leak_states.get(name, set()), line, level_names)
             for name, chain in result.chains.items()
         },
-        leaks={r.policy: _leak_rows(r, result.chains.get(r.policy), line) for r in ranked},
+        leaks={
+            r.policy: _leak_rows(r, result.chains.get(r.policy), line, level_names) for r in ranked
+        },
         tuning=tuning,
         views=_views(result, project),
         what_if=_what_if(),
@@ -1226,4 +1275,4 @@ def _what_if() -> dict[str, Any]:
     }
 
 
-__all__ = ["KEYS", "SCHEMA_VERSION", "horizon_check", "label", "race_view_model"]
+__all__ = ["KEYS", "SCHEMA_VERSION", "horizon_check", "label", "race_view_model", "state_words"]
