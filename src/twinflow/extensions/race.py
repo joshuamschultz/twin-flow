@@ -161,7 +161,16 @@ class PolicyResult:
     leaks: tuple[Leak, ...] = ()
     avg_stock: float | None = None  # mean units on hand at the end of a day, all products
     lost_units: float | None = None  # units of demand not met, per run
+    stock_by_day: tuple[float, ...] = ()  # mean units on hand, all products, after each day
+    stock_start: float | None = None  # mean units on hand before the first day
+    stock_end: float | None = None  # mean units on hand after the last day
+    out_share: Mapping[str, float] = field(default=_EMPTY)  # share of days under 1 day of stock
     extra: Mapping[str, Any] = field(default=_EMPTY)
+
+    @property
+    def stock_peak(self) -> float | None:
+        """The highest day of the mean stock line."""
+        return max(self.stock_by_day) if self.stock_by_day else None
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -182,6 +191,10 @@ class PolicyResult:
             "idle_share": self.idle_share,
             "avg_stock": self.avg_stock,
             "lost_units": self.lost_units,
+            "stock_by_day": list(self.stock_by_day),
+            "stock_start": self.stock_start,
+            "stock_end": self.stock_end,
+            "out_share": dict(self.out_share),
             "money_leaks": [leak.to_json() for leak in self.leaks],
             "episode_score": list(self.episode_score),
             "episode_dollars": list(self.episode_dollars),
@@ -454,11 +467,20 @@ class _Tally:
     decisions: int = 0
     stock: float = 0.0  # units on hand after each move, summed over moves
     lost: float = 0.0
+    stock_days: list[float] = field(default_factory=list)  # total units after day i, summed
+    runs_days: list[int] = field(default_factory=list)  # episodes that reached day i
+    start: float = 0.0  # units on hand before the first move, summed over episodes
+    end: float = 0.0  # units on hand after the last move, summed over episodes
+    out: dict[str, int] = field(default_factory=dict)  # days under 1 day of stock, by product
 
     def add(self, moves: Sequence[Move]) -> None:
         family = self.project.facts.family
+        rate = self.project.facts.demand_rate
         scores, dollars = [], []
-        for move in moves:
+        if moves:
+            self.start += sum(moves[0].before.stock.values())
+            self.end += sum(moves[-1].after.stock.values())
+        for day, move in enumerate(moves):
             try:
                 score = call_checked(self.reward, (move,), validate=_score_check)
             except ExtensionFailed as failed:
@@ -475,7 +497,16 @@ class _Tally:
                     self.asked += value
                 elif key.startswith("lost."):
                     self.lost += value
-            self.stock += sum(move.after.stock.values())
+            on_hand = sum(move.after.stock.values())
+            self.stock += on_hand
+            if day == len(self.stock_days):
+                self.stock_days.append(0.0)
+                self.runs_days.append(0)
+            self.stock_days[day] += on_hand
+            self.runs_days[day] += 1
+            for thing, units in move.after.stock.items():
+                short = units < rate.get(thing, 0.0)
+                self.out[thing] = self.out.get(thing, 0) + short
             self.decisions += 1
             self.idle += move.action == "idle"
             for line, before in move.before.setup.items():
@@ -525,6 +556,10 @@ def _result(
         idle_share=tally.idle / max(1, tally.decisions),
         avg_stock=tally.stock / tally.decisions if tally.decisions else None,
         lost_units=tally.lost / episodes,
+        stock_by_day=tuple(s / n for s, n in zip(tally.stock_days, tally.runs_days, strict=True)),
+        stock_start=tally.start / episodes if episodes else None,
+        stock_end=tally.end / episodes if episodes else None,
+        out_share=MappingProxyType({p: n / max(1, tally.decisions) for p, n in tally.out.items()}),
         score=stat(episode_score, level),
         dollars=stat(episode_dollars, level),
         cumulative_score=band(daily_score),

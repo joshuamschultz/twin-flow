@@ -18,7 +18,7 @@ import pytest
 
 from twinflow.extensions.project import Project, RaceSettings
 from twinflow.extensions.race import RaceResult, race, stat
-from twinflow.extensions.report_model import KEYS, race_view_model
+from twinflow.extensions.report_model import KEYS, label, race_view_model
 
 MakeProject = Callable[..., Path]
 QUICK = {"episodes": 6, "seed": 3, "tune_episodes": 2, "top_policies": 2}
@@ -56,7 +56,7 @@ def test_recommendation_and_baseline(golden: tuple[RaceResult, dict]) -> None:
     assert model["baseline"]["source"] == "setting"
     assert model["recommendation"]["same_as_baseline"] is False
     sentence = model["recommendation"]["sentence"]
-    assert best.policy in sentence and "lowest_cover" in sentence
+    assert label(best.policy) in sentence and "Lowest cover" in sentence  # B-05 R20: labels
 
 
 def test_money_per_run_and_per_year(golden: tuple[RaceResult, dict]) -> None:
@@ -87,7 +87,8 @@ def test_floor_changes_against_the_baseline(golden: tuple[RaceResult, dict]) -> 
     result, model = golden
     best, base = result.ranking()[0], result.result("lowest_cover")
     floor = {row["key"]: row for row in model["floor"]}
-    assert set(floor) == {"changeovers", "cross_family", "fill_rate", "avg_stock", "lost_units"}
+    # B-05 R21: cross_family is folded into the changeovers note, rest_days is new
+    assert set(floor) == {"changeovers", "fill_rate", "avg_stock", "rest_days", "lost_units"}
     row = floor["changeovers"]
     assert row["change"] == pytest.approx(best.changeovers - base.changeovers, abs=0.05)
     assert row["better"] == (best.changeovers < base.changeovers)
@@ -118,8 +119,9 @@ def test_an_example_run_for_the_top_policies_and_the_baseline(
     assert len(products) == 12 and all(p["low_stock"] > 0 for p in model["products"])
     assert set(model["example_runs"]) == set(result.kept)
     run = model["example_runs"]["lowest_cover"]
-    assert run["episode"] == 0 and len(run["days"]) == 60
-    moves = [m for m in result.moves("lowest_cover")][:60]
+    typical = model["example_runs"][result.ranking()[0].policy]["episode"]
+    assert run["episode"] == typical and len(run["days"]) == 60  # B-05 R9: the typical run
+    moves = list(result.moves("lowest_cover"))[60 * typical : 60 * (typical + 1)]
     for day, move in zip(run["days"], moves, strict=True):
         assert day["day"] == move.index + 1
         assert set(day["stock"]) == set(products)
@@ -161,7 +163,7 @@ def test_keep_running_when_the_baseline_wins(shared_project: MakeProject) -> Non
     result = race(project, ["lowest_cover", "idle"])
     model = race_view_model(result, project)
     assert model["recommendation"]["same_as_baseline"] is True
-    assert model["recommendation"]["sentence"].startswith("Keep running lowest_cover")
+    assert model["recommendation"]["sentence"].startswith("Keep running Lowest cover")
     assert model["delta"]["per_run"] == 0
     assert model["confidence"]["level"] == "same_policy"
 
