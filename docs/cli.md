@@ -5,6 +5,23 @@
 Every command returns a process exit code (0 = success) and never raises past the
 boundary. Run inside your virtualenv (`. .venv/bin/activate`).
 
+## Report pages
+
+Several commands write an HTML page. Each page is one file that works offline. Open it in
+a web browser. The commands print the path of the page they wrote.
+
+| Page | Written by | What it answers |
+|------|------------|-----------------|
+| `race.html` | `twinflow policies race`, `twinflow improve` | Which rule earns the most, and by how much? |
+| `report.html` | `twinflow run`, `twinflow report` | Will my orders finish on time, where is the choke point, and what one change helps most? |
+| `sweep.html` | `twinflow balance`, `twinflow optimize` | Which lever value helps most, and how sure are we? |
+| `states.html` | `twinflow states --html`, `twinflow markov --html` | Which situations does the plant live in, and where does it lose money? |
+| `improve.html` | `twinflow improve` | Did the new rule win, and can I trust the result? |
+| `project.html` | `twinflow extensions check --html` | What is broken, what does the twin hold, and which rules can race? |
+
+The DECISIONS pages in the workspace show the same views for every race, run, sweep and
+state map that was published. See [`docs/frontend.md`](frontend.md).
+
 ## `twinflow validate <model>`
 
 Check a `model.yaml` before running. Prints one line per problem found (path +
@@ -25,7 +42,10 @@ resource tables described in [data contracts](data.md).
 twinflow run examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv --reps 30
 ```
 
-Use `--reps` greater than 1 to estimate confidence intervals — the report shows a
+The command prints the run id and the path of `report.html`. Open `report.html` in a browser.
+To write it again later, run `twinflow report <run-id> --out html`.
+
+Use `--reps` greater than 1 to estimate confidence intervals. The report shows a
 mean and interval for supported aggregate metrics.
 
 The console summary shows completed orders out of the total, on-time count and percentage,
@@ -92,7 +112,7 @@ Use it after `twinflow balance --run <run-id>` so the run viewer shows the teste
 
 Search an integer lever space for the scenario a named objective prefers, via a named
 optimizer, and print the winner with its confidence band. Repeat `--lever` for more
-than one knob. The twin scores the options; it proposes no commit — the decision stays
+than one knob. The twin scores the options; it proposes no commit. The decision stays
 yours.
 
 ```bash
@@ -110,7 +130,7 @@ twinflow optimize examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv
 | `--reps` | 12 | replications per evaluation (the confidence band) |
 | `--seed` | 0 | seeds the optimizer's own randomness |
 
-## `twinflow states <run_dir> [--view NAME] [--top K] [--project DIR]`
+## `twinflow states <run_dir> [--view NAME] [--top K] [--project DIR] [--html]`
 
 Summarise the moves a run captured. `run_dir` is one run folder, or a folder that holds
 replication folders (the `--out` folder of `twinflow scenario run`). The summary shows how
@@ -122,6 +142,9 @@ production, setup, holding, lost sales, late).
 twinflow scenario run examples/molding-press/molding-press.twin.yaml --reps 2 --out out
 twinflow states out --view full --top 5
 ```
+
+Add `--html` to also write `states.html` into the run folder. The page answers: which
+situations does the plant live in, which ones cost money, and where does the money go.
 
 A make-to-stock run writes its moves by itself. A factory (discrete-event) run writes them
 only when the capsule has `experiment.state_capture`, for example
@@ -136,7 +159,7 @@ a factory run, the command prints a note and uses the `full` view. The views you
 are used too. If a run has only a few moves, `states` says so and tells you to lower
 `experiment.state_capture.every_hours`.
 
-## `twinflow markov <run_dir> [--view NAME] [--top K] [--min-prob P] [--out DIR] [--project DIR]`
+## `twinflow markov <run_dir> [--view NAME] [--top K] [--min-prob P] [--out DIR] [--project DIR] [--html]`
 
 Estimate how the plant moves from state to state, print the top states and the likely
 moves, and write `markov.json` and `markov.mmd` (a Mermaid chart) into the run folder, or
@@ -147,6 +170,8 @@ for `twinflow states`.
 ```bash
 twinflow markov out --view simple --top 8
 ```
+
+Add `--html` to also write `states.html`, the same page as `twinflow states --html`.
 
 Exit codes for both commands: 0 ok, 1 a problem you can fix (the message names the path and
 the fix), 2 an internal failure.
@@ -167,7 +192,11 @@ and 0 otherwise.
 ```bash
 twinflow extensions list examples/molding-press
 twinflow extensions check examples/molding-press
+twinflow extensions check examples/molding-press --html
 ```
+
+`check --html` also writes `project.html` into the project folder. The page answers: what is
+broken, what the twin holds, and which rules can race. It lists the problems first.
 
 A folder that does not exist, or has no capsule, gives exit 1 with a message that names the
 path and the fix.
@@ -202,6 +231,21 @@ policy it had to skip and why, and prints the path of `race.html`.
 | `--seed S` | The seed for the demand draws. |
 | `--out DIR` | Where to write `race.json` and `race.html`. The default is `<project>/runs/race-<UTC time>/`. |
 | `--observation NAME` | What the policies may see, like `bucketed`. The default is the capsule's `experiment.observation`. |
+| `--workspace DIR` | Publish the race into a workspace folder, so it shows on the DECISIONS pages. The default is `$TWINFLOW_WORKSPACE_ROOT`, when that is set. |
+
+`race.html` answers: which rule earns the most, is the gain real, and when does it pull ahead
+of today's rule. The page has these parts: why the pick wins, all rules side by side, a floor
+replay, a what-if panel for your own cost numbers, and the details.
+
+To see the race in the workspace, publish it and start the service with the same folder:
+
+```bash
+twinflow policies race examples/molding-press --episodes 20 --workspace .twinflow-workspace
+twinflow serve --workspace-root .twinflow-workspace
+```
+
+Then open DECISIONS > Rule races in the web app. Set `TWINFLOW_WORKSPACE_ROOT` once to skip the
+`--workspace` flag.
 
 The race also writes `scenario.json` beside `race.json`, so `twinflow states` and
 `twinflow markov` can read the kept moves in `policies/<name>/` with the plant's own views
@@ -235,6 +279,8 @@ fails to load or breaks, or a project with no policies gives exit 1.
 - `improve.json` (in `--out`, default `<project>/runs/improve-<UTC time>/`) holds the proof:
   both policies, their settings, both ranges, the seeds and the reason. `race.json` and
   `race.html` are written next to it.
+- `improve.html` is the page for the same result. It answers: did the new rule win, can you
+  trust it (a checklist of passes and fails), and how did the two rules do. Open it in a browser.
 
 ## `twinflow new <folder> --template NAME` and `twinflow new --list`
 
@@ -258,7 +304,7 @@ empty, and changes nothing. The `job-shop` template is a discrete-event twin: ru
 `twinflow scenario run`, then read it with `twinflow states`. `policies race` and
 `extensions check` are for make-to-stock and custom projects.
 
-## `twinflow serve [--host --port --models-root]`
+## `twinflow serve [--host --port --models-root --workspace-root]`
 
 Start the local REST API (needs the `api` extra). Defaults to `127.0.0.1:8000` and
 serves the example floors under `examples/`.
@@ -266,6 +312,10 @@ serves the example floors under `examples/`.
 ```bash
 twinflow serve --port 8000
 ```
+
+`--workspace-root` is the folder the DECISIONS pages read. The default is
+`.twinflow-workspace`. Races published with `--workspace` or `TWINFLOW_WORKSPACE_ROOT` appear
+there.
 
 See [api.md](api.md) for the endpoints and [frontend.md](frontend.md) for the UI.
 

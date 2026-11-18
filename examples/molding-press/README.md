@@ -57,6 +57,59 @@ The file has a short view named `simple`. It gives each day a label such as
 amount of stock, and the press is set for grey. Later tools use these
 labels to draw a map of how the plant moves from day to day.
 
+## Race the rules and open the reports
+
+Race every built-in rule and the two rule files on the same random demand:
+
+```bash
+twinflow policies race examples/molding-press --episodes 20 --out runs/race
+```
+
+Open `runs/race/race.html` in a web browser. It answers two questions: which rule earns the
+most, and is the gain real? The table in the terminal shows the same ranking.
+
+Look at the state map of the best rule. Add `--html` to also write `states.html`:
+
+```bash
+twinflow states runs/race/policies/family_campaign --view simple --top 5 --html
+```
+
+Open `runs/race/policies/family_campaign/states.html`. It shows the situations the plant
+lives in, and which ones cost money.
+
+To check the rule files and the project, write `project.html` into the project folder:
+
+```bash
+twinflow extensions check examples/molding-press --html
+```
+
+Open `examples/molding-press/project.html`. It lists any problems first, then what the twin
+holds and which rules can race.
+
+## Test a new rule
+
+`candidates/keep_stocked.py` is a rule to try. It is `lowest_stock_first` with a higher stop
+point. `improve` races it against your current rules on the same demand:
+
+```bash
+twinflow improve examples/molding-press --candidate examples/molding-press/candidates/keep_stocked.py --out runs/improve
+```
+
+Open `runs/improve/improve.html`. It shows whether the new rule won, a checklist that says
+whether the result can be trusted, and how the two rules did. The rule is copied into
+`policies/` only when it wins. With the settings above, this rule does not win, so nothing is copied.
+
+## Publish to the workspace
+
+To see these races on the DECISIONS pages of the web app, publish one into a workspace folder:
+
+```bash
+twinflow policies race examples/molding-press --episodes 20 --workspace .twinflow-workspace
+```
+
+Then start the service with the same folder, and open DECISIONS > Rule races. See
+[`docs/frontend.md`](../../docs/frontend.md).
+
 ## What this shows
 
 The press itself is not the problem. The order of work is. A rule that

@@ -36,7 +36,8 @@ twinflow states runs/capture --view full --top 5
 twinflow markov runs/capture --view full --top 4
 ```
 
-Each `run` prints a folder under `runs/` with a `report.html` to open in a web browser.
+Each `run` prints a folder under `runs/` with a `report.html` to open in a web browser. Each `balance` prints the path of a `sweep.html`, which compares the sweep's points.
+Add `--html` to `twinflow states` or `twinflow markov` to also write a `states.html` page.
 
 ## Good to know
 

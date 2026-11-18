@@ -41,6 +41,9 @@ twinflow improve . --candidate candidates/campaign_guard_key_items.py --out runs
 ```
 
 Open `runs/race/race.html` in a web browser for the full race report.
+`improve` writes `runs/improve/improve.html` with the proof: whether the new rule won, and whether
+the result can be trusted. `twinflow states` and `twinflow markov` write a `states.html` page when
+you add `--html`.
 
 `improve` copies the candidate into `policies/` when it wins. To start over, delete
 `policies/campaign_guard_key_items.py` and the `runs/` folder.
