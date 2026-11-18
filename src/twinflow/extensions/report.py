@@ -2,8 +2,9 @@
 
 `race_html(result)` turns a `RaceResult` into one page a planner can open with no network:
 Plotly and Mermaid are inlined once from the report package (D-026), and nothing in our own
-markup points at the web. `write_race_report(result, path)` writes it (the CLI writes
-`race.html` next to `race.json`).
+markup points at the web. Since TF-006 B-14 the CLI's `race.html` is the decision view
+(`write_race_report`, built by twinflow.report.decision); this page is kept as
+`write_legacy_race_report` until B-33 removes it.
 
 Sections, in order (`SECTIONS`): a summary, the ranking (score and dollars side by side,
 D-152), profit over time with bands, where the money goes, rank by day, the tuning trials,
@@ -422,12 +423,23 @@ def race_html(result: RaceResult) -> str:
     return head + "".join(sections) + tail + "\n"
 
 
-def write_race_report(result: RaceResult, path: Path | str) -> Path:
-    """Write the race report to `path` (usually `race.html` next to `race.json`)."""
+def write_legacy_race_report(result: RaceResult, path: Path | str) -> Path:
+    """The old Plotly page (`race_html`). Kept only for the transition; B-33 removes it."""
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(race_html(result), encoding="utf-8")
     return out
 
 
-__all__ = ["SECTIONS", "race_html", "write_race_report"]
+def write_race_report(result: RaceResult, path: Path | str, *, long_check: bool = True) -> Path:
+    """Write the race as the decision view (TF-006 T-270, B-14): `race.html` next to
+    `race.json`. With `long_check`, the pick and the baseline also run for 180 days so the
+    yearly figure can be checked on the first screen (owner decision 1)."""
+    from twinflow.extensions.report_model import horizon_check, race_view_model
+    from twinflow.report import decision
+
+    check = horizon_check(result.project, result) if long_check else None
+    return decision.write(path, race_view_model(result, result.project, long_check=check))
+
+
+__all__ = ["SECTIONS", "race_html", "write_legacy_race_report", "write_race_report"]
