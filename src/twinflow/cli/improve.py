@@ -86,6 +86,8 @@ def _baseline(project: Project, candidate: Extension) -> tuple[list[str], str]:
     own = [p.name for p in policies if p.source != "builtin" and p is not candidate]
     if own:
         return own, "the policies in this project"
+    if project.engine_extension is not None:  # built-ins only fit make-to-stock twins
+        return [], "the policies in this project"
     return [
         p.name for p in policies if p is not candidate
     ], "the built-in policies (this project has none)"

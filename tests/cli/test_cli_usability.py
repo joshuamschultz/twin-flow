@@ -114,3 +114,42 @@ def test_report_prints_the_path_it_confirmed(
     (run / "report.html").write_text("<html></html>", encoding="utf-8")
     code, out, _ = _run(capsys, "report", "abc", "--out", "html")
     assert code == 0 and str(Path("runs") / "abc" / "report.html") in out
+
+
+def test_race_with_a_misspelled_score_is_a_user_error_that_lists_the_names(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _edit(project, "  seed: 2024\n", "  seed: 2024\n  score: dolars\n")
+    code, _, err = _run(capsys, "policies", "race", str(project), "--episodes", "2")
+    assert code == 1
+    assert "experiment.score" in err and "dollars" in err and "internal error" not in err
+
+
+@pytest.fixture
+def bakery(tmp_path: Path) -> Path:
+    folder = tmp_path / "bakery"
+    assert main(["new", str(folder), "--template", "custom-engine"]) == 0
+    return folder
+
+
+def test_custom_engine_race_leaves_built_in_rules_out(
+    bakery: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = _run(capsys, "policies", "race", str(bakery), "--episodes", "2")
+    assert code == 0
+    assert "bake_the_lowest" in out
+    assert "abc_wheel" not in out and "Skipped policies" not in out
+    assert "make-to-stock" in out
+
+
+def test_policies_list_counts_the_same_problems_as_check(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (project / "policies" / "bad_action.py").write_text(
+        "NAME = 'wild'\n\n\ndef decide(state):\n    return 'no-such-product'\n", encoding="utf-8"
+    )
+    code, check_out, _ = _run(capsys, "policies", "check", str(project))
+    assert code == 1
+    _, out, _ = _run(capsys, "policies", "list", str(project))
+    row = next(line for line in out.splitlines() if line.startswith("wild"))
+    assert row.split()[-1] == "1"
