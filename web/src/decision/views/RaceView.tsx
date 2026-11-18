@@ -4,6 +4,8 @@ import { CautionCards } from "../CautionCards";
 import { GapLine } from "../GapLine";
 import { DecisionHero } from "../hero";
 import { Leaderboard } from "../Leaderboard";
+import { ReplayLanes } from "../ReplayLanes";
+import { replayRuns } from "../replay";
 import { Page, type SectionRef } from "../Page";
 import { Card, EmptyState, Section, SectionLink } from "../primitives";
 import {
@@ -31,7 +33,6 @@ const NO_COMPARE: SectionRef[] = [
 const COMING = [
   "Compare two rules side by side",
   "What if my costs are different",
-  "Floor replay, day by day",
   "State map",
   "Money leaks",
   "Tuning",
@@ -63,13 +64,22 @@ export function RaceView({ model }: { model: RaceViewModel }) {
   const board = leaderboard(model);
   const a = model.about;
   const runs = model.confidence?.runs ?? a.episodes;
+  const replay = replayRuns(model);
+  const base = compared ? SECTIONS : NO_COMPARE;
+  const sections = replay.length
+    ? [
+        ...base.slice(0, -1),
+        { id: "replay", label: "Floor replay" },
+        ...base.slice(-1),
+      ]
+    : base;
   return (
     <Page
       view="race"
       title="Policy race"
       project={a.project}
       scope={`${a.episodes} runs of ${a.horizon_days} days · same customer orders for every rule`}
-      sections={compared ? SECTIONS : NO_COMPARE}
+      sections={sections}
       footer={
         <>
           twinflow policy race · {a.project} · {a.policies_raced} rules,{" "}
@@ -155,6 +165,23 @@ export function RaceView({ model }: { model: RaceViewModel }) {
             />
           </Card>
         </Section>
+        {replay.length > 0 && (
+          <Section
+            id="replay"
+            eyebrow="Floor replay"
+            question={`What does a normal ${a.horizon_days} days look like on the floor?`}
+            hint="One typical run, same customer orders for both rules. Drag the day, or click a chart."
+          >
+            <Card>
+              <ReplayLanes
+                runs={replay}
+                products={model.products}
+                families={model.families}
+                economics={model.economics}
+              />
+            </Card>
+          </Section>
+        )}
         <Section id="details" eyebrow="Details" question="The full numbers">
           <EmptyState
             title="More of this report is on the way."
