@@ -36,6 +36,9 @@ Readings [mine]:
 - Calendar slowdown: in the center subproblem a machine's run is divided by the working
   share of its calendar span (1 without a calendar), so a machine that works half the time
   counts as half as fast; the graph keeps the plain runs.
+- Cross-center options: work centers whose ops share an option machine (a substitute
+  center's machine, `ProcessingOption.work_center_id`) form one subproblem keyed by the
+  smallest center id, so every machine is sequenced by exactly one subproblem.
 - `evaluate` (the solver passes its `Scorer` key over `fast_values` of the decoded plan)
   judges re-optimization by the solver's real objective, calendars included.
 
@@ -67,7 +70,7 @@ import numpy.typing as npt
 
 from twinflow.scheduling.kernel.decode import decode
 from twinflow.scheduling.kernel.graph import DisjunctiveGraph
-from twinflow.scheduling.kernel.index import Calendar, ProblemIndex
+from twinflow.scheduling.kernel.index import Calendar, OpData, ProblemIndex
 from twinflow.scheduling.kernel.score import Scorer, fast_values
 from twinflow.scheduling.kernel.stats import InstanceStats
 from twinflow.scheduling.model import ObjectiveSpec, Problem, Schedule, ScheduleIssue
@@ -209,12 +212,16 @@ class _ShiftingBottleneck:
         self._choice = {op.id: self._fastest_option(op.id) for op in index.ops}
         self._prefix: dict[str, tuple[str, ...]] = {}
         self._center_ops: dict[str, list[str]] = {}
+        open_ops = []
         for op in index.ops:
             if op.in_progress is not None:
                 machine_id = self._choice[op.id]
                 self._prefix[machine_id] = (*self._prefix.get(machine_id, ()), op.id)
             else:
-                self._center_ops.setdefault(op.work_center_id, []).append(op.id)
+                open_ops.append(op)
+        group = _center_groups(open_ops)
+        for op in open_ops:
+            self._center_ops.setdefault(group[op.work_center_id], []).append(op.id)
         self._center_machines = {
             center: tuple(sorted({o.machine_id for op_id in ops for o in index.op(op_id).options}))
             for center, ops in self._center_ops.items()
@@ -448,6 +455,34 @@ class _ShiftingBottleneck:
         self._insert(center, result.sequences)
         if _rises(self._objective(), before):
             self._restore(center, saved)
+
+
+def _center_groups(ops: Sequence[OpData]) -> dict[str, str]:
+    """Each op center's subproblem key: centers that share an option machine are one group.
+
+    A cross-center option (`ProcessingOption.work_center_id`) puts a machine of another
+    center among an op's options; both centers then sequence that machine, so they are
+    solved as one subproblem keyed by the smallest center id. Without such options every
+    center is its own group (Pinedo p.212 as before).
+    """
+    parent: dict[str, str] = {}
+
+    def find(center: str) -> str:
+        while parent.setdefault(center, center) != center:
+            center = parent[center]
+        return center
+
+    def union(a: str, b: str) -> None:
+        root_a, root_b = find(a), find(b)
+        if root_a != root_b:
+            parent[max(root_a, root_b)] = min(root_a, root_b)
+
+    owner: dict[str, str] = {}
+    for op in ops:
+        find(op.work_center_id)
+        for option in op.options:
+            union(owner.setdefault(option.machine_id, op.work_center_id), op.work_center_id)
+    return {center: find(center) for center in parent}
 
 
 def _rises(after: tuple[float, ...], before: tuple[float, ...]) -> bool:

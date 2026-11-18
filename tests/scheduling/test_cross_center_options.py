@@ -175,3 +175,75 @@ def test_ortools_solves_a_substitute_center_option_verified() -> None:
     assert result.verified is True, result.issues
     (assignment,) = result.schedule.assignments
     assert assignment.machine_id == "form-1"
+
+
+# --- every registered solver (TF-003 merge) ----------------------------------------------------
+
+
+def _shared_substitute_request() -> SolveRequest:
+    """Two grind jobs may use form-1 as a substitute while two form jobs need it too.
+
+    form-1 then carries ops of two centers. A solver that sequences work per center must
+    still give one consistent order on form-1, or refuse.
+    """
+    jobs = []
+    for k in range(2):
+        grind_op = Operation(
+            id=f"G{k}:10",
+            work_center_id=GRIND,
+            quantity=1.0,
+            options=(_option("grind-1", 300.0), _option("form-1", 100.0, work_center_id=FORM)),
+        )
+        form_op = Operation(
+            id=f"F{k}:10", work_center_id=FORM, quantity=1.0, options=(_option("form-1", 80.0),)
+        )
+        jobs += [
+            Job(id=f"G{k}", due=200.0, operations=(grind_op,)),
+            Job(id=f"F{k}", due=200.0, operations=(form_op,)),
+        ]
+    problem = Problem(
+        id="p",
+        jobs=tuple(jobs),
+        machines=(
+            Machine(id="grind-1", work_center_id=GRIND),
+            Machine(id="form-1", work_center_id=FORM),
+        ),
+        work_centers=(WorkCenter(id=GRIND), WorkCenter(id=FORM)),
+    )
+    return SolveRequest(schema_version="2.0", problem=problem)
+
+
+def _registered_names() -> list[str]:
+    from twinflow.scheduling import available_solvers
+
+    return [info.name for info in available_solvers()]
+
+
+@pytest.mark.parametrize("name", _registered_names())
+def test_every_registered_solver_verifies_a_shared_substitute_machine(name: str) -> None:
+    from twinflow.scheduling import get_solver
+    from twinflow.scheduling.seam import OptionalDependencyError
+
+    try:
+        solver = get_solver(name)
+    except OptionalDependencyError:
+        pytest.skip(f"{name} needs an optional extra")
+    result = solve(_shared_substitute_request(), solver=solver, budget_seconds=5.0)
+
+    codes = [issue.code for issue in result.issues]
+    if result.schedule.status in ("FEASIBLE", "OPTIMAL"):
+        assert result.verified is True, (name, result.issues)
+    else:
+        assert codes, (name, result.schedule.status)
+        assert "solver_error" not in codes, (name, result.issues)
+
+
+@pytest.mark.parametrize("name", ["sb_makespan", "sb_wt"])
+def test_shifting_bottleneck_sequences_a_machine_shared_by_two_centers(name: str) -> None:
+    # Centers whose options share a machine form one subproblem, so form-1 gets one sequence.
+    from twinflow.scheduling import get_solver
+
+    result = solve(_shared_substitute_request(), solver=get_solver(name), budget_seconds=5.0)
+
+    assert result.verified is True, result.issues
+    assert len(result.schedule.assignments) == 4
