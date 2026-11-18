@@ -524,6 +524,16 @@
       "items": {
         "type": "string"
       }
+    },
+    "early_leader": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EarlyLeader"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -1437,6 +1447,9 @@
           "items": {
             "$ref": "#/$defs/Trial"
           }
+        },
+        "words": {
+          "type": "string"
         }
       },
       "required": [
@@ -1554,6 +1567,27 @@
         "output_lost"
       ],
       "additionalProperties": false
+    },
+    "EarlyLeader": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "words": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "label",
+        "words"
+      ],
+      "additionalProperties": false,
+      "title": "EarlyLeader"
     }
   }
 }

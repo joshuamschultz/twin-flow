@@ -72,6 +72,7 @@ KEYS = (
     "cautions",
     "economics",
     "problems",
+    "early_leader",
     "agent_summary",
 )
 PART_WORDS = {
@@ -920,6 +921,32 @@ def _leak_rows(
     ]
 
 
+def _setting_words(settings: Mapping[str, Any]) -> str:
+    """One setting for people: `{"target_days": 16.0}` is `target days 16`."""
+    parts = []
+    for key, value in settings.items():
+        shown = f"{value:g}" if isinstance(value, float) else str(value)
+        parts.append(f"{key.replace('_', ' ')} {shown}")
+    return ", ".join(parts)
+
+
+def _tuning_words(rows: Sequence[Mapping[str, Any]], touchy: bool) -> str:
+    """The one sentence under a rule's tuning line (DESIGN 3.10)."""
+    scored = [r for r in rows if r["dollars"] is not None]
+    if len(rows) < 2 or len(scored) < 2:
+        return "Only one setting could be tried, so there is nothing to compare."
+    best = max(scored, key=lambda r: r["dollars"])
+    worst = min(scored, key=lambda r: r["dollars"])
+    gap = best["dollars"] - worst["dollars"]
+    words = (
+        f"{_setting_words(best['settings'])} gave the most profit. "
+        f"{_setting_words(worst['settings'])} gave the least, {_money(gap)} less per run."
+    )
+    if touchy:
+        return words + " This rule is touchy. Check its setting again when demand changes."
+    return words + " The settings were close, so a wrong pick costs little."
+
+
 def _tuning(result: RaceResult) -> list[dict[str, Any]]:
     chosen = {r.policy: _settings(r.settings) for r in result.ranking()}
     groups: dict[str, list[dict[str, Any]]] = {}
@@ -950,6 +977,7 @@ def _tuning(result: RaceResult) -> list[dict[str, Any]]:
                 "trials": rows,
                 "spread": _dollars(spread),
                 "touchy": touchy,
+                "words": _tuning_words(rows, touchy),
             }
         )
     return out
@@ -1208,9 +1236,29 @@ def race_view_model(
         cautions=_cautions(best, base, project, timing, confidence, tuning, horizon, long_check),
         economics=_economics(project),
         problems=_problems(result),
+        early_leader=early_leader_block(result, best.policy),
     )
     model["agent_summary"] = _agent_summary(model)
     return model
+
+
+def early_leader_block(result: Any, pick: str | None) -> dict[str, Any] | None:
+    """Who led after day 1, and when the pick caught up (the old race report's rank note)."""
+    leader = result.early_leader
+    if leader is None:
+        return None
+    name = label(leader)
+    words = f"{name} led after day 1."
+    if pick is None:
+        words += " Leaders early are not always leaders late."
+    elif leader == pick:
+        words += " It kept the lead to the end."
+    else:
+        words += " Leaders early are not always leaders late."
+        day = result.first_day_passed(leader, pick)
+        if day is not None:
+            words += f" {label(pick)} passed it on day {day}."
+    return {"policy": leader, "label": name, "words": words}
 
 
 def _what_if() -> dict[str, Any]:
@@ -1226,4 +1274,11 @@ def _what_if() -> dict[str, Any]:
     }
 
 
-__all__ = ["KEYS", "SCHEMA_VERSION", "horizon_check", "label", "race_view_model"]
+__all__ = [
+    "KEYS",
+    "SCHEMA_VERSION",
+    "early_leader_block",
+    "horizon_check",
+    "label",
+    "race_view_model",
+]
