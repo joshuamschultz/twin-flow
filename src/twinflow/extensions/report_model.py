@@ -658,7 +658,8 @@ def horizon_check(
         "low_per_year": None if paired.low is None else _dollars(paired.low * scale),
         "high_per_year": None if paired.high is None else _dollars(paired.high * scale),
         "pass_day": _pass_day(np.cumsum(mine - theirs, axis=1).mean(axis=0)),
-        "words": f"A {days}-day check gives about {_money(round(abs(per_year), -2))} {more} a year.",
+        "words": f"A {days}-day check gives about {_money(round(abs(per_year), -2))} {more} "
+        "a year.",
     }
 
 
