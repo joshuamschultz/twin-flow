@@ -88,3 +88,13 @@ class Solver(Protocol):
         budget_seconds: float,
         context: SolveContext,
     ) -> Schedule: ...
+
+
+def enforces_budget(solver: Solver) -> bool:
+    """True when `solver` checks `SolveContext.deadline` and so stops at its budget (D-070).
+
+    A solver declares it with a class attribute `enforces_budget = True`. One without the
+    attribute, or one that cannot be interrupted (it ignores the deadline), reports false,
+    so `Schedule.budget_enforced` and `time_limit_applied` never overclaim.
+    """
+    return getattr(solver, "enforces_budget", False) is True

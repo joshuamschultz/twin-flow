@@ -46,7 +46,7 @@ import math
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import ClassVar, Literal
 
 from twinflow.scheduling.kernel.dispatch import (
     DispatchEngine,
@@ -405,6 +405,8 @@ class AtcsSolver:
     `k_lookup` is a constructor argument (`registry.get("atcs", k_lookup=...)`); scalar
     settings come from `context.params` per solve.
     """
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ("_k_lookup", "_name", "_setups")
 

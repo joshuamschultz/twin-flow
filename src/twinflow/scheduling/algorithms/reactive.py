@@ -12,6 +12,7 @@ position its previous start gives (`_previous_layout`). A previous order that co
 the job links gives UNKNOWN `sequence_cycle`. Rush jobs are the jobs with an op absent from
 the previous plan (problem order); their absent ops are the rush ops. For each rush job,
 P = the jobs with a due date and a weight strictly above the rush job's; T_k(base) comes
+from typing import ClassVar
 from the decode of the plan before the job is inserted. Each rush op, in route order, tries
 every eligible machine and position in (added setup, estimated completion, machine id,
 position) order, where added = s(prev, o) + s(o, next) - s(prev, next) (no next:
@@ -86,6 +87,7 @@ import math
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 import numpy as np
 import numpy.typing as npt
@@ -785,6 +787,8 @@ def _previous_sequences_plan(
 
 class RescheduleSolver:
     """`reschedule` behind the `Solver` seam (COMP-020); `churn_weight` is the default."""
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ("_churn_weight",)
 

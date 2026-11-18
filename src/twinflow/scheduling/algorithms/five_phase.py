@@ -57,6 +57,7 @@ import math
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import ClassVar
 
 from twinflow.scheduling.calendar_math import work_seconds
 from twinflow.scheduling.kernel.decode import Decoded, decode
@@ -476,6 +477,8 @@ def _number(params: Mapping[str, ParamValue], name: str, default: float) -> floa
 
 class FivePhaseSolver:
     """The five-phase procedure behind the `Solver` seam (COMP-014)."""
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ()
 

@@ -50,7 +50,7 @@ import time
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import ClassVar, Protocol
 
 from twinflow.scheduling import registry
 from twinflow.scheduling.kernel.decode import Decoded, decode
@@ -529,6 +529,8 @@ def _anneal(
 
 class LocalSearchSolver:
     """Tabu search or simulated annealing behind the `Solver` seam (COMP-018)."""
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ("_name", "_search", "_validate")
 

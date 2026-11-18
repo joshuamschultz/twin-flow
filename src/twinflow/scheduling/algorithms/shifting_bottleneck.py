@@ -63,7 +63,7 @@ import math
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -545,6 +545,8 @@ def _decoded_key(index: ProblemIndex, objective: ObjectiveSpec, context: SolveCo
 
 class ShiftingBottleneckSolver:
     """`sb_makespan` / `sb_wt` behind the `Solver` seam: run, decode, return FEASIBLE."""
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ("_mode", "_name")
 

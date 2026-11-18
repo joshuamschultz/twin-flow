@@ -41,6 +41,7 @@ import math
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import ClassVar
 
 from twinflow.scheduling import registry
 from twinflow.scheduling.kernel.dispatch import (
@@ -325,6 +326,8 @@ def _k1(params: Mapping[str, ParamValue]) -> float | None:
 
 class BeamSolver:
     """Filtered beam search behind the `Solver` seam (COMP-019)."""
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ()
 

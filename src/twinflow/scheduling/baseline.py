@@ -37,6 +37,7 @@ import time
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import ClassVar
 
 from twinflow.scheduling.calendar_math import Intervals
 from twinflow.scheduling.model import (
@@ -414,6 +415,8 @@ class BaselineSolver:
     is evaluated with default class weights because compiled jobs carry their effective
     weight in `weight_override` (D-066).
     """
+
+    enforces_budget: ClassVar[bool] = True
 
     @property
     def name(self) -> str:

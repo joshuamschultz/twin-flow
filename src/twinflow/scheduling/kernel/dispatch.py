@@ -68,7 +68,7 @@ import math
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import ClassVar, Literal, Protocol
 
 from twinflow.scheduling.calendar_math import Intervals
 from twinflow.scheduling.kernel.decode import (
@@ -806,6 +806,8 @@ class DispatchSolver:
     `rule_factory` builds a fresh rule per solve (rules may keep prepared tables). Returns
     FEASIBLE with the primary objective, or UNKNOWN with the engine's or decoder's issue.
     """
+
+    enforces_budget: ClassVar[bool] = True
 
     __slots__ = ("_mode", "_name", "_rule_factory")
 
