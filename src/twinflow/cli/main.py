@@ -277,6 +277,19 @@ def _handle_scenario_schema(args: argparse.Namespace) -> int:
 
 def _handle_validate(args: argparse.Namespace) -> int:
     """`twinflow validate <model>` — no plan argument exists (COMP-017)."""
+    if not Path(args.model).is_file():
+        print(
+            f"error: {args.model} was not found. Fix: give the path of a model.yaml file.",
+            file=sys.stderr,
+        )
+        return 1
+    if args.model.endswith(".twin.yaml"):
+        print(
+            f"error: {args.model} is a capsule. `twinflow validate` checks model.yaml files. "
+            f"Fix: run `twinflow scenario validate {args.model}` for a capsule.",
+            file=sys.stderr,
+        )
+        return 1
     errors = validate_model(args.model)
     for error in errors:
         print(f"{error.path}: {error.message}")
@@ -467,6 +480,7 @@ def _handle_report(args: argparse.Namespace) -> int:
     if not (run_dir / "report.html").is_file():
         print(f"error: run {args.run_id!r} completed but report.html is missing", file=sys.stderr)
         return 1
+    print(run_dir / "report.html")
     return 0
 
 

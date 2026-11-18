@@ -59,6 +59,8 @@ def _candidate_file(text: str | None) -> Path:
             "`twinflow improve <project> --candidate my_policy.py`."
         )
     path = Path(text)
+    if not path.exists():
+        raise UserError(f"{path} was not found. Fix: give the path of an existing .py policy file.")
     if not path.is_file() or path.suffix != ".py":
         raise UserError(f"{path} is not a policy file. Fix: give the path of a .py file.")
     return path

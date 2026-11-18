@@ -75,3 +75,42 @@ def test_scenario_validate_explains_a_folder_without_a_capsule(
 ) -> None:
     code, _, err = _run(capsys, "scenario", "validate", str(tmp_path))
     assert code == 1 and "Errno" not in err and ".twin.yaml" in err and "Fix:" in err
+
+
+def test_improve_says_a_missing_candidate_was_not_found(
+    project: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    missing = tmp_path / "nope.py"
+    code, _, err = _run(capsys, "improve", str(project), "--candidate", str(missing))
+    assert code == 1
+    assert "not found" in err and str(missing) in err and "not a policy file" not in err
+
+
+def test_improve_still_rejects_a_candidate_that_is_not_a_py_file(
+    project: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    text = tmp_path / "notes.txt"
+    text.write_text("hi", encoding="utf-8")
+    code, _, err = _run(capsys, "improve", str(project), "--candidate", str(text))
+    assert code == 1 and "not a policy file" in err
+
+
+def test_validate_points_a_capsule_to_scenario_validate(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, err = _run(capsys, "validate", str(project / CAPSULE))
+    assert code == 1
+    assert "part_types" not in out + err
+    assert "model.yaml" in err and "twinflow scenario validate" in err
+
+
+def test_report_prints_the_path_it_confirmed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    run = tmp_path / "runs" / "abc"
+    run.mkdir(parents=True)
+    (run / "kpis.json").write_text("{}", encoding="utf-8")
+    (run / "report.html").write_text("<html></html>", encoding="utf-8")
+    code, out, _ = _run(capsys, "report", "abc", "--out", "html")
+    assert code == 0 and str(Path("runs") / "abc" / "report.html") in out
