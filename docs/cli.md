@@ -76,6 +76,44 @@ twinflow optimize examples/cnc-shop/model.yaml --plan examples/cnc-shop/plan.csv
 | `--reps` | 12 | replications per evaluation (the confidence band) |
 | `--seed` | 0 | seeds the optimizer's own randomness |
 
+## `twinflow states <run_dir> [--view NAME] [--top K]`
+
+Summarise the moves a run captured. `run_dir` is one run folder, or a folder that holds
+replication folders (the `--out` folder of `twinflow scenario run`). The summary shows how
+many runs, episodes and moves were found, the time span, the number of different states, the
+top states by share of moves (default 10, view `family`), and the money by part (revenue,
+production, setup, holding, lost sales, late).
+
+```bash
+twinflow scenario run examples/molding-press/molding-press.twin.yaml --reps 2 --out out
+twinflow states out --view full --top 5
+```
+
+A make-to-stock run writes its moves by itself. A factory (discrete-event) run writes them
+only when the capsule has `experiment.state_capture`, for example
+`state_capture: {every_hours: 4}`. If no moves are found, the command says so, names the
+folder and tells you how to turn capture on (exit 1).
+
+The `family` view needs product facts (families and demand rates). A make-to-stock run
+leaves them in `scenario.json` beside its replication folders. When they are missing, as in
+a factory run, the command prints a note and uses the `full` view. The views you define in
+`model.state_groups` can be named with `--view`.
+
+## `twinflow markov <run_dir> [--view NAME] [--top K] [--min-prob P] [--out DIR]`
+
+Estimate how the plant moves from state to state, print the top states and the likely
+moves, and write `markov.json` and `markov.mmd` (a Mermaid chart) into the run folder, or
+into `--out`. `--top` is how many states to keep (default 15). `--min-prob` hides arrows
+less likely than `P` (default 0.05). The view rules and the fallback note are the same as
+for `twinflow states`.
+
+```bash
+twinflow markov out --view simple --top 8
+```
+
+Exit codes for both commands: 0 ok, 1 a problem you can fix (the message names the path and
+the fix), 2 an internal failure.
+
 ## `twinflow serve [--host --port --models-root]`
 
 Start the local REST API (needs the `api` extra). Defaults to `127.0.0.1:8000` and
