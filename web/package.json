@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "tokens": "node scripts/export-tokens.mjs",
     "build:report": "vite build --config vite.report.config.ts && node scripts/inline-report.mjs",
-    "check:report": "node scripts/inline-report.mjs --check",
+    "check:report": "vite build --config vite.report.config.ts && node scripts/inline-report.mjs --check",
     "test:report": "playwright test tests/browser/report",
     "format": "prettier --write src/decision src/report tests/browser/report scripts vite.report.config.ts vitest.config.ts"
   },

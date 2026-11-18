@@ -48,7 +48,7 @@ Accept: every token in the 8.1 table exists in both themes; `tokens.json` is gen
 committed; a vitest test fails if the JSON is stale; text tokens meet 4.5:1 and mark tokens 3:1
 on their surface (contrast test).
 
-**B-02 Offline build pipeline.** Opus.
+[x] **B-02 Offline build pipeline.** Opus.
 `web/report.html`, `web/src/report/main.tsx` (reads `#twinflow-data`, switches on `view`),
 `web/vite.report.config.ts`, `web/scripts/inline-report.mjs`, npm script `build:report`. Output:
 `src/twinflow/report/assets/report.template.html` with the data placeholder, CSP meta tag and
