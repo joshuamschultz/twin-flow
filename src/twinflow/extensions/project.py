@@ -27,8 +27,11 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal
 
+import numpy as np
+
 from twinflow.engines.step.engine import IDLE, DemandDraws, StepEngine
 from twinflow.engines.step.model import StepModel, parse_step_model
+from twinflow.extensions.checker import ExtensionFailed, call_checked, demand_validator
 from twinflow.extensions.loader import (
     Extension,
     ExtensionNotFound,
@@ -69,6 +72,13 @@ DEFAULTS: tuple[Setting, ...] = (
         "name",
     ),
     Setting(
+        "experiment.demand",
+        "poisson",
+        "The demand file that draws each day's customer demand. Draws are made once per "
+        "seed, so every policy sees the same dice.",
+        "name",
+    ),
+    Setting(
         "experiment.features",
         (),
         "Feature files whose values every policy state gets (state.features) and every "
@@ -101,6 +111,10 @@ class ProjectConfig:
     @property
     def score(self) -> str:
         return str(self.values["experiment.score"])
+
+    @property
+    def demand(self) -> str:
+        return str(self.values["experiment.demand"])
 
     @property
     def features(self) -> tuple[str, ...]:
@@ -290,8 +304,31 @@ class Project:
     # --- engines -----------------------------------------------------------------------------
 
     def engine(self, draws: DemandDraws | None = None) -> StepEngine:
-        """The model's engine; with `draws`, the episode seed picks the demand row (D-135)."""
+        """The model's engine. With `draws` (from `demand_draws`) the episode number given
+        to `start` picks the demand row (D-135); without, it draws plain Poisson demand."""
         return StepEngine(self.model, draws)
+
+    def demand_draws(self, episodes: int, seed: int) -> DemandDraws:
+        """Demand of shape (episodes, days, products) from the chosen demand file, made
+        once per seed before any policy runs (D-153). One random stream from `seed` feeds
+        every call in episode and day order, so `poisson` equals the D-135 draws.
+
+        A demand file that raises or returns bad units stops the draws with a
+        `ProjectError` naming the file and line.
+        """
+        ext = self.extensions.get("demand", self.config.demand)
+        products = self.model.product_ids
+        validate = demand_validator(products)
+        rng = np.random.default_rng(seed)
+        draws = np.zeros((episodes, self.model.horizon, len(products)), dtype=np.int64)
+        try:
+            for episode in range(episodes):
+                for day in range(self.model.horizon):
+                    units = call_checked(ext, (day, rng, self.facts), validate=validate)
+                    draws[episode, day] = [int(units[p]) for p in products]
+        except ExtensionFailed as failed:
+            raise ProjectError([failed.problem]) from None
+        return draws
 
     # --- score (REQ-217, D-152) ----------------------------------------------------------------
 
@@ -406,7 +443,10 @@ def _view_clashes(model: StepModel, extensions: Extensions) -> list[Problem]:
 
 def _selection_problems(config: ProjectConfig, extensions: Extensions, file: Path) -> list[Problem]:
     """A named extension that does not exist is a problem on its capsule key."""
-    wanted = [("reward", "experiment.score", config.score)]
+    wanted = [
+        ("reward", "experiment.score", config.score),
+        ("demand", "experiment.demand", config.demand),
+    ]
     wanted += [("feature", "experiment.features", name) for name in config.features]
     problems = []
     for kind, key, name in wanted:

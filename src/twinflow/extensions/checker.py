@@ -126,11 +126,11 @@ def step_samples(
 # --- running one extension ---------------------------------------------------------------------
 
 
-class _Stop(Exception):
-    """Carries the first problem found out of the timing loop."""
+class ExtensionFailed(Exception):
+    """An extension raised or returned a bad value; `problem` says where and how to fix it."""
 
     def __init__(self, problem: Problem) -> None:
-        super().__init__(problem.message)
+        super().__init__(str(problem))
         self.problem = problem
 
 
@@ -159,7 +159,7 @@ def _call(ext: Extension, args: Sequence[Any], settings: Mapping[str, Any], code
         line = line_in(ext.file, exc)
         shown = ", ".join(f"{k}={v!r}" for k, v in settings.items())
         with_settings = f" with {shown}" if shown else ""
-        raise _Stop(
+        raise ExtensionFailed(
             _problem(
                 ext,
                 code,
@@ -176,6 +176,21 @@ def _call(ext: Extension, args: Sequence[Any], settings: Mapping[str, Any], code
 Validate = Callable[[Any, Sequence[Any]], str | None]
 
 
+def call_checked(
+    ext: Extension,
+    args: Sequence[Any],
+    settings: Mapping[str, Any] | None = None,
+    *,
+    validate: Validate | None = None,
+) -> Any:
+    """Call an extension the way the race does: a raise or a bad return value becomes an
+    `ExtensionFailed` carrying a plain-word `Problem` (REQ-213)."""
+    value = _call(ext, args, settings or {}, "raised")
+    if validate is not None:
+        _validate(ext, value, args, validate)
+    return value
+
+
 def _run(
     ext: Extension,
     inputs: Sequence[Sequence[Any]],
@@ -189,12 +204,9 @@ def _run(
             started = time.perf_counter()
             value = _call(ext, args, {}, "raised")
             spent += time.perf_counter() - started
-            wrong = validate(value, args)
-            if wrong is not None:
-                code = "bad_action" if ext.kind == "policy" else "bad_value"
-                raise _Stop(_problem(ext, code, wrong, _fix(ext), ext.line))
+            _validate(ext, value, args, validate)
         _grid(ext, inputs[:GRID_STATES], validate)
-    except _Stop as stop:
+    except ExtensionFailed as stop:
         return [stop.problem]
     mean_ms = 1000.0 * spent / max(1, len(inputs))
     if mean_ms > limits.time_limit_ms:
@@ -222,7 +234,7 @@ def _grid(ext: Extension, inputs: Sequence[Sequence[Any]], validate: Validate) -
             wrong = validate(value, args)
             if wrong is not None:
                 shown = ", ".join(f"{k}={v!r}" for k, v in settings.items())
-                raise _Stop(
+                raise ExtensionFailed(
                     _problem(
                         ext,
                         "bad_settings",
@@ -231,6 +243,14 @@ def _grid(ext: Extension, inputs: Sequence[Sequence[Any]], validate: Validate) -
                         ext.line,
                     )
                 )
+
+
+def _validate(ext: Extension, value: Any, args: Sequence[Any], validate: Validate) -> None:
+    """Raise `ExtensionFailed` when `value` is not a good return for `ext`."""
+    wrong = validate(value, args)
+    if wrong is not None:
+        code = "bad_action" if ext.kind == "policy" else "bad_value"
+        raise ExtensionFailed(_problem(ext, code, wrong, _fix(ext), ext.line))
 
 
 def _fix(ext: Extension) -> str:
@@ -277,11 +297,11 @@ def check_extension(
         rng = np.random.default_rng(samples.seed)
         products = samples.facts.products
         calls = [(period, rng, samples.facts) for period in range(samples.periods)]
-        return _run(ext, calls, _demand(products), limits)
+        return _run(ext, calls, demand_validator(products), limits)
     return []
 
 
-def _demand(products: Sequence[str]) -> Validate:
+def demand_validator(products: Sequence[str]) -> Validate:
     return lambda value, args: check_return("demand", value, products=products)
 
 
