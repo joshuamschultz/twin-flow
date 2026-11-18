@@ -49,6 +49,7 @@ from twinflow.extensions.kinds import check_return
 from twinflow.extensions.loader import Extension, Problem
 from twinflow.extensions.project import EpisodePlan, Project, ProjectError, RaceSettings
 from twinflow.state.issues import did_you_mean
+from twinflow.state.markov import MarkovChain
 from twinflow.state.recorder import StateRecorder
 from twinflow.state.records import LEDGER_PARTS, Move
 
@@ -156,6 +157,7 @@ class PolicyResult:
     rank: int = 0
     vs_best: Stat | None = None
     dollar_warning: str | None = None
+    leaks: tuple[Leak, ...] = ()
     extra: Mapping[str, Any] = field(default=_EMPTY)
 
     def to_json(self) -> dict[str, Any]:
@@ -175,6 +177,7 @@ class PolicyResult:
             "changeovers": self.changeovers,
             "cross_family": self.cross_family,
             "idle_share": self.idle_share,
+            "money_leaks": [leak.to_json() for leak in self.leaks],
             "episode_score": list(self.episode_score),
             "episode_dollars": list(self.episode_dollars),
             "cumulative_score": self.cumulative_score.to_json(),
@@ -209,6 +212,68 @@ def grid_points(grid: Mapping[str, Sequence[Any]]) -> list[dict[str, Any]]:
     like `itertools.product` and the RL repo's `grid_settings`)."""
     keys = list(grid)
     return [dict(zip(keys, values, strict=True)) for values in product(*grid.values())]
+
+
+LEAK_PARTS = ("setup", "holding", "lost_sales", "late")  # the dollars a plant can win back
+LEAK_WORDS = {
+    "setup": "changeovers",
+    "holding": "keeping stock",
+    "lost_sales": "lost sales",
+    "late": "late orders",
+}
+TOP_LEAKS = 5
+
+
+@dataclass(frozen=True)
+class Leak:
+    """One grouped state where a policy loses money (REQ-208): dollars lost per run while
+    in the state, split by cause (changeovers, holding, lost sales, late)."""
+
+    state: str
+    visits: int
+    share: float  # share of all days spent in the state
+    per_visit: float  # dollars lost on one day in the state
+    per_run: float  # dollars lost in the state over one run
+    parts: Mapping[str, float]  # per run, by cause
+    cause: str  # the biggest part
+
+    @property
+    def cause_words(self) -> str:
+        return LEAK_WORDS.get(self.cause, self.cause)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "state": self.state,
+            "visits": self.visits,
+            "share": self.share,
+            "per_visit": self.per_visit,
+            "per_run": self.per_run,
+            "parts": dict(self.parts),
+            "cause": self.cause,
+            "cause_words": self.cause_words,
+        }
+
+
+def money_leaks(chain: MarkovChain, episodes: int, top: int = TOP_LEAKS) -> list[Leak]:
+    """The `top` states that lose the most dollars per run, from a chain's money table
+    (every visited state, not only the map's top states)."""
+    leaks = []
+    for state, money in chain.money.items():
+        parts = {p: money.visits * getattr(money, p) / max(1, episodes) for p in LEAK_PARTS}
+        per_run = sum(parts.values())
+        leaks.append(
+            Leak(
+                state=state,
+                visits=money.visits,
+                share=chain.share.get(state, 0.0),
+                per_visit=per_run * max(1, episodes) / money.visits,
+                per_run=per_run,
+                parts=MappingProxyType(parts),
+                cause=max(parts, key=lambda p: parts[p]),
+            )
+        )
+    leaks.sort(key=lambda leak: -leak.per_run)  # stable: ties keep the chain's order
+    return leaks[:top]
 
 
 # --- running one policy ------------------------------------------------------------------------
@@ -405,6 +470,7 @@ class RaceResult:
     kept_moves: Mapping[str, tuple[Move, ...]] = field(default=_EMPTY)
     kept_episodes: Mapping[str, tuple[int, ...]] = field(default=_EMPTY)
     trials: tuple[Trial, ...] = ()
+    chains: Mapping[str, MarkovChain] = field(default=_EMPTY)
 
     @property
     def observation(self) -> str:
@@ -481,6 +547,7 @@ class RaceResult:
             "ranking": [r.policy for r in ranking],
             "results": rows,
             "tuning": [t.to_json() for t in self.trials],
+            "markov": {name: chain_json(chain) for name, chain in self.chains.items()},
             "skipped": [p.to_json() for p in self.skipped],
             "problems": [p.to_json() for p in self.problems],
         }
@@ -504,6 +571,32 @@ class RaceResult:
             recorder.flush(target)
             written.append(target / "moves.parquet")
         return written
+
+
+def chain_json(chain: MarkovChain) -> dict[str, Any]:
+    """A chain for race.json: the map's states only (not every visited state), plus its
+    Mermaid text."""
+    data = chain.to_json()
+    shown = set(chain.states)
+    data["share"] = {s: v for s, v in data["share"].items() if s in shown}
+    data["money"] = {s: v for s, v in data["money"].items() if s in shown}
+    data["mermaid"] = chain.to_mermaid()
+    return data
+
+
+def _chain(project: Project, moves: Sequence[Move], policy: Extension) -> MarkovChain | Problem:
+    """The policy's chain on `experiment.markov.view`; a view file that breaks is a
+    problem, never a crash."""
+    try:
+        return project.markov(moves)
+    except Exception as exc:  # a view file is user code
+        return Problem(
+            "view",
+            "raised",
+            f"The Markov map for {policy.name} could not be drawn: {type(exc).__name__}: {exc}.",
+            "Run `twinflow extensions check` and fix the view file it names.",
+            name=project.config.markov.view,
+        )
 
 
 def _dollar_band(row: PolicyResult) -> Band:
@@ -700,6 +793,7 @@ def race(
     results: list[PolicyResult] = []
     trials: list[Trial] = []
     kept: dict[str, tuple[list[list[Move]], float]] = {}
+    chains: dict[str, MarkovChain] = {}
     for policy in extensions:
         if fixed is not None and policy.name in fixed:
             policy_settings = dict(fixed[policy.name])
@@ -722,8 +816,15 @@ def race(
             if progress is not None:
                 progress(f"{policy.name} ({mask}): {run[0].score.mean:,.2f}")
         else:
-            results += [result for result, _ in runs]
             first, moves = runs[0]
+            chain = _chain(project, [m for episode in moves for m in episode], policy)
+            if isinstance(chain, Problem):
+                skipped.append(chain)
+            else:
+                chains[policy.name] = chain
+                leaks = tuple(money_leaks(chain, chosen.episodes))
+                runs[0] = (replace(first, leaks=leaks), moves)
+            results += [result for result, _ in runs]
             _keep(kept, policy.name, moves, first.score.mean, chosen.top_policies)
     ranked: list[PolicyResult] = []
     for mask in masks:
@@ -746,6 +847,13 @@ def race(
         kept_moves=MappingProxyType(kept_moves),
         kept_episodes=MappingProxyType(kept_episodes),
         trials=tuple(trials),
+        chains=MappingProxyType(
+            {
+                r.policy: chains[r.policy]
+                for r in ranked[: chosen.top_policies]
+                if r.observation == masks[0] and r.policy in chains
+            }
+        ),
     )
 
 
@@ -766,12 +874,16 @@ def _keep(
 __all__ = [
     "Band",
     "DecisionTimeout",
+    "LEAK_PARTS",
+    "Leak",
     "PolicyResult",
     "RaceResult",
     "Stat",
     "Trial",
     "band",
+    "chain_json",
     "grid_points",
+    "money_leaks",
     "first_day_passed",
     "race",
     "rank_by_day",
