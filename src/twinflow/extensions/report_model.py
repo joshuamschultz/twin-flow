@@ -85,7 +85,7 @@ PART_WORDS = {
 }
 NAMES = {  # the names people see (R22)
     "s_big_s": "Reorder point",
-    "setup_aware_runout": "Setup-aware run-out",
+    "setup_aware_runout": "Changeover-aware run-out",
     "abc_wheel": "ABC wheel",
     "dollar_shortfall": "Biggest dollar shortfall",
     "myopic": "Best for today only",
@@ -167,8 +167,8 @@ def _pick_baseline(
     stand_in = FALLBACK_BASELINE if FALLBACK_BASELINE in names else names[-1]
     warning = {
         "kind": "baseline",
-        "text": f"The baseline {wanted} was not in this race, so {stand_in} stands in for it.",
-        "fix": f"Race {wanted} too, or set experiment.race.baseline to a policy in the race.",
+        "text": f"Today's rule, {wanted}, was not in this race. {stand_in} stands in for it.",
+        "fix": f"Race {wanted} too. Or set experiment.race.baseline to a rule in the race.",
     }
     return ranked[names.index(stand_in)], "stand-in", [warning]
 
@@ -196,7 +196,7 @@ def _confidence(best: PolicyResult, base: PolicyResult, level: float, same: bool
             **out,
             "level": "same_policy",
             "words": "This is what you run today",
-            "detail": "No other policy in the race made more money.",
+            "detail": "No other rule in the race made more money.",
         }
     if paired is None or paired.low is None or paired.high is None:
         return {
@@ -329,8 +329,8 @@ def _note(
         return f"{words} Those cost {_money(cost)} each." if cost else words
     if key == "fill_rate":
         if way == 0:
-            return "Customers find an empty shelf about as often."
-        return f"{'Fewer' if way > 0 else 'More'} customers find an empty shelf."
+            return "Shoppers find empty shelves about as often."
+        return f"{'Fewer' if way > 0 else 'More'} shoppers find empty shelves."
     if key == "avg_stock":
         return {
             1: "You need the room and the cash for it.",
@@ -416,13 +416,13 @@ def _why(drivers: Sequence[Mapping[str, Any]], best: PolicyResult, base: PolicyR
     if top["part"] == "setup":
         fewer = base.cross_family - best.cross_family
         if fewer >= 0.5:
-            words += f", with {fewer:,.0f} fewer changeovers to another family"
+            words += f". It has {fewer:,.0f} fewer changeovers to another family"
     return words + "."
 
 
 def _sentence(best: PolicyResult, base: PolicyResult, per_run: float, per_year: float) -> str:
     if best.policy == base.policy:
-        return f"Keep running {label(best.policy)}. No other policy in the race made more money."
+        return f"Keep running {label(best.policy)}. No other rule in the race made more money."
     more = "more" if per_run >= 0 else "less"
     return (
         f"Run {label(best.policy)} instead of {label(base.policy)}. It makes "
@@ -1014,7 +1014,7 @@ def race_view_model(
     line = _line_word(project)
     level_names = [lv["name"] for lv in _levels(project)[1]] or None
     about = {
-        "title": f"Policy race: {project.capsule_file.stem.removesuffix('.twin')}",
+        "title": f"Rule race: {project.capsule_file.stem.removesuffix('.twin')}",
         "project": project.capsule_file.stem.removesuffix(".twin"),
         "episodes": settings.episodes,
         "seed": settings.seed,
@@ -1042,7 +1042,7 @@ def race_view_model(
     }
     tuning = _tuning(result)
     if not ranked or base is None:
-        empty_note = "No policy finished the race. See the warnings."
+        empty_note = "No rule finished the race. See the warnings."
         model.update({k: None for k in KEYS if k not in model})
         model.update(
             recommendation={"policy": None, "sentence": empty_note, "why": ""},
@@ -1083,7 +1083,7 @@ def race_view_model(
                 f"The next best, {label(runner_up.policy)}, made "
                 f"{_money(best.dollars.mean - runner_up.dollars.mean)} less per run."
                 if runner_up is not None
-                else "It was the only policy in the race."
+                else "It was the only rule in the race."
             ),
         },  # fmt: skip
         baseline={
@@ -1170,8 +1170,8 @@ def _what_if() -> dict[str, Any]:
         "min": 0.0,
         "max": 3.0,
         "step": 0.1,
-        "note": "Policies act the same here. Rerun the race to retune them.",
-        "formula": "profit = revenue - production - setup x m1 - holding x m2 "
+        "note": "Rules act the same here. Run the race again to tune them.",
+        "formula": "profit = revenue - production - changeover x m1 - holding x m2 "
         "- lost_sales x m3 - late",
     }
 

@@ -43,7 +43,7 @@ export const DECISION_VIEWS: DecisionKind[] = [
   {
     kind: "race",
     plural: "races",
-    label: "Policy races",
+    label: "Rule races",
     icon: "check",
     question: "Which rule should we run?",
     render: (model) => <RaceView model={model as RaceViewModel} />,

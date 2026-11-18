@@ -1,4 +1,4 @@
-"""Show the policy everything (the default)."""
+"""Show it all (the default)."""
 
 NAME = "full"
 

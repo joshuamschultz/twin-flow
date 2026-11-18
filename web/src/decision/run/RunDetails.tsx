@@ -92,7 +92,7 @@ export function RunDetails({ model }: { model: RunViewModel }) {
               : "-",
           ],
           ["Machine hours, first run", f(details?.machine_hours, 2)],
-          ["Setup hours, first run", f(details?.setup_hours, 2)],
+          ["Changeover hours, first run", f(details?.setup_hours, 2)],
         ]}
       />
       <div

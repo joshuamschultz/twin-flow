@@ -152,7 +152,7 @@ test("why it wins: waterfall and the pull-ahead line", async ({ page }) => {
           "Today",
           "Family campaign",
           "Reorder point",
-          "Setup-aware run-out",
+          "Changeover-aware run-out",
         ].includes(e.textContent ?? ""),
       )
       .map((e) => e.getBoundingClientRect())

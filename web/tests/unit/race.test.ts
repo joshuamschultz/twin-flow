@@ -170,7 +170,7 @@ describe("gap line", () => {
     expect(s.map((x) => x.label)).toEqual([
       "Family campaign",
       "Reorder point",
-      "Setup-aware run-out",
+      "Changeover-aware run-out",
     ]);
     expect(s[0].emphasis).toBe(true);
     expect(s[0].values).toHaveLength(60);

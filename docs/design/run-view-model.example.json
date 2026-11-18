@@ -16,7 +16,7 @@
    "Any machine eligible: no machine eligibility data declared.",
    "Arrival order used as sequence: no pull rule declared for a location (8 locations: deburr_bracket, deburr_shaft, inspect_bracket, inspect_shaft, mill_bracket, mill_shaft, saw_bracket, saw_shaft).",
    "One undifferentiated labor pool: only one labor pool declared.",
-   "Setup time zero: no changeover matrix declared."
+   "Changeover time zero: no changeover matrix declared."
   ],
   "engine_version": "0.4.0a1",
   "model_hash": "9b04082ee6bda31ecc5daaf0961ed41d67a90e872de8925fa2ef8241a4796b8b",

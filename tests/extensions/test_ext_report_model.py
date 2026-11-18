@@ -155,7 +155,7 @@ def test_leaks_tuning_and_warnings(golden: tuple[RaceResult, dict]) -> None:
         assert row["chosen"] == dict(result.result(name).settings)
         assert len(row["trials"]) == sum(t.policy == name for t in result.trials)
     assert isinstance(model["warnings"], list)
-    assert model["what_if"]["note"].startswith("Policies act the same here.")
+    assert model["what_if"]["note"].startswith("Rules act the same here.")
 
 
 def test_keep_running_when_the_baseline_wins(shared_project: MakeProject) -> None:

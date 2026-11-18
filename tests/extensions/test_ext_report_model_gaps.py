@@ -274,7 +274,7 @@ def test_map_nodes_and_leaks_have_words(model: dict[str, Any]) -> None:
 
 def test_labels_people_see() -> None:
     assert label("s_big_s") == "Reorder point"
-    assert label("setup_aware_runout") == "Setup-aware run-out"
+    assert label("setup_aware_runout") == "Changeover-aware run-out"
     assert label("myopic") == "Best for today only"
     assert label("idle") == "Do nothing"
     assert label("family_campaign") == "Family campaign"
@@ -306,7 +306,7 @@ def test_floor_rows_for_the_hero(model: dict[str, Any]) -> None:
     assert rows["changeovers"]["note"].startswith("Colour changes drop from ")
     assert rows["changeovers"]["note"].endswith("Those cost $1,200 each.")
     assert rows["fill_rate"]["short"] == "+2.7 points"
-    assert rows["fill_rate"]["note"] == "Fewer customers find an empty shelf."
+    assert rows["fill_rate"]["note"] == "Fewer shoppers find empty shelves."
     assert rows["avg_stock"]["short"] == "2.6 times more"
     assert rows["avg_stock"]["unit"] == "units"
     assert rows["rest_days"]["unit"] == "days"

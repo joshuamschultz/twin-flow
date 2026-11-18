@@ -92,7 +92,7 @@
     {
       "policy": "abc_wheel",
       "label": "ABC wheel",
-      "about": "A product wheel where fast sellers come round often and slow sellers rarely.",
+      "about": "A wheel. Fast sellers come round often, slow ones rarely.",
       "source": "builtin",
       "file": null,
       "is_baseline": false,
@@ -152,7 +152,7 @@
     {
       "policy": "myopic",
       "label": "Best for today only",
-      "about": "Pick the choice that makes the most money today, ignoring tomorrow.",
+      "about": "Pick the most money today. Skip tomorrow.",
       "source": "builtin",
       "file": null,
       "is_baseline": false,
@@ -181,7 +181,7 @@
     },
     {
       "policy": "setup_aware_runout",
-      "label": "Setup-aware run-out",
+      "label": "Changeover-aware run-out",
       "about": "Make what runs out first, but count a product switch as lost days.",
       "source": "builtin",
       "file": null,
@@ -205,7 +205,7 @@
     {
       "name": "family",
       "kind": "state_view",
-      "about": "The lowest cover level in each family, and the family on the line."
+      "about": "Lowest stock in each family. Also the family on the line."
     },
     {
       "name": "family_cover",
@@ -215,7 +215,7 @@
     {
       "name": "full",
       "kind": "state_view",
-      "about": "Exact stock numbers for every product."
+      "about": "Exact stock for each product."
     },
     {
       "name": "simple",
@@ -225,7 +225,7 @@
     {
       "name": "full",
       "kind": "observation",
-      "about": "Show the policy everything (the default)."
+      "about": "Show it all (the default)."
     }
   ],
   "extensions": [],
@@ -235,7 +235,7 @@
       "view": "improve",
       "id": "improve-20261117T080000Z",
       "when": "2026-11-17T08:00:00+00:00",
-      "sentence": "Improve: Family campaign won and was copied.",
+      "sentence": "Improve: Family campaign won. It was copied.",
       "href": "runs/improve-20261117T080000Z/improve.html"
     }
   ],

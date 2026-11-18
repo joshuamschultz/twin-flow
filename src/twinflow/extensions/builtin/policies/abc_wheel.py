@@ -1,4 +1,4 @@
-"""A product wheel where fast sellers come round often and slow sellers rarely.
+"""A wheel. Fast sellers come round often, slow ones rarely.
 
 The wheel turns four times. A products run on every turn, B products on every
 second turn, C products on every fourth turn.
