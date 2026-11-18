@@ -86,3 +86,39 @@ def make_project(tmp_path: Path):  # type: ignore[no-untyped-def]
         return write_project(tmp_path / "project", experiment, files, model)
 
     return make
+
+
+GOLDEN = Path(__file__).with_name("race_golden.json")
+MASKS = ["full", "no_setup", "bucketed", "own_product", "no_days_left", "bucketed+no_days_left"]
+
+
+@pytest.fixture(scope="session")
+def race_golden() -> dict:  # type: ignore[type-arg]
+    """The RL repo's race and analysis numbers (written once by make_race_golden.py)."""
+    import json
+
+    return json.loads(GOLDEN.read_text())  # type: ignore[no-any-return]
+
+
+@pytest.fixture(scope="session")
+def golden_race(shared_project, race_golden):  # type: ignore[no-untyped-def]
+    """RL notebook 2's profit-by-view race: (s,S), family campaign and lowest cover tuned
+    on 30 episodes of seed 777, then raced on 150 episodes of seed 11 under every mask."""
+    from twinflow.extensions.project import Project, RaceSettings
+    from twinflow.extensions.race import race
+
+    table = race_golden["observation_table"]
+    tuning = race_golden["tuning"]
+    project = Project.open(shared_project())
+    settings = RaceSettings(
+        episodes=table["episodes"],
+        seed=table["seed"],
+        tune_episodes=tuning["episodes"],
+        tune_seed=tuning["seed"],
+    )
+    return project, race(
+        project,
+        ["s_big_s", "family_campaign", "lowest_cover"],
+        settings=settings,
+        observations=MASKS,
+    )

@@ -512,6 +512,15 @@ class RaceResult:
     def first_day_passed(self, leader: str, challenger: str, measure: str = "score") -> int | None:
         return first_day_passed(self.cumulative(measure), leader, challenger)
 
+    def profit_by_view(self, measure: str = "dollars") -> dict[str, dict[str, float]]:
+        """Mean dollars (or score) per run of each policy under each observation, in race
+        order (REQ-226: what information is worth in dollars; RL repo notebook 2)."""
+        table: dict[str, dict[str, float]] = {}
+        for row in self.results:
+            value = row.dollars.mean if measure == "dollars" else row.score.mean
+            table.setdefault(row.policy, {})[row.observation] = value
+        return table
+
     def to_json(self) -> dict[str, Any]:
         settings = self.settings
         ranking = self.ranking()
@@ -546,6 +555,7 @@ class RaceResult:
             "early_leader": leader,
             "ranking": [r.policy for r in ranking],
             "results": rows,
+            "profit_by_view": self.profit_by_view(),
             "tuning": [t.to_json() for t in self.trials],
             "markov": {name: chain_json(chain) for name, chain in self.chains.items()},
             "skipped": [p.to_json() for p in self.skipped],
