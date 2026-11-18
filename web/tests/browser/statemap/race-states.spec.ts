@@ -2,7 +2,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { pathToFileURL } from "node:url";
 import { fillTemplate } from "../report/fill";
-import { axeViolations, FULL, WEB } from "./server";
+import { axeViolations, FULL, WEB } from "../fixtures";
 
 async function open(page: Page, width = 1280, hash = "") {
   await page.setViewportSize({ width, height: 1000 });

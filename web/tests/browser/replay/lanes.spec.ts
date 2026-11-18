@@ -1,24 +1,22 @@
 import { expect, test } from "@playwright/test";
 import type { ViteDevServer } from "vite";
-import { fullModel, openFixture, SCREENS, startServer } from "./serve";
+import { fullModel, openFixture, SCREENS, startFixtures } from "../fixtures";
 
 let server: ViteDevServer;
 let url: string;
 
 test.beforeAll(async () => {
-  ({ server, url } = await startServer());
+  ({ server, url } = await startFixtures());
 });
 test.afterAll(async () => {
   await server.close();
 });
 
-const lanes = { kind: "lanes" };
-
 test("set day 9: the pick lane tells the colour change and 7 of 12 out", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 1000 });
-  await openFixture(page, url, { ...lanes, model: fullModel() });
+  await openFixture(page, url, "lanes", { model: fullModel() });
   const slider = page.getByRole("slider", { name: "Day" });
   await slider.focus();
   await page.keyboard.press("Home");
@@ -48,12 +46,10 @@ test("set day 9: the pick lane tells the colour change and 7 of 12 out", async (
 test("keys: Page Up and Down move 10 days, End and Home jump", async ({
   page,
 }) => {
-  await openFixture(
-    page,
-    url,
-    { ...lanes, model: fullModel() },
-    "#tab=replay&day=9",
-  );
+  await openFixture(page, url, "lanes", {
+    model: fullModel(),
+    hash: "#tab=replay&day=9",
+  });
   const slider = page.getByRole("slider", { name: "Day" });
   await expect(slider).toHaveValue("9");
   await slider.focus();
@@ -70,7 +66,7 @@ test("keys: Page Up and Down move 10 days, End and Home jump", async ({
 });
 
 test("clicking a cell jumps to that day in both lanes", async ({ page }) => {
-  await openFixture(page, url, { ...lanes, model: fullModel() });
+  await openFixture(page, url, "lanes", { model: fullModel() });
   await page.locator("[data-lane='lowest_cover'] [data-press]").nth(19).click();
   await expect(page.getByRole("slider", { name: "Day" })).toHaveValue("20");
   await expect(page.locator("[data-frame='20']")).toHaveCount(2);
@@ -80,7 +76,10 @@ test("clicking a cell jumps to that day in both lanes", async ({ page }) => {
 });
 
 test("Play advances and stops at day 60", async ({ page }) => {
-  await openFixture(page, url, { ...lanes, model: fullModel() }, "#day=55");
+  await openFixture(page, url, "lanes", {
+    model: fullModel(),
+    hash: "#day=55",
+  });
   const slider = page.getByRole("slider", { name: "Day" });
   await page.getByRole("button", { name: "Play" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
@@ -93,7 +92,10 @@ test("Play advances and stops at day 60", async ({ page }) => {
 
 test("reduced motion: no transitions, Play still steps", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await openFixture(page, url, { ...lanes, model: fullModel() }, "#day=58");
+  await openFixture(page, url, "lanes", {
+    model: fullModel(),
+    hash: "#day=58",
+  });
   const btn = page.getByRole("button", { name: "Play" });
   expect(
     await btn.evaluate((el) => getComputedStyle(el).transitionDuration),
@@ -106,7 +108,7 @@ test("reduced motion: no transitions, Play still steps", async ({ page }) => {
 
 test("lanes sit side by side at 1280 and stack at 820", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1000 });
-  await openFixture(page, url, { ...lanes, model: fullModel() }, "#day=9");
+  await openFixture(page, url, "lanes", { model: fullModel(), hash: "#day=9" });
   const a = page.locator("[data-lane='lowest_cover']");
   const b = page.locator("[data-lane='family_campaign']");
   let ba = (await a.boundingBox())!;

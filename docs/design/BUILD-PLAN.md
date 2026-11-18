@@ -24,7 +24,7 @@ Task ids are `B-01` and up. They are local to this plan. They cover PLAN.md T-27
 |---|---|---|
 | Unit (Python) | pytest | View-model builders: fields, rounding, sentences, cautions, schema. No em dashes in any string |
 | Unit (TS) | vitest (new dev dependency) | Pure functions: what-if re-rank and flip points, state-map layout, state words, formatters, replay day facts, typical-run pick |
-| Component | Playwright against a fixtures page (`web/fixtures.html`) that mounts one component with the golden JSON | Each component renders, has its `aria-label`, and its table view matches its data |
+| Component | Playwright against the one fixtures page (`web/fixtures/index.html?c=<name>`, helper `web/tests/browser/fixtures.ts`) that mounts one component with the golden JSON | Each component renders, has its `aria-label`, and its table view matches its data |
 | Interaction | Playwright on the built offline file | Compare, what-if, replay scrub and keys, state select and keys, theme toggle, URL hash restore |
 | Accessibility | `@axe-core/playwright` on each view, light and dark | No AA failures. Keyboard-only walk-through passes |
 | Visual | Playwright screenshots at 1280 and 820, light and dark, saved under `web/tests/browser/__screens__/` | A reviewer (a model with vision, then the owner) compares them with `mockups/*.png` and writes pass or the gaps. Pixel diffs guard later changes |

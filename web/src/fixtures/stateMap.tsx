@@ -1,19 +1,10 @@
-// Fixtures page for the state map and money leaks (browser tests and screenshots).
-// The test puts a race view model on window.__TF_FIXTURE__ before the page loads.
-import React, { useRef, useState } from "react";
-import ReactDOM from "react-dom/client";
-import "../../index.css";
-import "../tokens.css";
-import "../fonts/fonts.css";
-import "../decision.css";
-import { LeakList } from "../LeakList";
-import { Card } from "../primitives";
-import { revealState } from "../StateMapChart";
-import { raceChains, StateMapCard } from "../StateMapCard";
-import type { RaceViewModel, StateNode } from "../types";
-
-const model = (window as unknown as { __TF_FIXTURE__?: RaceViewModel })
-  .__TF_FIXTURE__;
+// The state map and money leaks, alone (B-21, B-22), plus a map with no lanes (grid).
+import { useRef, useState } from "react";
+import { LeakList } from "../decision/LeakList";
+import { Card } from "../decision/primitives";
+import { revealState } from "../decision/StateMapChart";
+import { raceChains, StateMapCard } from "../decision/StateMapCard";
+import type { RaceViewModel, StateNode } from "../decision/types";
 
 const GRID_NODES: StateNode[] = [
   ["g0", 0.5, "m1:idle m2:idle"],
@@ -83,10 +74,9 @@ function RaceFixture({ m }: { m: RaceViewModel }) {
   );
 }
 
-function Fixtures() {
-  if (!model) return <p>No fixture data.</p>;
+export function StateMapFixture({ model }: { model: RaceViewModel }) {
   return (
-    <main className="tf-root tf-wrap" style={{ padding: "24px 32px" }}>
+    <>
       <RaceFixture m={model} />
       <section data-fixture="statemap-grid">
         <StateMapCard
@@ -101,12 +91,6 @@ function Fixtures() {
           horizon={60}
         />
       </section>
-    </main>
+    </>
   );
 }
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <Fixtures />
-  </React.StrictMode>,
-);

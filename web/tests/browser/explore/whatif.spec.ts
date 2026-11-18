@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { ViteDevServer } from "vite";
-import { startFixtures } from "./server";
+import { startFixtures } from "../fixtures";
 
 let server: ViteDevServer;
 let base = "";
@@ -11,8 +11,7 @@ test.afterAll(async () => {
   await server.close();
 });
 
-const open = (page: Page) =>
-  page.goto(`${base}/fixtures/explore.html?c=whatif`);
+const open = (page: Page) => page.goto(`${base}/fixtures/index.html?c=whatif`);
 const HONEST =
   "This is a quick estimate. It re-prices the same 40 runs. The rules act the same as before. To let each rule adjust to new costs, change the costs in your project and rerun the race.";
 

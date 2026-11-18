@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { ViteDevServer } from "vite";
-import { axeViolations, openFixture, startFixtures, WEB } from "./server";
+import { axeViolations, openFixture, startFixtures, WEB } from "../fixtures";
 
 let server: ViteDevServer;
 let url: string;
@@ -18,7 +18,7 @@ const map = "[data-fixture='statemap'] [data-state-map]";
 test("five rows with words, cause, a try line and a stacked bar", async ({
   page,
 }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   const rows = page.locator(`${leaks} .tf-leak`);
   await expect(rows).toHaveCount(5);
   const first = rows.first();
@@ -37,7 +37,7 @@ test("five rows with words, cause, a try line and a stacked bar", async ({
 test("clicking a row selects that state in the map and scrolls to it", async ({
   page,
 }) => {
-  await openFixture(page, url, { width: 820 });
+  await openFixture(page, url, "statemap", { width: 820 });
   await page
     .locator("[data-fixture='statemap']")
     .getByRole("button", { name: "Today" })
@@ -55,7 +55,7 @@ test("clicking a row selects that state in the map and scrolls to it", async ({
 });
 
 test("rows work by keyboard", async ({ page }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   await page.locator(`${leaks} .tf-leak`).first().focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(`${map} [data-state-id="s5"]`)).toHaveAttribute(
@@ -68,13 +68,13 @@ for (const theme of ["light", "dark"] as const) {
   test(`axe finds no AA problems in the leak list (${theme})`, async ({
     page,
   }) => {
-    await openFixture(page, url, { theme });
+    await openFixture(page, url, "statemap", { theme });
     expect(await axeViolations(page, leaks)).toEqual([]);
   });
 
   for (const width of [1280, 820]) {
     test(`leaks screenshot ${width} ${theme}`, async ({ page }) => {
-      await openFixture(page, url, { theme, width });
+      await openFixture(page, url, "statemap", { theme, width });
       await page.locator(leaks).screenshot({
         path: `${WEB}tests/browser/__screens__/leaks-${width}-${theme}.png`,
         animations: "disabled",

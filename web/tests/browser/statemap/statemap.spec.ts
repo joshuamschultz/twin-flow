@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { ViteDevServer } from "vite";
-import { axeViolations, openFixture, startFixtures, WEB } from "./server";
+import { axeViolations, openFixture, startFixtures, WEB } from "../fixtures";
 
 let server: ViteDevServer;
 let url: string;
@@ -19,7 +19,7 @@ const box = (name: string) => `${map} [data-state-id][aria-label^="${name}"]`;
 test("selecting a state fills the panel with time, money and next states", async ({
   page,
 }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   await page.locator(box("Grey and natural high. Press on grey.")).click();
   await expect(page.locator(`${panel} h3`)).toHaveText(
     "Grey and natural high. Press on grey.",
@@ -45,7 +45,7 @@ test("selecting a state fills the panel with time, money and next states", async
 });
 
 test("the Pick / Today switch redraws the map for today", async ({ page }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   await page
     .locator("[data-fixture='statemap']")
     .getByRole("button", { name: "Today" })
@@ -62,7 +62,7 @@ test("the Pick / Today switch redraws the map for today", async ({ page }) => {
 });
 
 test("a next-state link moves the selection", async ({ page }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   const link = page.locator(`${panel} [data-next-state]`).first();
   const target = await link.getAttribute("data-next-state");
   const name = (await link.textContent())!;
@@ -74,7 +74,7 @@ test("a next-state link moves the selection", async ({ page }) => {
 });
 
 test("arrow keys move within a lane and across lanes", async ({ page }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   const first = page.locator(box("All stock OK. Press on grey."));
   await first.focus();
   await page.keyboard.press("ArrowDown");
@@ -98,11 +98,11 @@ test("arrow keys move within a lane and across lanes", async ({ page }) => {
 test("the panel sits beside the map at 1280 and under it at 820", async ({
   page,
 }) => {
-  await openFixture(page, url, { width: 1280 });
+  await openFixture(page, url, "statemap", { width: 1280 });
   let m = (await page.locator(map).boundingBox())!;
   let p = (await page.locator(panel).boundingBox())!;
   expect(p.x).toBeGreaterThan(m.x + m.width - 1);
-  await openFixture(page, url, { width: 820 });
+  await openFixture(page, url, "statemap", { width: 820 });
   m = (await page.locator(map).boundingBox())!;
   p = (await page.locator(panel).boundingBox())!;
   expect(p.y).toBeGreaterThan(m.y + m.height - 1);
@@ -115,7 +115,7 @@ test("the panel sits beside the map at 1280 and under it at 820", async ({
 test("a chain with no parts falls back to the grid and still works", async ({
   page,
 }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   const grid = page.locator("[data-fixture='statemap-grid']");
   await expect(grid.locator("[data-state-map]")).toHaveAttribute(
     "data-mode",
@@ -131,13 +131,13 @@ for (const theme of ["light", "dark"] as const) {
   test(`axe finds no AA problems in the state map (${theme})`, async ({
     page,
   }) => {
-    await openFixture(page, url, { theme });
+    await openFixture(page, url, "statemap", { theme });
     expect(await axeViolations(page, "[data-fixture='statemap']")).toEqual([]);
   });
 
   for (const width of [1280, 820]) {
     test(`screenshot ${width} ${theme}`, async ({ page }) => {
-      await openFixture(page, url, { theme, width });
+      await openFixture(page, url, "statemap", { theme, width });
       await page.locator("[data-fixture='statemap']").screenshot({
         path: `${WEB}tests/browser/__screens__/statemap-${width}-${theme}.png`,
         animations: "disabled",
@@ -149,7 +149,7 @@ for (const theme of ["light", "dark"] as const) {
 test("show as table lists every state with share and money", async ({
   page,
 }) => {
-  await openFixture(page, url);
+  await openFixture(page, url, "statemap");
   const card = page.locator("[data-fixture='statemap']");
   await card.getByRole("button", { name: "Show as table" }).first().click();
   const rows = card.locator("table.tf-table tbody tr");

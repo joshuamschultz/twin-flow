@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { ViteDevServer } from "vite";
-import { startFixtures } from "./server";
+import { startFixtures } from "../fixtures";
 
 let server: ViteDevServer;
 let base = "";
@@ -12,7 +12,7 @@ test.afterAll(async () => {
 });
 
 const open = (page: Page, hash = "") =>
-  page.goto(`${base}/fixtures/explore.html?c=compare${hash}`);
+  page.goto(`${base}/fixtures/index.html?c=compare${hash}`);
 
 test("default A is the pick and B is today", async ({ page }) => {
   await open(page);

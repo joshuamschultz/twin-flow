@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
 import type { ViteDevServer } from "vite";
 import { longRun } from "../../fixtures/replayLong";
-import { fullModel, openFixture, SCREENS, startServer } from "./serve";
+import { fullModel, openFixture, SCREENS, startFixtures } from "../fixtures";
 
 let server: ViteDevServer;
 let url: string;
 
 test.beforeAll(async () => {
-  ({ server, url } = await startServer());
+  ({ server, url } = await startFixtures());
 });
 test.afterAll(async () => {
   await server.close();
@@ -18,7 +18,7 @@ const ORANGE = "rgb(246, 141, 46)";
 test("golden run: colour changes and out-of-stock cells per lane", async ({
   page,
 }) => {
-  await openFixture(page, url, { kind: "strips", model: fullModel() });
+  await openFixture(page, url, "strips", { model: fullModel() });
   const today = page.locator("[data-lane='lowest_cover']");
   const pick = page.locator("[data-lane='family_campaign']");
 
@@ -58,7 +58,7 @@ test("golden run: colour changes and out-of-stock cells per lane", async ({
 });
 
 test("hovering a cell shows its sentence", async ({ page }) => {
-  await openFixture(page, url, { kind: "strips", model: fullModel() });
+  await openFixture(page, url, "strips", { model: fullModel() });
   const pick = page.locator("[data-lane='family_campaign']");
   await pick.locator("[data-press]").nth(8).hover();
   await expect(page.getByRole("tooltip")).toHaveText(
@@ -77,8 +77,7 @@ test("a 200-day run draws week cells and the table keeps day rows", async ({
     products: { id: string; family: string; demand_rate: number }[];
   };
   const run = longRun(200, model.products as never);
-  await openFixture(page, url, {
-    kind: "strips",
+  await openFixture(page, url, "strips", {
     model: {
       ...model,
       example_runs: { lowest_cover: run, family_campaign: run },
@@ -111,8 +110,7 @@ test("more than 30 products group by family and a family opens on click", async 
     demand_rate: 10,
   }));
   const run = longRun(60, products as never);
-  await openFixture(page, url, {
-    kind: "strips",
+  await openFixture(page, url, "strips", {
     model: {
       ...model,
       products,
