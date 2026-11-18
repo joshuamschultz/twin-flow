@@ -49,22 +49,40 @@ def sample_states(press_model: StepModel) -> list[Snapshot]:
     return random_states(press_model, 500, seed=11)
 
 
+def write_project(
+    folder: Path,
+    experiment: dict | None = None,  # type: ignore[type-arg]
+    files: dict | None = None,  # type: ignore[type-arg]
+    model: dict | None = None,  # type: ignore[type-arg]
+) -> Path:
+    """Write a project folder: the molding-press capsule with experiment changes, plus files."""
+    data = ScenarioCapsule.load(CAPSULE).to_dict()
+    data["experiment"].update(experiment or {})
+    data["model"].update(model or {})
+    folder.mkdir(parents=True, exist_ok=True)
+    ScenarioCapsule.from_dict(data).dump(folder / "press.twin.yaml")
+    for name, text in (files or {}).items():
+        path = folder / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    return folder
+
+
+@pytest.fixture(scope="session")
+def shared_project(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-def]
+    """Like `make_project`, for module- and session-scoped fixtures (a fresh folder each)."""
+
+    def make(experiment: dict | None = None, files: dict | None = None, model: dict | None = None):  # type: ignore[no-untyped-def]
+        return write_project(tmp_path_factory.mktemp("project"), experiment, files, model)
+
+    return make
+
+
 @pytest.fixture
 def make_project(tmp_path: Path):  # type: ignore[no-untyped-def]
     """A project folder: the molding-press capsule with experiment changes, plus files."""
-    from twinflow.scenario import ScenarioCapsule as Capsule
 
     def make(experiment: dict | None = None, files: dict | None = None, model: dict | None = None):  # type: ignore[no-untyped-def]
-        data = Capsule.load(CAPSULE).to_dict()
-        data["experiment"].update(experiment or {})
-        data["model"].update(model or {})
-        folder = tmp_path / "project"
-        folder.mkdir(exist_ok=True)
-        Capsule.from_dict(data).dump(folder / "press.twin.yaml")
-        for name, text in (files or {}).items():
-            path = folder / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
-        return folder
+        return write_project(tmp_path / "project", experiment, files, model)
 
     return make
