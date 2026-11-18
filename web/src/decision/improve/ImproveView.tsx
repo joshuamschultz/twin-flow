@@ -11,8 +11,7 @@ import {
 } from "../primitives";
 import { RunDots } from "../RunDots";
 import type { ImproveViewModel } from "../types";
-import { AnswerHero, Problems } from "../viewkit";
-import { share } from "../viewkit/words";
+import { AnswerHero, Problems, share } from "../answer";
 import { checkSummary, rangeWords } from "./derive";
 
 const SECTIONS: SectionRef[] = [
@@ -101,10 +100,10 @@ export function ImproveView({ model }: { model: ImproveViewModel }) {
               question="Proof checklist"
               sub="Each line is a pass or a fail."
             >
-              <ul className="vk-list" aria-label="Proof checklist">
+              <ul className="tf-list" aria-label="Proof checklist">
                 {model.checks.map((c) => (
                   <li key={c.key}>
-                    <div className="vk-row">
+                    <div className="tf-row">
                       <span>{c.label}</span>
                       <StatusPill
                         kind={c.pass ? "ok" : "late"}
@@ -150,7 +149,7 @@ export function ImproveView({ model }: { model: ImproveViewModel }) {
         <Section id="details" eyebrow="Details" question="How this was made">
           <div className="tf-grid2">
             <Card question="Run facts">
-              <dl className="vk-kv">
+              <dl className="tf-kv">
                 <dt>Test runs</dt>
                 <dd className="tf-num">{about.episodes}</dd>
                 <dt>Seed</dt>

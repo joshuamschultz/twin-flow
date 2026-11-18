@@ -3,8 +3,7 @@
 import { Page, type SectionRef } from "../Page";
 import { Card, EmptyState, Section, Tag } from "../primitives";
 import type { ProjectViewModel } from "../types";
-import { AnswerHero, Problems } from "../viewkit";
-import { count } from "../viewkit/words";
+import { AnswerHero, Problems, count } from "../answer";
 import { ruleCounts, viewsByKind } from "./derive";
 
 export function ProjectView({ model }: { model: ProjectViewModel }) {
@@ -61,7 +60,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
         >
           <div className="tf-grid2">
             <Card question="Shape">
-              <dl className="vk-kv">
+              <dl className="tf-kv">
                 <dt>Lines</dt>
                 <dd>
                   {twin.lines.length
@@ -86,7 +85,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
             </Card>
             <Card question="What things cost">
               {twin.costs.length ? (
-                <dl className="vk-kv">
+                <dl className="tf-kv">
                   {twin.costs.map((c) => (
                     <div key={c.label} style={{ display: "contents" }}>
                       <dt>{c.label}</dt>
@@ -105,7 +104,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
           eyebrow="Rules"
           question="Which rules can race, and how are they scored?"
         >
-          <div className="vk-list">
+          <div className="tf-list">
             <Card
               question="Rules"
               sub={`${count(counts.own, "rule")} of your own, ${counts.builtIn} built in.${
@@ -145,7 +144,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
               </div>
             </Card>
             <Card question="Score and views">
-              <dl className="vk-kv">
+              <dl className="tf-kv">
                 <dt>Score</dt>
                 <dd>
                   {score.is_dollars ? "dollars" : score.name}
@@ -158,7 +157,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
                   {observations.map((v) => v.name).join(", ") || "everything"}
                 </dd>
               </dl>
-              <ul className="vk-list" style={{ marginTop: 12 }}>
+              <ul className="tf-list" style={{ marginTop: 12 }}>
                 {stateViews.map((v) => (
                   <li key={v.name} className="tf-note">
                     <b>{v.name}</b>: {v.about}
@@ -175,9 +174,9 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
         >
           {model.recent.length ? (
             <Card>
-              <ul className="vk-list">
+              <ul className="tf-list">
                 {model.recent.map((r) => (
-                  <li key={r.id} className="vk-row">
+                  <li key={r.id} className="tf-row">
                     <span>
                       <span className="tf-note">{r.when.slice(0, 10)}</span>{" "}
                       {r.sentence}
@@ -199,7 +198,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
           <div className="tf-grid2">
             <Card question="Your own files">
               {model.extensions.length ? (
-                <ul className="vk-list">
+                <ul className="tf-list">
                   {model.extensions.map((e) => (
                     <li key={`${e.kind}-${e.name}`}>
                       {e.kind} <b>{e.name}</b>{" "}
@@ -214,7 +213,7 @@ export function ProjectView({ model }: { model: ProjectViewModel }) {
             </Card>
             <Card question="Assumptions">
               {twin.assumptions.length ? (
-                <ul className="vk-list">
+                <ul className="tf-list">
                   {twin.assumptions.map((a) => (
                     <li key={a}>{a}</li>
                   ))}

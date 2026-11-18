@@ -4,18 +4,11 @@ import { useMemo } from "react";
 import { usd } from "../format";
 import { Page, type SectionRef } from "../Page";
 import { Card, EmptyState, Section } from "../primitives";
+import { StateMapCard } from "../StateMapCard";
 import type { StatesViewModel } from "../types";
 import { useViewState } from "../viewState";
-import { AnswerHero, Problems, Stepper } from "../viewkit";
-import { count, share } from "../viewkit/words";
-import {
-  lanesOf,
-  moneyRows,
-  nodeTitle,
-  visibleEdges,
-  visibleNodes,
-} from "./derive";
-import { StatesMapSlot } from "./StatesMapSlot";
+import { AnswerHero, Problems, Stepper, count, share } from "../answer";
+import { moneyRows, nodeTitle, visibleEdges, visibleNodes } from "./derive";
 
 export type StatesViewProps = {
   model: StatesViewModel;
@@ -46,10 +39,23 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
     () => visibleEdges(chain, ids, minProb),
     [chain, ids, minProb],
   );
-  const lanes = useMemo(
-    () => lanesOf(nodes, model.levels !== null),
-    [nodes, model.levels],
+  const choices = useMemo(
+    () => [
+      {
+        id: "chain",
+        label: "Map",
+        avgPerDay: model.avg_per_period,
+        chain: {
+          nodes,
+          edges,
+          coverage: nodes.reduce((sum, n) => sum + n.share, 0),
+        },
+      },
+    ],
+    [nodes, edges, model.avg_per_period],
   );
+  const [selected, setSelected] = useViewState("state", "");
+  const note = about.note?.replace(/\s*Add `state_groups`[^.]*\./, "").trim();
   const empty = built === 0;
   const shown = nodes.reduce((sum, n) => sum + n.share, 0);
   const rows = moneyRows(model.money);
@@ -116,8 +122,8 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
               eyebrow="Map"
               question="What situations does the plant live in, and which ones cost money?"
             >
-              <div className="vk-controls">
-                <label className="vk-field">
+              <div className="tf-controls">
+                <label className="tf-field">
                   <span>View</span>
                   <select
                     value={about.view_name}
@@ -155,17 +161,24 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
                   --view NAME --html
                 </p>
               )}
-              <Card
-                takeaway={`The map shows the ${count(nodes.length, "most common state")}. They cover ${share(shown)} of all days.${about.note ? ` ${about.note}` : ""}`}
-                tone={about.note ? "warn" : "info"}
-              >
-                <StatesMapSlot
-                  nodes={nodes}
-                  edges={edges}
-                  lanes={lanes}
-                  average={model.avg_per_period}
-                />
-              </Card>
+              <StateMapCard
+                chains={choices}
+                horizon={Math.max(
+                  1,
+                  Math.round(about.moves / Math.max(1, about.episodes)),
+                )}
+                runs={about.episodes}
+                levels={model.levels}
+                families={model.families ?? []}
+                lanesBy={model.levels === null ? "grid" : "auto"}
+                selected={selected || null}
+                onSelect={setSelected}
+              />
+              {note && (
+                <p className="tf-note" style={{ marginTop: 10 }}>
+                  {note}
+                </p>
+              )}
             </Section>
             <Section
               id="money"
@@ -178,10 +191,10 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
                   sub="Dollars per run, by part."
                   takeaway={`A normal day makes ${usd(model.avg_per_period)}.`}
                 >
-                  <ul className="vk-list" aria-label="Money by part">
+                  <ul className="tf-list" aria-label="Money by part">
                     {rows.map((r) => (
                       <li key={r.part}>
-                        <div className="vk-row">
+                        <div className="tf-row">
                           <span>{r.label}</span>
                           <span className="tf-num">{usd(r.value)}</span>
                         </div>
@@ -246,7 +259,7 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
             question="Where does the plant lose money?"
           >
             <Card>
-              <ol className="vk-list" style={{ paddingLeft: 0 }}>
+              <ol className="tf-list" style={{ paddingLeft: 0 }}>
                 {model.leaks.map((l, i) => (
                   <li key={l.state}>
                     <b>{leakName(model, i)}</b>{" "}
@@ -263,7 +276,7 @@ export function StatesView({ model, onViewChange }: StatesViewProps) {
         <Section id="details" eyebrow="Details" question="How this was made">
           <div className="tf-grid2">
             <Card question="Run facts">
-              <dl className="vk-kv">
+              <dl className="tf-kv">
                 <dt>Run folders</dt>
                 <dd className="tf-num">{about.runs}</dd>
                 <dt>Test runs</dt>

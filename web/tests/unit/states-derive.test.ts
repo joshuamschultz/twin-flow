@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  lanesOf,
   moneyRows,
   visibleEdges,
   visibleNodes,
@@ -31,49 +30,6 @@ const node = (
     per_day: 100,
     money_per_day: {},
   }) as StatesStateNode;
-
-describe("lanesOf", () => {
-  it("makes one lane per press setting, biggest first, boxes by share", () => {
-    const nodes = [
-      node("a", 0.3, { grey: "low" }, "grey"),
-      node("b", 0.4, { grey: "ok" }, "black"),
-      node("c", 0.2, { grey: "high" }, "grey"),
-    ];
-    const out = lanesOf(nodes);
-    expect(out.kind).toBe("setup");
-    expect(out.lanes.map((l) => l.name)).toEqual([
-      "Press on grey",
-      "Press on black",
-    ]);
-    expect(out.lanes[0].nodes.map((n) => n.id)).toEqual(["a", "c"]);
-  });
-
-  it("falls back to the first stock level when there is no setup part", () => {
-    const nodes = [
-      node("a", 0.5, { grey: "low", black: "ok" }, null),
-      node("b", 0.3, { grey: "ok", black: "ok" }, null),
-      node("c", 0.1, { grey: "low", black: "high" }, null),
-    ];
-    const out = lanesOf(nodes);
-    expect(out.kind).toBe("level");
-    expect(out.lanes.map((l) => l.name)).toEqual(["Grey low", "Grey ok"]);
-  });
-
-  it("uses the grid when the view is not grouped", () => {
-    const nodes = [node("a", 0.5, { round_bar: "0" }, null)];
-    expect(lanesOf(nodes, false).kind).toBe("grid");
-  });
-
-  it("uses one grid sorted by share when labels have no parts", () => {
-    const out = lanesOf([
-      node("a", 0.1, null, null),
-      node("b", 0.4, null, null),
-    ]);
-    expect(out.kind).toBe("grid");
-    expect(out.lanes).toHaveLength(1);
-    expect(out.lanes[0].nodes.map((n) => n.id)).toEqual(["b", "a"]);
-  });
-});
 
 describe("visibleNodes and visibleEdges", () => {
   const chain: StatesMarkovView = {
