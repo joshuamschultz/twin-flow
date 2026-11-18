@@ -26,11 +26,11 @@ from twinflow.instrumentation import compute_kpis
 from twinflow.instrumentation.aggregate import AggregatedKpis, Interval, aggregate_kpis
 from twinflow.instrumentation.kpis import KpiSet
 from twinflow.instrumentation.sweep import SweepHarness, SweepResult, orders_frame
-from twinflow.model import CompiledModel, load_model, validate_model
+from twinflow.model import load_model, validate_model
 from twinflow.plan.driver import RunDriver
 from twinflow.plan.loader import load_plan
 from twinflow.plan.replication import ReplicationRunner
-from twinflow.report import render_html, write_kpi_json
+from twinflow.report import write_kpi_json, write_run_report
 from twinflow.report.assumptions import AssumptionsCollector
 from twinflow.report.run_detail import shown_path, write_run_detail
 from twinflow.run_stamp import RunStamp
@@ -296,9 +296,7 @@ def _handle_run(args: argparse.Namespace) -> int:
     kpis = per_rep[0]
     aggregated = aggregate_kpis(per_rep)
 
-    _write_run_artifacts(
-        run_dir, compiled, kpis, aggregated, model_path, plan_path, horizon=horizon
-    )
+    _write_run_artifacts(run_dir, kpis, aggregated, model_path, plan_path)
     write_run_detail(
         run_dir,
         model=compiled,
@@ -311,6 +309,7 @@ def _handle_run(args: argparse.Namespace) -> int:
         plan_path=plan_path,
         reps=args.reps,
     )
+    write_run_report(run_dir)
     run_id = run_dir.name
     print(f"run {run_id}")
     for line in _run_summary_lines(kpis, args.reps):
@@ -462,16 +461,14 @@ def _sweep_summary_lines(summary: list[dict[str, object]]) -> list[str]:
 
 
 def _handle_report(args: argparse.Namespace) -> int:
-    """`twinflow report <run-id> --out html` — (re)confirms `report.html` for an
-    already-completed run; `kpis.json` is the "run completed" proof-of-life
-    marker (COMP-027)."""
+    """`twinflow report <run-id> --out html` — (re)writes `report.html`, the run viewer,
+    from the run folder alone; `kpis.json` is the "run completed" marker (COMP-027).
+    A sweep linked to the run since it was made shows up as its levers."""
     run_dir = Path("runs") / args.run_id
     if not (run_dir / "kpis.json").is_file():
         print(f"error: no completed run found at {run_dir}", file=sys.stderr)
         return 1
-    if not (run_dir / "report.html").is_file():
-        print(f"error: run {args.run_id!r} completed but report.html is missing", file=sys.stderr)
-        return 1
+    print(f"report: {write_run_report(run_dir)}")
     return 0
 
 
@@ -576,28 +573,17 @@ def _handle_serve(args: argparse.Namespace) -> int:
 
 def _write_run_artifacts(
     run_dir: Path,
-    compiled: CompiledModel,
     kpis: KpiSet,
     aggregated: AggregatedKpis,
     model_path: str,
     plan_path: str,
-    horizon: float | None = None,
 ) -> None:
-    """Write `kpis.json`, `intervals.json`, `report.html` and `run_meta.json`."""
-    assumptions = AssumptionsCollector().collect(compiled)
+    """Write `kpis.json`, `intervals.json` and `run_meta.json`. `report.html` is written
+    after `run_detail.json`, from the run folder (B-34)."""
     stamp = RunStamp.create(model_path, plan_path, base_seed=_BASE_SEED)
     write_kpi_json(kpis, _KPI_SCHEMA_VERSION, run_dir / "kpis.json")
     (run_dir / "intervals.json").write_text(
         json.dumps(_intervals_to_dict(aggregated), indent=2), encoding="utf-8"
-    )
-    render_html(
-        kpis,
-        assumptions,
-        stamp,
-        run_dir / "report.html",
-        model=compiled,
-        aggregated=aggregated,
-        horizon=horizon,
     )
     (run_dir / "run_meta.json").write_text(json.dumps(stamp.to_dict(), indent=2), encoding="utf-8")
 

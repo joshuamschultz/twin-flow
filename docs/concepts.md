@@ -48,7 +48,7 @@ per-plant code. See [modeling.md](modeling.md#the-plan).
 
 | File | What it holds |
 |---|---|
-| `report.html` | A self-contained, offline report: headline KPIs with confidence bands, a value-stream diagram, range charts, and the assumptions the engine had to make. |
+| `report.html` | The run viewer: one offline page. It answers "Will my orders finish on time?", lists the orders at risk and why, shows the choke point, the best tested change and the full numbers. |
 | `kpis.json` | Every KPI as machine-readable JSON (a versioned contract). |
 | `intervals.json` | The confidence bands across replications. |
 | `run_meta.json` | The reproducibility stamp: hashes of model + plan, the seed, engine/Python versions, dependency set. |

@@ -62,6 +62,23 @@ test("orders are sorted by late chance and every pill carries words", async ({
   ).toBeVisible();
 });
 
+test("every bar stays inside its track", async ({ page }) => {
+  await open(page, golden(), "run.html");
+  const tracks = page.locator(".rv-orders .rv-track");
+  for (let i = 0; i < (await tracks.count()); i++) {
+    const track = await tracks.nth(i).boundingBox();
+    for (const part of await tracks
+      .nth(i)
+      .locator(".rv-bar, .rv-whisker, .rv-due")
+      .all()) {
+      const box = await part.boundingBox();
+      expect(box!.x + box!.width).toBeLessThanOrEqual(
+        track!.x + track!.width + 1,
+      );
+    }
+  }
+});
+
 test("pressing an order opens its steps, work and wait", async ({ page }) => {
   await open(page, golden(), "run.html");
   await page.getByRole("button", { name: /^WO-9/ }).click();

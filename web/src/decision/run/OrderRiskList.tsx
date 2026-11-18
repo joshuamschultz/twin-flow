@@ -126,6 +126,18 @@ export function orderSentence(o: RunOrder, unit: TimeUnit): string {
   return parts.join(", ") + ".";
 }
 
+/** The shared time axis must reach the latest finish, range end or due time. */
+export function timelineEnd(orders: RunOrder[], horizon: number): number {
+  return Math.max(
+    horizon,
+    ...orders.flatMap((o) => [
+      o.finish?.mean ?? 0,
+      o.finish?.high ?? 0,
+      o.due ?? 0,
+    ]),
+  );
+}
+
 export function OrderRiskList({
   orders,
   horizon,
@@ -136,8 +148,9 @@ export function OrderRiskList({
   unit: TimeUnit;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  const ticks = axisTicks(horizon);
-  const span = Math.max(horizon, ticks[ticks.length - 1] ?? 0, 1e-9);
+  const end = timelineEnd(orders, horizon);
+  const ticks = axisTicks(end);
+  const span = Math.max(end, ticks[ticks.length - 1] ?? 0, 1e-9);
   const u = unitShort(unit);
   const sorted = sortOrders(orders);
   return (

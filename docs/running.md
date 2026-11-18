@@ -57,7 +57,8 @@ Everything about the run lives in `runs/<run-id>/`:
 
 | File | What it is |
 |---|---|
-| `report.html` | A single self-contained page. Open it in any browser, offline. This is the human view. |
+| `report.html` | The run viewer. A single self-contained page. Open it in any browser, offline. This is the human view. |
+| `plan.json`, `run_detail.json` | The plan rows and the per-run facts the viewer reads, so `twinflow report` can rebuild it from the run folder alone. |
 | `kpis.json` | Machine-readable KPIs for the representative run (schema-versioned). |
 | `intervals.json` | The confidence bands across all replications (mean + lo/hi per metric). |
 | `run_meta.json` | The reproducibility stamp: model/plan hashes, seed, engine + Python versions, dependencies. |
