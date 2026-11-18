@@ -85,3 +85,116 @@
 .tf-cmp-b {
   background: var(--tf-today);
 }
+
+/* What if */
+.tf-wi-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.tf-wi-sliders {
+  display: grid;
+  gap: 18px;
+}
+.tf-wi-slider label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--ba-headline);
+  font-weight: 500;
+}
+.tf-wi-slider label .tf-num {
+  color: var(--ba-accent);
+}
+.tf-wi-slider input[type="range"] {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  accent-color: var(--ba-accent);
+}
+.tf-wi-slider small {
+  display: block;
+  color: var(--tf-meta);
+  font-size: 12.5px;
+}
+.tf-wi-honest {
+  border: 1px dashed var(--ba-rule);
+  border-radius: 2px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--ba-body-2);
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+}
+.tf-wi-honest b {
+  color: var(--ba-headline);
+}
+.tf-wi-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tf-wi-list li {
+  display: grid;
+  grid-template-columns: 22px 30px minmax(90px, 180px) minmax(0, 1fr) 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 13.5px;
+  border-radius: 2px;
+  position: relative;
+  background: var(--ba-surface);
+}
+.tf-wi-list li.tf-wi-pick {
+  background: var(--ba-tint);
+}
+.tf-wi-rk {
+  color: var(--tf-meta);
+  font-size: 12px;
+}
+.tf-wi-nm {
+  color: var(--ba-headline);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tf-wi-other {
+  background: var(--tf-today);
+}
+.tf-wi-move {
+  font: 500 11px var(--ba-font-mono);
+}
+.tf-wi-move.tf-up {
+  color: var(--tf-gain);
+}
+.tf-wi-move.tf-dn {
+  color: var(--tf-loss-text);
+}
+.tf-wi-move.tf-eq {
+  color: var(--tf-meta);
+}
+@media (max-width: 600px) {
+  .tf-wi-list li {
+    grid-template-columns: 18px 28px minmax(0, 1fr) 72px;
+  }
+  .tf-wi-list .tf-track {
+    display: none;
+  }
+}
+@media print {
+  .tf-wi-sliders input,
+  .tf-wi-head button {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tf-wi-list li {
+    transition: none !important;
+  }
+}

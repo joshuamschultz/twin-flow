@@ -9,6 +9,7 @@ import "../decision/decision.css";
 import golden from "../../../docs/design/race-view-model.full.json";
 import type { RaceViewModel } from "../decision/types";
 import { CompareTable } from "../decision/CompareTable";
+import { WhatIf } from "../decision/WhatIfPanel";
 
 const model = golden as unknown as RaceViewModel;
 const which = new URLSearchParams(window.location.search).get("c") ?? "compare";
@@ -21,6 +22,12 @@ function Fixture() {
           policies={model.policies}
           runs={model.about.episodes}
           horizonDays={model.about.horizon_days}
+        />
+      ) : which === "whatif" ? (
+        <WhatIf
+          policies={model.policies}
+          config={model.what_if}
+          runs={model.about.episodes}
         />
       ) : (
         <p>Unknown fixture: {which}</p>
