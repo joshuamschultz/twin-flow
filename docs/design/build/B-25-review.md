@@ -50,3 +50,20 @@ B-23 and B-24 on `feat/TF-006-ui-details` and merge next. Until then Details sho
 | 16 | Page is shorter (6,353 px vs 7,522 px at 1280) | **Stays.** The gap is the Tuning and Details sections in item 5 |
 
 Nothing in the list blocks the gate. The owner signs off on items 1 and 5 when B-23/B-24 merge.
+
+## Close-out check (B-42)
+
+Date: 2026-11-18. Branch: `feat/TF-006-final-gate`. Reviewer: Opus.
+
+Built a fresh race with `twinflow policies race examples/molding-press --episodes 20` and
+took full-page shots at 1280 and 820, light and dark, with Playwright. Compared them with
+`docs/design/mockups/race-report-*.png`. No console errors in any of the four.
+
+| # | Item | Now |
+|---|---|---|
+| 5 | Tuning and full Details were missing | **Done.** Both sections are in the page, in the mockup's order. The section bar ends with Tuning, Details |
+| 16 | Page was shorter than the mockup | **Done.** 8,602 px at 1280 (mockup 7,522). The extra height is the "What is information worth?" card and the Problems card, which the mockup leaves out |
+| 17 | New: at 1280 the full table was 81 px wider than its card, so the Source column hid behind a side scroll | **Fixed.** Header words wrap and cells sit closer in the full table (`details.css`). Test: `details.spec.ts` "at 1280 the full table fits its card". Narrow pages still scroll inside the card |
+| 18 | Floor card says "Fewer orders find an empty shelf."; the mockup says "customers" | **Stays.** Copy pass wording (buyers are businesses; grade 6) |
+
+Signed off by the lead, 2026-11-18. Items 1 and 5 are closed. Nothing open.
