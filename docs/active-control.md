@@ -84,8 +84,10 @@ release:
 | `wip_cap` / `conwip` | hold new releases while `wip_cap` orders are already in the system; admit the next as one finishes |
 
 A WIP cap trades a little throughput for much steadier flow, shorter queues, and dates you
-can defend. Try a few caps with a sweep (`{"release.wip_cap": [3, 5, 8]}`) and watch the
-on-time band and WIP move.
+can defend. Try a few caps with a sweep and watch the on-time band and WIP move. The path
+`release.wip_cap` works only when the shop file already has a `release` block; otherwise
+sweep the whole value: `{"release": [{"policy": "plan"}, {"policy": "wip_cap", "wip_cap": 3}]}`.
+See [test a WIP cap](how-to/test-a-wip-cap.md).
 
 ---
 

@@ -1,0 +1,1 @@
+{"locations[mill_VB].breakdown": [null, {"mtbf": "80h", "mttr": {"dist": "lognormal", "mean": "8h", "cv": 0.4}}, {"mtbf": "80h", "mttr": {"dist": "lognormal", "mean": "24h", "cv": 0.4}}]}

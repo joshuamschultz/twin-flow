@@ -111,4 +111,4 @@ For the job shop, the view is `full`, because the shop file has no product famil
 
 ## Next
 
-[Test orders](test-orders.md): run a shop's orders and read the due-date results.
+[Model your floor](model-your-floor.md): describe your own machines, steps and times. Or go to [Test orders](test-orders.md) to read the due-date results of the CNC shop.

@@ -21,7 +21,7 @@ use:
 | Machines at a center | `locations[mill].capacity` |
 | A reorder point | `stocks[resin].reorder_point` |
 | A dispatch rule | `locations[press].dispatch` |
-| A WIP cap | `release.wip_cap` |
+| A WIP cap | `release.wip_cap` (the shop file must already have a `release` block) |
 
 `[0]` selects a list item by index; `[mill]` selects the list item whose `name` is `mill`.
 

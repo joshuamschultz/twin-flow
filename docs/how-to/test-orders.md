@@ -89,4 +89,4 @@ It runs the 10 work orders of the CNC shop example. Then it shows when each orde
 
 ## Next
 
-[Write a policy](write-a-policy.md): write your own rule for what to make next.
+[Find your bottleneck](find-your-bottleneck.md): see which machine holds the shop back.
