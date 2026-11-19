@@ -1,6 +1,8 @@
 # Test adding a worker or machine
 
-Question: is a third machinist or a second mill worth it?
+![A crane lowering a new machining center into an empty slot at the end of a row](../images/headers/how-to-test-adding-a-worker-or-machine.webp)
+
+This guide answers one question. Is a third machinist or a second mill worth it?
 
 ## What this does
 
@@ -52,6 +54,8 @@ It runs every mix of 2 or 3 machinists, and 1 or 2 valve-body mills, side by sid
    ```
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 A side-by-side table. The twin shows the options. You choose. Open the `sweep.html` the command prints for a picture. The `summary.json` next to it also has the late orders per run: 3.05 today, 0.65 with a second mill, 0.05 with both.
 

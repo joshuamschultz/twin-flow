@@ -1,6 +1,8 @@
 # Test a WIP cap
 
-Question: do we ship more on time if we let in fewer orders at once?
+![A gate holding a line of crates back before a machining area](../images/headers/how-to-test-a-wip-cap.webp)
+
+This guide answers one question. Do we ship more on time if we let in fewer orders at once?
 
 ## What this does
 
@@ -38,6 +40,8 @@ It holds new orders back until the floor has room. WIP means work in process, th
 2. Read it. A cap of 6 changes nothing here. A cap of 3 lifts on-time by 3.6 points, to 83.3%. Late orders per run go from 3.05 to 2.5 (in `summary.json`).
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 A small gain here. The mill is the limit, not the crowd on the floor. Use a cap when a shop is flooded with orders that all start on the same day.
 

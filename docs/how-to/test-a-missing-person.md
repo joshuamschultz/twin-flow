@@ -1,6 +1,8 @@
 # Test a missing person
 
-Question: what happens if a machinist is out?
+![Three machining centers with operator stools; the middle stool is empty](../images/headers/how-to-test-a-missing-person.webp)
+
+This guide answers one question. What happens if a machinist is out?
 
 ## What this does
 
@@ -47,6 +49,8 @@ It tests two cases. One is a lost machinist for the whole test. The other is a c
 3. Read it against today. With one machinist the shop ships 8.7% on time, not 79.7%. Even a 25% chance of absence cuts it to 41.7%. Late orders per run (in `summary.json`) go from 3.05 to 13.7 for one machinist, and to 8.75 for the 25% case.
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 The shop has no spare machinist. Two people are the least it can run on. A third machinist or a cross-trained person is worth testing. See [Test adding a worker or machine](test-adding-a-worker-or-machine.md).
 

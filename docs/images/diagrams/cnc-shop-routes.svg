@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 396" width="800" height="396" role="img" aria-labelledby="title desc">
+  <title id="title">The CNC shop floor and its routes</title>
+  <desc id="desc">A row of six machines: band_saw, lathe, mill_valve, mill_bracket, deburr_bench and cmm. Three lines show the route of each part. FTG-2201 goes saw, lathe, cmm. VB-3107 goes saw, mill_valve, deburr_bench, cmm. MB-4410 goes saw, mill_bracket, cmm. The mill_valve box is marked as the bottleneck.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #f68d2e; fill-opacity: 0.1; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="395" rx="4"/>
+
+  <text class="h" x="36" y="44">The CNC shop floor and its routes</text>
+  <text class="sub" x="36" y="66">Six machines, three parts. Each line is the route of one part, left to right.</text>
+  <rect class="card" x="36" y="96" width="108" height="72" rx="4"/>
+  <text class="code" x="44" y="120" style="font-weight: 700">band_saw</text>
+  <text class="m" x="44" y="140">all 3 parts</text>
+  <rect class="card" x="160" y="96" width="108" height="72" rx="4"/>
+  <text class="code" x="168" y="120" style="font-weight: 700">lathe</text>
+  <text class="m" x="168" y="140">fittings</text>
+  <rect class="warn" x="284" y="96" width="108" height="72" rx="4"/>
+  <text class="code" x="292" y="120" style="font-weight: 700">mill_valve</text>
+  <text class="m" x="292" y="140">valve bodies</text>
+  <text class="bad" x="292" y="158" style="font-size: 12px">bottleneck</text>
+  <rect class="card" x="408" y="96" width="108" height="72" rx="4"/>
+  <text class="code" x="416" y="120" style="font-weight: 700">mill_bracket</text>
+  <text class="m" x="416" y="140">brackets</text>
+  <rect class="card" x="532" y="96" width="108" height="72" rx="4"/>
+  <text class="code" x="540" y="120" style="font-weight: 700">deburr_bench</text>
+  <text class="m" x="540" y="140">valve bodies</text>
+  <rect class="card" x="656" y="96" width="108" height="72" rx="4"/>
+  <text class="code" x="664" y="120" style="font-weight: 700">cmm</text>
+  <text class="m" x="664" y="140">all 3 parts</text>
+  <path class="axis" d="M90 168 V224"/>
+  <path class="axis" d="M214 168 V224"/>
+  <path class="axis" d="M710 168 V224"/>
+  <path class="axis" d="M90 168 V266"/>
+  <path class="axis" d="M338 168 V266"/>
+  <path class="axis" d="M586 168 V266"/>
+  <path class="axis" d="M710 168 V266"/>
+  <path class="axis" d="M90 168 V308"/>
+  <path class="axis" d="M462 168 V308"/>
+  <path class="axis" d="M710 168 V308"/>
+  <path class="line" d="M97 224 H205" marker-end="url(#arrow)"/>
+  <path class="line" d="M221 224 H701" marker-end="url(#arrow)"/>
+  <circle cx="90" cy="224" r="5" fill="#0073fe"/>
+  <circle cx="214" cy="224" r="5" fill="#0073fe"/>
+  <circle cx="710" cy="224" r="5" fill="#0073fe"/>
+  <text class="code" x="104" y="215" style="font-size: 11.5px">FTG-2201</text>
+  <path class="line" d="M97 266 H329" marker-end="url(#arrow)"/>
+  <path class="line" d="M345 266 H577" marker-end="url(#arrow)"/>
+  <path class="line" d="M593 266 H701" marker-end="url(#arrow)"/>
+  <circle cx="90" cy="266" r="5" fill="#0073fe"/>
+  <circle cx="338" cy="266" r="5" fill="#0073fe"/>
+  <circle cx="586" cy="266" r="5" fill="#0073fe"/>
+  <circle cx="710" cy="266" r="5" fill="#0073fe"/>
+  <text class="code" x="104" y="257" style="font-size: 11.5px">VB-3107</text>
+  <path class="line" d="M97 308 H453" marker-end="url(#arrow)"/>
+  <path class="line" d="M469 308 H701" marker-end="url(#arrow)"/>
+  <circle cx="90" cy="308" r="5" fill="#0073fe"/>
+  <circle cx="462" cy="308" r="5" fill="#0073fe"/>
+  <circle cx="710" cy="308" r="5" fill="#0073fe"/>
+  <text class="code" x="104" y="299" style="font-size: 11.5px">MB-4410</text>
+  <text class="m" x="36" y="354">FTG-2201 is the hydraulic fitting, VB-3107 the valve body, MB-4410 the mounting bracket.</text>
+  <text class="m" x="36" y="374">Valve bodies need 45 minutes of setup on the valve mill, and the mill is busy 93% of its on-shift time.</text>
+</svg>

@@ -1,6 +1,8 @@
 # Test a rush order
 
-Question: can we fit one rush order in, and who pays for it?
+![A queue of crates in front of a machine, with one crate lifted to the front](../images/headers/how-to-test-a-rush-order.webp)
+
+This guide answers one question. Can we fit one rush order in, and who pays for it?
 
 ## What this does
 
@@ -46,6 +48,8 @@ It adds a rush valve-body order. It runs the shop with the rush flag on, and wit
 3. Read it. With the flag, `WO-26116` is late in 0 of 20 runs. Without it, 17 of 20. The cost: `WO-26107` slips from Tue Nov 24 09:15 to Wed Nov 25 11:45, and goes from late in 17 runs to 20.
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 Mean on-time percent, over 20 runs (from `balance`, see [Compare to today](compare-to-today.md)):
 

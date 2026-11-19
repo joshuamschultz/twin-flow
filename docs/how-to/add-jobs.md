@@ -1,5 +1,7 @@
 # Add jobs
 
+![Work order cards moving on a conveyor toward two machining centers, with one new card joining the row](../images/headers/how-to-add-jobs.webp)
+
 This guide writes the orders file, and runs it.
 
 ## What this does

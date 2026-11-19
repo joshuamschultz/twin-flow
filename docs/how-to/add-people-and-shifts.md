@@ -1,5 +1,7 @@
 # Add people and shifts
 
+![A machining center under a weekly clock ring, with two segments dimmed, and operator stools beside it](../images/headers/how-to-add-people-and-shifts.webp)
+
 This guide sets who runs the machines, and when they work.
 
 ## What this does

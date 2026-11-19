@@ -1,6 +1,8 @@
 # Change the dispatch rule
 
-Question: does a different "what do we run next" rule at the mill help?
+![A sorting arm reordering crates of different sizes in front of a machine](../images/headers/how-to-change-dispatch-rule.webp)
+
+This guide answers one question. Does a different "what do we run next" rule at the mill help?
 
 ## What this does
 
@@ -32,6 +34,8 @@ It tries three rules at the valve-body mill. EDD means earliest due date first. 
 2. Read it. EDD and FIFO give the same result here. SPT gives 81.3%, a gain of 1.6 points. Late orders per run go from 3.05 to 2.8 (in `summary.json`).
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 A rule change is a small lever here. The mill has too much work, and no order rule makes more hours. SPT runs short jobs first, so a big order can wait longer. Read the order table before you adopt it.
 

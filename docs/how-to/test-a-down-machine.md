@@ -1,6 +1,8 @@
 # Test a down machine
 
-Question: will we still ship if the valve-body mill breaks down?
+![Three machining centers in a row; the middle one is open for repair and crates wait in front of it](../images/headers/how-to-test-a-down-machine.webp)
+
+This guide answers one question. Will we still ship if the valve-body mill breaks down?
 
 ## What this does
 
@@ -42,6 +44,8 @@ It adds random breakdowns to the mill. It then compares the on-time percent to t
 3. Read it against today. Point 0 is today. A shift-long repair drops on-time by 9 points. A day-long repair drops it by 12 points. The late orders per run rise from 3.05 to 4.4 and 4.8 (see `summary.json`).
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 A short repair costs about as many orders as a long one. The mill has no slack, so any lost hour pushes orders later. Plan a spare hour or a second mill before you plan for fast repairs.
 

@@ -8,6 +8,8 @@ other half: a new feature cannot ship without a guide.
 - Every floor feature in `FEATURE_GUIDES` has its guide, and the guide names the setting.
   When you add a user-facing setting or scenario, add a row here and write the guide.
 - Every setting used in an example shop file is explained somewhere under `docs/`.
+- Every guide opens with its header image, and every header has its prompt row in
+  `docs/design/tools/header_subjects.tsv` (see docs/design/VISUALS.md).
 """
 
 from __future__ import annotations
@@ -129,3 +131,21 @@ def test_every_shop_setting_is_documented() -> None:
         key for key in _example_shop_keys() if not re.search(rf"\b{re.escape(key)}\b", docs)
     )
     assert not missing, f"shop settings used in examples but explained nowhere in docs/: {missing}"
+
+
+HEADER_SUBJECTS = ROOT / "docs" / "design" / "tools" / "header_subjects.tsv"
+# Pages in docs/how-to/ that are not guides: the index, and a table made from code.
+NOT_GUIDES = {"README.md", "tune.md"}
+GUIDES = sorted(p for p in HOW_TO.glob("*.md") if p.name not in NOT_GUIDES)
+
+
+@pytest.mark.parametrize("guide", GUIDES, ids=lambda p: p.name)
+def test_guide_has_a_header_image(guide: Path) -> None:
+    slug = f"how-to-{guide.stem}"
+    head = "\n".join(guide.read_text(encoding="utf-8").splitlines()[:4])
+    assert f"../images/headers/{slug}.webp" in head, (
+        f"{guide.name} has no header image under its title. Make one with "
+        f"docs/design/tools/make_header.py {slug} and link it (docs/design/VISUALS.md)."
+    )
+    subjects = {line.split("\t", 1)[0] for line in HEADER_SUBJECTS.read_text().splitlines()}
+    assert slug in subjects, f"add the prompt for {slug} to {HEADER_SUBJECTS.name}"

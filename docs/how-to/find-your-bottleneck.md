@@ -1,5 +1,7 @@
 # Find your bottleneck
 
+![Four machines in a row, with crates piled up in front of the third one](../images/headers/how-to-find-your-bottleneck.webp)
+
 This guide finds the one machine that holds the shop back.
 
 ## What this does
@@ -38,6 +40,10 @@ It reads the busiest machines, and the wait breakdown, from a run of the CNC sho
    ```
 
 ## What you get
+
+The picture shows the table from step 3. The bottleneck is busy and almost never starved. The machines after it wait for it.
+
+![Four work centers by busy and starved time: the valve-body mill is busy 95% and starved under one day, while the other three are busy 14 to 25% and starved 13.8 to 15.8 days](../images/diagrams/busy-vs-starved.svg)
 
 - One clear answer: `mill_VB`, the valve-body mill. It is busy 95% of the time, and starved for under a day of an 18-day run.
 - No machine is blocked, so no machine is held up by a full line after it.

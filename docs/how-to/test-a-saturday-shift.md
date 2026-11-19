@@ -1,6 +1,8 @@
 # Test a Saturday shift
 
-Question: does adding Saturday for the machinists fix the late orders?
+![A machining center under a weekly clock ring, with a sixth day lighting up](../images/headers/how-to-test-a-saturday-shift.webp)
+
+This guide answers one question. Does adding Saturday for the machinists fix the late orders?
 
 ## What this does
 
@@ -35,6 +37,8 @@ It adds Saturday to the machinists' week and compares on-time to today.
 2. Read it. One more working day a week lifts on-time from 79.7% to 93.7%. Late orders per run (in `summary.json`) fall from 3.05 to 0.95.
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 A Saturday shift for the two machinists does most of what a second mill does (95.7%), with no new machine. The mill still works only when a machinist is there, so more hours of people mean more hours of mill.
 

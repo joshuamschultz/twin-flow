@@ -14,6 +14,10 @@ There are two tracks. Read "Plan the floor" first. It is the everyday use: build
 
 ### Plan the floor
 
+The picture shows the path. Build the shop, measure today, test the bad days, then pick one change.
+
+![A path from modeling the floor, people, jobs and today's baseline, to four bad-day tests, then a choice between adding a worker or machine, a Saturday shift, or an optimize search](../images/diagrams/plan-the-floor-path.svg)
+
 1. [Build a twin](build-a-twin.md): start a new folder from a starter template.
 2. [Load your data and economics](load-data-and-economics.md): enter your products, demand, prices and costs.
 3. [Check your twin](check-your-twin.md): find mistakes before you run anything.

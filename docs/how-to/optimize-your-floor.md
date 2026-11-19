@@ -1,5 +1,7 @@
 # Optimize your floor
 
+![A small factory floor with three control sliders beside it and a hill with one peak above it](../images/headers/how-to-optimize-your-floor.webp)
+
 This guide lets the twin search for the best number of machinists and mills.
 
 ## What this does

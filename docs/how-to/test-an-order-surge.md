@@ -1,6 +1,8 @@
 # Test an order surge
 
-Question: can we take 8 more orders in the second week?
+![A wave of crates pouring onto a conveyor that feeds two machining centers](../images/headers/how-to-test-an-order-surge.webp)
+
+This guide answers one question. Can we take 8 more orders in the second week?
 
 ## What this does
 
@@ -42,6 +44,8 @@ It adds 8 orders to the open orders and runs the shop. You compare it to today.
 3. Read it. On-time falls from 79.7% to 64.8%. Late orders per run rise from 3.05 to 8.1. In the first run, the whole book finishes at hour 702, not hour 447. The new orders are fittings and brackets as well as valve bodies, but only the valve bodies are late. The mill is the limit again.
 
 ## What you get
+
+See where this test sits next to the others in the [bad-day results](compare-to-today.md#bad-day-results).
 
 The surge lands on the valve-body mill, as the open orders do. Fittings and brackets still ship on time. To take the surge, test more mill and more people together. With 3 machinists and a second mill the surge ships 99.1% on time. With either one alone it does not (66.7%). Use [Test adding a worker or machine](test-adding-a-worker-or-machine.md) with this file.
 

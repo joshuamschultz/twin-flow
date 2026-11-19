@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 620" width="800" height="620" role="img" aria-labelledby="title desc">
+  <title id="title">On-time percent, today and each test</title>
+  <desc id="desc">A bar chart of on-time percent. Today is 79.7. Below today: mill breakdown with 8 hour repairs 70.7, with 24 hour repairs 68.0, 1 machinist 8.7, absence rate 0.25 41.7, absence rate 0.5 30.7, rush order flagged 73.8, same order not flagged 69.1, 8-order surge 64.8. Above today: surge with 3 machinists and a second mill 99.1, second mill 95.7, second mill with a third machinist 99.7, Saturday shift 93.7, WIP cap 3 83.3, SPT dispatch 81.3.</desc>
+  <style>
+    .bg { fill: #f6f8fb; stroke: #dfe3e8; stroke-width: 1; }
+    .card { fill: #ffffff; stroke: #c7d6e8; stroke-width: 1.5; }
+    .tint { fill: #eef4ff; stroke: #9cc2ff; stroke-width: 1.5; }
+    .pick { fill: #eef4ff; stroke: #0073fe; stroke-width: 2; }
+    .later { fill: #ffffff; stroke: #8fa6c4; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .warn { fill: #f68d2e; fill-opacity: 0.1; stroke: #f68d2e; stroke-width: 1.5; }
+    .h { font-family: 'Space Grotesk', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #002550; letter-spacing: -0.3px; }
+    .sub { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #54585c; }
+    .t { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #002550; }
+    .b { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; fill: #243042; }
+    .m { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; fill: #54585c; }
+    .code { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #003b82; }
+    .num { font-family: 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; fill: #243042; }
+    .good { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #0055bc; }
+    .bad { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #8a4c11; }
+    .line { stroke: #0055bc; stroke-width: 1.5; fill: none; }
+    .tree { stroke: #8fa6c4; stroke-width: 1.5; fill: none; }
+    .axis { stroke: #8fa6c4; stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0055bc"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="799" height="619" rx="4"/>
+
+  <text class="h" x="36" y="44">On-time percent, today and each test</text>
+  <text class="sub" x="36" y="66">Bars that stop short of the dashed line are worse than today. Bars past it are better.</text>
+  <text class="t" x="576.9" y="98" text-anchor="middle" style="font-size: 12px">Today</text>
+  <text class="m" x="704" y="98" text-anchor="end">On time %</text><text class="m" x="764" y="98" text-anchor="end">vs today</text>
+  <text class="t" x="36" y="124">Today</text>
+  <rect x="290" y="113" width="286.9" height="14" rx="2" fill="#002550"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" x="704" y="124" text-anchor="end" fill="#002550">79.7</text>
+  <text class="b" x="36" y="156">Mill breakdown, 8h repairs</text>
+  <rect x="290.75" y="145.75" width="253.0" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="156" text-anchor="end" fill="#8a4c11">70.7</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="156" text-anchor="end" fill="#8a4c11">-9.0</text>
+  <text class="b" x="36" y="180">Mill breakdown, 24h repairs</text>
+  <rect x="290.75" y="169.75" width="243.3" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="180" text-anchor="end" fill="#8a4c11">68.0</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="180" text-anchor="end" fill="#8a4c11">-11.7</text>
+  <text class="b" x="36" y="212">1 machinist</text>
+  <rect x="290.75" y="201.75" width="29.8" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="212" text-anchor="end" fill="#8a4c11">8.7</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="212" text-anchor="end" fill="#8a4c11">-71.0</text>
+  <text class="b" x="36" y="236">Absence rate 0.25</text>
+  <rect x="290.75" y="225.75" width="148.6" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="236" text-anchor="end" fill="#8a4c11">41.7</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="236" text-anchor="end" fill="#8a4c11">-38.0</text>
+  <text class="b" x="36" y="260">Absence rate 0.5</text>
+  <rect x="290.75" y="249.75" width="109.0" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="260" text-anchor="end" fill="#8a4c11">30.7</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="260" text-anchor="end" fill="#8a4c11">-49.0</text>
+  <text class="b" x="36" y="292">Rush order flagged</text>
+  <rect x="290.75" y="281.75" width="264.2" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="292" text-anchor="end" fill="#8a4c11">73.8</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="292" text-anchor="end" fill="#8a4c11">-5.9</text>
+  <text class="b" x="36" y="316">Same order not flagged</text>
+  <rect x="290.75" y="305.75" width="247.3" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="316" text-anchor="end" fill="#8a4c11">69.1</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="316" text-anchor="end" fill="#8a4c11">-10.6</text>
+  <text class="b" x="36" y="348">8-order surge</text>
+  <rect x="290.75" y="337.75" width="231.8" height="12.5" rx="2" fill="#f68d2e" fill-opacity="0.1" stroke="#f68d2e" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="348" text-anchor="end" fill="#8a4c11">64.8</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="348" text-anchor="end" fill="#8a4c11">-14.9</text>
+  <text class="b" x="36" y="372">Surge + 3 machinists + second mill</text>
+  <rect x="290.75" y="361.75" width="355.3" height="12.5" rx="2" fill="#d6e6ff" stroke="#0073fe" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="372" text-anchor="end" fill="#0055bc">99.1</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="372" text-anchor="end" fill="#0055bc">+19.4</text>
+  <text class="b" x="36" y="404">Second mill</text>
+  <rect x="290.75" y="393.75" width="343.0" height="12.5" rx="2" fill="#d6e6ff" stroke="#0073fe" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="404" text-anchor="end" fill="#0055bc">95.7</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="404" text-anchor="end" fill="#0055bc">+16.0</text>
+  <text class="b" x="36" y="428">Second mill + third machinist</text>
+  <rect x="290.75" y="417.75" width="357.4" height="12.5" rx="2" fill="#d6e6ff" stroke="#0073fe" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="428" text-anchor="end" fill="#0055bc">99.7</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="428" text-anchor="end" fill="#0055bc">+20.0</text>
+  <text class="b" x="36" y="460">Saturday shift</text>
+  <rect x="290.75" y="449.75" width="335.8" height="12.5" rx="2" fill="#d6e6ff" stroke="#0073fe" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="460" text-anchor="end" fill="#0055bc">93.7</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="460" text-anchor="end" fill="#0055bc">+14.0</text>
+  <text class="b" x="36" y="492">WIP cap 3</text>
+  <rect x="290.75" y="481.75" width="298.4" height="12.5" rx="2" fill="#d6e6ff" stroke="#0073fe" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="492" text-anchor="end" fill="#0055bc">83.3</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="492" text-anchor="end" fill="#0055bc">+3.6</text>
+  <text class="b" x="36" y="524">SPT dispatch</text>
+  <rect x="290.75" y="513.75" width="291.2" height="12.5" rx="2" fill="#d6e6ff" stroke="#0073fe" stroke-width="1.5"/>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="704" y="524" text-anchor="end" fill="#0055bc">81.3</text>
+  <text font-family="'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="500" x="764" y="524" text-anchor="end" fill="#0055bc">+1.6</text>
+  <path d="M576.9 104 V532" stroke="#002550" stroke-width="1" fill="none" stroke-dasharray="3 3"/>
+  <path class="axis" d="M290 536 H650.0"/>
+  <path class="axis" d="M290.0 536 v4"/>
+  <text class="m" x="290.0" y="554" text-anchor="middle" style="font-size: 11px">0</text>
+  <path class="axis" d="M380.0 536 v4"/>
+  <text class="m" x="380.0" y="554" text-anchor="middle" style="font-size: 11px">25</text>
+  <path class="axis" d="M470.0 536 v4"/>
+  <text class="m" x="470.0" y="554" text-anchor="middle" style="font-size: 11px">50</text>
+  <path class="axis" d="M560.0 536 v4"/>
+  <text class="m" x="560.0" y="554" text-anchor="middle" style="font-size: 11px">75</text>
+  <path class="axis" d="M650.0 536 v4"/>
+  <text class="m" x="650.0" y="554" text-anchor="middle" style="font-size: 11px">100</text>
+  <text class="m" x="36" y="584">Every result is the mean of 20 runs on the same random draws.</text>
+  <text class="m" x="36" y="604">The rush and surge rows add orders, so they carry more work than today.</text>
+</svg>

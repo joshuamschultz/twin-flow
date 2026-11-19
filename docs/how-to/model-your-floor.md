@@ -1,10 +1,16 @@
 # Model your floor
 
+![A small machine shop floor with a saw, a lathe, two mills, a deburr bench and inspection, joined by the routes parts take](../images/headers/how-to-model-your-floor.webp)
+
 This guide shows how to describe your machines, steps and times in one shop file. It uses the CNC shop example.
 
 ## What this does
 
 It walks through `shop.yaml` part by part. You then copy the parts that fit your floor. People, shifts and orders have their own guides.
+
+The picture shows the shop in the example. Each box is a machine. Each line is the route of one part.
+
+![The CNC shop's six machines in a row, with one line per part showing the machines it visits, and the valve-body mill marked as the bottleneck](../images/diagrams/cnc-shop-routes.svg)
 
 ## Before you start
 
